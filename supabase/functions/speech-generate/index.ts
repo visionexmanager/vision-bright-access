@@ -32,12 +32,12 @@ import {
 // sentences in `describeTtsFailure` were written for this screen.
 
 function speechProviderOf(name: string): TtsProvider {
-  if (name === "openai" || name === "elevenlabs") return name;
-  throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs`);
+  if (name === "openai" || name === "elevenlabs" || name === "mistral") return name;
+  throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs, mistral`);
 }
 
 /** The `ph_providers` row each provider is known by. */
-const TTS_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts" };
+const TTS_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts" };
 const SLUG_TO_TTS_PROVIDER: Partial<Record<string, TtsProvider>> = {
   "openai-tts": "openai",
   "elevenlabs-tts": "elevenlabs",

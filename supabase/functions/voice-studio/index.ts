@@ -14,7 +14,7 @@
 // CRON_SECRET on the drain, `auth.getUser()` on everything a person does — so
 // an unauthenticated caller still gets a 401, one line later than it used to.
 // Handles: create profile, start training, cancel training, profile management
-// Provider abstraction: ElevenLabsVoiceProvider | MockVoiceProvider
+// Provider abstraction: ElevenLabsVoiceProvider | MistralVoiceProvider
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -73,6 +73,8 @@ interface VoiceCloneResult {
 
 interface VoiceProvider {
   name: string;
+  /** The TTS model a clone from this provider speaks with. */
+  model: string;
   cloneVoice(input: VoiceCloneInput): Promise<VoiceCloneResult>;
   deleteVoice(providerVoiceId: string): Promise<ProviderDeletion>;
 }
@@ -81,6 +83,7 @@ interface VoiceProvider {
 
 class ElevenLabsVoiceProvider implements VoiceProvider {
   name = "elevenlabs";
+  model = "eleven_multilingual_v2";
   private apiKey: string;
 
   constructor(apiKey: string) {
@@ -151,34 +154,111 @@ class ElevenLabsVoiceProvider implements VoiceProvider {
   }
 }
 
+// ── Mistral Provider ──────────────────────────────────────────────────────────
+//
+// Voxtral TTS clones from a single short sample (2–3 seconds is enough; more
+// is better) and speaks English, French, Spanish, Portuguese, Italian, Dutch,
+// German, Hindi and Arabic. Endpoints per Mistral's own SDK (read 2026-09-25):
+// POST /v1/audio/voices { name, sample_audio: base64, sample_filename } → { id },
+// DELETE /v1/audio/voices/{id}. It runs on the MISTRAL_API_KEY the chat
+// fallback already uses, so no new account is needed.
+
+/** The largest single sample sent. Voxtral needs seconds, not minutes. */
+const MISTRAL_SAMPLE_MAX_BYTES = 10 * 1024 * 1024;
+
+class MistralVoiceProvider implements VoiceProvider {
+  name = "mistral";
+  model = "voxtral-mini-tts-2603";
+  private apiKey: string;
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
+  }
+
+  async cloneVoice(input: VoiceCloneInput): Promise<VoiceCloneResult> {
+    // One sample: the largest accepted recording that fits, since Mistral
+    // takes a single reference clip rather than a set.
+    const db = createClient(input.supabaseUrl, input.supabaseServiceKey);
+    let chosen: { bytes: Uint8Array; filename: string } | null = null;
+    for (const storagePath of input.storagePaths) {
+      const { data, error } = await db.storage.from("voice-datasets").download(storagePath);
+      if (error || !data) continue;
+      const bytes = new Uint8Array(await data.arrayBuffer());
+      if (bytes.byteLength === 0 || bytes.byteLength > MISTRAL_SAMPLE_MAX_BYTES) continue;
+      if (!chosen || bytes.byteLength > chosen.bytes.byteLength) {
+        chosen = { bytes, filename: storagePath.split("/").pop() ?? "sample.wav" };
+      }
+    }
+    if (!chosen) return { ok: false, error: "No usable audio sample (each must be under 10 MB)." };
+
+    let binary = "";
+    for (let i = 0; i < chosen.bytes.length; i += 0x8000) {
+      binary += String.fromCharCode(...chosen.bytes.subarray(i, i + 0x8000));
+    }
+
+    const response = await fetch("https://api.mistral.ai/v1/audio/voices", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        name: input.profileName,
+        sample_audio: btoa(binary),
+        sample_filename: chosen.filename,
+        languages: [input.language],
+        ...(input.description ? { description: input.description } : {}),
+      }),
+    });
+
+    if (!response.ok) {
+      // The status only: an error body can echo what was sent.
+      return { ok: false, error: `Mistral voice cloning failed (HTTP ${response.status})` };
+    }
+    const json = await response.json().catch(() => null) as { id?: string } | null;
+    if (!json?.id) return { ok: false, error: "Mistral returned no voice id" };
+    return { ok: true, providerVoiceId: json.id };
+  }
+
+  async deleteVoice(providerVoiceId: string): Promise<ProviderDeletion> {
+    try {
+      const response = await fetch(`https://api.mistral.ai/v1/audio/voices/${encodeURIComponent(providerVoiceId)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${this.apiKey}` },
+      });
+      if (response.status === 404) return { outcome: "absent" };
+      if (!response.ok) return { outcome: "failed", reason: safeProviderReason(`HTTP ${response.status}`) };
+      return { outcome: "deleted" };
+    } catch (error) {
+      return { outcome: "failed", reason: safeProviderReason(error) };
+    }
+  }
+}
+
 // ── Provider factory ──────────────────────────────────────────────────────────
 //
-// No mock/fake provider: if ELEVENLABS_API_KEY isn't configured, callers must
-// see a clear "not configured" error rather than a fake successful clone that
-// can never actually speak (a provider_voice_id with no real ElevenLabs voice
-// behind it).
+// ElevenLabs when its key is configured, otherwise Mistral. No mock/fake
+// provider: with neither key, callers see a clear "not configured" error
+// rather than a fake successful clone that can never actually speak.
 
 function getProvider(): VoiceProvider {
-  const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
-  if (!apiKey) {
-    throw new Error(
-      "ELEVENLABS_API_KEY is not configured in Supabase Edge Function secrets. " +
-      "Voice Cloning requires a real ElevenLabs API key — add it in Project Settings → Edge Functions → Secrets."
-    );
-  }
-  return new ElevenLabsVoiceProvider(apiKey);
+  const elevenLabsKey = Deno.env.get("ELEVENLABS_API_KEY");
+  if (elevenLabsKey) return new ElevenLabsVoiceProvider(elevenLabsKey);
+  const mistralKey = Deno.env.get("MISTRAL_API_KEY");
+  if (mistralKey) return new MistralVoiceProvider(mistralKey);
+  throw new Error(
+    "Voice cloning is not configured: set MISTRAL_API_KEY (Voxtral) or ELEVENLABS_API_KEY " +
+    "in Project Settings → Edge Functions → Secrets."
+  );
 }
 
 /**
  * Feed the provider health table from a real clone, success or failure.
  *
- * ElevenLabs is the only `voice_cloning` provider — nothing is selected here,
- * only recorded, against the router's `elevenlabs-vc` row. Best-effort: a
+ * Recorded against the row of whichever provider cloned — `elevenlabs-vc` or
+ * `mistral-vc`. Nothing is selected here, only recorded. Best-effort: a
  * training job's outcome must never hinge on this.
  */
-async function recordCloneResult(params: { ms: number; success: boolean; errorMessage?: string }): Promise<void> {
+async function recordCloneResult(params: { provider: string; ms: number; success: boolean; errorMessage?: string }): Promise<void> {
   try {
-    const row = await providerBySlug("elevenlabs-vc");
+    const row = await providerBySlug(params.provider === "mistral" ? "mistral-vc" : "elevenlabs-vc");
     if (!row) return;
     await recordResult({
       provider_id: row.id,
@@ -254,6 +334,14 @@ async function handleStartTraining(
     return jsonError("Daily voice-cloning limit reached. Please try again tomorrow.", 429);
   }
 
+  // Which provider will clone, decided before the job row so the row names it.
+  let providerName: string;
+  try {
+    providerName = getProvider().name;
+  } catch (err) {
+    return jsonError(err instanceof Error ? err.message : "Voice cloning is not available", 503);
+  }
+
   // Create training job
   const { data: job, error: jobErr } = await (db as any)
     .from("vs_training_jobs")
@@ -262,7 +350,7 @@ async function handleStartTraining(
       user_id:  userId,
       status:   "queued",
       progress: 0,
-      provider: "elevenlabs",
+      provider: providerName,
     })
     .select()
     .single();
@@ -305,7 +393,7 @@ async function runTraining(
     (db as any).rpc("vs_log_training", { p_job_id: jobId, p_level: level, p_message: message });
 
   try {
-    // Constructed inside the try block so a missing ELEVENLABS_API_KEY fails
+    // Constructed inside the try block so a missing provider key fails
     // the job with a clear message instead of becoming an unhandled rejection
     // that leaves the job stuck in "training" forever.
     const provider = getProvider();
@@ -327,13 +415,13 @@ async function runTraining(
     const cloneMs = Date.now() - cloneStartedAt;
 
     if (!result.ok) {
-      await recordCloneResult({ ms: cloneMs, success: false, errorMessage: result.error });
+      await recordCloneResult({ provider: provider.name, ms: cloneMs, success: false, errorMessage: result.error });
       await updateJob({ status: "failed", progress: 0, error_message: result.error, completed_at: new Date().toISOString() });
       await updateProfile({ status: "failed", training_status: "failed" });
       await logEvent("error", result.error ?? "Training failed");
       return;
     }
-    await recordCloneResult({ ms: cloneMs, success: true });
+    await recordCloneResult({ provider: provider.name, ms: cloneMs, success: true });
 
     await updateJob({ status: "optimizing", progress: 90, provider_voice_id: result.providerVoiceId });
     await updateProfile({ training_status: "optimizing" });
@@ -363,6 +451,10 @@ async function runTraining(
     await updateProfile({
       status:             "completed",
       training_status:    "completed",
+      // Who holds the clone and which model speaks it: WhatsApp's resolver and
+      // deletion both read these, so they must name the real provider.
+      provider:           provider.name,
+      provider_model:     provider.model,
       provider_voice_id:  result.providerVoiceId,
       // The recordings stop being kept ninety days after the clone exists. The
       // clone is what they were uploaded for; keeping them past that is holding
@@ -481,6 +573,11 @@ async function handleDeleteProfile(
     providerResult = apiKey
       ? await new ElevenLabsVoiceProvider(apiKey).deleteVoice(profile.provider_voice_id)
       : { outcome: "failed", reason: "ELEVENLABS_API_KEY is not configured, so the voice could not be removed" };
+  } else if (profile.provider_voice_id && profile.provider === "mistral") {
+    const apiKey = Deno.env.get("MISTRAL_API_KEY");
+    providerResult = apiKey
+      ? await new MistralVoiceProvider(apiKey).deleteVoice(profile.provider_voice_id)
+      : { outcome: "failed", reason: "MISTRAL_API_KEY is not configured, so the voice could not be removed" };
   }
 
   // ── The recordings ────────────────────────────────────────────────────────

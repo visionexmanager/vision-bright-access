@@ -12,6 +12,7 @@ import {
   explainMediaFailure,
   generateProposalMedia,
   mediaApiKey,
+  mediaVideoKey,
   type MediaFetch,
   type MediaKind,
   type MediaResult,
@@ -66,13 +67,16 @@ export async function attachProposalMedia(
   apiKey: string | undefined,
   kind?: MediaKind,
   fetchImpl: typeof fetch = fetch,
+  videoKey: string | undefined = mediaVideoKey(),
 ): Promise<MediaResult> {
   const proposal = await findProposal(db, ref);
   if (!proposal) return { ok: false, error: "not_found" };
-  if (!apiKey) return { ok: false, error: "no_api_key" };
 
+  // Which key a proposal needs depends on its kind — OpenAI for a picture,
+  // Luma for a clip — so generateProposalMedia checks it once it knows.
   const result = await generateProposalMedia({
-    apiKey,
+    apiKey: apiKey ?? "",
+    videoKey,
     fetchImpl: fetchImpl as unknown as MediaFetch,
     async upload(path, bytes, contentType) {
       const { error } = await db.storage.from(MEDIA_BUCKET).upload(path, bytes, {
@@ -246,6 +250,8 @@ async function propose(db: Db, brief: Brief, supersedesRef?: string): Promise<{ 
  */
 export interface ContentCommandContext {
   openAiKey?: string;
+  /** Luma, for /video. Read from LUMA_API_KEY when omitted. */
+  lumaKey?: string;
   whatsapp?: { token?: string; phoneNumberId?: string; to: string };
   background?: (work: Promise<unknown>) => void;
   fetchImpl?: typeof fetch;
@@ -266,8 +272,10 @@ export async function runContentCommand(
       const proposal = await findProposal(db, command.ref);
       if (!proposal) return `لا يوجد اقتراح بالرمز ${command.ref}.`;
       if (proposal.state === "PUBLISHED") return `الاقتراح ${command.ref} منشور بالفعل.`;
-      const key = context.openAiKey ?? mediaApiKey();
-      if (!key) return explainMediaFailure("no_api_key");
+      const key = command.media === "video"
+        ? context.lumaKey ?? mediaVideoKey()
+        : context.openAiKey ?? mediaApiKey();
+      if (!key) return explainMediaFailure(command.media === "video" ? "no_video_key" : "no_api_key");
       if (!context.background) return "تعذّر بدء التوليد الآن. جرّب بعد قليل.";
 
       const noun = command.media === "video" ? "فيديو" : "صورة";
@@ -391,7 +399,9 @@ async function finishMedia(
   };
 
   try {
-    const result = await attachProposalMedia(db, ref, context.openAiKey ?? mediaApiKey(), kind, context.fetchImpl);
+    const result = await attachProposalMedia(
+      db, ref, context.openAiKey ?? mediaApiKey(), kind, context.fetchImpl, context.lumaKey ?? mediaVideoKey(),
+    );
     if (!result.ok || !result.url) {
       await tell(`⚠️ تعذّر توليد ${noun} لـ ${ref}: ${explainMediaFailure(result.error)}`);
       return;

@@ -146,7 +146,7 @@ export const voiceNeedsAccountNotice = (language: Language): string =>
 // ── Turning a selection into something the TTS seam understands ─────────────
 
 export interface ResolvedVoice {
-  provider: "openai" | "elevenlabs";
+  provider: "openai" | "elevenlabs" | "mistral";
   voice: string;
   model: string;
 }
@@ -166,13 +166,19 @@ export function readResolvedVoice(row: unknown): ResolvedVoice | null {
   if (!row || typeof row !== "object") return null;
   const record = row as Record<string, unknown>;
   const voice = typeof record.voice_id === "string" ? record.voice_id.trim() : "";
-  const provider = record.provider === "elevenlabs" ? "elevenlabs" : "openai";
   if (!voice) return null;
-  // Only ElevenLabs holds cloned voices. A row claiming otherwise is a row we
-  // do not know how to speak with, and the default is better than a guess.
-  if (provider !== "elevenlabs") return null;
+  // Cloned voices live at ElevenLabs or, since 2026-09-25, Mistral. A row
+  // claiming anything else is a row we do not know how to speak with, and the
+  // default is better than a guess.
+  if (record.provider === "mistral") {
+    const model = typeof record.model === "string" && record.model.startsWith("voxtral")
+      ? record.model
+      : "voxtral-mini-tts-2603";
+    return { provider: "mistral", voice, model };
+  }
+  if (record.provider !== "elevenlabs") return null;
   const model = typeof record.model === "string" && record.model
     ? record.model
     : "eleven_multilingual_v2";
-  return { provider, voice, model };
+  return { provider: "elevenlabs", voice, model };
 }

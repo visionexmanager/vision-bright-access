@@ -54,8 +54,8 @@ describe("2. video-studio records, and still chooses exactly as before", () => {
 
   it("never reads the registry to choose a provider", () => {
     expect(studio).not.toMatch(/resolveProvider|providerRouter|from\("ph_providers"\)/);
-    // The environment rule, unchanged: auto means Sora if its key is set, else Luma.
-    expect(studio).toContain('if (!requested) requested = openaiKey ? "openai" : lumaKey ? "luma" : "";');
+    // The environment rule: auto means Luma (Sora was retired on 2026-09-24).
+    expect(studio).toContain('if (!requested) requested = "luma";');
     // RunPod is still explicit-only and behind its own readiness gate.
     expect(studio).toContain("const readiness  = runpodReadiness(endpointId);");
   });
@@ -122,5 +122,26 @@ describe("4. a health probe never switches a provider on", () => {
     expect(hub).toContain('const automatic = provider.status === "active" || provider.status === "degraded";');
     expect(hub).toContain('const newStatus = automatic ? (healthy ? "active" : "degraded") : provider.status;');
     expect(hub).not.toContain('const newStatus = healthy ? "active" : "degraded";');
+  });
+});
+
+describe("video runs on Luma since Sora was retired (2026-09-24)", () => {
+  const retire = readFileSync("supabase/migrations/20261046000000_video_provider_luma.sql", "utf8");
+
+  it("marks the Sora row inactive and the Luma row active on ray-2", () => {
+    expect(retire).toMatch(/SET status\s+= 'inactive',[\s\S]*WHERE slug = 'openai-video';/);
+    expect(retire).toMatch(/SET status\s+= 'active',\s*default_model = 'ray-2',[\s\S]*WHERE slug = 'luma-video';/);
+  });
+
+  it("refuses Sora by name instead of calling an endpoint that no longer exists", () => {
+    expect(studio).toContain('throw new Error("OpenAI Sora was retired on 2026-09-24. Video runs on Luma (LUMA_API_KEY).");');
+    expect(studio).not.toContain("api.openai.com/v1/videos");
+    expect(studio).not.toContain("class OpenAISoraProvider");
+  });
+
+  it("sends Luma the fields its API requires", () => {
+    expect(studio).toContain('export const LUMA_MODELS = ["ray-2", "ray-flash-2"] as const;');
+    expect(studio).toContain('duration:   params.durationSec >= 7 ? "9s" : "5s",');
+    expect(studio).toContain("...lumaRequestShape(params),");
   });
 });

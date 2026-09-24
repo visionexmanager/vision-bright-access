@@ -227,7 +227,7 @@ describe("5. video-studio's real request is untouched", () => {
   });
 
   it("keeps the environment rule and the RunPod gate — the only fallback behaviour there is", () => {
-    expect(studio).toContain('if (!requested) requested = openaiKey ? "openai" : lumaKey ? "luma" : "";');
+    expect(studio).toContain('if (!requested) requested = "luma";');
     expect(studio).toContain("const readiness  = runpodReadiness(endpointId);");
     expect(studio).not.toMatch(/resolveProvider|rankProviders/);
   });

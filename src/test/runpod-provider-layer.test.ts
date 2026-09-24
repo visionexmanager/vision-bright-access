@@ -222,7 +222,7 @@ describe("RunPod is a third VideoProvider, not a second architecture", () => {
 
   it("leaves the existing providers and the job table alone", () => {
     expect(videoStudio).toContain("class LumaProvider");
-    expect(videoStudio).toContain("class OpenAISoraProvider");
+    // OpenAI Sora was retired on 2026-09-24 and its class removed; Luma stays.
     expect(videoStudio).toContain("vx_video_jobs");
   });
 });
@@ -271,8 +271,8 @@ describe("the worker's output is not trusted", () => {
 });
 
 describe("selection is the server's, and RunPod is never the default", () => {
-  it("auto resolves to openai or luma, never runpod", () => {
-    expect(videoStudio).toContain('requested = openaiKey ? "openai" : lumaKey ? "luma" : ""');
+  it("auto resolves to luma, never runpod", () => {
+    expect(videoStudio).toContain('if (!requested) requested = "luma";');
     expect(videoStudio).toContain("\"auto\" never resolves to RunPod");
   });
 

@@ -75,7 +75,7 @@ describe("mock-video: administratively disabled, not deleted", () => {
     const studio = readFileSync("supabase/functions/video-studio/index.ts", "utf8");
     const getProvider = studio.slice(studio.indexOf("function getProvider("), studio.indexOf("// ── Provider registry recording"));
     expect(getProvider).not.toMatch(/mock/i);
-    expect(getProvider).toContain('throw new Error(`Unknown video provider: "${requested}". Supported: openai, luma`);');
+    expect(getProvider).toContain('throw new Error(`Unknown video provider: "${requested}". Supported: luma, runpod`);');
   });
 });
 
@@ -139,7 +139,7 @@ describe("provider selection is unchanged", () => {
 
   it("video-studio still chooses by environment key and never reads the registry", () => {
     const studio = readFileSync("supabase/functions/video-studio/index.ts", "utf8");
-    expect(studio).toContain('if (!requested) requested = openaiKey ? "openai" : lumaKey ? "luma" : "";');
+    expect(studio).toContain('if (!requested) requested = "luma";');
     expect(studio).not.toMatch(/resolveProvider|from\("ph_providers"\)/);
   });
 

@@ -38,10 +38,10 @@ const proposal = {
 
 /** A fetch that answers a scripted queue, and records what it was asked. */
 function scriptedFetch(steps: Array<{ ok?: boolean; status?: number; body?: unknown; bytes?: number }>) {
-  const calls: Array<{ url: string; method: string; body: unknown }> = [];
-  const impl = (url: string, init?: { method?: string; body?: unknown }) => {
+  const calls: Array<{ url: string; method: string; body: unknown; headers?: Record<string, string> }> = [];
+  const impl = (url: string, init?: { method?: string; body?: unknown; headers?: Record<string, string> }) => {
     const step = steps.shift() ?? { ok: false, status: 500, body: {} };
-    calls.push({ url, method: init?.method ?? "GET", body: init?.body });
+    calls.push({ url, method: init?.method ?? "GET", body: init?.body, headers: init?.headers });
     return Promise.resolve({
       ok: step.ok ?? true,
       status: step.status ?? (step.ok === false ? 400 : 200),
@@ -178,47 +178,68 @@ describe("generating a picture", () => {
   });
 });
 
-describe("generating a clip", () => {
+describe("generating a clip (Luma, since Sora was retired on 2026-09-24)", () => {
   const noSleep = { sleep: async () => {} };
+  const CLIP = "https://storage.cdn-luma.com/dream_machine/clip.mp4";
 
-  it("creates, polls, downloads and stores", async () => {
+  it("creates, polls, downloads the public asset and stores", async () => {
     const { impl, calls } = scriptedFetch([
-      { body: { id: "video_1", status: "queued" } },
-      { body: { status: "in_progress" } },
-      { body: { status: "completed" } },
+      { body: { id: "gen_1", state: "queued" } },
+      { body: { state: "dreaming" } },
+      { body: { state: "completed", assets: { video: CLIP } } },
       { bytes: 2048 },
     ]);
     const upload = vi.fn(async () => "https://cdn.visionex.app/social-media/AB2CD/video-1.mp4");
     const result = await generateVideo(
-      { apiKey: "k", fetchImpl: impl, upload, ...noSleep }, "p", "720x1280", "AB2CD/video-1",
+      { apiKey: "openai", videoKey: "luma", fetchImpl: impl, upload, ...noSleep }, "p", "720x1280", "AB2CD/video-1",
     );
 
     expect(result).toMatchObject({ ok: true, kind: "video" });
     expect(upload).toHaveBeenCalledWith("AB2CD/video-1.mp4", expect.any(Uint8Array), "video/mp4");
-    expect(calls[0].url).toMatch(/\/videos$/);
-    expect(calls[3].url).toMatch(/\/videos\/video_1\/content$/);
-    // Polling reads a status; it never creates a second job.
+    expect(calls[0].url).toBe("https://api.lumalabs.ai/dream-machine/v1/generations");
+    expect(calls[1].url).toBe("https://api.lumalabs.ai/dream-machine/v1/generations/gen_1");
+    // The finished clip is a public CDN URL; no credential goes with it.
+    expect(calls[3].url).toBe(CLIP);
+    expect(calls[3].headers?.Authorization).toBeUndefined();
+    // Polling reads a state; it never creates a second job.
     expect(calls.filter((c) => c.method === "POST")).toHaveLength(1);
   });
 
+  it("sends Luma the request its API requires, with the Luma key", async () => {
+    const { impl, calls } = scriptedFetch([{ body: { id: "g", state: "failed" } }, { body: { state: "failed" } }]);
+    await generateVideo({ apiKey: "openai", videoKey: "luma", fetchImpl: impl, upload: async () => "u", ...noSleep }, "p", "720x1280", "p1");
+    expect(calls[0].headers?.Authorization).toBe("Bearer luma");
+    expect(JSON.parse(calls[0].body as string)).toEqual({
+      model: "ray-2", prompt: "p", aspect_ratio: "9:16", duration: "5s", resolution: "720p", loop: false,
+    });
+  });
+
   it("gives up rather than waiting forever, and says which it was", async () => {
-    const stuck = () => ({ body: { status: "in_progress" } });
-    const { impl } = scriptedFetch([{ body: { id: "v", status: "queued" } }, ...Array.from({ length: 50 }, stuck)]);
+    const stuck = () => ({ body: { state: "dreaming" } });
+    const { impl } = scriptedFetch([{ body: { id: "v", state: "queued" } }, ...Array.from({ length: 50 }, stuck)]);
     let clock = 0;
     const result = await generateVideo(
-      { apiKey: "k", fetchImpl: impl, upload: async () => "u", sleep: async () => { clock += 60_000; }, now: () => clock },
+      { apiKey: "k", videoKey: "l", fetchImpl: impl, upload: async () => "u", sleep: async () => { clock += 60_000; }, now: () => clock },
       "p", "720x1280", "p1",
     );
     expect(result).toEqual({ ok: false, error: "video_timeout" });
 
-    const failed = scriptedFetch([{ body: { id: "v", status: "queued" } }, { body: { status: "failed" } }]);
+    const failed = scriptedFetch([{ body: { id: "v", state: "queued" } }, { body: { state: "failed" } }]);
     expect(await generateVideo(
-      { apiKey: "k", fetchImpl: failed.impl, upload: async () => "u", ...noSleep }, "p", "720x1280", "p1",
+      { apiKey: "k", videoKey: "l", fetchImpl: failed.impl, upload: async () => "u", ...noSleep }, "p", "720x1280", "p1",
     )).toEqual({ ok: false, error: "video_failed" });
   });
 
-  it("asks for the model this account actually has", () => {
-    expect(VIDEO_MODEL).toBe("sora-2");
+  it("without a Luma key, says so and calls nobody", async () => {
+    const { impl, calls } = scriptedFetch([]);
+    expect(await generateVideo({ apiKey: "openai", fetchImpl: impl, upload: async () => "u", ...noSleep }, "p", "720x1280", "p1"))
+      .toEqual({ ok: false, error: "no_video_key" });
+    expect(calls).toHaveLength(0);
+    expect(explainMediaFailure("no_video_key")).toContain("LUMA_API_KEY");
+  });
+
+  it("asks for the model Luma's API accepts", () => {
+    expect(VIDEO_MODEL).toBe("ray-2");
   });
 });
 

@@ -131,12 +131,12 @@ export async function recordProviderOutcome(
  * The registry row each kind of content-media generation is recorded against.
  *
  * `image` is the `openai-image` row Phase 2C seeded, which `image-generate`
- * already records against. `video` is `openai-video`, the Sora row added in
- * Phase 2J-0 (20261039000000) — contentMedia renders video with Sora only.
+ * already records against. `video` is `luma-video`: contentMedia renders
+ * video with Luma since OpenAI retired Sora on 2026-09-24 (20261046000000).
  */
 export const MEDIA_PROVIDER_SLUG: Record<MediaKind, string> = {
   image: "openai-image",
-  video: "openai-video",
+  video: "luma-video",
 };
 
 /**
@@ -208,8 +208,8 @@ export async function recordSttAttempts(
 // Phase 2C seeded. `speech-generate` records through its own code and is not
 // wired to this, so nothing is recorded twice.
 
-/** The `openai-tts` / `elevenlabs-tts` rows. */
-export const TTS_PROVIDER_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts" };
+/** The `openai-tts` / `elevenlabs-tts` / `mistral-tts` rows. */
+export const TTS_PROVIDER_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts" };
 
 /** One successful synthesis: a metric and a log row with the model id. Never throws. */
 export async function recordTtsExecution(db: RecordingDb, execution: TtsExecution): Promise<void> {
