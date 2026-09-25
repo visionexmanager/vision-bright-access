@@ -3,7 +3,7 @@
 // Actions: generate | poll | cancel | delete
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 import type { ComputeAdapter } from "../_shared/providers/compute.ts";
 import { runpodAdapter, runpodReadiness } from "../_shared/providers/runpod.ts";
@@ -182,7 +182,6 @@ class LumaProvider implements VideoProvider {
         state:      "completed",
         progress:   100,
         videoUrl:   data.assets?.video ?? null,
-        thumbnailUrl: null,
       };
     }
 
@@ -396,7 +395,7 @@ function getProvider(name?: string): VideoProvider {
 // throws, and only short codes are written — never the prompt, a URL or a
 // provider's own sentence.
 async function recordVideoOutcome(
-  dbService: ReturnType<typeof createClient>,
+  dbService: SupabaseClient,
   providerName: string,
   outcome: { success: boolean; ms: number; error?: string },
 ): Promise<void> {
@@ -413,7 +412,7 @@ async function recordVideoOutcome(
 // Nothing here is awaited or read back: the provider, the request sent to it,
 // the response and the job are exactly what they would be with it off.
 function shadowAutoChoice(
-  dbService: ReturnType<typeof createClient>,
+  dbService: SupabaseClient,
   actualProvider: string,
   jobId: string,
 ): void {
@@ -437,8 +436,8 @@ function shadowAutoChoice(
 async function handleGenerate(
   body: Record<string, unknown>,
   userId: string,
-  db: ReturnType<typeof createClient>,
-  dbService: ReturnType<typeof createClient>,
+  db: SupabaseClient,
+  dbService: SupabaseClient,
 ): Promise<Response> {
   const {
     prompt, negative_prompt, style, duration_sec, aspect_ratio,
@@ -565,8 +564,8 @@ async function handleGenerate(
 async function handlePoll(
   body: Record<string, unknown>,
   userId: string,
-  db: ReturnType<typeof createClient>,
-  dbService: ReturnType<typeof createClient>
+  db: SupabaseClient,
+  dbService: SupabaseClient
 ): Promise<Response> {
   const { job_id } = body as { job_id: string };
   if (!job_id) return jsonError("job_id required", 400);
@@ -755,7 +754,7 @@ async function handlePoll(
 async function handleCancel(
   body: Record<string, unknown>,
   userId: string,
-  db: ReturnType<typeof createClient>
+  db: SupabaseClient
 ): Promise<Response> {
   const { job_id } = body as { job_id: string };
 
@@ -786,7 +785,7 @@ async function handleCancel(
 async function handleDelete(
   body: Record<string, unknown>,
   userId: string,
-  db: ReturnType<typeof createClient>
+  db: SupabaseClient
 ): Promise<Response> {
   const { job_id } = body as { job_id: string };
 

@@ -127,7 +127,8 @@ Deno.serve(async (req) => {
       const cols = SELECT[table];
       if (!cols) continue;
       const { data: rows } = await service.from(table).select(cols).in("id", ids);
-      for (const r of rows ?? []) rowsById[`${table}:${(r as { id: string }).id}`] = r;
+      // `cols` is chosen at runtime, so the client cannot infer the row shape.
+      for (const r of (rows ?? []) as unknown as Array<Record<string, unknown> & { id: string }>) rowsById[`${table}:${r.id}`] = r;
     }
 
     const results = (matches ?? [])

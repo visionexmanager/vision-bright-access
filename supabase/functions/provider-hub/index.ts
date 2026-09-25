@@ -10,7 +10,7 @@
 // one action; every other request still needs a signed-in admin, checked here.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { discoverOpenAIModels, type DiscoveryOutcome } from "../_shared/openaiModelDiscovery.ts";
 
 const CORS = {
@@ -126,7 +126,7 @@ const HEALTH_AFTER_PASSING_PROBE = 50;
 
 async function runHealthCheck(
   provider: Provider,
-  db: ReturnType<typeof createClient>
+  db: SupabaseClient
 ): Promise<{ healthy: boolean; latency_ms: number; error?: string }> {
   const start = Date.now();
   let healthy = false;

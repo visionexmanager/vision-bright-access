@@ -32,7 +32,7 @@
  * Returns: JSON { ok, processed, failed }
  */
 
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, createEmbedding, ProviderError } from "../_shared/aiProvider.ts";
 
@@ -53,7 +53,7 @@ const CLASSIFY_SCHEMA = {
   additionalProperties: false,
 };
 
-async function classifyAndIndexBook(serviceClient: ReturnType<typeof createClient>, bookId: string): Promise<void> {
+async function classifyAndIndexBook(serviceClient: SupabaseClient, bookId: string): Promise<void> {
   const { data: book, error: bookErr } = await serviceClient
     .from("library_books")
     .select("id, title, description, description_long, embedding")
@@ -118,7 +118,7 @@ async function classifyAndIndexBook(serviceClient: ReturnType<typeof createClien
   }
 }
 
-async function sendOrganizationScheduledReport(serviceClient: ReturnType<typeof createClient>, scheduledReportId: string): Promise<void> {
+async function sendOrganizationScheduledReport(serviceClient: SupabaseClient, scheduledReportId: string): Promise<void> {
   const { data: report, error: reportErr } = await serviceClient
     .from("organization_scheduled_reports")
     .select("report_name, recipient_emails, organization_id, organizations(name)")

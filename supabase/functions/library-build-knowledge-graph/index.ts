@@ -147,7 +147,7 @@ Deno.serve(async (req: Request) => {
           .select("id")
           .single();
         if (insertErr) continue; // likely a race on the (entity_type, name) unique constraint — safe to skip
-        entityId = inserted.id;
+        entityId = inserted.id as string;
         entitiesAdded++;
       }
       nameToId.set(entity.name, entityId);

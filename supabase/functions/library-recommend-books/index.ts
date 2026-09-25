@@ -137,7 +137,7 @@ Deno.serve(async (req: Request) => {
 
       for (const b of candidates ?? []) {
         if (knownIds.has(b.id)) continue;
-        const entry = scores.get(b.id) ?? { book_id: b.id, score: 0, reasons: [] };
+        const entry: ScoredBook = scores.get(b.id) ?? { book_id: b.id, score: 0, reasons: [] };
         const categoryWeight = b.category_id ? (categoryCounts.get(b.category_id) ?? 0) / totalCategoryVotes : 0;
         if (categoryWeight > 0) {
           // 0.5-2.5 range: a category the reader barely touches still gives

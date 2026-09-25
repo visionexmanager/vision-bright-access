@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
 
         const routed = await decideUnlessContentApproval(
           target as { action_type: string } | null,
-          () => service.rpc("decide_owner_approval", {
+          async () => await service.rpc("decide_owner_approval", {
             _reference: reference,
             _approve: body.approve,
             _via: "admin_ui",

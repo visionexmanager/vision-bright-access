@@ -43,7 +43,7 @@ jobs:
         env:
           NO_COLOR: "1"
         run: |
-          KNOWN_FAILING=" ai-search library-build-knowledge-graph library-process-background-jobs library-recommend-books livekit-token meta-messaging-webhook mobility owner-control provider-hub video-studio vx-coin-review "
+          KNOWN_FAILING=" "
           failed=0
           checked=0
           for f in supabase/functions/*/index.ts; do
