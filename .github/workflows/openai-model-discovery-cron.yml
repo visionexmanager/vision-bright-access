@@ -1,0 +1,64 @@
+# OpenAI model discovery — what can our OPENAI_API_KEY actually see?
+#
+# Calls provider-hub's `discover_openai_models` with Bearer <CRON_SECRET>. The
+# function asks GET /v1/models on the existing key and reconciles the answer
+# into ph_provider_models: new models are registered (never routing-enabled),
+# seen ones refreshed, vanished ones marked unavailable (never deleted).
+#
+# DRY RUN by default. It writes only when the repository variable
+# OPENAI_MODEL_DISCOVERY_APPLY is "true" (Settings → Secrets and variables →
+# Actions → Variables), or when a manual run chooses apply. Review a dry run
+# first.
+#
+# This repository is public and so are its logs: the job prints counts only.
+# The model list, and anything else the report names, stays in the response.
+name: OpenAI model discovery
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"   # Mondays 04:17 UTC
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Write the reconciliation (otherwise a dry run)"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: openai-model-discovery
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: Discover and reconcile
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask provider-hub to discover
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APPLY: ${{ github.event_name == 'workflow_dispatch' && inputs.apply || vars.OPENAI_MODEL_DISCOVERY_APPLY == 'true' }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::Repository secrets SUPABASE_URL and CRON_SECRET must be configured."
+            exit 1
+          fi
+          if [ "$APPLY" = "true" ]; then apply=true; else apply=false; fi
+          # The action and the switch travel in the query string: the cron
+          # branch reads no request body.
+          status=$(curl -sS -o response.json -w '%{http_code}' -X POST \
+            "$SUPABASE_URL/functions/v1/provider-hub?action=discover_openai_models&apply=$apply" \
+            -H "Authorization: Bearer $CRON_SECRET")
+          # Counts only — never the ids, never the body.
+          node -e '
+            const r = JSON.parse(require("fs").readFileSync("response.json", "utf8"));
+            if (!r.ok) { console.log(`discovery failed: ${r.error ?? "unknown"}`); process.exit(1); }
+            const n = (k) => (r.report?.[k] ?? []).length;
+            console.log(`dry_run=${r.dry_run} returned=${n("returned")} new=${n("new")} now_unavailable=${n("now_unavailable")} missing_pricing=${n("missing_pricing")} missing_capabilities=${n("missing_capabilities")} routing_eligible=${n("routing_eligible")}`);
+          ' || { echo "::error::provider-hub answered HTTP $status"; exit 1; }
+          rm -f response.json

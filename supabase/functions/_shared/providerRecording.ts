@@ -255,6 +255,7 @@ export async function recordProviderAttempt(db: RecordingDb, attempt: ProviderAt
     slug,
     attempt.kind,
     { success: attempt.success, ms: attempt.ms, error: attempt.error },
-    { model: attempt.model, attempt: attempt.attempt, mode: attempt.mode },
+    // Token counts only, when the provider reported them — never content.
+    { model: attempt.model, attempt: attempt.attempt, mode: attempt.mode, ...(attempt.usage ? { usage: attempt.usage } : {}) },
   );
 }
