@@ -312,11 +312,13 @@ serve(async (req) => {
 
   // ── discover_openai_models ──────────────────────────────────────────────────
   //
-  // GET /v1/models on the existing key, reconciled into ph_provider_models.
-  // A dry run unless dry_run is explicitly false. Registers and refreshes;
-  // never enables routing — that stays a curated decision per model.
+  // GET /v1/models on the existing key, compared with ph_provider_models.
+  // Always a dry run from here: an admin sees what discovery would write, and
+  // nothing is written. Applying belongs to the scheduled workflow alone, and
+  // only while the repository variable OPENAI_MODEL_DISCOVERY_APPLY is "true" —
+  // one switch, in one place. Discovery never enables routing either way.
   if (action === "discover_openai_models") {
-    return discoveryResponse(await runDiscovery(body.dry_run !== false));
+    return discoveryResponse(await runDiscovery(true));
   }
 
   // ── list_models ─────────────────────────────────────────────────────────────

@@ -36,6 +36,16 @@ export interface CatalogRow {
   pricing: Record<string, unknown> | null;
   routing_enabled: boolean;
   first_seen_at: string | null;
+  // Discovery columns, compared so that an unchanged model is not rewritten.
+  owned_by?: string | null;
+  upstream_created_at?: string | null;
+  unavailable_since?: string | null;
+}
+
+/** Two timestamps name the same instant. PostgREST returns `+00:00`, we write `Z`. */
+function sameInstant(a: string | null | undefined, b: string | null): boolean {
+  if (!a || !b) return (a ?? null) === b;
+  return Date.parse(a) === Date.parse(b);
 }
 
 /** The same pattern the table's CHECK enforces. Anything else is not a model id. */
@@ -103,6 +113,8 @@ export interface DiscoveryReport {
   returned: string[];
   already_registered: string[];
   new: string[];
+  /** Registered models whose discovery columns actually changed this run. */
+  refreshed: string[];
   now_unavailable: string[];
   missing_pricing: string[];
   missing_capabilities: string[];
@@ -113,8 +125,10 @@ export interface ReconciliationPlan {
   report: DiscoveryReport;
   /** Rows to insert, for models the catalog has never had. */
   inserts: Array<Record<string, unknown>>;
-  /** Discovery columns to refresh on models already in the catalog. */
+  /** Discovery columns that changed on models already in the catalog — only those. */
   seen: Array<{ model_id: string; patch: Record<string, unknown> }>;
+  /** Registered models listed this run: they get `last_seen_at`, nothing else. */
+  lastSeen: string[];
   /** Models to mark unavailable: listed before, absent now. */
   unavailable: string[];
 }
@@ -123,8 +137,10 @@ export interface ReconciliationPlan {
  * Compare one discovery against the catalog and say what to write.
  *
  * Idempotent by construction: identity is the exact model id, a model already
- * present is updated rather than inserted, and a second run over the same list
- * plans the same refresh and no inserts. An empty discovery is refused by the
+ * present is updated rather than inserted, and a patch carries only columns
+ * whose value differs. A second run over the same list plans no inserts, no
+ * patches and no marks — only the `last_seen_at` heartbeat, which is the one
+ * thing a repeat run exists to record. An empty discovery is refused by the
  * caller before this is reached — an empty list is far likelier to be a broken
  * response than OpenAI withdrawing every model at once.
  */
@@ -138,6 +154,7 @@ export function planReconciliation(
 
   const inserts: ReconciliationPlan["inserts"] = [];
   const seen: ReconciliationPlan["seen"] = [];
+  const lastSeen: string[] = [];
   const after = new Map<string, CatalogRow>();
 
   for (const model of discovered) {
@@ -171,19 +188,17 @@ export function planReconciliation(
       after.set(model.model_id, inserted);
       continue;
     }
-    // Discovery columns only. Capabilities, pricing and routing_enabled are
-    // curated and are not this function's to change.
-    seen.push({
-      model_id: model.model_id,
-      patch: {
-        ...upstream,
-        ...(row.first_seen_at ? {} : { first_seen_at: nowIso }),
-        last_seen_at: nowIso,
-        available: true,
-        unavailable_since: null,
-        updated_at: nowIso,
-      },
-    });
+    // Discovery columns only, and only those that differ. Capabilities,
+    // pricing and routing_enabled are curated and are not this function's to
+    // change.
+    const patch: Record<string, unknown> = {};
+    if ((row.owned_by ?? null) !== upstream.owned_by) patch.owned_by = upstream.owned_by;
+    if (!sameInstant(row.upstream_created_at, upstream.upstream_created_at)) patch.upstream_created_at = upstream.upstream_created_at;
+    if (!row.first_seen_at) patch.first_seen_at = nowIso;
+    if (!row.available) patch.available = true;
+    if (row.unavailable_since) patch.unavailable_since = null;
+    if (Object.keys(patch).length > 0) seen.push({ model_id: model.model_id, patch: { ...patch, updated_at: nowIso } });
+    lastSeen.push(model.model_id);
     after.set(model.model_id, { ...row, available: true });
   }
 
@@ -201,6 +216,7 @@ export function planReconciliation(
       returned: discovered.map((m) => m.model_id),
       already_registered: discovered.filter((m) => byId.has(m.model_id)).map((m) => m.model_id),
       new: inserts.map((r) => r.model_id as string),
+      refreshed: seen.map((s) => s.model_id),
       now_unavailable: unavailable,
       missing_pricing: ids(rows.filter((r) => r.available && r.pricing === null)),
       missing_capabilities: ids(rows.filter((r) => r.available && r.capabilities.length === 0)),
@@ -208,6 +224,7 @@ export function planReconciliation(
     },
     inserts,
     seen,
+    lastSeen,
     unavailable,
   };
 }

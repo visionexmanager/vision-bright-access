@@ -35,6 +35,13 @@ export interface DiscoveryDeps {
   timeoutMs?: number;
 }
 
+/** Id lists of at most 50, for `.in(...)` filters that travel in the query string. */
+function batches(ids: string[], size = 50): string[][] {
+  const out: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
+  return out;
+}
+
 export async function discoverOpenAIModels(deps: DiscoveryDeps, options: { dryRun: boolean }): Promise<DiscoveryOutcome> {
   const key = deps.read("OPENAI_API_KEY");
   if (!key) return { ok: false, error: "no_key" };
@@ -64,7 +71,7 @@ export async function discoverOpenAIModels(deps: DiscoveryDeps, options: { dryRu
 
   const { data: existing, error: readError } = await deps.db
     .from("ph_provider_models")
-    .select("model_id, available, capabilities, capability_source, pricing, routing_enabled, first_seen_at")
+    .select("model_id, available, capabilities, capability_source, pricing, routing_enabled, first_seen_at, owned_by, upstream_created_at, unavailable_since")
     .eq("provider", "openai");
   if (readError) return { ok: false, error: "store_failed" };
 
@@ -80,17 +87,25 @@ export async function discoverOpenAIModels(deps: DiscoveryDeps, options: { dryRu
       .upsert(plan.inserts, { onConflict: "provider,model_id", ignoreDuplicates: true });
     if (error) return { ok: false, error: "store_failed" };
   }
-  // Seen models: discovery columns only, one row at a time by exact id.
+  // Changed models: only the discovery columns that differ, one row at a time
+  // by exact id. An unchanged model gets no patch at all.
   for (const { model_id, patch } of plan.seen) {
     const { error } = await deps.db.from("ph_provider_models").update(patch)
       .eq("provider", "openai").eq("model_id", model_id);
     if (error) return { ok: false, error: "store_failed" };
   }
+  // Every listed model: the heartbeat, and only the heartbeat. Batched, so the
+  // id list stays well inside a URL.
+  for (const ids of batches(plan.lastSeen)) {
+    const { error } = await deps.db.from("ph_provider_models").update({ last_seen_at: nowIso })
+      .eq("provider", "openai").in("model_id", ids);
+    if (error) return { ok: false, error: "store_failed" };
+  }
   // Gone models: marked, never deleted.
-  if (plan.unavailable.length > 0) {
+  for (const ids of batches(plan.unavailable)) {
     const { error } = await deps.db.from("ph_provider_models")
       .update({ available: false, unavailable_since: nowIso, updated_at: nowIso })
-      .eq("provider", "openai").in("model_id", plan.unavailable);
+      .eq("provider", "openai").in("model_id", ids);
     if (error) return { ok: false, error: "store_failed" };
   }
   return { ok: true, dryRun: false, report: plan.report };

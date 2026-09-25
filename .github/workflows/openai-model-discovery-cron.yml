@@ -7,7 +7,8 @@
 #
 # DRY RUN by default. It writes only when the repository variable
 # OPENAI_MODEL_DISCOVERY_APPLY is "true" (Settings → Secrets and variables →
-# Actions → Variables), or when a manual run chooses apply. Review a dry run
+# Actions → Variables). That variable is the only switch: a manual run obeys
+# it too, and provider-hub's admin action is always a dry run. Review a dry run
 # first.
 #
 # This repository is public and so are its logs: the job prints counts only.
@@ -17,13 +18,7 @@ name: OpenAI model discovery
 on:
   schedule:
     - cron: "17 4 * * 1"   # Mondays 04:17 UTC
-  workflow_dispatch:
-    inputs:
-      apply:
-        description: "Write the reconciliation (otherwise a dry run)"
-        type: boolean
-        required: false
-        default: false
+  workflow_dispatch: {}
 
 concurrency:
   group: openai-model-discovery
@@ -42,7 +37,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          APPLY: ${{ github.event_name == 'workflow_dispatch' && inputs.apply || vars.OPENAI_MODEL_DISCOVERY_APPLY == 'true' }}
+          APPLY: ${{ vars.OPENAI_MODEL_DISCOVERY_APPLY == 'true' }}
         run: |
           if [ -z "$SUPABASE_URL" ] || [ -z "$CRON_SECRET" ]; then
             echo "::error::Repository secrets SUPABASE_URL and CRON_SECRET must be configured."
@@ -59,6 +54,6 @@ jobs:
             const r = JSON.parse(require("fs").readFileSync("response.json", "utf8"));
             if (!r.ok) { console.log(`discovery failed: ${r.error ?? "unknown"}`); process.exit(1); }
             const n = (k) => (r.report?.[k] ?? []).length;
-            console.log(`dry_run=${r.dry_run} returned=${n("returned")} new=${n("new")} now_unavailable=${n("now_unavailable")} missing_pricing=${n("missing_pricing")} missing_capabilities=${n("missing_capabilities")} routing_eligible=${n("routing_eligible")}`);
+            console.log(`dry_run=${r.dry_run} returned=${n("returned")} new=${n("new")} refreshed=${n("refreshed")} now_unavailable=${n("now_unavailable")} missing_pricing=${n("missing_pricing")} missing_capabilities=${n("missing_capabilities")} routing_eligible=${n("routing_eligible")}`);
           ' || { echo "::error::provider-hub answered HTTP $status"; exit 1; }
           rm -f response.json
