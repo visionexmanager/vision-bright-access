@@ -10,6 +10,8 @@ readonly MAX_ATTEMPTS=4
 # function that needs the exemption must be listed in BOTH — config.toml for
 # `functions serve` locally, and here for production.
 declare -A NO_VERIFY_JWT=(
+  # Scheduled OpenAI model discovery: Bearer <CRON_SECRET>; admin JWT for the rest.
+  [provider-hub]=1
   # These three were exempt in config.toml and missing here, which is the
   # dangerous direction of that drift. Production already runs them without
   # JWT verification — probed 2026-08-20, all three answer 400 from the

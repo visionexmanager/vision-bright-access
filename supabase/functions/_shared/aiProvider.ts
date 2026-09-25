@@ -78,6 +78,60 @@ const OPENAI_COMPATIBLE: Record<"openai" | "groq" | "mistral", OpenAICompatibleC
 
 type OpenAICompatibleProvider = keyof typeof OPENAI_COMPATIBLE;
 
+/**
+ * OpenAI reasoning models this adapter serves, by exact model id.
+ *
+ * On Chat Completions OpenAI refuses `max_tokens` for its reasoning family
+ * ("Use 'max_completion_tokens' instead"), and reasoning tokens are spent from
+ * that same completion budget. Every model the adapter served before
+ * gpt-5.6-luna was a non-reasoning model, so neither rule had come up.
+ *
+ * `effort: "none"` keeps each caller's existing budget (2048, 1500, 1200 …)
+ * meaning visible output, which is what it was sized for — at the default
+ * ("medium") a short budget can be spent thinking and return nothing.
+ *
+ * Exact ids, never a prefix: a model is added here deliberately, and nothing a
+ * caller sends can match its way in. Only the `openai` provider reads it.
+ */
+const OPENAI_REASONING_MODELS: Readonly<Record<string, { effort: "none" | "low" | "medium" | "high" }>> = {
+  "gpt-5.6-luna": { effort: "none" },
+};
+
+/** The completion-budget fields a request carries, for this provider and model. */
+function completionBudget(provider: AIProvider, model: string, limit: number): Record<string, unknown> {
+  const reasoning = provider === "openai" && Object.prototype.hasOwnProperty.call(OPENAI_REASONING_MODELS, model)
+    ? OPENAI_REASONING_MODELS[model]
+    : undefined;
+  return reasoning
+    ? { max_completion_tokens: limit, reasoning_effort: reasoning.effort }
+    : { max_tokens: limit };
+}
+
+/**
+ * Token counts from a Chat Completions `usage` object — numbers only, never
+ * content. Undefined when the provider sent none, so a missing count is never
+ * recorded as a zero.
+ */
+function usageOf(data: unknown): AttemptUsage | undefined {
+  const usage = (data as { usage?: Record<string, unknown> } | null)?.usage;
+  if (!usage || typeof usage !== "object") return undefined;
+  const count = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined);
+  const prompt = usage.prompt_tokens_details as Record<string, unknown> | undefined;
+  const completion = usage.completion_tokens_details as Record<string, unknown> | undefined;
+  const out: AttemptUsage = {};
+  const input = count(usage.prompt_tokens);
+  const cached = count(prompt?.cached_tokens);
+  const output = count(usage.completion_tokens);
+  const reasoning = count(completion?.reasoning_tokens);
+  const total = count(usage.total_tokens);
+  if (input !== undefined) out.input_tokens = input;
+  if (cached !== undefined) out.cached_input_tokens = cached;
+  if (output !== undefined) out.output_tokens = output;
+  if (reasoning !== undefined) out.reasoning_tokens = reasoning;
+  if (total !== undefined) out.total_tokens = total;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function openAICompatibleConfig(provider: AIProvider): OpenAICompatibleConfig {
   const cfg = OPENAI_COMPATIBLE[provider as OpenAICompatibleProvider];
   // Anthropic and Gemini are dispatched before reaching here. A miss means an
@@ -159,6 +213,17 @@ export interface ProviderAttempt {
   success: boolean;
   ms: number;
   error?: AttemptErrorCode;
+  /** Token counts from the provider's response, when it sent them. */
+  usage?: AttemptUsage;
+}
+
+/** Token counts only — never text, never a prompt. */
+export interface AttemptUsage {
+  input_tokens?: number;
+  cached_input_tokens?: number;
+  output_tokens?: number;
+  reasoning_tokens?: number;
+  total_tokens?: number;
 }
 
 export type AttemptRecorder = (attempt: ProviderAttempt) => void;
@@ -245,7 +310,7 @@ async function streamOpenAICompatible(
     body: JSON.stringify({
       model: p.model,
       messages: [{ role: "system", content: p.system }, ...p.messages],
-      max_tokens: p.maxTokens ?? 2048,
+      ...completionBudget(p.provider, p.model, p.maxTokens ?? 2048),
       stream: true,
     }),
   });
@@ -366,7 +431,12 @@ export interface StructuredParams {
 }
 
 export async function structuredCompletion(p: StructuredParams): Promise<unknown> {
-  if (p.provider === "anthropic") return structuredAnthropic(p);
+  return (await structuredCompletionDetailed(p)).result;
+}
+
+/** The structured result, plus the provider's token usage where it reports one. */
+async function structuredCompletionDetailed(p: StructuredParams): Promise<{ result: unknown; usage?: AttemptUsage }> {
+  if (p.provider === "anthropic") return { result: await structuredAnthropic(p) };
   if (p.provider === "gemini") {
     const { data } = await geminiStructuredCompletion({
       model: p.model,
@@ -376,7 +446,7 @@ export async function structuredCompletion(p: StructuredParams): Promise<unknown
       schema: p.schema,
       maxTokens: p.maxTokens,
     }).catch(asProviderError);
-    return data;
+    return { result: data };
   }
   return structuredOpenAICompatible(p);
 }
@@ -393,8 +463,8 @@ export async function structuredCompletionWithFallback(
     const start = Date.now();
     const base = { kind, mode: "structured", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
-      const result = await structuredCompletion({ ...params, ...target });
-      reportAttempt({ ...base, success: true, ms: elapsedMs(start) });
+      const { result, usage } = await structuredCompletionDetailed({ ...params, ...target });
+      reportAttempt({ ...base, success: true, ms: elapsedMs(start), ...(usage ? { usage } : {}) });
       return { ...target, result };
     } catch (error) {
       reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: attemptErrorCode(error) });
@@ -407,7 +477,7 @@ export async function structuredCompletionWithFallback(
   throw new ProviderError(500, "All AI providers failed");
 }
 
-async function structuredOpenAICompatible(p: StructuredParams): Promise<unknown> {
+async function structuredOpenAICompatible(p: StructuredParams): Promise<{ result: unknown; usage?: AttemptUsage }> {
   const cfg = openAICompatibleConfig(p.provider);
   const key = requireKey(cfg);
 
@@ -430,7 +500,7 @@ async function structuredOpenAICompatible(p: StructuredParams): Promise<unknown>
         function: { name: p.toolName, description: "Structured result", parameters: p.schema },
       }],
       tool_choice: { type: "function", function: { name: p.toolName } },
-      max_tokens: p.maxTokens ?? 1500,
+      ...completionBudget(p.provider, p.model, p.maxTokens ?? 1500),
     }),
   });
 
@@ -443,7 +513,7 @@ async function structuredOpenAICompatible(p: StructuredParams): Promise<unknown>
   const data = await res.json();
   const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!args) throw new ProviderError(500, "No structured response from AI");
-  return JSON.parse(args);
+  return { result: JSON.parse(args), usage: usageOf(data) };
 }
 
 async function structuredAnthropic(p: StructuredParams): Promise<unknown> {

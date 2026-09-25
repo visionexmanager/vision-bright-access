@@ -89,3 +89,9 @@ verify_jwt = false
 # Same reasoning, and the same exemption, as whatsapp-webhook.
 [functions.meta-messaging-webhook]
 verify_jwt = false
+
+# The scheduled OpenAI model discovery calls this with Bearer <CRON_SECRET>,
+# which is not a JWT. The function checks that secret in constant time for its
+# one cron action and requires a signed-in admin for everything else.
+[functions.provider-hub]
+verify_jwt = false

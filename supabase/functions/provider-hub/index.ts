@@ -1,8 +1,17 @@
 // AI Provider Hub — central routing, health, and monitoring edge function
 // All AI generation calls should route through here for provider selection
+//
+// ── This function is exempt from gateway JWT verification ────────────────────
+//
+// Listed in supabase/config.toml and scripts/deploy-changed-supabase-functions.sh
+// so the scheduled OpenAI model discovery can reach it with Bearer <CRON_SECRET>,
+// which is not a JWT. Nothing is weakened: the cron branch below compares that
+// secret in constant time, fails closed when it is unset, and can run exactly
+// one action; every other request still needs a signed-in admin, checked here.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { discoverOpenAIModels, type DiscoveryOutcome } from "../_shared/openaiModelDiscovery.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -213,6 +222,29 @@ function err(msg: string, status = 400): Response {
   return json({ ok: false, error: msg }, status);
 }
 
+// ── OpenAI model discovery ────────────────────────────────────────────────────
+
+/** Equal-length, constant-time comparison, so response timing says nothing about the secret. */
+function secretsMatch(given: string, expected: string): boolean {
+  const a = new TextEncoder().encode(given);
+  const b = new TextEncoder().encode(expected);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
+  return diff === 0;
+}
+
+/** Discovery's answer as a response. Codes and model ids only — no key, no body, no price. */
+function discoveryResponse(outcome: DiscoveryOutcome): Response {
+  if (outcome.ok) return json({ ok: true, dry_run: outcome.dryRun, report: outcome.report });
+  const status = outcome.error === "no_key" ? 503 : outcome.error === "store_failed" ? 500 : 502;
+  return json({ ok: false, error: outcome.error, ...(outcome.status ? { upstream_status: outcome.status } : {}) }, status);
+}
+
+function runDiscovery(dryRun: boolean): Promise<DiscoveryOutcome> {
+  const service = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  return discoverOpenAIModels({ db: service, read: (name) => Deno.env.get(name) }, { dryRun });
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 serve(async (req) => {
@@ -220,6 +252,20 @@ serve(async (req) => {
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return err("Unauthorized", 401);
+
+  // ── The scheduled discovery, and nothing else ─────────────────────────────
+  //
+  // The only thing the cron secret can do. Checked before any JWT parsing, and
+  // it reads no body: the action and the apply switch travel in the query
+  // string, so no caller has its body read before an identity is established.
+  // A request carrying the secret for another action is refused.
+  const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
+  if (cronSecret && secretsMatch(authHeader, `Bearer ${cronSecret}`)) {
+    const query = new URL(req.url).searchParams;
+    if (query.get("action") !== "discover_openai_models") return err("Forbidden", 403);
+    // A dry run unless the workflow says, explicitly, to write.
+    return discoveryResponse(await runDiscovery(query.get("apply") !== "true"));
+  }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const anonKey     = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -263,6 +309,26 @@ serve(async (req) => {
   try { body = await req.json(); } catch { /* empty body */ }
 
   const action = body.action as string;
+
+  // ── discover_openai_models ──────────────────────────────────────────────────
+  //
+  // GET /v1/models on the existing key, reconciled into ph_provider_models.
+  // A dry run unless dry_run is explicitly false. Registers and refreshes;
+  // never enables routing — that stays a curated decision per model.
+  if (action === "discover_openai_models") {
+    return discoveryResponse(await runDiscovery(body.dry_run !== false));
+  }
+
+  // ── list_models ─────────────────────────────────────────────────────────────
+  // The catalog, for an admin reviewing what discovery found. Admin-only, like
+  // every action here; it is never reachable by a customer.
+  if (action === "list_models") {
+    const { data, error } = await (roleDb as any).from("ph_provider_models")
+      .select("provider, model_id, display_name, available, last_seen_at, unavailable_since, capabilities, capability_source, pricing, pricing_verified_on, routing_enabled")
+      .order("model_id");
+    if (error) return err("Could not read the model catalog");
+    return json({ ok: true, data });
+  }
 
   // ── list_providers ──────────────────────────────────────────────────────────
   if (action === "list_providers") {
