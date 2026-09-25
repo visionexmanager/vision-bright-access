@@ -113,7 +113,7 @@ function constantTimeEquals(a: string, b: string): boolean {
 
 /** Race a promise against a deadline, returning null when the deadline wins. */
 async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T | null> {
-  let timer: number | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<null>((resolve) => {
     timer = setTimeout(() => resolve(null), ms);
   });

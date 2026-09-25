@@ -101,7 +101,8 @@ Deno.serve(async (req) => {
     const rpcName = action === "approve" ? "approve_vx_coin_order" : "reject_vx_coin_order";
     const { data: order, error: rpcError } = await userClient
       .rpc(rpcName, { _order_id: orderId, _admin_notes: adminNotes ?? null })
-      .single();
+      // Both RPCs return the reviewed vx_coin_orders row.
+      .single<{ user_id: string; coins: number; total_usd: number | string; admin_notes: string | null }>();
 
     if (rpcError) {
       // The RPC's own has_role() check is what actually blocks non-admins —

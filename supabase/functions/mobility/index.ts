@@ -26,7 +26,7 @@
 // a plausible-looking POST to a URL nobody has read the documentation for.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import {
   MobilityError,
@@ -133,7 +133,7 @@ serve(async (req) => {
  * has no use for them.
  */
 async function listProviders(
-  db: ReturnType<typeof createClient>,
+  db: SupabaseClient,
   cors: Record<string, string>,
 ): Promise<Response> {
   const { data, error } = await db
@@ -156,7 +156,7 @@ async function listProviders(
  * rather than one timeout per search.
  */
 async function getQuotes(
-  db: ReturnType<typeof createClient>,
+  db: SupabaseClient,
   userId: string,
   body: Json,
   cors: Record<string, string>,
@@ -264,7 +264,7 @@ function book(body: Json, cors: Record<string, string>): Promise<Response> {
 
 /** Where one trip stands. Read through the rider's own policy, never around it. */
 async function tripStatus(
-  db: ReturnType<typeof createClient>,
+  db: SupabaseClient,
   body: Json,
   cors: Record<string, string>,
 ): Promise<Response> {
@@ -285,7 +285,7 @@ async function tripStatus(
 
 /** Cancel one, where the provider allows it. */
 async function cancelTrip(
-  db: ReturnType<typeof createClient>,
+  db: SupabaseClient,
   body: Json,
   cors: Record<string, string>,
 ): Promise<Response> {
