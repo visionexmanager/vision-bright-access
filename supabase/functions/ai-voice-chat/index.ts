@@ -179,7 +179,8 @@ Deno.serve(async (req) => {
   if (spoken.outcome === "failed") {
     const status = spoken.failure.reason === "rejected" ? spoken.failure.status : 0;
     const detail = spoken.failure.reason === "rejected" ? spoken.failure.detail : "";
-    console.error("TTS error:", status, detail);
+    // The provider's own sentence stays out of the log (#356); the status is enough to act on.
+    console.error("TTS error:", status, detail ? "(detail withheld)" : "");
     // Return text-only so the client can still show the response
     return new Response(JSON.stringify({ transcript, audio: null }), {
       headers: { ...cors, "Content-Type": "application/json" },
