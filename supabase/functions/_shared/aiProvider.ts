@@ -17,6 +17,7 @@ import {
   geminiStreamChatCompletion,
   geminiStructuredCompletion,
 } from "./geminiProvider.ts";
+import { providerErrorSummary } from "./providerInput.ts";
 
 export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral";
 
@@ -317,7 +318,7 @@ async function streamOpenAICompatible(
 
   if (!res.ok || !res.body) {
     const errText = await res.text().catch(() => "");
-    console.error(`${cfg.label} API error:`, res.status, errText);
+    console.error(`${cfg.label} API error:`, res.status, providerErrorSummary(errText));
     throw new ProviderError(res.status || 500, `${cfg.label} request failed`);
   }
 
@@ -350,7 +351,7 @@ async function streamAnthropic(p: ProviderChatParams): Promise<ReadableStream<Ui
 
   if (!res.ok || !res.body) {
     const errText = await res.text().catch(() => "");
-    console.error("Anthropic API error:", res.status, errText);
+    console.error("Anthropic API error:", res.status, providerErrorSummary(errText));
     throw new ProviderError(res.status || 500, "Anthropic request failed");
   }
 
@@ -506,7 +507,7 @@ async function structuredOpenAICompatible(p: StructuredParams): Promise<{ result
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    console.error(`${cfg.label} structured error:`, res.status, errText);
+    console.error(`${cfg.label} structured error:`, res.status, providerErrorSummary(errText));
     throw new ProviderError(res.status || 500, `${cfg.label} request failed`);
   }
 
@@ -543,7 +544,7 @@ async function structuredAnthropic(p: StructuredParams): Promise<unknown> {
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    console.error("Anthropic structured error:", res.status, errText);
+    console.error("Anthropic structured error:", res.status, providerErrorSummary(errText));
     throw new ProviderError(res.status || 500, "Anthropic request failed");
   }
 
@@ -589,7 +590,7 @@ export async function createEmbedding(input: string[]): Promise<number[][]> {
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    console.error("OpenAI embeddings error:", res.status, errText);
+    console.error("OpenAI embeddings error:", res.status, providerErrorSummary(errText));
     throw new ProviderError(res.status || 500, "Embedding request failed");
   }
 

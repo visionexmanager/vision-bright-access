@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { providerErrorSummary } from "../_shared/providerInput.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -135,7 +136,7 @@ totalCalories (number), tips (array of 3 string tips), waterIntake (string like 
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
+      console.error("AI gateway error:", response.status, providerErrorSummary(errText));
       throw new Error(`AI gateway error: ${response.status}`);
     }
 

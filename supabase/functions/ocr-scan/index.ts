@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { boundedText, checkImageDataUrl } from "../_shared/providerInput.ts";
+import { boundedText, checkImageDataUrl, providerErrorSummary } from "../_shared/providerInput.ts";
 import { decodePdfDataUrl, isPdfDataUrl, PDF_NO_TEXT_CODE, PDF_NO_TEXT_MESSAGE, pdfScanResult } from "../_shared/ocrDocument.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { detectLanguage } from "../_shared/whatsappLanguageDetect.ts";
@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
         );
       }
       const errText = await response.text();
-      console.error("OpenAI error:", response.status, errText);
+      console.error("OpenAI error:", response.status, providerErrorSummary(errText));
       throw new Error(`AI gateway error: ${response.status}`);
     }
 

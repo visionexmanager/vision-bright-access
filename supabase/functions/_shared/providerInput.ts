@@ -142,3 +142,27 @@ export function publicMediaFailure(raw: unknown, kind: "image" | "video", tag: s
   }
   return `The ${kind} could not be created. Please try again later.`;
 }
+
+/**
+ * What of a provider's error body may be logged: its short machine codes —
+ * error.code / error.type / error.status, and OpenRouter's limit_source — and
+ * nothing else. Never the message or the body: bodies echo prompts and name
+ * accounts (an OpenRouter 429 carries the account's user_id; it reached a
+ * public CI log on 2026-09-26), and Edge Function logs are read by more
+ * people than the account owner.
+ */
+export function providerErrorSummary(body: string): string {
+  let parsed: unknown;
+  try { parsed = JSON.parse(body); } catch { return "non-json body"; }
+  const root = (parsed && typeof parsed === "object" ? parsed : {}) as Record<string, unknown>;
+  const err = (root.error && typeof root.error === "object" ? root.error : root) as Record<string, unknown>;
+  const meta = (err.metadata && typeof err.metadata === "object" ? err.metadata : {}) as Record<string, unknown>;
+  const parts: string[] = [];
+  const fields: Array<[string, unknown]> = [["code", err.code], ["type", err.type], ["status", err.status], ["limit", meta.limit_source]];
+  for (const [label, value] of fields) {
+    const text = typeof value === "number" ? String(value) : value;
+    if (typeof text === "string" && SAFE_CODE.test(text)) parts.push(`${label}=${text}`);
+  }
+  return parts.join(" ") || "no code";
+}
+const SAFE_CODE = /^[\w.:-]{1,48}$/;
