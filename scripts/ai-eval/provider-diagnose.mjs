@@ -132,6 +132,17 @@ async function bytez(key) {
     }
   }
   const auth = facts.bytez.auth_form === "Key-prefix" ? `Key ${key}` : facts.bytez.auth_form === "Bearer" ? `Bearer ${key}` : key;
+  // Is the empty listing ours alone? The same listing with no key, per task.
+  for (const task of ["chat", "text-generation"]) {
+    const pub = await call(`${base}/list/models?task=${task}`, {});
+    const mine = await call(`${base}/list/models?task=${task}`, { headers: { Authorization: key } });
+    const n = (r) => (Array.isArray(r.body?.output) ? r.body.output.length : 0);
+    row("bytez", `list?task=${task}(no-key)`, "-", pub, n(pub) > 0, `rows=${n(pub)}`);
+    row("bytez", `list?task=${task}(our key)`, "-", mine, n(mine) > 0, `rows=${n(mine)}`);
+    if (n(pub) && !facts.bytez.public_sample) {
+      facts.bytez.public_sample = pub.body.output.filter((m) => (m.params ?? 99) <= 7).slice(0, 8).map((m) => `${m.modelId} (${m.params}B, ${m.meter})`);
+    }
+  }
   const r2 = await call(`${base}/list/tasks`, { headers: { Authorization: auth } });
   row("bytez", "list/tasks", "-", r2, r2.status === 200);
   // Whose side is a "model does not exist"? The documented example model,
@@ -141,7 +152,8 @@ async function bytez(key) {
     const r = await call(`${base}/openai/v1/chat/completions`, { method: "POST", headers: json(h), body: JSON.stringify({ model: "Qwen/Qwen3-4B", messages: ASK, max_tokens: 16 }) });
     row("bytez", `text(${label})`, "Qwen/Qwen3-4B", r, r.status === 200);
   }
-  const candidates = [...new Set([...(facts.bytez.chat_sample ?? []).slice(0, 3), "Qwen/Qwen3-4B", "openai/gpt-4o-mini", "google/gemma-3-1b-it"])];
+  const publicSmall = (facts.bytez.public_sample ?? []).map((x) => x.split(" ")[0]).slice(0, 2);
+  const candidates = [...new Set([...publicSmall, ...(facts.bytez.chat_sample ?? []).slice(0, 3), "Qwen/Qwen3-4B", "openai/gpt-4o-mini", "google/gemma-3-1b-it"])];
   for (const model of candidates.slice(0, 5)) {
     await chatProbe("bytez", `${base}/openai/v1`, { Authorization: auth }, model, "text");
     const n = await call(`${base}/${model}`, { method: "POST", headers: json({ Authorization: auth }), body: JSON.stringify({ messages: ASK, params: { max_new_tokens: 32 } }) });
@@ -183,6 +195,9 @@ async function openrouter(key) {
   }
   for (const id of withTools.slice(0, 2)) { await chatProbe("openrouter", base, headers, id, "tools"); await sleep(3500); }
   for (const id of withVision.slice(0, 2)) { await chatProbe("openrouter", base, headers, id, "vision"); await sleep(3500); }
+  for (const id of ["google/gemma-4-26b-a4b-it:free", "inclusionai/ling-3.0-flash-fin:free"]) { await chatProbe("openrouter", base, headers, id, "json"); await sleep(3500); }
+  const e = await call(`${base}/embeddings`, { method: "POST", headers: json(headers), body: JSON.stringify({ model: "openai/text-embedding-3-small", input: ["hello"] }) });
+  row("openrouter", "embeddings", "openai/text-embedding-3-small", e, e.status === 200 && (e.body?.data?.[0]?.embedding?.length ?? 0) > 0);
   await chatProbe("openrouter", base, headers, "openai/gpt-4o-mini", "text");
   await chatProbe("openrouter", base, headers, "openrouter/auto", "text");
 }
@@ -232,6 +247,12 @@ async function fal(key) {
   // valid key, 401/403 with a bad one.
   const a = await call("https://queue.fal.run/fal-ai/flux/requests/00000000-0000-0000-0000-000000000000/status", { headers });
   row("fal", "auth(no-spend)", "fal-ai/flux", a, a.status !== 401 && a.status !== 403);
+  const ids = ["fal-ai/flux/schnell", "fal-ai/flux/dev", "fal-ai/flux-pro/v1.1", "fal-ai/ltx-video", "fal-ai/wan/v2.2-5b/text-to-video", "fal-ai/kling-video/v2.1/standard/text-to-video"];
+  const p = await call(`https://api.fal.ai/v1/models/pricing?${ids.map((i) => `endpoint_id=${encodeURIComponent(i)}`).join("&")}`, { headers });
+  row("fal", "pricing(no-spend)", "-", p, p.status === 200);
+  const prices = Array.isArray(p.body?.prices) ? p.body.prices : [];
+  facts.fal.pricing_body_keys = p.body && typeof p.body === "object" ? Object.keys(p.body).slice(0, 10) : typeof p.body;
+  facts.fal.prices = prices.map((x) => `${x.endpoint_id}: ${x.unit_price} ${x.currency ?? "USD"} per ${x.unit}`);
   if (!MEDIA) return;
   const queued = async (app, input, maxMs) => {
     const s = await call(`https://queue.fal.run/${app}`, { method: "POST", headers: json(headers), body: JSON.stringify(input) });
