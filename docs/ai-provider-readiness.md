@@ -59,3 +59,21 @@ media probe once.
 3. WhatsApp PDF and video reading are switched off because Gemini was unfunded (`DOCUMENT_TARGETS` / `VIDEO_TARGETS` in `whatsappUnderstand.ts`). Gemini now generates; re-enabling needs the owner to confirm the Gemini tier's limits.
 4. Video generation needs `LUMA_API_KEY`.
 5. ~~A stream that breaks mid-body counts as a success~~ — fixed in #350: a stream is settled when it ends.
+
+## Viability check (2026-09-26, later run)
+
+Observed with the production keys, no money spent:
+
+- **Bytez:** our key authenticates (no key and a wrong key both get 401), but the model listing returns **0 models** for it, and every model id is "not in the Bytez catalog". That includes Bytez's documented example `Qwen/Qwen3-4B`, a 4B model inside the free plan's "up to 7B". Bytez documents a 402 "Insufficient credits" for an unfunded account; we never received one. The listing endpoint also answers 500 "Expected parameter(s): modelId" for some query forms. **Cause unknown; it is on the account or Bytez side.** No evidence shows that paying would fix it.
+- **OpenRouter:** paid models, embeddings and `openrouter/auto` get 403 "Key limit exceeded (total limit)". That is a **per-key limit**, and the account also has no credits. Free models were measured: text on 8 of 17, tools on 2, JSON mode on `gemma-4-26b-a4b-it:free`. Several upstreams return 429, and the account's daily free cap was reached during the run ("free-models-per-day … limit=50 remaining=0").
+- **NVIDIA NIM (build.nvidia.com hosted catalogue):** gemma-4-31b-it (text, tools, JSON, ~0.1–0.6 s), gpt-oss-20b (text, tools, JSON, 3–9 s), llama-3.2-11b-vision (vision, tools), llama-3.2-90b-vision (vision, 36 s). Shared workers returned 503 "ResourceExhausted". The licence limits this endpoint to development and testing.
+- **FAL:** the key authenticates, and the pricing API answers with the account's prices. Every submission is refused with "User is locked. Exhausted balance", images and video alike.
+
+| FAL endpoint | Price (from FAL's pricing API) |
+| --- | --- |
+| flux/schnell | $0.003 per megapixel |
+| flux/dev | $0.025 per megapixel |
+| flux-pro v1.1 | $0.04 per megapixel |
+| ltx-video | $0.02 per video |
+| wan 2.2 5B | $0.15 per video |
+| kling 2.1 std | $0.00017 per compute second |
