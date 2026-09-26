@@ -17,7 +17,7 @@
 //
 // Prints names only. No key is echoed, and no generation is performed.
 
-import { GEMINI_API_BASE, envKeyFor, extractModelNames } from "./providers.mjs";
+import { GEMINI_API_BASE, envKeyFor, extractModelNames, providerErrorSummary } from "./providers.mjs";
 
 const LISTERS = {
   openai: () => ({ url: "https://api.openai.com/v1/models", headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` } }),
@@ -31,7 +31,7 @@ async function listFor(provider) {
   const res = await fetch(url, { headers });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status}: ${body.slice(0, 200)}`);
+    throw new Error(`HTTP ${res.status}: ${providerErrorSummary(body)}`);
   }
   return extractModelNames(await res.json()).sort();
 }

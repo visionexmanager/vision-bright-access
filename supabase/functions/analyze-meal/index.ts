@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { checkImageDataUrl } from "../_shared/providerInput.ts";
+import { checkImageDataUrl, providerErrorSummary } from "../_shared/providerInput.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
@@ -137,7 +137,7 @@ Reply in JSON only with fields: name, calories, ingredients (array), tip, rating
         );
       }
       const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
+      console.error("AI gateway error:", response.status, providerErrorSummary(errText));
       throw new Error(`AI gateway error: ${response.status}`);
     }
 

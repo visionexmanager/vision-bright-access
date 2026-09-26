@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { providerErrorSummary } from "../_shared/providerInput.ts";
 
 // Flags user-generated text using OpenAI's moderation model.
 // Call this at content-creation points (messages, listings, posts, reviews).
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      console.error("OpenAI moderation error:", res.status, errText);
+      console.error("OpenAI moderation error:", res.status, providerErrorSummary(errText));
       // Fail open (don't block users on moderation outages) but report not-flagged.
       return new Response(JSON.stringify({ flagged: false, categories: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
