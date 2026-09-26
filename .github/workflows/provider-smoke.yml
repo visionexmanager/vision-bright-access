@@ -1,0 +1,104 @@
+name: AI provider smoke test
+
+# Generates, for real, one tiny request per provider, model and capability with
+# the repository's own provider secrets, and reports which of those secrets the
+# Supabase Edge Function runtime actually holds. See
+# scripts/ai-eval/provider-smoke.mjs for what is sent and what is printed.
+#
+# This repository is public, so its logs are world-readable. Nothing here
+# prints a key, a response body or a secret digest: statuses, latencies,
+# published rate-limit ceilings, and "present / same as GitHub" booleans.
+
+on:
+  workflow_dispatch:
+    inputs:
+      media:
+        description: "Also generate one low-quality image (about one US cent)"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - scripts/ai-eval/provider-smoke.mjs
+      - .github/workflows/provider-smoke.yml
+
+concurrency:
+  group: provider-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Generate with every provider key
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Probe providers
+        shell: bash
+        run: |
+          ARGS=(--out smoke.json)
+          if [[ "${{ inputs.media }}" == "true" ]]; then ARGS+=(--media); fi
+          node scripts/ai-eval/provider-smoke.mjs "${ARGS[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          OPENAI_API_KEY:     ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY:    ${{ secrets.MISTRAL_API_KEY }}
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          BYTEZ_API_KEY:      ${{ secrets.BYTEZ_API_KEY }}
+          RUNPOD_API_KEY:     ${{ secrets.RUNPOD_API_KEY }}
+          LUMA_API_KEY:       ${{ secrets.LUMA_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+
+      # Which provider secrets the Edge Function runtime holds, and whether each
+      # is the same value as the GitHub secret probed above. The comparison is
+      # done on SHA-256 digests inside this step; only the verdict is printed.
+      # OPENAI_API_KEY is synced by every deploy, so it calibrates the method:
+      # if it does not read "same", the digest format changed and the column
+      # means nothing.
+      - name: Compare with Supabase runtime secrets
+        shell: bash
+        run: |
+          npm install -g supabase@latest >/dev/null 2>&1
+          supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" -o json > runtime.json 2>/dev/null || echo '[]' > runtime.json
+          node -e '
+            const crypto = require("node:crypto");
+            const rows = JSON.parse(require("fs").readFileSync("runtime.json", "utf8"));
+            const digest = Object.fromEntries((Array.isArray(rows) ? rows : []).map((r) => [r.name, String(r.value ?? "")]));
+            const names = ["OPENAI_API_KEY","ANTHROPIC_API_KEY","GEMINI_API_KEY","GROQ_API_KEY","MISTRAL_API_KEY","NVIDIA_NIM_API_KEY","OPENROUTER_API_KEY","BYTEZ_API_KEY","RUNPOD_API_KEY","LUMA_API_KEY","ELEVENLABS_API_KEY","FAL_KEY","REPLICATE_API_TOKEN"];
+            const out = ["", "### Supabase runtime", "", "| secret | in runtime | in GitHub | same value |", "| --- | --- | --- | --- |"];
+            for (const n of names) {
+              const gh = (process.env[n] ?? "").trim();
+              const rt = digest[n];
+              const same = rt && gh ? (crypto.createHash("sha256").update(gh).digest("hex") === rt.toLowerCase() ? "same" : "differs") : "-";
+              out.push(`| ${n} | ${rt ? "yes" : "no"} | ${gh ? "yes" : "no"} | ${same} |`);
+            }
+            out.push("", `runtime secrets listed: ${Object.keys(digest).length}`);
+            console.log(out.join("\n"));
+          ' | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+          OPENAI_API_KEY:     ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY:    ${{ secrets.MISTRAL_API_KEY }}
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          BYTEZ_API_KEY:      ${{ secrets.BYTEZ_API_KEY }}
+          RUNPOD_API_KEY:     ${{ secrets.RUNPOD_API_KEY }}
+          LUMA_API_KEY:       ${{ secrets.LUMA_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          FAL_KEY:            ${{ secrets.FAL_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
