@@ -27465,6 +27465,7 @@ export type Database = {
         }[]
       }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
+      free_sections: { Args: never; Returns: string[] }
       fuzzy_search_library_books: {
         Args: { _match_count?: number; _query: string }
         Returns: {
@@ -28627,6 +28628,7 @@ export type Database = {
       }
       my_plan_access: { Args: never; Returns: Json }
       my_section_access: { Args: { _section: string }; Returns: boolean }
+      my_vx_summary: { Args: never; Returns: Json }
       my_vx_usage: {
         Args: { _limit?: number; _offset?: number }
         Returns: {
@@ -28692,6 +28694,7 @@ export type Database = {
           wa_phone: string
         }[]
       }
+      plan_for_user: { Args: { _user_id: string }; Returns: string }
       publish_scheduled_library_books: { Args: never; Returns: undefined }
       purchase_kids_product: { Args: { _product_id: string }; Returns: Json }
       question_fingerprint: { Args: { _text: string }; Returns: string }
@@ -29349,6 +29352,11 @@ export type Database = {
         Args: { _reliability: number; _source_id: string }
         Returns: undefined
       }
+      user_has_section: {
+        Args: { _section: string; _user_id: string }
+        Returns: boolean
+      }
+      user_sections: { Args: { _user_id: string }; Returns: string[] }
       verify_kids_certificate: {
         Args: { _certificate_number: string }
         Returns: {
