@@ -19,7 +19,9 @@ import {
 // deno-lint-ignore no-explicit-any
 type SupabaseServiceClient = any;
 
-export type CareerAiProvider = UpstreamProvider;
+// OpenRouter is activation-gated (aiProvider ACTIVATION_GATED) and has no
+// place in career AI's fixed, code-defined provider order.
+export type CareerAiProvider = Exclude<UpstreamProvider, "openrouter">;
 export type CostTier = "cheap" | "capable";
 
 // Gemini is out of the default chain, blocked on billing. Verified live on

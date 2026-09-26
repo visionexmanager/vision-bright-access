@@ -79,37 +79,57 @@ export function rankProviders<T extends RankableProvider>(
   return { provider: eligible[0], alternatives: eligible.slice(1) };
 }
 
-// ── Chat and vision chains: may the registry move a target later? ────────────
+// ── Chat and vision chains: what the registry says about a target ──────────
 //
 // The chat/vision loops in aiProvider.ts keep their code-defined order (it is
-// quality policy) and ask the registry one question per target: should this
-// one wait its turn? Yes when an admin has taken the row out (inactive,
-// error), or when recorded attempts have degraded it or driven its health to
-// the router's own exclusion line (health_score <= 20, as rankProviders).
+// quality policy) and ask the registry about each target:
 //
-// A demoted target is still tried after the others — never removed — and a
-// row demoted by *health* (not by an admin) keeps its place on a small share
-// of requests. Without that share it would only be reached when everything
-// ahead of it failed, would earn no successes, and would stay demoted for
-// ever: the "health never recovers" hazard found in Phase 2J.
+//   excluded  an admin took the row out (inactive, error) — an inactive
+//             provider receives no traffic at all — or the provider is
+//             activation-gated and its row is not switched on (active or
+//             degraded AND config.production_eligible = true). A gated
+//             provider with no row is excluded too: silence never enables.
+//   demoted   recorded attempts degraded it, or drove its health to the
+//             router's own exclusion line (health_score <= 20, as
+//             rankProviders). Tried after the healthy ones — except on a small
+//             share of requests, where it keeps its place so it can earn its
+//             way back (the Phase 2J "health never recovers" hazard).
+//   ready     everything else, including an ungated provider with no row.
 
 export interface RegistryHealthRow {
   slug: string;
   status: string;
   health_score: number;
+  default_model?: string | null;
+  config?: Record<string, unknown> | null;
 }
 
 /** Share of requests on which a health-demoted row keeps its place. */
 export const RECOVERY_TRIAL_SHARE = 0.1;
 
-export function registryDemotes(
+export type RegistryVerdict = "ready" | "demoted" | "excluded";
+
+export function registryVerdict(
   row: RegistryHealthRow | undefined,
+  gated: boolean,
   random: () => number = Math.random,
-): boolean {
-  if (!row) return false; // no row: nothing to say, policy order stands
-  if (row.status === "inactive" || row.status === "error") return true;
+): RegistryVerdict {
+  if (!row) return gated ? "excluded" : "ready";
+  if (row.status === "inactive" || row.status === "error") return "excluded";
+  if (gated && row.config?.production_eligible !== true) return "excluded";
   const unhealthy = row.status === "degraded" || row.health_score <= 20;
-  return unhealthy && random() >= RECOVERY_TRIAL_SHARE;
+  return unhealthy && random() >= RECOVERY_TRIAL_SHARE ? "demoted" : "ready";
+}
+
+/**
+ * Whether a row's curated config lists a model as verified for a capability:
+ * config.verified_models = { "<model id>": ["chat", "tools", …] }.
+ */
+export function verifiedFor(row: RegistryHealthRow, model: string, capability: string): boolean {
+  const models = row.config?.verified_models;
+  if (!models || typeof models !== "object") return false;
+  const caps = (models as Record<string, unknown>)[model];
+  return Array.isArray(caps) && caps.includes(capability);
 }
 
 // ── Shadow mode ───────────────────────────────────────────────────────────────

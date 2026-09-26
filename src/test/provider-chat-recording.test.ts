@@ -382,7 +382,8 @@ describe("the registry side: one attempt, one ph_logs row, against the right row
       ...Object.values(rec.MEDIA_PROVIDER_SLUG), ...Object.values(rec.VIDEO_PROVIDER_SLUG)];
     expect(new Set(mine).size).toBe(mine.length);
     for (const s of mine) expect(existing).not.toContain(s);
-    expect(rec.CHAT_PROVIDER_SLUG).toEqual({ openai: "openai-chat", groq: "groq-chat", mistral: "mistral-chat", gemini: "gemini-chat" });
+    // openrouter-chat: activation-gated, seeded inactive by 20261050000000.
+    expect(rec.CHAT_PROVIDER_SLUG).toEqual({ openai: "openai-chat", groq: "groq-chat", mistral: "mistral-chat", gemini: "gemini-chat", openrouter: "openrouter-chat" });
     expect(rec.VISION_PROVIDER_SLUG).toEqual({ openai: "openai-vision", gemini: "gemini-vision" });
   });
 });

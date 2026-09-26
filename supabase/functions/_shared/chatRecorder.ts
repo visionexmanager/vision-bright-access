@@ -8,8 +8,8 @@
 // modules the test suite imports directly must not pull in (as ttsRecorder.ts).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { setProviderAttemptRecorder, setProviderRegistryDemotion } from "./aiProvider.ts";
-import { recordProviderAttempt, registryDemotionFrom, type RecordingDb } from "./providerRecording.ts";
+import { setProviderAttemptRecorder, setProviderRegistryView } from "./aiProvider.ts";
+import { recordProviderAttempt, registryViewFrom, type RecordingDb } from "./providerRecording.ts";
 
 type WaitUntil = (p: Promise<unknown>) => void;
 const waitUntil: WaitUntil = (p) =>
@@ -22,7 +22,7 @@ const waitUntil: WaitUntil = (p) =>
  *
  * The same call closes the loop the other way: the chains read back the health
  * these attempts write, from a snapshot refreshed in the background at most
- * once a minute (`registryDemotionFrom`). A registry that cannot be read leaves
+ * once a minute (`registryViewFrom`). A registry that cannot be read leaves
  * every chain in its policy order.
  */
 export function installChatAttemptRecording(): void {
@@ -41,7 +41,7 @@ export function installChatAttemptRecording(): void {
     }
   });
   try {
-    setProviderRegistryDemotion(registryDemotionFrom(db(), { background: waitUntil }));
+    setProviderRegistryView(registryViewFrom(db(), { background: waitUntil }));
   } catch {
     // No client, no registry reading: the chains keep their policy order.
   }
