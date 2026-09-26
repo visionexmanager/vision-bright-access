@@ -15,8 +15,8 @@
 import type { MediaKind, MediaOutcome } from "./contentMedia.ts";
 import type { SttProviderName, TranscribeAttempt } from "./voice/stt.ts";
 import type { TtsExecution, TtsProvider } from "./voice/tts.ts";
-import { COOLDOWN_MS, type AIProvider, type ProviderAttempt } from "./aiProvider.ts";
-import { registryDemotes, type RegistryHealthRow } from "./providerSelection.ts";
+import { ACTIVATION_GATED, COOLDOWN_MS, type AIProvider, type ProviderAttempt } from "./aiProvider.ts";
+import { registryVerdict, verifiedFor, type RegistryHealthRow, type RegistryVerdict } from "./providerSelection.ts";
 
 // deno-lint-ignore no-explicit-any
 export type RecordingDb = any;
@@ -248,6 +248,9 @@ export const CHAT_PROVIDER_SLUG: Partial<Record<AIProvider, string>> = {
   groq: "groq-chat",
   mistral: "mistral-chat",
   gemini: "gemini-chat",
+  // Activation-gated: the row (20261050000000) must be switched on before a
+  // single request is sent, and it names the model (default_model).
+  openrouter: "openrouter-chat",
 };
 
 /** The vision rows seeded in 20261042000000. */
@@ -287,23 +290,27 @@ export const REGISTRY_SNAPSHOT_TTL_MS = 60_000;
 export const REGISTRY_READ_TIMEOUT_MS = 1_500;
 
 /**
- * A synchronous `RegistryDemotion` for `setProviderRegistryDemotion()`.
+ * A synchronous `RegistryView` for `setProviderRegistryView()`.
  *
  * It never waits for the database: it answers from the last snapshot of the
  * chat and vision rows and, when that snapshot is older than the TTL, starts
  * one refresh and hands it to `background` (EdgeRuntime.waitUntil in
  * production). Until the first read lands — and whenever a read fails or
- * times out — it knows nothing and demotes nothing, so the chains run in
- * their policy order exactly as they did before the registry was consulted.
+ * times out — it knows nothing: the established providers run in policy
+ * order, and every activation-gated provider stays off. Silence enables
+ * nothing.
  */
-export function registryDemotionFrom(
+export function registryViewFrom(
   db: RecordingDb,
   opts: {
     background?: (work: Promise<unknown>) => void;
     now?: () => number;
     random?: () => number;
   } = {},
-): (target: { provider: AIProvider; model: string }, kind: "chat" | "vision") => boolean {
+): {
+  verdict(target: { provider: AIProvider; model: string }, kind: "chat" | "vision"): RegistryVerdict;
+  extras(kind: "chat" | "vision", mode: "stream" | "structured"): Array<{ provider: AIProvider; model: string }>;
+} {
   const now = opts.now ?? Date.now;
   let rows = new Map<string, RegistryHealthRow>();
   let fetchedAt = -Infinity;
@@ -314,7 +321,7 @@ export function registryDemotionFrom(
     try {
       const read = db
         .from("ph_providers")
-        .select("slug, status, health_score")
+        .select("slug, status, health_score, default_model, config")
         .in("type", ["chat", "vision"]);
       const timeout = new Promise<{ data: null }>((resolve) => {
         timer = setTimeout(() => resolve({ data: null }), REGISTRY_READ_TIMEOUT_MS);
@@ -330,13 +337,36 @@ export function registryDemotionFrom(
     }
   };
 
-  return (target, kind) => {
+  const touch = () => {
     if (!inFlight && now() - fetchedAt > REGISTRY_SNAPSHOT_TTL_MS) {
       inFlight = true;
       const work = refresh();
       try { opts.background?.(work); } catch { /* the refresh runs regardless */ }
     }
-    const slug = (kind === "vision" ? VISION_PROVIDER_SLUG : CHAT_PROVIDER_SLUG)[target.provider];
-    return registryDemotes(slug ? rows.get(slug) : undefined, opts.random);
+  };
+  const rowFor = (provider: AIProvider, kind: "chat" | "vision") => {
+    const slug = (kind === "vision" ? VISION_PROVIDER_SLUG : CHAT_PROVIDER_SLUG)[provider];
+    return slug ? rows.get(slug) : undefined;
+  };
+
+  return {
+    verdict(target, kind) {
+      touch();
+      return registryVerdict(rowFor(target.provider, kind), ACTIVATION_GATED.has(target.provider), opts.random);
+    },
+    extras(kind, mode) {
+      touch();
+      const out: Array<{ provider: AIProvider; model: string }> = [];
+      for (const provider of ACTIVATION_GATED) {
+        const row = rowFor(provider, kind);
+        const model = row?.default_model;
+        if (!row || !model || registryVerdict(row, true, () => 0) === "excluded") continue;
+        // Capability is per model, as verified and written into the row:
+        // chat for a stream, tool calling for a structured answer, vision for an image.
+        const needs = [mode === "structured" ? "tools" : "chat", ...(kind === "vision" ? ["vision"] : [])];
+        if (needs.every((c) => verifiedFor(row, model, c))) out.push({ provider, model });
+      }
+      return out;
+    },
   };
 }

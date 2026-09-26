@@ -27,7 +27,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   ai.resetProviderCooldowns();
-  ai.setProviderRegistryDemotion(null);
+  ai.setProviderRegistryView(null);
   ai.setProviderAttemptRecorder(null);
   for (const k of Object.keys(env)) delete env[k];
   vi.useRealTimers();
@@ -164,37 +164,93 @@ describe("cooldowns: a failure that would repeat moves the target to the back", 
   });
 });
 
-describe("the registry: rows an admin or the recorded health has demoted wait their turn", () => {
-  it("an injected demotion moves a target after the healthy ones, keeping policy order within each group", () => {
-    ai.setProviderRegistryDemotion((t) => t.provider === "groq");
+describe("the registry: demoted rows wait their turn, switched-off rows never run", () => {
+  const view = (verdict: (t: AiProviderModule.ProviderTarget) => AiProviderModule.RegistryVerdict, extras: AiProviderModule.ProviderTarget[] = []) =>
+    ({ verdict, extras: () => extras });
+
+  it("a demoted target moves after the healthy ones, keeping policy order within each group", () => {
+    ai.setProviderRegistryView(view((t) => (t.provider === "groq" ? "demoted" : "ready")));
     expect(ai.orderTargets([G, M, O], "chat")).toEqual([M, O, G]);
   });
 
-  it("a demotion hook that throws changes nothing", () => {
-    ai.setProviderRegistryDemotion(() => { throw new Error("boom"); });
+  it("an excluded target (a row an admin set inactive or error) is never tried", () => {
+    ai.setProviderRegistryView(view((t) => (t.provider === "groq" ? "excluded" : "ready")));
+    expect(ai.orderTargets([G, M, O], "chat")).toEqual([M, O]);
+  });
+
+  it("a view that throws changes nothing for established providers", () => {
+    ai.setProviderRegistryView({ verdict: () => { throw new Error("boom"); }, extras: () => { throw new Error("boom"); } });
     expect(ai.orderTargets([G, M, O], "chat")).toEqual([G, M, O]);
   });
 
-  it("inactive and error always demote; degraded or health <= 20 demote except on the recovery share", () => {
+  it("verdicts: inactive/error exclude; degraded or health <= 20 demote except on the recovery share", () => {
     const row = (status: string, health_score: number) => ({ slug: "x", status, health_score });
     const never = () => 0.99; // outside the recovery share
     const trial = () => 0;    // inside it
-    expect(sel.registryDemotes(undefined, never)).toBe(false);
-    expect(sel.registryDemotes(row("active", 90), never)).toBe(false);
-    expect(sel.registryDemotes(row("active", 21), never)).toBe(false);
-    expect(sel.registryDemotes(row("active", 20), never)).toBe(true);
-    expect(sel.registryDemotes(row("degraded", 80), never)).toBe(true);
-    expect(sel.registryDemotes(row("inactive", 100), trial)).toBe(true);
-    expect(sel.registryDemotes(row("error", 100), trial)).toBe(true);
+    expect(sel.registryVerdict(undefined, false, never)).toBe("ready");
+    expect(sel.registryVerdict(row("active", 90), false, never)).toBe("ready");
+    expect(sel.registryVerdict(row("active", 21), false, never)).toBe("ready");
+    expect(sel.registryVerdict(row("active", 20), false, never)).toBe("demoted");
+    expect(sel.registryVerdict(row("degraded", 80), false, never)).toBe("demoted");
+    expect(sel.registryVerdict(row("inactive", 100), false, trial)).toBe("excluded");
+    expect(sel.registryVerdict(row("error", 100), false, trial)).toBe("excluded");
     // A health-demoted row keeps its place on the recovery share, so it can earn its way back.
-    expect(sel.registryDemotes(row("active", 5), trial)).toBe(false);
-    expect(sel.registryDemotes(row("degraded", 5), trial)).toBe(false);
+    expect(sel.registryVerdict(row("active", 5), false, trial)).toBe("ready");
+    expect(sel.registryVerdict(row("degraded", 5), false, trial)).toBe("ready");
     expect(sel.RECOVERY_TRIAL_SHARE).toBeGreaterThan(0);
     expect(sel.RECOVERY_TRIAL_SHARE).toBeLessThanOrEqual(0.2);
   });
+
+  it("gated providers: no row, a switched-off row, or a row not marked production-eligible is excluded", () => {
+    const row = (status: string, eligible: unknown) => ({ slug: "openrouter-chat", status, health_score: 100, config: { production_eligible: eligible } });
+    expect(sel.registryVerdict(undefined, true)).toBe("excluded");
+    expect(sel.registryVerdict(row("inactive", true), true)).toBe("excluded");
+    expect(sel.registryVerdict(row("active", false), true)).toBe("excluded");
+    expect(sel.registryVerdict(row("active", "true"), true)).toBe("excluded");
+    expect(sel.registryVerdict(row("active", true), true, () => 0.99)).toBe("ready");
+  });
 });
 
-describe("registryDemotionFrom: reading the snapshot never holds up a request", () => {
+describe("OpenRouter is activation-gated: nothing reaches it until its row is switched on", () => {
+  const OR = { provider: "openrouter", model: "google/gemma-4-26b-a4b-it:free" } as const;
+
+  it("with no registry view installed, a gated target is never tried, even if a chain named it", () => {
+    expect(ai.ACTIVATION_GATED.has("openrouter")).toBe(true);
+    expect(ai.orderTargets([OR, O], "chat")).toEqual([O]);
+  });
+
+  it("a view that throws cannot switch a gated provider on", () => {
+    ai.setProviderRegistryView({ verdict: () => { throw new Error("x"); }, extras: () => [] });
+    expect(ai.orderTargets([OR, O], "chat")).toEqual([O]);
+  });
+
+  it("the registry contributes the gated provider's target, after the policy chain", () => {
+    ai.setProviderRegistryView({ verdict: () => "ready", extras: () => [OR] });
+    expect(ai.orderTargets([G, O], "chat")).toEqual([G, O, OR]);
+  });
+
+  it("the static chains never name a gated provider", () => {
+    for (const file of ["assistants.ts", "generators.ts", "visionAnalysts.ts", "whatsappUnderstand.ts"]) {
+      const src = readFileSync(`supabase/functions/_shared/${file}`, "utf8");
+      expect(src, file).not.toMatch(/provider:\s*"openrouter"/);
+    }
+  });
+
+  it("sends OpenRouter's app headers, and the key only as Bearer auth", async () => {
+    env.OPENROUTER_API_KEY = "or-test";
+    ai.setProviderRegistryView({ verdict: () => "ready", extras: () => [] });
+    const seen: Array<{ url: string; headers: Record<string, string> }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+      seen.push({ url, headers: init.headers as Record<string, string> });
+      return answer();
+    }));
+    await ai.structuredCompletionWithFallback({ targets: [OR], system: "s", userText: "u", schema: { type: "object" }, toolName: "answer" });
+    expect(seen[0].url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(seen[0].headers).toMatchObject({ "HTTP-Referer": "https://visionex.app", "X-Title": "Visionex", Authorization: "Bearer or-test" });
+  });
+});
+
+describe("registryViewFrom: reading the snapshot never holds up a request", () => {
   function fakeDb(rows: unknown, opts: { hang?: boolean; fail?: boolean } = {}) {
     const calls: unknown[][] = [];
     const db = {
@@ -212,61 +268,90 @@ describe("registryDemotionFrom: reading the snapshot never holds up a request", 
     return { db, calls };
   }
 
-  it("answers 'no demotion' until the first read lands, then from the snapshot, by kind", async () => {
+  const orRow = (over: Record<string, unknown> = {}) => ({
+    slug: "openrouter-chat", status: "active", health_score: 100, default_model: "m-free",
+    config: { production_eligible: true, verified_models: { "m-free": ["chat"] } }, ...over,
+  });
+
+  it("answers from the snapshot by kind: established providers default to ready, gated ones to excluded", async () => {
     const { db, calls } = fakeDb([
       { slug: "groq-chat", status: "degraded", health_score: 10 },
       { slug: "gemini-vision", status: "inactive", health_score: 50 },
       { slug: "openai-chat", status: "active", health_score: 90 },
     ]);
     const work: Promise<unknown>[] = [];
-    const demote = rec.registryDemotionFrom(db, { background: (p) => work.push(p), random: () => 0.99 });
+    const v = rec.registryViewFrom(db, { background: (p) => work.push(p), random: () => 0.99 });
 
-    expect(demote(G, "chat")).toBe(false); // nothing known yet: policy order
+    expect(v.verdict(G, "chat")).toBe("ready"); // nothing known yet: policy order
+    expect(v.verdict({ provider: "openrouter", model: "m" }, "chat")).toBe("excluded"); // silence never enables
     await Promise.all(work);
-    expect(calls).toEqual([["ph_providers", "slug, status, health_score", "type", ["chat", "vision"]]]);
-    expect(demote(G, "chat")).toBe(true);
-    expect(demote(O, "chat")).toBe(false);
-    expect(demote({ provider: "gemini", model: "gemini-flash-latest" }, "vision")).toBe(true);
-    expect(demote({ provider: "gemini", model: "gemini-flash-latest" }, "chat")).toBe(false); // no chat row in this snapshot
-    expect(demote({ provider: "anthropic", model: "x" }, "chat")).toBe(false); // no row at all
+    expect(calls).toEqual([["ph_providers", "slug, status, health_score, default_model, config", "type", ["chat", "vision"]]]);
+    expect(v.verdict(G, "chat")).toBe("demoted");
+    expect(v.verdict(O, "chat")).toBe("ready");
+    expect(v.verdict({ provider: "gemini", model: "gemini-flash-latest" }, "vision")).toBe("excluded");
+    expect(v.verdict({ provider: "gemini", model: "gemini-flash-latest" }, "chat")).toBe("ready"); // no chat row here
+    expect(v.verdict({ provider: "anthropic", model: "x" }, "chat")).toBe("ready"); // no row, not gated
+    expect(v.extras("chat", "stream")).toEqual([]); // no gated row
+  });
+
+  it("contributes a gated target only with an admin-chosen model verified for what the request needs", async () => {
+    const cases: Array<[Record<string, unknown>, "stream" | "structured", "chat" | "vision", boolean]> = [
+      [{}, "stream", "chat", true],
+      [{}, "structured", "chat", false], // not verified for tools
+      [{ config: { production_eligible: true, verified_models: { "m-free": ["chat", "tools"] } } }, "structured", "chat", true],
+      [{}, "stream", "vision", false], // no vision row, and not verified for vision
+      [{ default_model: null }, "stream", "chat", false],
+      [{ status: "inactive" }, "stream", "chat", false],
+      [{ config: { production_eligible: false, verified_models: { "m-free": ["chat"] } } }, "stream", "chat", false],
+    ];
+    for (const [over, mode, kind, expected] of cases) {
+      const { db } = fakeDb([orRow(over)]);
+      const work: Promise<unknown>[] = [];
+      const v = rec.registryViewFrom(db, { background: (p) => work.push(p) });
+      v.extras(kind, mode);
+      await Promise.all(work);
+      expect(v.extras(kind, mode), JSON.stringify([over, mode, kind])).toEqual(expected ? [{ provider: "openrouter", model: "m-free" }] : []);
+    }
   });
 
   it("refreshes at most once per TTL, one read at a time", async () => {
     let t = 0;
     const { db, calls } = fakeDb([]);
     const work: Promise<unknown>[] = [];
-    const demote = rec.registryDemotionFrom(db, { background: (p) => work.push(p), now: () => t });
-    demote(G, "chat"); demote(M, "chat"); demote(O, "chat");
+    const v = rec.registryViewFrom(db, { background: (p) => work.push(p), now: () => t });
+    v.verdict(G, "chat"); v.verdict(M, "chat"); v.extras("chat", "stream");
     await Promise.all(work);
     expect(calls).toHaveLength(1);
     t += rec.REGISTRY_SNAPSHOT_TTL_MS - 1;
-    demote(G, "chat");
+    v.verdict(G, "chat");
     expect(calls).toHaveLength(1);
     t += 2;
-    demote(G, "chat");
+    v.verdict(G, "chat");
     await Promise.all(work);
     expect(calls).toHaveLength(2);
   });
 
-  it("a registry that fails or hangs demotes nothing, and the request never waits for it", async () => {
+  it("a registry that fails or hangs changes nothing for established providers and enables nothing gated", async () => {
     vi.useFakeTimers();
     for (const opts of [{ fail: true }, { hang: true }]) {
       const { db } = fakeDb(null, opts);
       const work: Promise<unknown>[] = [];
-      const demote = rec.registryDemotionFrom(db, { background: (p) => work.push(p) });
-      expect(demote(G, "chat")).toBe(false);
+      const v = rec.registryViewFrom(db, { background: (p) => work.push(p) });
+      expect(v.verdict(G, "chat")).toBe("ready");
       await vi.advanceTimersByTimeAsync(rec.REGISTRY_READ_TIMEOUT_MS + 1);
       await Promise.all(work);
-      expect(demote(G, "chat")).toBe(false);
+      expect(v.verdict(G, "chat")).toBe("ready");
+      expect(v.verdict({ provider: "openrouter", model: "m" }, "chat")).toBe("excluded");
+      expect(v.extras("chat", "stream")).toEqual([]);
     }
   });
 });
 
 describe("wiring", () => {
-  it("the entry points that record attempts also install the registry reader, in the same call", () => {
+  it("the entry points that record attempts also install the registry view, in the same call", () => {
     const src = readFileSync("supabase/functions/_shared/chatRecorder.ts", "utf8");
     expect(src).toMatch(/setProviderAttemptRecorder\(/);
-    expect(src).toMatch(/setProviderRegistryDemotion\(registryDemotionFrom\(db\(\), \{ background: waitUntil \}\)\)/);
+    expect(src).toMatch(/setProviderRegistryView\(registryViewFrom\(db\(\), \{ background: waitUntil \}\)\)/);
   });
 
   it("Gemini's rows are activated only from 'inactive', idempotently, with health floored at 50", () => {
