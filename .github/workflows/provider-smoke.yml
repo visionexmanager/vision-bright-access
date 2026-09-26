@@ -66,12 +66,13 @@ jobs:
 
       # Why the failing providers fail: the provider's own reason, sanitised
       # (see the script header). Media generation only on dispatch with
-      # media=true, or on a PR carrying the provider-media-probe label.
+      # media=true, or on the one run triggered by *adding* the
+      # provider-media-probe label — never on a later push to a labelled PR.
       - name: Diagnose Bytez, OpenRouter, NVIDIA NIM and FAL
         shell: bash
         run: |
           ARGS=()
-          if [[ "${{ inputs.media }}" == "true" || "${{ contains(github.event.pull_request.labels.*.name, 'provider-media-probe') }}" == "true" ]]; then ARGS+=(--media); fi
+          if [[ "${{ inputs.media }}" == "true" || "${{ github.event.action == 'labeled' && github.event.label.name == 'provider-media-probe' }}" == "true" ]]; then ARGS+=(--media); fi
           node scripts/ai-eval/provider-diagnose.mjs "${ARGS[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
         env:
           OPENAI_API_KEY:     ${{ secrets.OPENAI_API_KEY }}
