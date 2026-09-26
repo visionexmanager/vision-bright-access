@@ -215,7 +215,8 @@ describe("5. video-studio's real request is untouched", () => {
 
   it("never replaces the provider: getProvider's choice is the only one", () => {
     expect(generate.match(/provider = /g)).toHaveLength(1);
-    expect(generate).toContain('provider = getProvider((providerName as string) || "auto");');
+    expect(generate).toContain('const name = (providerName as string) || "auto";');
+    expect(generate).toContain("provider = getProvider(name, { falRoutable });");
     const fn = studio.slice(studio.indexOf("function shadowAutoChoice("), studio.indexOf("// ── Handlers"));
     expect(fn).not.toMatch(/return [^;]*observ|getProvider|provider\s*=/);
   });
@@ -227,7 +228,8 @@ describe("5. video-studio's real request is untouched", () => {
   });
 
   it("keeps the environment rule and the RunPod gate — the only fallback behaviour there is", () => {
-    expect(studio).toContain('if (!requested) requested = "luma";');
+    // auto: Luma, or FAL only when Luma has no key and fal-video is routable (2026-09-26).
+    expect(studio).toContain('if (!requested) requested = !lumaKey && opts.falRoutable && falKey ? "fal" : "luma";');
     expect(studio).toContain("const readiness  = runpodReadiness(endpointId);");
     expect(studio).not.toMatch(/resolveProvider|rankProviders/);
   });

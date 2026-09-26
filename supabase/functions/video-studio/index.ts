@@ -11,7 +11,11 @@ import { runpodAdapter, runpodReadiness } from "../_shared/providers/runpod.ts";
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { publicMediaFailure } from "../_shared/providerInput.ts";
-import { recordProviderOutcome, VIDEO_PROVIDER_SLUG } from "../_shared/providerRecording.ts";
+import { providerRoutableIn, recordProviderOutcome, VIDEO_PROVIDER_SLUG } from "../_shared/providerRecording.ts";
+import {
+  decodeFalJobId, encodeFalJobId, FAL_VIDEO_MODEL, FalError, falCancel, falResult, falStatus, falSubmit,
+  falVideoInput, falVideoUrl, isFalMediaUrl,
+} from "../_shared/providers/fal.ts";
 import { observeShadow, shadowEnabled } from "../_shared/providerSelection.ts";
 
 const CORS = {
@@ -334,20 +338,100 @@ class RunPodVideoProvider implements VideoProvider {
   }
 }
 
+// ── FAL ──────────────────────────────────────────────────────────────────────
+//
+// A fourth implementation of the same interface; the transport is
+// _shared/providers/fal.ts. Wan 2.2 5B only — fal.ai marks it "Commercial
+// use". LTX-Video is "Research only" and the transport refuses it by name.
+//
+// `publicAssetUrls = false`, as for RunPod: the result lands in Visionex's own
+// storage before the job completes, and only from FAL's media CDN over https
+// (fetchAsset below refuses any other host). The stored provider job id is
+// "<endpoint>|<request id>", decoded strictly on every poll.
+class FalVideoProvider implements VideoProvider {
+  name = "fal";
+  publicAssetUrls = false;
+
+  constructor(private key: string) {}
+
+  async generateVideo(params: VideoGenerateParams): Promise<VideoGenerateResult> {
+    try {
+      const requestId = await falSubmit({ key: this.key }, FAL_VIDEO_MODEL, falVideoInput({
+        prompt:         buildPrompt(params),
+        negativePrompt: params.negativePrompt,
+        aspectRatio:    params.aspectRatio,
+        resolution:     params.resolution,
+        durationSec:    params.durationSec,
+        seed:           params.seed,
+      }));
+      return { ok: true, providerJobId: encodeFalJobId(FAL_VIDEO_MODEL, requestId) };
+    } catch (e) {
+      // A closed code; publicMediaFailure turns it into the user's sentence.
+      return { ok: false, error: `fal ${e instanceof FalError ? e.code : "unknown"}` };
+    }
+  }
+
+  async pollJob(providerJobId: string): Promise<VideoPollResult> {
+    const job = decodeFalJobId(providerJobId);
+    if (!job) return { ok: false, state: "failed", progress: 0, error: "fal invalid_job" };
+    try {
+      const status = await falStatus({ key: this.key }, job.endpoint, job.requestId);
+      if (status === "queued") return { ok: true, state: "pending", progress: 10 };
+      if (status === "running") return { ok: true, state: "processing", progress: 50 };
+      if (status === "failed") return { ok: false, state: "failed", progress: 0, error: "fal failed" };
+      const videoUrl = falVideoUrl(await falResult({ key: this.key }, job.endpoint, job.requestId));
+      if (!videoUrl) return { ok: false, state: "failed", progress: 0, error: "fal untrusted_result" };
+      return { ok: true, state: "completed", progress: 100, videoUrl };
+    } catch (e) {
+      // A poll that cannot reach FAL is not a failed video; the next poll asks again.
+      const code = e instanceof FalError ? e.code : "unknown";
+      if (code === "timeout" || code === "network" || code === "http_5xx" || code === "http_429") {
+        return { ok: true, state: "processing", progress: 50 };
+      }
+      return { ok: false, state: "failed", progress: 0, error: `fal ${code}` };
+    }
+  }
+
+  async cancelJob(providerJobId: string): Promise<void> {
+    const job = decodeFalJobId(providerJobId);
+    if (job) await falCancel({ key: this.key }, job.endpoint, job.requestId);
+  }
+
+  fetchAsset(url: string): Promise<Response> {
+    if (!isFalMediaUrl(url)) return Promise.reject(new Error("The video could not be retrieved."));
+    // Public CDN file: no key travels with it, and a redirect elsewhere is refused.
+    return fetch(url, { redirect: "error" });
+  }
+}
+
 //
 // "auto" (the client default) is Luma: since 2026-09-24 it is the only
 // provider that can serve a request. OpenAI Sora is retired and refused by
 // name, so a template saved against it gets a sentence instead of a 404.
 
-function getProvider(name?: string): VideoProvider {
+//
+// FAL is chosen for "auto" only when Luma has no key AND the fal-video row is
+// active and production-eligible (`falRoutable`, read by the caller through
+// providerRoutableIn, which fails closed). A key alone never switches it on —
+// the same staged-rollout rule as RunPod, with the registry as the switch.
+// A job already running on FAL is polled and cancelled regardless
+// (`existingJob`): deactivating the row must not strand a paid job.
+function getProvider(name?: string, opts: { falRoutable?: boolean; existingJob?: boolean } = {}): VideoProvider {
   const lumaKey   = Deno.env.get("LUMA_API_KEY");
+  const falKey    = Deno.env.get("FAL_KEY");
 
   let requested = name && name !== "auto" ? name : "";
   // "auto" never resolves to RunPod. It is chosen explicitly or not at all:
   // an execution target that can be selected by default is one that starts
   // serving traffic the day its key is added, which is the opposite of a
   // staged rollout.
-  if (!requested) requested = "luma";
+  if (!requested) requested = !lumaKey && opts.falRoutable && falKey ? "fal" : "luma";
+
+  if (requested === "fal") {
+    if (!falKey) throw new Error("FAL_KEY is not configured.");
+    if (!opts.existingJob && !opts.falRoutable) throw new Error("No video provider is available.");
+    return new FalVideoProvider(falKey);
+  }
 
   if (requested === "runpod") {
     // Configuration comes from the server, never from the caller. The client
@@ -383,7 +467,7 @@ function getProvider(name?: string): VideoProvider {
   }
 
   // Add more providers here: RunwayML, Kling, Pika, Veo, etc.
-  throw new Error(`Unknown video provider: "${requested}". Supported: luma, runpod`);
+  throw new Error(`Unknown video provider: "${requested}". Supported: luma, runpod, fal`);
 }
 
 // ── Provider registry recording (Phase 2J-0) ────────────────────────────────
@@ -458,7 +542,11 @@ async function handleGenerate(
   // "not configured" message instead of creating a job that can never succeed.
   let provider: VideoProvider;
   try {
-    provider = getProvider((providerName as string) || "auto");
+    const name = (providerName as string) || "auto";
+    // The registry is asked only when FAL could be the answer.
+    const falRoutable = (name === "fal" || (name === "auto" && !Deno.env.get("LUMA_API_KEY")))
+      && await providerRoutableIn(dbService, "fal-video");
+    provider = getProvider(name, { falRoutable });
   } catch (err) {
     // Which provider, which secret and the caller's own provider string stay
     // in the log; the caller is told only that video is unavailable (Phase 2F-3).
@@ -472,6 +560,8 @@ async function handleGenerate(
   const requestedModel = typeof provider_model === "string" ? provider_model.trim() : "";
   const resolvedModel  = provider.name === "luma"
     ? lumaRequestShape({ model: requestedModel, durationSec: 5, resolution: "720p" }).model
+    // FAL runs one commercially licensed model whatever the caller asked for.
+    : provider.name === "fal" ? FAL_VIDEO_MODEL
     : requestedModel || "default";
 
   // Create job record
@@ -585,7 +675,7 @@ async function handlePoll(
 
   let provider: VideoProvider;
   try {
-    provider = getProvider(job.provider);
+    provider = getProvider(job.provider, { existingJob: true });
   } catch (err) {
     const msg = publicMediaFailure(err, "video", "video-studio");
     await (db as any).from("vx_video_jobs").update({
@@ -767,7 +857,7 @@ async function handleCancel(
 
   if (job?.provider_job_id) {
     try {
-      const provider = getProvider(job.provider);
+      const provider = getProvider(job.provider, { existingJob: true });
       await provider.cancelJob(job.provider_job_id);
     } catch {
       // Best-effort — cancellation should never block marking the job cancelled below.

@@ -1,0 +1,41 @@
+name: FAL adapter smoke test (paid)
+
+# One real FAL image and one real FAL video through Visionex's own transport
+# (_shared/providers/fal.ts). PAID — about $0.16 in total — so it never runs
+# on a push: only on the event of *adding* the provider-media-probe label to a
+# pull request, or by hand. A locked or unfunded account stops at the first
+# refusal and costs nothing. Prints results and codes only.
+#
+# No branch filter: the PR carrying the video path is stacked on another PR.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+
+concurrency:
+  group: fal-adapter-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: FAL image and video through the Visionex transport
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label.name == 'provider-media-probe' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Run
+        shell: bash
+        run: deno run --no-lock --node-modules-dir=none --allow-env --allow-net scripts/ai-eval/fal-adapter-smoke.ts | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          FAL_KEY: ${{ secrets.FAL_KEY }}

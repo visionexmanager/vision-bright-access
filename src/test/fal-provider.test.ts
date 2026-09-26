@@ -246,3 +246,39 @@ describe("image-generate wiring", () => {
     expect(src).toContain('Deno.env.get("FAL_KEY")');
   });
 });
+
+describe("video-studio wiring", () => {
+  const studio = readFileSync("supabase/functions/video-studio/index.ts", "utf8");
+  const cls = studio.slice(studio.indexOf("class FalVideoProvider"), studio.indexOf("function getProvider("));
+  const factory = studio.slice(studio.indexOf("function getProvider("), studio.indexOf("// ── Provider registry recording"));
+  const generate = studio.slice(studio.indexOf("async function handleGenerate"), studio.indexOf("async function handlePoll"));
+
+  it("a new FAL job needs the fal-video row routable; a key alone never switches it on", () => {
+    expect(factory).toContain("if (!opts.existingJob && !opts.falRoutable) throw new Error");
+    expect(generate).toContain('await providerRoutableIn(dbService, "fal-video")');
+    // The registry is not even asked when Luma can serve "auto".
+    expect(generate).toMatch(/\(name === "fal" \|\| \(name === "auto" && !Deno\.env\.get\("LUMA_API_KEY"\)\)\)\s*&& await providerRoutableIn/);
+  });
+
+  it("a running FAL job is polled and cancelled even if the row is later switched off", () => {
+    expect(studio.match(/getProvider\(job\.provider, \{ existingJob: true \}\)/g)).toHaveLength(2);
+  });
+
+  it("runs only the commercial Wan model, stores the result in Visionex storage, and fetches only from FAL's CDN", () => {
+    expect(cls).toContain("falSubmit({ key: this.key }, FAL_VIDEO_MODEL,");
+    expect(cls).not.toMatch(/ltx/i);
+    expect(cls).toContain("publicAssetUrls = false;");
+    expect(cls).toContain("if (!isFalMediaUrl(url)) return Promise.reject(");
+    expect(cls).toContain('fetch(url, { redirect: "error" })');
+    expect(generate).toContain('provider.name === "fal" ? FAL_VIDEO_MODEL');
+  });
+
+  it("a poll that cannot reach FAL keeps the job processing instead of failing a paid render", () => {
+    expect(cls).toMatch(/code === "timeout" \|\| code === "network" \|\| code === "http_5xx" \|\| code === "http_429"\) \{\s*return \{ ok: true, state: "processing"/);
+  });
+
+  it("failures reach the user only as closed codes turned into fixed sentences", () => {
+    expect(cls).not.toMatch(/error: e\.message|String\(e\)/);
+    expect(cls).toContain('`fal ${e instanceof FalError ? e.code : "unknown"}`');
+  });
+});
