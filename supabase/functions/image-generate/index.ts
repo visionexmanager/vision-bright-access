@@ -11,6 +11,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
+import { providerRoutableIn } from "../_shared/providerRecording.ts";
+import { publicMediaFailure } from "../_shared/providerInput.ts";
+import { FalError, falGenerateImage } from "../_shared/providers/fal.ts";
 
 // ── Provider Registry recording (Phase 2D) ─────────────────────────────────
 //
@@ -21,9 +24,9 @@ import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
 // not a provider choice the registry models — openai-image has one row
 // because there is genuinely one vendor here, and recordResult() logs what
 // that one vendor actually did without gating whether it ran.
-async function recordImageResult(params: { ms: number; success: boolean; errorMessage?: string }): Promise<void> {
+async function recordImageResult(params: { slug?: "openai-image" | "fal-image"; ms: number; success: boolean; errorMessage?: string }): Promise<void> {
   try {
-    const row = await providerBySlug("openai-image");
+    const row = await providerBySlug(params.slug ?? "openai-image");
     if (!row) return;
     await recordResult({
       provider_id: row.id, provider_slug: row.slug, job_type: "image",
@@ -90,6 +93,15 @@ function normaliseQuality(requested: string): "medium" | "high" {
 
 interface ImageGenerateResult {
   ok:             boolean;
+  /**
+   * True when another provider could succeed where this one failed: the key,
+   * the model, the rate limit or the service — not the prompt. A request the
+   * provider refused on content grounds is never retried elsewhere.
+   */
+  retryElsewhere?: boolean;
+  /** A short code for the registry and the job row, never a provider sentence. */
+  code?:          string;
+  mime?:          string;
   /** PNG bytes. The caller stores them; there is no provider URL to keep. */
   bytes?:         Uint8Array;
   revisedPrompt?: string;
@@ -114,6 +126,8 @@ async function generateImage(params: {
     return {
       ok:    false,
       error: "OPENAI_API_KEY not configured in Supabase Edge Function secrets. Contact the administrator.",
+      retryElsewhere: true,
+      code:  "not_configured",
     };
   }
 
@@ -161,24 +175,55 @@ async function generateImage(params: {
         500: "OpenAI service error — please retry in a few seconds.",
         503: "OpenAI is temporarily unavailable. Please retry shortly.",
       };
-      return { ok: false, error: statusMap[res.status] ?? `OpenAI image error (${res.status}): ${detail}` };
+      return {
+        ok: false,
+        error: statusMap[res.status] ?? `OpenAI image error (${res.status}): ${detail}`,
+        // 400 is the request (often the content filter); everything else is the provider.
+        retryElsewhere: res.status !== 400,
+        code: res.status >= 500 ? "http_5xx" : `http_${res.status}`,
+      };
     }
 
     const data = await res.json();
     const image = data.data?.[0];
     if (!image?.b64_json) {
-      return { ok: false, error: "OpenAI returned no image. The prompt may have been rejected by content policy." };
+      return { ok: false, error: "OpenAI returned no image. The prompt may have been rejected by content policy.", retryElsewhere: false, code: "content_filtered" };
     }
 
     return {
       ok:            true,
+      mime:          "image/png",
       bytes:         decodeBase64(image.b64_json),
       revisedPrompt: image.revised_prompt ?? params.prompt,
       model,
     };
   }
 
-  return { ok: false, error: lastError };
+  return { ok: false, error: lastError, retryElsewhere: true, code: "http_404" };
+}
+
+// ── FAL, the second image provider ───────────────────────────────────────────
+//
+// Tried only when OpenAI failed for a reason another vendor could fix, and
+// only while the `fal-image` registry row is active AND production-eligible —
+// both admin decisions taken after a real smoke test (providerRoutableIn,
+// which fails closed). Its model is FLUX.1 [schnell], marked "Commercial use"
+// on fal.ai; the transport, host allowlist and error codes live in
+// _shared/providers/fal.ts. Its bytes land in the same bucket as OpenAI's, so
+// the user never receives a FAL link. The request's daily-limit unit was
+// charged once, before either provider ran; falling back charges nothing more.
+async function generateWithFal(params: { prompt: string; size: ImageSize }): Promise<ImageGenerateResult> {
+  const [width, height] = params.size.split("x").map((n) => parseInt(n, 10));
+  const startedAt = Date.now();
+  try {
+    const out = await falGenerateImage({ key: Deno.env.get("FAL_KEY"), deadlineMs: 60_000 }, { prompt: params.prompt, width, height });
+    await recordImageResult({ slug: "fal-image", ms: Date.now() - startedAt, success: true });
+    return { ok: true, bytes: out.bytes, mime: out.mime, model: out.model, revisedPrompt: params.prompt };
+  } catch (e) {
+    const code = e instanceof FalError ? e.code : "unknown";
+    await recordImageResult({ slug: "fal-image", ms: Date.now() - startedAt, success: false, errorMessage: code });
+    return { ok: false, error: code === "content_filtered" ? "content policy" : `fal ${code}`, retryElsewhere: false, code };
+  }
 }
 
 // ── Request interface ─────────────────────────────────────────────────────────
@@ -287,25 +332,30 @@ Deno.serve(async (req: Request) => {
   // Generate the image
   try {
     const startedAt = Date.now();
-    const result = await generateImage({
+    let result = await generateImage({
       prompt:  prompt.trim(),
       size:    wantedSize,
       quality: wantedQuality,
     });
     const elapsedMs = Date.now() - startedAt;
+    // The registry keeps a short code, never the provider's sentence.
+    await recordImageResult({ ms: elapsedMs, success: result.ok, ...(result.ok ? {} : { errorMessage: result.code ?? "unknown" }) });
+
+    if (!result.ok && result.retryElsewhere && await providerRoutableIn(serviceClient, "fal-image")) {
+      result = await generateWithFal({ prompt: prompt.trim(), size: wantedSize });
+    }
 
     if (!result.ok) {
-      await recordImageResult({ ms: elapsedMs, success: false, errorMessage: result.error });
       if (jobRow) {
         await serviceClient.from("ams_image_jobs").update({
           status:        "failed",
-          error_message: result.error,
+          error_message: result.code ?? "failed",
           completed_at:  new Date().toISOString(),
         }).eq("id", jobId);
       }
-      return json({ ok: false, error: result.error, job_id: jobId }, 500);
+      // A fixed sentence: no vendor, secret name or status code reaches the studio (Phase 2F-3).
+      return json({ ok: false, error: publicMediaFailure(result.error, "image", "image-generate"), job_id: jobId }, 500);
     }
-    await recordImageResult({ ms: elapsedMs, success: true });
 
     // Parse dimensions from the size actually asked of the model.
     const [widthStr, heightStr] = wantedSize.split("x");
@@ -322,7 +372,7 @@ Deno.serve(async (req: Request) => {
     const objectPath = `${user.id}/${jobId}.png`;
     const { error: uploadErr } = await serviceClient.storage
       .from("image-outputs")
-      .upload(objectPath, result.bytes!, { contentType: "image/png", upsert: true });
+      .upload(objectPath, result.bytes!, { contentType: result.mime ?? "image/png", upsert: true });
     if (uploadErr) {
       console.error("Image upload failed:", uploadErr.message);
       if (jobRow) {
@@ -361,7 +411,7 @@ Deno.serve(async (req: Request) => {
             source:         "image-studio",
             prompt:         prompt.trim(),
             revised_prompt: result.revisedPrompt,
-            model,
+            model:          result.model ?? model,
             size,
             quality,
             style,
@@ -394,7 +444,7 @@ Deno.serve(async (req: Request) => {
       revised_prompt: result.revisedPrompt,
       width,
       height,
-      model,
+      model:          result.model ?? model,
       size,
       quality,
       style,
