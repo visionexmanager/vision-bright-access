@@ -134,6 +134,13 @@ async function bytez(key) {
   const auth = facts.bytez.auth_form === "Key-prefix" ? `Key ${key}` : facts.bytez.auth_form === "Bearer" ? `Bearer ${key}` : key;
   const r2 = await call(`${base}/list/tasks`, { headers: { Authorization: auth } });
   row("bytez", "list/tasks", "-", r2, r2.status === 200);
+  // Whose side is a "model does not exist"? The documented example model,
+  // asked with no key and with a Bearer key: if a request without any key gets
+  // the same answer, Bytez is not reading the key at all on this route.
+  for (const [label, h] of [["no-key", {}], ["Bearer", { Authorization: `Bearer ${key}` }], ["wrong-key", { Authorization: "not-a-real-key" }]]) {
+    const r = await call(`${base}/openai/v1/chat/completions`, { method: "POST", headers: json(h), body: JSON.stringify({ model: "Qwen/Qwen3-4B", messages: ASK, max_tokens: 16 }) });
+    row("bytez", `text(${label})`, "Qwen/Qwen3-4B", r, r.status === 200);
+  }
   const candidates = [...new Set([...(facts.bytez.chat_sample ?? []).slice(0, 3), "Qwen/Qwen3-4B", "openai/gpt-4o-mini", "google/gemma-3-1b-it"])];
   for (const model of candidates.slice(0, 5)) {
     await chatProbe("bytez", `${base}/openai/v1`, { Authorization: auth }, model, "text");
