@@ -17,8 +17,12 @@ on:
         type: boolean
         default: false
   pull_request:
+    # "labeled" so adding the provider-media-probe label runs the paid media
+    # probes once, deliberately; they never run on an ordinary push.
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - scripts/ai-eval/provider-smoke.mjs
+      - scripts/ai-eval/provider-diagnose.mjs
       - .github/workflows/provider-smoke.yml
 
 concurrency:
@@ -33,7 +37,7 @@ jobs:
     name: Generate with every provider key
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
@@ -59,6 +63,25 @@ jobs:
           RUNPOD_API_KEY:     ${{ secrets.RUNPOD_API_KEY }}
           LUMA_API_KEY:       ${{ secrets.LUMA_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+
+      # Why the failing providers fail: the provider's own reason, sanitised
+      # (see the script header). Media generation only on dispatch with
+      # media=true, or on a PR carrying the provider-media-probe label.
+      - name: Diagnose Bytez, OpenRouter, NVIDIA NIM and FAL
+        shell: bash
+        run: |
+          ARGS=()
+          if [[ "${{ inputs.media }}" == "true" || "${{ contains(github.event.pull_request.labels.*.name, 'provider-media-probe') }}" == "true" ]]; then ARGS+=(--media); fi
+          node scripts/ai-eval/provider-diagnose.mjs "${ARGS[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          OPENAI_API_KEY:     ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY:    ${{ secrets.MISTRAL_API_KEY }}
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          BYTEZ_API_KEY:      ${{ secrets.BYTEZ_API_KEY }}
+          FAL_KEY:            ${{ secrets.FAL_KEY }}
 
       # Which provider secrets the Edge Function runtime holds, and whether each
       # is the same value as the GitHub secret probed above. The comparison is
