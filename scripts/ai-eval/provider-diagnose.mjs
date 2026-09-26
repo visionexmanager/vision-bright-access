@@ -34,6 +34,8 @@ function sanitize(text) {
   for (const secret of SECRETS) s = s.split(secret).join("[key]");
   s = s
     .replace(/\b(sk|nvapi|pk|rk|key|bearer)[-_][A-Za-z0-9_-]{8,}/gi, "[key]")
+    // Account identifiers: OpenRouter user ids, OpenAI organization and project ids.
+    .replace(/\b(user|org|proj)[-_][A-Za-z0-9]{6,}/gi, "[account]")
     .replace(/[A-Za-z0-9_-]{32,}/g, "[id]")
     .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]")
     .replace(/(https?:\/\/[^\s?"']+)\?[^\s"']*/g, "$1?[query]")
