@@ -26,6 +26,12 @@ const TOOL_MODEL = Deno.env.get("OPENROUTER_SMOKE_TOOL_MODEL") ?? "inclusionai/l
 // A free model that answered 429 upstream in every run on 2026-09-26.
 const BUSY_MODEL = Deno.env.get("OPENROUTER_SMOKE_BUSY_MODEL") ?? "qwen/qwen3.8-27b:free";
 
+// The adapter logs provider failures; until every path logs codes only (#356),
+// a failure body could name the account on this public log. The table below
+// carries everything this run needs to say.
+console.error = () => {};
+console.warn = () => {};
+
 const attempts: ProviderAttempt[] = [];
 setProviderAttemptRecorder((a) => attempts.push(a));
 setProviderRegistryView({ verdict: () => "ready", extras: () => [] });
