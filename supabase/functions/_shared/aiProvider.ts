@@ -17,8 +17,18 @@ import {
   geminiStreamChatCompletion,
   geminiStructuredCompletion,
 } from "./geminiProvider.ts";
+import { providerErrorSummary } from "./providerInput.ts";
 
-export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral";
+export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral" | "openrouter";
+
+/**
+ * Providers that serve nothing until the registry switches them on. A target
+ * for one of these is used only when the installed registry view says its row
+ * is active or degraded AND production-eligible (see orderTargets); with no
+ * view installed, or a view that cannot say, it is never tried. They are never
+ * named in the static chains: their targets come from the registry row.
+ */
+export const ACTIVATION_GATED: ReadonlySet<AIProvider> = new Set<AIProvider>(["openrouter"]);
 
 export interface ProviderChatParams {
   provider: AIProvider;
@@ -56,9 +66,11 @@ interface OpenAICompatibleConfig {
   /** Supabase Edge Function secret holding the key. Never inlined anywhere. */
   envKey: string;
   chatUrl: string;
+  /** Extra request headers the vendor asks for. Never auth; never a secret. */
+  headers?: Record<string, string>;
 }
 
-const OPENAI_COMPATIBLE: Record<"openai" | "groq" | "mistral", OpenAICompatibleConfig> = {
+const OPENAI_COMPATIBLE: Record<"openai" | "groq" | "mistral" | "openrouter", OpenAICompatibleConfig> = {
   openai: {
     label: "OpenAI",
     envKey: "OPENAI_API_KEY",
@@ -73,6 +85,14 @@ const OPENAI_COMPATIBLE: Record<"openai" | "groq" | "mistral", OpenAICompatibleC
     label: "Mistral",
     envKey: "MISTRAL_API_KEY",
     chatUrl: "https://api.mistral.ai/v1/chat/completions",
+  },
+  // OpenAI's dialect verbatim. The two headers identify the app to OpenRouter
+  // (its docs recommend them); neither is authentication. Activation-gated.
+  openrouter: {
+    label: "OpenRouter",
+    envKey: "OPENROUTER_API_KEY",
+    chatUrl: "https://openrouter.ai/api/v1/chat/completions",
+    headers: { "HTTP-Referer": "https://visionex.app", "X-Title": "Visionex" },
   },
 };
 
@@ -97,14 +117,28 @@ const OPENAI_REASONING_MODELS: Readonly<Record<string, { effort: "none" | "low" 
   "gpt-5.6-luna": { effort: "none" },
 };
 
+/**
+ * Groq's gpt-oss models reason before they answer, and `max_tokens` counts the
+ * reasoning. Measured 2026-09-26 (provider-smoke.yml): asked for two sentences
+ * with max_tokens 200 at the default effort, gpt-oss-20b returned HTTP 200 and
+ * *no text* — every token went on reasoning. An empty stream is a success to
+ * the fallback loop, so the user got silence. At effort "low" the same request
+ * answered. Low effort, plus headroom for the reasoning on top of the caller's
+ * budget for the answer.
+ */
+const GROQ_REASONING_MODELS: ReadonlySet<string> = new Set(["openai/gpt-oss-20b", "openai/gpt-oss-120b"]);
+export const GROQ_REASONING_HEADROOM = 512;
+
 /** The completion-budget fields a request carries, for this provider and model. */
-function completionBudget(provider: AIProvider, model: string, limit: number): Record<string, unknown> {
+export function completionBudget(provider: AIProvider, model: string, limit: number): Record<string, unknown> {
   const reasoning = provider === "openai" && Object.prototype.hasOwnProperty.call(OPENAI_REASONING_MODELS, model)
     ? OPENAI_REASONING_MODELS[model]
     : undefined;
-  return reasoning
-    ? { max_completion_tokens: limit, reasoning_effort: reasoning.effort }
-    : { max_tokens: limit };
+  if (reasoning) return { max_completion_tokens: limit, reasoning_effort: reasoning.effort };
+  if (provider === "groq" && GROQ_REASONING_MODELS.has(model)) {
+    return { max_tokens: limit + GROQ_REASONING_HEADROOM, reasoning_effort: "low" };
+  }
+  return { max_tokens: limit };
 }
 
 /**
@@ -200,6 +234,8 @@ export const ATTEMPT_ERROR_CODES = [
   "http_400", "http_401", "http_403", "http_404", "http_408", "http_413", "http_422", "http_429",
   "http_4xx", "http_5xx",
   "invalid_response", "timeout", "network", "unknown",
+  // A stream the provider accepted that then broke, or ended with no text.
+  "stream_interrupted", "empty_response",
 ] as const;
 export type AttemptErrorCode = typeof ATTEMPT_ERROR_CODES[number];
 
@@ -239,12 +275,19 @@ export function setProviderAttemptRecorder(recorder: AttemptRecorder | null): vo
 }
 
 const SPECIFIC_4XX = new Set([400, 401, 403, 404, 408, 413, 422, 429]);
+const UNREADABLE_ANSWER = new Set([
+  "No structured response from AI",
+  "No structured response from Gemini",
+  "Gemini returned non-JSON output despite responseSchema",
+]);
 
 /** The one code an attempt's error is recorded as. Reads the error's type and status, never records its text. */
 export function attemptErrorCode(error: unknown): AttemptErrorCode {
   if (error instanceof ProviderError) {
     if (/ is not configured$/.test(error.message)) return "not_configured";
-    if (error.message === "No structured response from AI") return "invalid_response";
+    // Gemini's two parse failures arrive with status 500; they are an answer we
+    // could not read, not an outage, and must not cool Gemini down.
+    if (UNREADABLE_ANSWER.has(error.message)) return "invalid_response";
     if (SPECIFIC_4XX.has(error.status)) return `http_${error.status}` as AttemptErrorCode;
     if (error.status >= 400 && error.status < 500) return "http_4xx";
     if (error.status >= 500 && error.status < 600) return "http_5xx";
@@ -270,6 +313,127 @@ function elapsedMs(start: number): number {
   return Math.min(MAX_RECORDED_ATTEMPT_MS, Math.max(0, Math.round(Date.now() - start)));
 }
 
+// ── Health-aware ordering ────────────────────────────────────────────────────
+//
+// A chain's order is quality policy (assistants.ts, generators.ts, …) and it
+// stays the order of first choice. Two things may move a target *later* in
+// its chain, so an unhealthy provider remains a last resort and an outage of
+// the others does not leave a request with nothing to try. Only an explicit
+// switch removes one: a row an admin set inactive or error, or an
+// activation-gated provider (ACTIVATION_GATED) whose row is not switched on.
+//
+//   1. A short, per-isolate cooldown after a failure that will repeat if we
+//      ask again at once: a 429, a 5xx, a timeout, a dropped connection, a
+//      refused or missing key, a vanished model. Keyed by provider *and*
+//      model — on 2026-09-26 Mistral answered ministral-14b and refused
+//      mistral-small on the same key. It expires by itself, so a recovered
+//      provider is first again within minutes, with no admin step. A request
+//      that was itself malformed (400/413/422, unparseable answer) sets no
+//      cooldown: the next request is a different request.
+//
+//   2. The registry (ph_providers), when an entry point installs a view:
+//      a row whose health the recorded attempts have driven down is demoted;
+//      a row an admin marked inactive or error is excluded; and the view
+//      contributes the targets of switched-on gated providers (RegistryView).
+//      See installChatAttemptRecording().
+//
+// This is the in-memory half of the health system, not a second one: the
+// durable half is ph_providers, fed by the same attempts via the recorder.
+// It exists because a registry read costs a round trip and a cooldown must
+// act on the very next request.
+
+/** How long a target sits at the back of its chain after each kind of failure. */
+export const COOLDOWN_MS: Readonly<Partial<Record<AttemptErrorCode, number>>> = {
+  http_429: 60_000,
+  http_5xx: 30_000,
+  http_408: 30_000,
+  timeout: 30_000,
+  network: 30_000,
+  http_401: 300_000,
+  http_403: 300_000,
+  not_configured: 300_000,
+  http_404: 300_000,
+  stream_interrupted: 30_000,
+};
+
+const cooldownUntil = new Map<string, number>();
+const targetKey = (t: ProviderTarget) => `${t.provider}/${t.model}`;
+
+/** Tests only: forget every cooldown. */
+export function resetProviderCooldowns(): void {
+  cooldownUntil.clear();
+}
+
+function noteOutcome(target: ProviderTarget, error: AttemptErrorCode | undefined): void {
+  const key = targetKey(target);
+  if (!error) { cooldownUntil.delete(key); return; }
+  const ms = COOLDOWN_MS[error];
+  if (ms) cooldownUntil.set(key, Date.now() + ms);
+}
+
+/**
+ * What the registry says about one target. Must not throw or block.
+ *   "ready"    — use it in policy order.
+ *   "demoted"  — unhealthy: try it after the healthy ones.
+ *   "excluded" — an admin switched its row off (inactive/error), or it is an
+ *                activation-gated provider whose row is not switched on. Never
+ *                tried: an inactive provider receives no traffic at all.
+ */
+export type RegistryVerdict = "ready" | "demoted" | "excluded";
+
+export interface RegistryView {
+  verdict(target: ProviderTarget, kind: AttemptKind): RegistryVerdict;
+  /**
+   * Targets the registry itself contributes — activation-gated providers whose
+   * rows are switched on, with the model an admin chose and verified for what
+   * this request needs (tools for structured output). Appended after the
+   * policy chain; empty until such a row exists.
+   */
+  extras(kind: AttemptKind, mode: "stream" | "structured"): ProviderTarget[];
+}
+let registryView: RegistryView | null = null;
+
+/** Installed once per function, beside the recorder; null removes it. */
+export function setProviderRegistryView(view: RegistryView | null): void {
+  registryView = view;
+}
+
+/**
+ * The chain in the order it will be tried: targets in good standing first, in
+ * policy order; then the registry's own targets; then registry-demoted ones;
+ * then cooling ones, soonest to recover first. Excluded targets — rows an
+ * admin switched off, and gated providers not switched on — are dropped;
+ * nothing else is.
+ */
+export function orderTargets(
+  targets: ProviderTarget[],
+  kind: AttemptKind,
+  mode: "stream" | "structured" = "structured",
+  now = Date.now(),
+): ProviderTarget[] {
+  const ready: ProviderTarget[] = [];
+  const demoted: ProviderTarget[] = [];
+  const cooling: Array<[ProviderTarget, number]> = [];
+  let extras: ProviderTarget[] = [];
+  try { extras = registryView?.extras(kind, mode) ?? []; } catch { extras = []; }
+  const seen = new Set(targets.map(targetKey));
+  const all = [...targets, ...extras.filter((t) => !seen.has(targetKey(t)))];
+  for (const t of all) {
+    let verdict: RegistryVerdict = ACTIVATION_GATED.has(t.provider) ? "excluded" : "ready";
+    try {
+      const said = registryView?.verdict(t, kind);
+      if (said) verdict = said;
+    } catch { /* a view that throws says nothing: gated stays excluded, the rest ready */ }
+    if (ACTIVATION_GATED.has(t.provider) && !registryView) verdict = "excluded";
+    if (verdict === "excluded") continue;
+    const until = cooldownUntil.get(targetKey(t)) ?? 0;
+    if (until > now) { cooling.push([t, until]); continue; }
+    (verdict === "demoted" ? demoted : ready).push(t);
+  }
+  cooling.sort((a, b) => a[1] - b[1]);
+  return [...ready, ...demoted, ...cooling.map(([t]) => t)];
+}
+
 /** Try providers in order until one accepts the streaming request. */
 export async function streamChatCompletionWithFallback(
   params: Omit<ProviderChatParams, "provider" | "model"> & { targets: ProviderTarget[] },
@@ -277,15 +441,27 @@ export async function streamChatCompletionWithFallback(
   if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
 
   let lastError: unknown;
-  for (const [index, target] of params.targets.entries()) {
+  for (const [index, target] of orderTargets(params.targets, "chat", "stream").entries()) {
     const start = Date.now();
     const base = { kind: "chat", mode: "stream", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
-      const result = await streamChatCompletion({ ...params, ...target });
-      reportAttempt({ ...base, success: true, ms: elapsedMs(start) });
+      const accepted = await streamChatCompletion({ ...params, ...target });
+      const ms = elapsedMs(start);
+      // Accepted is not delivered. The attempt is settled when the stream
+      // ends: complete with text is a success; a body that breaks, or ends
+      // without a word, is a failure — recorded, and held against the target's
+      // health and cooldown like any other. Bytes already sent cannot be taken
+      // back, so there is no fallback after this point; the next request is
+      // what benefits.
+      const result = observeStream(accepted, (error) => {
+        noteOutcome(target, error);
+        reportAttempt({ ...base, success: !error, ms, ...(error ? { error } : {}) });
+      });
       return { ...target, result };
     } catch (error) {
-      reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: attemptErrorCode(error) });
+      const code = attemptErrorCode(error);
+      noteOutcome(target, code);
+      reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: code });
       lastError = error;
       console.warn(`[ai-provider] ${target.provider}/${target.model} unavailable; trying fallback`);
     }
@@ -293,6 +469,57 @@ export async function streamChatCompletionWithFallback(
 
   if (lastError instanceof ProviderError) throw lastError;
   throw new ProviderError(500, "All AI providers failed");
+}
+
+/**
+ * The same bytes, observed. `settle` runs exactly once: with no code when the
+ * stream completes having carried text (or the reader cancels it — a client
+ * that leaves is not the provider's failure), with "empty_response" when it
+ * completes without any, and with "stream_interrupted" when reading it throws.
+ */
+export function observeStream(
+  stream: ReadableStream<Uint8Array>,
+  settle: (error: AttemptErrorCode | undefined) => void,
+): ReadableStream<Uint8Array> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let tail = "";
+  let sawText = false;
+  let settled = false;
+  const done = (error: AttemptErrorCode | undefined) => {
+    if (settled) return;
+    settled = true;
+    try { settle(error); } catch { /* recording never reaches the stream */ }
+  };
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch (error) {
+        done("stream_interrupted");
+        controller.error(error);
+        return;
+      }
+      if (chunk.done) {
+        done(sawText ? undefined : "empty_response");
+        controller.close();
+        return;
+      }
+      if (!sawText) {
+        // A frame may split across chunks; keep a short tail so a split
+        // `"content":"x` is still seen.
+        const text = tail + decoder.decode(chunk.value, { stream: true });
+        sawText = /"content":\s*"(?:[^"\\]|\\.)/.test(text);
+        tail = text.slice(-64);
+      }
+      controller.enqueue(chunk.value);
+    },
+    cancel(reason) {
+      done(undefined);
+      return reader.cancel(reason);
+    },
+  });
 }
 
 async function streamOpenAICompatible(
@@ -304,6 +531,7 @@ async function streamOpenAICompatible(
   const res = await fetch(cfg.chatUrl, {
     method: "POST",
     headers: {
+      ...cfg.headers,
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
     },
@@ -317,7 +545,7 @@ async function streamOpenAICompatible(
 
   if (!res.ok || !res.body) {
     const errText = await res.text().catch(() => "");
-    console.error(`${cfg.label} API error:`, res.status, errText);
+    console.error(`${cfg.label} API error:`, res.status, providerErrorSummary(errText));
     throw new ProviderError(res.status || 500, `${cfg.label} request failed`);
   }
 
@@ -350,7 +578,7 @@ async function streamAnthropic(p: ProviderChatParams): Promise<ReadableStream<Ui
 
   if (!res.ok || !res.body) {
     const errText = await res.text().catch(() => "");
-    console.error("Anthropic API error:", res.status, errText);
+    console.error("Anthropic API error:", res.status, providerErrorSummary(errText));
     throw new ProviderError(res.status || 500, "Anthropic request failed");
   }
 
@@ -459,15 +687,18 @@ export async function structuredCompletionWithFallback(
 
   const kind: AttemptKind = params.image ? "vision" : "chat";
   let lastError: unknown;
-  for (const [index, target] of params.targets.entries()) {
+  for (const [index, target] of orderTargets(params.targets, kind, "structured").entries()) {
     const start = Date.now();
     const base = { kind, mode: "structured", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
       const { result, usage } = await structuredCompletionDetailed({ ...params, ...target });
+      noteOutcome(target, undefined);
       reportAttempt({ ...base, success: true, ms: elapsedMs(start), ...(usage ? { usage } : {}) });
       return { ...target, result };
     } catch (error) {
-      reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: attemptErrorCode(error) });
+      const code = attemptErrorCode(error);
+      noteOutcome(target, code);
+      reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: code });
       lastError = error;
       console.warn(`[ai-provider] ${target.provider}/${target.model} structured request failed; trying fallback`);
     }
@@ -488,7 +719,7 @@ async function structuredOpenAICompatible(p: StructuredParams): Promise<{ result
 
   const res = await fetch(cfg.chatUrl, {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers: { ...cfg.headers, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: p.model,
       messages: [
@@ -506,7 +737,7 @@ async function structuredOpenAICompatible(p: StructuredParams): Promise<{ result
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    console.error(`${cfg.label} structured error:`, res.status, errText);
+    console.error(`${cfg.label} structured error:`, res.status, providerErrorSummary(errText));
     throw new ProviderError(res.status || 500, `${cfg.label} request failed`);
   }
 
@@ -543,7 +774,7 @@ async function structuredAnthropic(p: StructuredParams): Promise<unknown> {
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    console.error("Anthropic structured error:", res.status, errText);
+    console.error("Anthropic structured error:", res.status, providerErrorSummary(errText));
     throw new ProviderError(res.status || 500, "Anthropic request failed");
   }
 
@@ -589,7 +820,7 @@ export async function createEmbedding(input: string[]): Promise<number[][]> {
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    console.error("OpenAI embeddings error:", res.status, errText);
+    console.error("OpenAI embeddings error:", res.status, providerErrorSummary(errText));
     throw new ProviderError(res.status || 500, "Embedding request failed");
   }
 
