@@ -120,7 +120,17 @@ function errorCodeOf(json) {
   return typeof code === "string" && /^[\w.-]{1,48}$/.test(code) ? code : undefined;
 }
 
+// Minimum gap between requests to one host. Mistral's entry tier allows about
+// one request per second; without this the probe measures its own burst.
+const PACE_MS = { "api.mistral.ai": 1500 };
+const lastCall = {};
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function call(url, init) {
+  const host = new URL(url).host;
+  const gap = PACE_MS[host];
+  if (gap && lastCall[host]) await sleep(Math.max(0, lastCall[host] + gap - Date.now()));
+  lastCall[host] = Date.now();
   const start = Date.now();
   try {
     const res = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -153,18 +163,18 @@ const toolOk = (j) => {
   return typeof args === "string" && /ok/i.test(JSON.parse(args).word ?? "");
 };
 
-async function openAICompatible(provider, base, key, { chat = [], tool = [], vision = [], extra = {} }) {
+async function openAICompatible(provider, base, key, { chat = [], tool = [], vision = [], extra = {}, auth = bearer }) {
   for (const model of chat) {
-    await probe(provider, "text", model, async () => ({ ...(await post(`${base}/chat/completions`, bearer(key), { model, messages: ASK_OK, ...(extra[model] ?? { max_tokens: 16 }) })), check: saysOk }));
+    await probe(provider, "text", model, async () => ({ ...(await post(`${base}/chat/completions`, auth(key), { model, messages: ASK_OK, ...(extra[model] ?? { max_tokens: 16 }) })), check: saysOk }));
   }
   for (const model of tool) {
-    await probe(provider, "tool_calling", model, async () => ({ ...(await post(`${base}/chat/completions`, bearer(key), { model, messages: ASK_TOOL, tools: [TOOL], tool_choice: { type: "function", function: { name: "answer" } }, ...(extra[model] ?? { max_tokens: 64 }) })), check: toolOk }));
+    await probe(provider, "tool_calling", model, async () => ({ ...(await post(`${base}/chat/completions`, auth(key), { model, messages: ASK_TOOL, tools: [TOOL], tool_choice: { type: "function", function: { name: "answer" } }, ...(extra[model] ?? { max_tokens: 64 }) })), check: toolOk }));
   }
   for (const model of vision) {
-    await probe(provider, "vision", model, async () => ({ ...(await post(`${base}/chat/completions`, bearer(key), { model, messages: ASK_IMAGE, ...(extra[model] ?? { max_tokens: 16 }) })), check: says42 }));
+    await probe(provider, "vision", model, async () => ({ ...(await post(`${base}/chat/completions`, auth(key), { model, messages: ASK_IMAGE, ...(extra[model] ?? { max_tokens: 16 }) })), check: says42 }));
   }
   await probe(provider, "error_shape", "no-such-model-visionex", async () => {
-    const r = await post(`${base}/chat/completions`, bearer(key), { model: "no-such-model-visionex", messages: ASK_OK, max_tokens: 4 });
+    const r = await post(`${base}/chat/completions`, auth(key), { model: "no-such-model-visionex", messages: ASK_OK, max_tokens: 4 });
     // Passing means: an unknown model is a clean 4xx, not a 5xx or a hang.
     return { ...r, status: r.status >= 400 && r.status < 500 ? 200 : r.status || 599, check: () => true };
   });
@@ -245,17 +255,26 @@ async function gemini(key) {
   inventory.gemini = { list_status: listing.status, model_count: listing.ids.length };
   for (const model of ["gemini-flash-latest", "gemini-flash-lite-latest"]) {
     await probe("gemini", "text", model, async () => ({
-      ...(await post(`${base}/models/${model}:generateContent`, headers, { contents: [{ role: "user", parts: [{ text: "Reply with exactly the word OK." }] }], generationConfig: { maxOutputTokens: 16 } })),
-      check: (j) => /\bok\b/i.test(j?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") ?? ""),
+      ...(await post(`${base}/models/${model}:generateContent`, headers, { contents: [{ role: "user", parts: [{ text: "Reply with exactly the word OK." }] }], generationConfig: { maxOutputTokens: 512 } })),
+      check: (j) => /\bok\b/i.test(geminiText(j)),
+    }));
+    await probe("gemini", "vision", model, async () => ({
+      ...(await post(`${base}/models/${model}:generateContent`, headers, { contents: [{ role: "user", parts: [
+        { text: "What number is written in this image? Reply with the digits only." },
+        { inline_data: { mime_type: "image/png", data: IMAGE_URL.split(",")[1] } },
+      ] }], generationConfig: { maxOutputTokens: 512 } })),
+      check: (j) => /42/.test(geminiText(j)),
     }));
   }
 }
+// A thinking model spends its budget before it writes; 16 tokens read as empty.
+const geminiText = (j) => j?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
 
 async function groq(key) {
   const base = "https://api.groq.com/openai/v1";
   const listing = await listIds(`${base}/models`, bearer(key));
   const ids = listing.ids;
-  inventory.groq = { list_status: listing.status, model_count: ids.length, speech: ids.filter((i) => /whisper|tts|orpheus|playai/i.test(i)), vision: ids.filter((i) => /llama-4|vision|scout|maverick/i.test(i)) };
+  inventory.groq = { list_status: listing.status, model_count: ids.length, ids, speech: ids.filter((i) => /whisper|tts|orpheus|playai/i.test(i)), vision: ids.filter((i) => /llama-4|vision|scout|maverick/i.test(i)) };
   const vision = ids.filter((i) => /llama-4-scout/i.test(i)).slice(0, 1);
   await openAICompatible("groq", base, key, {
     chat: ["openai/gpt-oss-20b", "openai/gpt-oss-120b"],
@@ -301,14 +320,22 @@ async function nvidiaNim(key) {
   const base = "https://integrate.api.nvidia.com/v1";
   const listing = await listIds(`${base}/models`, bearer(key));
   const ids = listing.ids;
-  inventory.nvidia_nim = { list_status: listing.status, model_count: ids.length };
-  const prefer = ["meta/llama-3.3-70b-instruct", "meta/llama-3.1-8b-instruct", "nvidia/llama-3.3-nemotron-super-49b-v1.5", "qwen/qwen2.5-coder-32b-instruct", "nvidia/nv-embedqa-e5-v5", "meta/llama-3.2-11b-vision-instruct"];
-  inventory.nvidia_nim.present = prefer.filter((m) => ids.includes(m));
-  const chat = ["meta/llama-3.1-8b-instruct", "meta/llama-3.3-70b-instruct"].filter((m) => ids.length === 0 || ids.includes(m));
-  await openAICompatible("nvidia_nim", base, key, { chat, tool: chat.slice(0, 1) });
-  if (ids.includes("nvidia/nv-embedqa-e5-v5")) {
-    await probe("nvidia_nim", "embeddings", "nvidia/nv-embedqa-e5-v5", async () => ({
-      ...(await post(`${base}/embeddings`, bearer(key), { model: "nvidia/nv-embedqa-e5-v5", input: ["hello"], input_type: "query" })),
+  const instruct = ids.filter((i) => /instruct|chat/i.test(i) && !/vision|embed|guard|reward|safety/i.test(i));
+  inventory.nvidia_nim = {
+    list_status: listing.status,
+    model_count: ids.length,
+    instruct_sample: instruct.slice(0, 40),
+    vision: ids.filter((i) => /vision|-vl/i.test(i)).slice(0, 10),
+    embedding: ids.filter((i) => /embed/i.test(i)).slice(0, 10),
+  };
+  const prefer = ["meta/llama-3.3-70b-instruct", "meta/llama-3.1-70b-instruct", "meta/llama-3.1-8b-instruct", "meta/llama-4-maverick-17b-128e-instruct", "mistralai/mistral-small-3.1-24b-instruct-2503"];
+  const chat = [...new Set([...prefer.filter((m) => ids.includes(m)), ...instruct])].slice(0, 2);
+  const vision = ids.includes("meta/llama-3.2-11b-vision-instruct") ? ["meta/llama-3.2-11b-vision-instruct"] : [];
+  await openAICompatible("nvidia_nim", base, key, { chat, tool: chat.slice(0, 1), vision });
+  const embed = inventory.nvidia_nim.embedding[0];
+  if (embed) {
+    await probe("nvidia_nim", "embeddings", embed, async () => ({
+      ...(await post(`${base}/embeddings`, bearer(key), { model: embed, input: ["hello"], input_type: "query" })),
       check: (j) => (j?.data?.[0]?.embedding?.length ?? 0) > 0,
     }));
   }
@@ -321,24 +348,23 @@ async function openrouter(key) {
   inventory.openrouter = { key_status: k.status, is_free_tier: k.body?.data?.is_free_tier, has_limit: k.body?.data?.limit != null };
   const listing = await listIds(`${base}/models`, bearer(key));
   const free = listing.ids.filter((i) => i.endsWith(":free"));
-  inventory.openrouter.model_count = listing.ids.length;
-  inventory.openrouter.free_count = free.length;
-  const chat = ["meta-llama/llama-3.3-70b-instruct:free", "openai/gpt-4o-mini"].filter((m) => listing.ids.includes(m));
-  await openAICompatible("openrouter", base, key, { chat, tool: chat.filter((m) => !m.endsWith(":free")) });
+  Object.assign(inventory.openrouter, { model_count: listing.ids.length, free });
+  // A free-tier key is refused on paid models, so one paid model records that.
+  const chat = [...free.filter((m) => /llama|qwen|mistral|gemma|deepseek|gpt-oss/i.test(m)).slice(0, 2), "openai/gpt-4o-mini"];
+  await openAICompatible("openrouter", base, key, { chat, tool: chat.slice(0, 1), extra: Object.fromEntries(chat.map((m) => [m, { max_tokens: 256 }])) });
 }
 
 async function bytez(key) {
-  // Bytez: `Authorization: Key <key>` on https://api.bytez.com/models/v2/…
-  const headers = { Authorization: `Key ${key}`, "Content-Type": "application/json" };
-  const listing = await call("https://api.bytez.com/models/v2/list/models?task=chat", { headers });
-  const ids = Array.isArray(listing.body?.output) ? listing.body.output.map((m) => m.modelId ?? m.id).filter(Boolean) : [];
-  inventory.bytez = { list_status: listing.status, model_count: ids.length };
-  const model = ["Qwen/Qwen2.5-0.5B-Instruct", "microsoft/Phi-3-mini-4k-instruct"].find((m) => ids.includes(m)) ?? ids[0];
-  if (!model) return;
-  await probe("bytez", "text", model, async () => ({
-    ...(await post(`https://api.bytez.com/models/v2/${model}`, headers, { messages: ASK_OK, params: { max_new_tokens: 16 } })),
-    check: (j) => /\bok\b/i.test(JSON.stringify(j?.output ?? "")),
-  }));
+  // Bytez takes a bare `Authorization: <key>`; OpenAI-compatible chat lives
+  // under https://api.bytez.com/models/v2/openai/v1.
+  const auth = (k) => ({ Authorization: k, "Content-Type": "application/json" });
+  const listing = await call("https://api.bytez.com/models/v2/list/models?task=chat", { headers: auth(key) });
+  const rows = Array.isArray(listing.body?.output) ? listing.body.output : [];
+  inventory.bytez = { list_status: listing.status, model_count: rows.length, meters: [...new Set(rows.map((r) => r.meter))].slice(0, 10) };
+  const chat = ["Qwen/Qwen3-1.7B", "Qwen/Qwen2.5-1.5B-Instruct"].filter((m) => rows.length === 0 || rows.some((r) => r.modelId === m)).slice(0, 1);
+  await openAICompatible("bytez", "https://api.bytez.com/models/v2/openai/v1", key, {
+    chat, auth, extra: Object.fromEntries(chat.map((m) => [m, { max_completion_tokens: 256 }])),
+  });
 }
 
 const PROVIDERS = [
