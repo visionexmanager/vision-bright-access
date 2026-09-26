@@ -77,3 +77,17 @@ Observed with the production keys, no money spent:
 | ltx-video | $0.02 per video |
 | wan 2.2 5B | $0.15 per video |
 | kling 2.1 std | $0.00017 per compute second |
+
+## Recovery implementation (2026-09-26)
+
+Built and tested, and inert until an admin switches the provider on. The switch is the provider's registry row: status active or degraded, **and** `config.production_eligible = true`. A missing row, an unreadable registry or an inactive row means no traffic.
+
+| Provider | Where | Status |
+| --- | --- | --- |
+| FAL image | #353: `_shared/providers/fal.ts`, `image-generate` fallback, FLUX.1 [schnell] ("Commercial use") | blocked by account balance |
+| FAL video | #354: `FalVideoProvider` in `video-studio`, Wan 2.2 5B ("Commercial use"); LTX-Video refused as "Research only" | blocked by account balance, and no video VX price |
+| OpenRouter | #355: OpenAI-compatible, activation-gated. Its model and capabilities come from the row (`default_model`, `config.verified_models`); `OPENROUTER_API_KEY` is synced | blocked by the key limit and no credits |
+| Bytez | none: no model has been reachable | account catalogue is empty |
+| NVIDIA NIM | none: no production path without NVIDIA AI Enterprise | licence |
+
+In #355, inactive and error rows are **excluded** from the chat chains, not demoted.
