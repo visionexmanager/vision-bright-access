@@ -12,6 +12,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 
 type Tool = "code" | "writing" | "resume" | "presentation";
 
@@ -122,6 +123,13 @@ Deno.serve(async (req: Request) => {
   if (!prompt?.trim()) return json({ error: "prompt is required" }, 400, cors);
   if (prompt.length > 8000) return json({ error: "Prompt exceeds 8000 character limit" }, 400, cors);
 
+  // A paid provider call per request, reachable by any entitled account in a
+  // loop: the same per-user daily ceiling as every other paid-provider
+  // function (Phase 2F-2). Charged after validation, so a malformed request
+  // costs nothing, and before the job row and the provider call.
+  const limited = await chargeDailyLimit(serviceClient, user.id, "text-tools-generate", cors);
+  if (limited) return limited;
+
   const { data: jobRow, error: jobErr } = await serviceClient
     .from("ams_text_tool_jobs")
     .insert({
@@ -138,11 +146,9 @@ Deno.serve(async (req: Request) => {
     .single();
 
   if (jobErr || !jobRow) {
-    const detail = jobErr?.message ?? "unknown reason";
-    const msg = detail.includes("does not exist")
-      ? "Database table 'ams_text_tool_jobs' not found. Run Supabase migrations to set up the AI Media Studio schema."
-      : `Failed to create generation job: ${detail}`;
-    return json({ error: msg, code: "DB_ERROR" }, 500, cors);
+    // The database's own text stays in the log: it names tables and columns.
+    console.error("[text-tools-generate] job insert failed:", jobErr?.code ?? "unknown");
+    return json({ error: "Could not start the generation. Please try again.", code: "DB_ERROR" }, 500, cors);
   }
   const jobId: string = jobRow.id;
 

@@ -259,6 +259,9 @@ describe("the wiring in each function", () => {
     "image-generate": "generateImage(",
     "image-tools-generate": "createPrediction(",
     "video-studio": "handleGenerate(",
+    // Missed by 2F-2, found by the provider audit (2026-09-26).
+    "document-generate": "structuredCompletion(",
+    "text-tools-generate": "structuredCompletion(",
   };
 
   for (const [fn, marker] of Object.entries(PROVIDER_MARKER)) {

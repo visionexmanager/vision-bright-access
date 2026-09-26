@@ -69,3 +69,14 @@ describe("a vendor's job id never reaches the browser", () => {
     expect(edgeFunctionTypes).not.toMatch(/^\s+provider_job_id\?:/m);
   });
 });
+
+describe("document and text-tool job failures do not echo the database (provider audit, 2026-09-26)", () => {
+  for (const fn of ["document-generate", "text-tools-generate"]) {
+    it(`${fn} answers a failed job insert with a fixed sentence and logs only the code`, () => {
+      const src = readFileSync(`supabase/functions/${fn}/index.ts`, "utf8");
+      expect(src).not.toMatch(/jobErr\?\.message/);
+      expect(src).not.toMatch(/\$\{detail\}/);
+      expect(src).toContain(`console.error("[${fn}] job insert failed:", jobErr?.code ?? "unknown");`);
+    });
+  }
+});

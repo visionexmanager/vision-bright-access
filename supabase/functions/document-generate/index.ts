@@ -14,6 +14,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 
 const MAX_CHARS = 60_000; // roughly the safe input budget for a single completion
 
@@ -97,6 +98,13 @@ Deno.serve(async (req: Request) => {
   if (!input_text?.trim()) return json({ error: "input_text is required" }, 400, cors);
   const text = input_text.length > MAX_CHARS ? input_text.slice(0, MAX_CHARS) : input_text;
 
+  // A paid provider call per request, reachable by any entitled account in a
+  // loop: the same per-user daily ceiling as every other paid-provider
+  // function (Phase 2F-2). Charged after validation, so a malformed request
+  // costs nothing, and before the job row and the provider call.
+  const limited = await chargeDailyLimit(serviceClient, user.id, "document-generate", cors);
+  if (limited) return limited;
+
   const { data: jobRow, error: jobErr } = await serviceClient
     .from("ams_document_jobs")
     .insert({
@@ -113,11 +121,9 @@ Deno.serve(async (req: Request) => {
     .single();
 
   if (jobErr || !jobRow) {
-    const detail = jobErr?.message ?? "unknown reason";
-    const msg = detail.includes("does not exist")
-      ? "Database table 'ams_document_jobs' not found. Run Supabase migrations to set up the AI Media Studio schema."
-      : `Failed to create document job: ${detail}`;
-    return json({ error: msg, code: "DB_ERROR" }, 500, cors);
+    // The database's own text stays in the log: it names tables and columns.
+    console.error("[document-generate] job insert failed:", jobErr?.code ?? "unknown");
+    return json({ error: "Could not start the document. Please try again.", code: "DB_ERROR" }, 500, cors);
   }
   const jobId: string = jobRow.id;
 
