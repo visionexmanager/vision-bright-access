@@ -117,8 +117,8 @@ Deno.serve(async (req) => {
   let voice        = ASSISTANT_VOICE[assistant] || "nova";
   let voiceStyle   = VOICE_STYLE[assistant]     || VOICE_STYLE["visionex"];
   let targets: ProviderTarget[] = [
-    { provider: "groq", model: "llama-3.1-8b-instant" },
-    { provider: "mistral", model: "mistral-small-latest" },
+    { provider: "groq", model: "openai/gpt-oss-20b" },
+    { provider: "mistral", model: "ministral-14b-latest" },
     { provider: "openai", model: "gpt-4.1" },
   ];
 

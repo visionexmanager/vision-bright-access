@@ -13,8 +13,8 @@
 /** Cheap tier per provider — the tier a high-volume routed task would use. */
 export const DEFAULT_MODELS = {
   openai: "gpt-4o-mini",
-  groq: "llama-3.1-8b-instant",
-  mistral: "mistral-small-latest",
+  groq: "openai/gpt-oss-20b",
+  mistral: "ministral-14b-latest",
   // Known dead — returns 404 "no longer available to new users". Kept so an
   // explicit `--providers gemini` still resolves to a model; replace it with an
   // id proven by a real generation before trusting any gemini row again.

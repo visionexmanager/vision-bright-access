@@ -270,6 +270,88 @@ function elapsedMs(start: number): number {
   return Math.min(MAX_RECORDED_ATTEMPT_MS, Math.max(0, Math.round(Date.now() - start)));
 }
 
+// ── Health-aware ordering ────────────────────────────────────────────────────
+//
+// A chain's order is quality policy (assistants.ts, generators.ts, …) and it
+// stays the order of first choice. Two things may move a target *later* in
+// its chain — never out of it, so every provider remains a last resort and an
+// outage of the others can never leave a request with nothing to try:
+//
+//   1. A short, per-isolate cooldown after a failure that will repeat if we
+//      ask again at once: a 429, a 5xx, a timeout, a dropped connection, a
+//      refused or missing key, a vanished model. Keyed by provider *and*
+//      model — on 2026-09-26 Mistral answered ministral-14b and refused
+//      mistral-small on the same key. It expires by itself, so a recovered
+//      provider is first again within minutes, with no admin step. A request
+//      that was itself malformed (400/413/422, unparseable answer) sets no
+//      cooldown: the next request is a different request.
+//
+//   2. The registry (ph_providers), when an entry point installs a reader:
+//      a row an admin marked inactive or error, or one whose health the
+//      recorded attempts have driven down. See installChatAttemptRecording().
+//
+// This is the in-memory half of the health system, not a second one: the
+// durable half is ph_providers, fed by the same attempts via the recorder.
+// It exists because a registry read costs a round trip and a cooldown must
+// act on the very next request.
+
+/** How long a target sits at the back of its chain after each kind of failure. */
+export const COOLDOWN_MS: Readonly<Partial<Record<AttemptErrorCode, number>>> = {
+  http_429: 60_000,
+  http_5xx: 30_000,
+  http_408: 30_000,
+  timeout: 30_000,
+  network: 30_000,
+  http_401: 300_000,
+  http_403: 300_000,
+  not_configured: 300_000,
+  http_404: 300_000,
+};
+
+const cooldownUntil = new Map<string, number>();
+const targetKey = (t: ProviderTarget) => `${t.provider}/${t.model}`;
+
+/** Tests only: forget every cooldown. */
+export function resetProviderCooldowns(): void {
+  cooldownUntil.clear();
+}
+
+function noteOutcome(target: ProviderTarget, error: AttemptErrorCode | undefined): void {
+  const key = targetKey(target);
+  if (!error) { cooldownUntil.delete(key); return; }
+  const ms = COOLDOWN_MS[error];
+  if (ms) cooldownUntil.set(key, Date.now() + ms);
+}
+
+/** True when the registry says this target should wait its turn. Must not throw or block. */
+export type RegistryDemotion = (target: ProviderTarget, kind: AttemptKind) => boolean;
+let registryDemotion: RegistryDemotion | null = null;
+
+/** Installed once per function, beside the recorder; null removes it. */
+export function setProviderRegistryDemotion(demotion: RegistryDemotion | null): void {
+  registryDemotion = demotion;
+}
+
+/**
+ * The chain in the order it will be tried: targets in good standing first, in
+ * policy order; then registry-demoted ones; then cooling ones, soonest to
+ * recover first. Nothing is dropped.
+ */
+export function orderTargets(targets: ProviderTarget[], kind: AttemptKind, now = Date.now()): ProviderTarget[] {
+  const ready: ProviderTarget[] = [];
+  const demoted: ProviderTarget[] = [];
+  const cooling: Array<[ProviderTarget, number]> = [];
+  for (const t of targets) {
+    const until = cooldownUntil.get(targetKey(t)) ?? 0;
+    if (until > now) { cooling.push([t, until]); continue; }
+    let down = false;
+    try { down = registryDemotion?.(t, kind) ?? false; } catch { down = false; }
+    (down ? demoted : ready).push(t);
+  }
+  cooling.sort((a, b) => a[1] - b[1]);
+  return [...ready, ...demoted, ...cooling.map(([t]) => t)];
+}
+
 /** Try providers in order until one accepts the streaming request. */
 export async function streamChatCompletionWithFallback(
   params: Omit<ProviderChatParams, "provider" | "model"> & { targets: ProviderTarget[] },
@@ -277,15 +359,18 @@ export async function streamChatCompletionWithFallback(
   if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
 
   let lastError: unknown;
-  for (const [index, target] of params.targets.entries()) {
+  for (const [index, target] of orderTargets(params.targets, "chat").entries()) {
     const start = Date.now();
     const base = { kind: "chat", mode: "stream", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
       const result = await streamChatCompletion({ ...params, ...target });
+      noteOutcome(target, undefined);
       reportAttempt({ ...base, success: true, ms: elapsedMs(start) });
       return { ...target, result };
     } catch (error) {
-      reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: attemptErrorCode(error) });
+      const code = attemptErrorCode(error);
+      noteOutcome(target, code);
+      reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: code });
       lastError = error;
       console.warn(`[ai-provider] ${target.provider}/${target.model} unavailable; trying fallback`);
     }
@@ -459,15 +544,18 @@ export async function structuredCompletionWithFallback(
 
   const kind: AttemptKind = params.image ? "vision" : "chat";
   let lastError: unknown;
-  for (const [index, target] of params.targets.entries()) {
+  for (const [index, target] of orderTargets(params.targets, kind).entries()) {
     const start = Date.now();
     const base = { kind, mode: "structured", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
       const { result, usage } = await structuredCompletionDetailed({ ...params, ...target });
+      noteOutcome(target, undefined);
       reportAttempt({ ...base, success: true, ms: elapsedMs(start), ...(usage ? { usage } : {}) });
       return { ...target, result };
     } catch (error) {
-      reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: attemptErrorCode(error) });
+      const code = attemptErrorCode(error);
+      noteOutcome(target, code);
+      reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: code });
       lastError = error;
       console.warn(`[ai-provider] ${target.provider}/${target.model} structured request failed; trying fallback`);
     }

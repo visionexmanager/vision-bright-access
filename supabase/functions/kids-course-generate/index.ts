@@ -53,9 +53,9 @@ const AGE_STYLE: Record<AgeRange, string> = {
  */
 const PROVIDER_TARGETS: ProviderTarget[] = [
   { provider: "openai", model: "gpt-4o-mini" },
-  { provider: "groq", model: "llama-3.3-70b-versatile" },
-  { provider: "mistral", model: "mistral-large-latest" },
-  { provider: "gemini", model: "gemini-2.0-flash" },
+  { provider: "groq", model: "openai/gpt-oss-120b" },
+  { provider: "mistral", model: "ministral-14b-latest" },
+  { provider: "gemini", model: "gemini-flash-latest" },
 ];
 
 const COURSE_SCHEMA = {

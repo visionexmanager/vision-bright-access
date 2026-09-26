@@ -10,12 +10,13 @@
 // `providerRouter.ts` functions now build their client and delegate, so there
 // is still exactly one implementation of "record a result" (Phase 2H).
 //
-// Pure: no imports but types, no Deno, no environment.
+// Pure: no imports but types and the pure ranking rules, no Deno, no environment.
 
 import type { MediaKind, MediaOutcome } from "./contentMedia.ts";
 import type { SttProviderName, TranscribeAttempt } from "./voice/stt.ts";
 import type { TtsExecution, TtsProvider } from "./voice/tts.ts";
 import type { AIProvider, ProviderAttempt } from "./aiProvider.ts";
+import { registryDemotes, type RegistryHealthRow } from "./providerSelection.ts";
 
 // deno-lint-ignore no-explicit-any
 export type RecordingDb = any;
@@ -258,4 +259,66 @@ export async function recordProviderAttempt(db: RecordingDb, attempt: ProviderAt
     // Token counts only, when the provider reported them — never content.
     { model: attempt.model, attempt: attempt.attempt, mode: attempt.mode, ...(attempt.usage ? { usage: attempt.usage } : {}) },
   );
+}
+
+// ── Reading health back for the chat/vision chains ──────────────────────────
+
+/** How old the registry snapshot may be before the next request refreshes it. */
+export const REGISTRY_SNAPSHOT_TTL_MS = 60_000;
+/** A registry read slower than this is abandoned; the chains keep policy order. */
+export const REGISTRY_READ_TIMEOUT_MS = 1_500;
+
+/**
+ * A synchronous `RegistryDemotion` for `setProviderRegistryDemotion()`.
+ *
+ * It never waits for the database: it answers from the last snapshot of the
+ * chat and vision rows and, when that snapshot is older than the TTL, starts
+ * one refresh and hands it to `background` (EdgeRuntime.waitUntil in
+ * production). Until the first read lands — and whenever a read fails or
+ * times out — it knows nothing and demotes nothing, so the chains run in
+ * their policy order exactly as they did before the registry was consulted.
+ */
+export function registryDemotionFrom(
+  db: RecordingDb,
+  opts: {
+    background?: (work: Promise<unknown>) => void;
+    now?: () => number;
+    random?: () => number;
+  } = {},
+): (target: { provider: AIProvider; model: string }, kind: "chat" | "vision") => boolean {
+  const now = opts.now ?? Date.now;
+  let rows = new Map<string, RegistryHealthRow>();
+  let fetchedAt = -Infinity;
+  let inFlight = false;
+
+  const refresh = async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const read = db
+        .from("ph_providers")
+        .select("slug, status, health_score")
+        .in("type", ["chat", "vision"]);
+      const timeout = new Promise<{ data: null }>((resolve) => {
+        timer = setTimeout(() => resolve({ data: null }), REGISTRY_READ_TIMEOUT_MS);
+      });
+      const { data } = await Promise.race([read, timeout]);
+      if (Array.isArray(data)) rows = new Map(data.map((r: RegistryHealthRow) => [r.slug, r]));
+    } catch {
+      // Keep the last snapshot; a registry outage must not reorder anything.
+    } finally {
+      clearTimeout(timer);
+      fetchedAt = now();
+      inFlight = false;
+    }
+  };
+
+  return (target, kind) => {
+    if (!inFlight && now() - fetchedAt > REGISTRY_SNAPSHOT_TTL_MS) {
+      inFlight = true;
+      const work = refresh();
+      try { opts.background?.(work); } catch { /* the refresh runs regardless */ }
+    }
+    const slug = (kind === "vision" ? VISION_PROVIDER_SLUG : CHAT_PROVIDER_SLUG)[target.provider];
+    return registryDemotes(slug ? rows.get(slug) : undefined, opts.random);
+  };
 }
