@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { boundedText } from "../_shared/providerInput.ts";
+import { boundedText, providerErrorSummary } from "../_shared/providerInput.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -127,7 +127,7 @@ Only return valid JSON, no markdown.`;
         });
       }
       const t = await response.text();
-      console.error("OpenAI error:", response.status, t);
+      console.error("OpenAI error:", response.status, providerErrorSummary(t));
       throw new Error("AI service error");
     }
 

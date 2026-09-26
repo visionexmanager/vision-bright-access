@@ -317,7 +317,7 @@ const LIVE_PROBES: Record<string, ProbeTarget> = {
     body: (model) => ({ model, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
   },
   mistral: {
-    model: "mistral-small-latest",
+    model: "ministral-14b-latest",
     envKey: "MISTRAL_API_KEY",
     url: "https://api.mistral.ai/v1/chat/completions",
     headers: (key) => ({ Authorization: `Bearer ${key}`, "Content-Type": "application/json" }),
