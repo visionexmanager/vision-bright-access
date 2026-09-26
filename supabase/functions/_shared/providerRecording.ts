@@ -43,6 +43,42 @@ export async function providerBySlugIn(
   return data ?? null;
 }
 
+// ── Activation gate for providers that must be switched on ──────────────────
+//
+// A provider added after the audit of 2026-09-26 (FAL, and anything like it)
+// serves traffic only when its registry row says so: status active or
+// degraded — degraded is health, not a switch — AND config.production_eligible
+// is true. Both are admin decisions, taken after a real smoke test; no probe
+// or automation sets either. Anything else — no row, inactive, error, not
+// eligible, a registry that errors or takes longer than the timeout — is
+// "not routable". Fail closed: an unreadable registry never switches a
+// provider on.
+
+export const ROUTABLE_READ_TIMEOUT_MS = 1_500;
+
+export function rowIsRoutable(row: { status?: unknown; config?: unknown } | null | undefined): boolean {
+  if (!row) return false;
+  if (row.status !== "active" && row.status !== "degraded") return false;
+  const config = row.config && typeof row.config === "object" ? row.config as Record<string, unknown> : {};
+  return config.production_eligible === true;
+}
+
+export async function providerRoutableIn(db: RecordingDb, slug: string): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), ROUTABLE_READ_TIMEOUT_MS);
+    });
+    const read = db.from("ph_providers").select("status, config").eq("slug", slug).maybeSingle()
+      .then((r: { data: unknown }) => r.data);
+    return rowIsRoutable(await Promise.race([read, timeout]) as { status?: unknown; config?: unknown } | null);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Metrics, a log row, and a failover row when one happened. */
 export async function recordResultIn(db: RecordingDb, params: RecordResultParams): Promise<void> {
   // Upsert metrics
@@ -259,40 +295,4 @@ export async function recordProviderAttempt(db: RecordingDb, attempt: ProviderAt
     // Token counts only, when the provider reported them — never content.
     { model: attempt.model, attempt: attempt.attempt, mode: attempt.mode, ...(attempt.usage ? { usage: attempt.usage } : {}) },
   );
-}
-
-// ── Activation gate for providers that must be switched on ──────────────────
-//
-// A provider added after the audit of 2026-09-26 (FAL, and anything like it)
-// serves traffic only when its registry row says so: status active or
-// degraded — degraded is health, not a switch — AND config.production_eligible
-// is true. Both are admin decisions, taken after a real smoke test; no probe
-// or automation sets either. Anything else — no row, inactive, error, not
-// eligible, a registry that errors or takes longer than the timeout — is
-// "not routable". Fail closed: an unreadable registry never switches a
-// provider on.
-
-export const ROUTABLE_READ_TIMEOUT_MS = 1_500;
-
-export function rowIsRoutable(row: { status?: unknown; config?: unknown } | null | undefined): boolean {
-  if (!row) return false;
-  if (row.status !== "active" && row.status !== "degraded") return false;
-  const config = row.config && typeof row.config === "object" ? row.config as Record<string, unknown> : {};
-  return config.production_eligible === true;
-}
-
-export async function providerRoutableIn(db: RecordingDb, slug: string): Promise<boolean> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const timeout = new Promise<null>((resolve) => {
-      timer = setTimeout(() => resolve(null), ROUTABLE_READ_TIMEOUT_MS);
-    });
-    const read = db.from("ph_providers").select("status, config").eq("slug", slug).maybeSingle()
-      .then((r: { data: unknown }) => r.data);
-    return rowIsRoutable(await Promise.race([read, timeout]) as { status?: unknown; config?: unknown } | null);
-  } catch {
-    return false;
-  } finally {
-    clearTimeout(timer);
-  }
 }
