@@ -349,3 +349,66 @@ describe("Groq gpt-oss budget: the answer must survive the reasoning", () => {
     expect(bodies[0]).toMatchObject({ model: "openai/gpt-oss-20b", max_tokens: 24 + ai.GROQ_REASONING_HEADROOM, reasoning_effort: "low" });
   });
 });
+
+describe("a stream is settled when it ends, not when it is accepted", () => {
+  const enc = (s: string) => new TextEncoder().encode(s);
+  const streamOf = (chunks: string[], fail?: Error) => new ReadableStream<Uint8Array>({
+    start(c) {
+      for (const x of chunks) c.enqueue(enc(x));
+      if (fail) c.error(fail); else c.close();
+    },
+  });
+  const frame = (t: string) => `data: {"choices":[{"delta":{"content":"${t}"}}]}\n\n`;
+
+  function settled(stream: ReadableStream<Uint8Array>) {
+    const codes: (string | undefined)[] = [];
+    const observed = ai.observeStream(stream, (code) => codes.push(code));
+    return { observed, codes };
+  }
+
+  it("passes every byte through unchanged and settles once, as success, when text arrived", async () => {
+    const body = [frame("Hel"), frame("lo"), "data: [DONE]\n\n"];
+    const { observed, codes } = settled(streamOf(body));
+    expect(await new Response(observed).text()).toBe(body.join(""));
+    expect(codes).toEqual([undefined]);
+  });
+
+  it("a stream that ends with no text is empty_response — a failure that sets no cooldown", async () => {
+    const { observed, codes } = settled(streamOf(['data: {"choices":[{"delta":{"content":""}}]}\n\n', "data: [DONE]\n\n"]));
+    await new Response(observed).text();
+    expect(codes).toEqual(["empty_response"]);
+    expect(ai.COOLDOWN_MS.empty_response).toBeUndefined();
+  });
+
+  it("a body that breaks mid-way is stream_interrupted, and the reader sees the error", async () => {
+    const { observed, codes } = settled(streamOf([frame("partial")], new Error("reset")));
+    await expect(new Response(observed).text()).rejects.toThrow();
+    expect(codes).toEqual(["stream_interrupted"]);
+    expect(ai.COOLDOWN_MS.stream_interrupted).toBeGreaterThan(0);
+  });
+
+  it("a frame split across chunks is still seen as text", async () => {
+    const f = frame("word");
+    const { observed, codes } = settled(streamOf([f.slice(0, 30), f.slice(30), "data: [DONE]\n\n"]));
+    await new Response(observed).text();
+    expect(codes).toEqual([undefined]);
+  });
+
+  it("a reader that leaves early is not the provider's failure", async () => {
+    const { observed, codes } = settled(streamOf([frame("a"), frame("b")]));
+    await observed.cancel("client went away");
+    expect(codes).toEqual([undefined]);
+  });
+
+  it("through the loop: a broken stream cools its target, so the next request starts elsewhere", async () => {
+    keys();
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => new URL(url).host === GROQ
+      ? new Response(streamOf([frame("x")], new Error("reset")), { status: 200 })
+      : new Response(streamOf([frame("ok"), "data: [DONE]\n\n"]), { status: 200 })));
+    const params = { targets: [G, O], system: "s", messages: [{ role: "user" as const, content: "u" }] };
+    const first = await ai.streamChatCompletionWithFallback(params);
+    expect(first.provider).toBe("groq");
+    await expect(new Response(first.result).text()).rejects.toThrow();
+    expect(ai.orderTargets([G, O], "chat")).toEqual([O, G]);
+  });
+});

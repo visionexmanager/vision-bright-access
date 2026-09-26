@@ -214,6 +214,8 @@ export const ATTEMPT_ERROR_CODES = [
   "http_400", "http_401", "http_403", "http_404", "http_408", "http_413", "http_422", "http_429",
   "http_4xx", "http_5xx",
   "invalid_response", "timeout", "network", "unknown",
+  // A stream the provider accepted that then broke, or ended with no text.
+  "stream_interrupted", "empty_response",
 ] as const;
 export type AttemptErrorCode = typeof ATTEMPT_ERROR_CODES[number];
 
@@ -327,6 +329,7 @@ export const COOLDOWN_MS: Readonly<Partial<Record<AttemptErrorCode, number>>> = 
   http_403: 300_000,
   not_configured: 300_000,
   http_404: 300_000,
+  stream_interrupted: 30_000,
 };
 
 const cooldownUntil = new Map<string, number>();
@@ -384,9 +387,18 @@ export async function streamChatCompletionWithFallback(
     const start = Date.now();
     const base = { kind: "chat", mode: "stream", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
-      const result = await streamChatCompletion({ ...params, ...target });
-      noteOutcome(target, undefined);
-      reportAttempt({ ...base, success: true, ms: elapsedMs(start) });
+      const accepted = await streamChatCompletion({ ...params, ...target });
+      const ms = elapsedMs(start);
+      // Accepted is not delivered. The attempt is settled when the stream
+      // ends: complete with text is a success; a body that breaks, or ends
+      // without a word, is a failure — recorded, and held against the target's
+      // health and cooldown like any other. Bytes already sent cannot be taken
+      // back, so there is no fallback after this point; the next request is
+      // what benefits.
+      const result = observeStream(accepted, (error) => {
+        noteOutcome(target, error);
+        reportAttempt({ ...base, success: !error, ms, ...(error ? { error } : {}) });
+      });
       return { ...target, result };
     } catch (error) {
       const code = attemptErrorCode(error);
@@ -399,6 +411,57 @@ export async function streamChatCompletionWithFallback(
 
   if (lastError instanceof ProviderError) throw lastError;
   throw new ProviderError(500, "All AI providers failed");
+}
+
+/**
+ * The same bytes, observed. `settle` runs exactly once: with no code when the
+ * stream completes having carried text (or the reader cancels it — a client
+ * that leaves is not the provider's failure), with "empty_response" when it
+ * completes without any, and with "stream_interrupted" when reading it throws.
+ */
+export function observeStream(
+  stream: ReadableStream<Uint8Array>,
+  settle: (error: AttemptErrorCode | undefined) => void,
+): ReadableStream<Uint8Array> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let tail = "";
+  let sawText = false;
+  let settled = false;
+  const done = (error: AttemptErrorCode | undefined) => {
+    if (settled) return;
+    settled = true;
+    try { settle(error); } catch { /* recording never reaches the stream */ }
+  };
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch (error) {
+        done("stream_interrupted");
+        controller.error(error);
+        return;
+      }
+      if (chunk.done) {
+        done(sawText ? undefined : "empty_response");
+        controller.close();
+        return;
+      }
+      if (!sawText) {
+        // A frame may split across chunks; keep a short tail so a split
+        // `"content":"x` is still seen.
+        const text = tail + decoder.decode(chunk.value, { stream: true });
+        sawText = /"content":\s*"(?:[^"\\]|\\.)/.test(text);
+        tail = text.slice(-64);
+      }
+      controller.enqueue(chunk.value);
+    },
+    cancel(reason) {
+      done(undefined);
+      return reader.cancel(reason);
+    },
+  });
 }
 
 async function streamOpenAICompatible(
