@@ -305,7 +305,7 @@ async function mistral(key) {
   inventory.mistral = { list_status: listing.status, model_count: listing.ids.length, ocr: listing.ids.filter((i) => /ocr/i.test(i)), voxtral: listing.ids.filter((i) => /voxtral/i.test(i)) };
   await openAICompatible("mistral", base, key, {
     chat: ["mistral-small-latest", "mistral-small-2506", "mistral-medium-latest", "mistral-large-latest", "ministral-8b-latest", "ministral-14b-latest", "open-mistral-nemo"],
-    tool: ["mistral-small-latest", "ministral-8b-latest", "open-mistral-nemo"],
+    tool: ["mistral-small-latest", "ministral-8b-latest", "ministral-14b-latest", "open-mistral-nemo"],
     vision: ["mistral-small-latest", "pixtral-12b-latest", "ministral-14b-latest"],
   });
   await probe("mistral", "embeddings", "mistral-embed", async () => ({
