@@ -272,8 +272,9 @@ async function fal(key) {
   };
   const img = await queued("fal-ai/flux/schnell", { prompt: "A plain blue circle on white.", image_size: "square", num_images: 1, num_inference_steps: 2 }, 90_000);
   if (img) row("fal", "image", "fal-ai/flux/schnell", img.r, img.done && Boolean(img.r.body?.images?.[0]?.url), img.done ? `images=${img.r.body?.images?.length ?? 0}` : "not completed");
-  const vid = await queued("fal-ai/ltx-video", { prompt: "A slow pan across a calm blue sea.", num_inference_steps: 8 }, 240_000);
-  if (vid) row("fal", "video", "fal-ai/ltx-video", vid.r, vid.done && Boolean(vid.r.body?.video?.url), vid.done ? "video url returned" : "not completed");
+  // Wan 2.2 5B: the model production uses ("Commercial use"). LTX-Video is "Research only".
+  const vid = await queued("fal-ai/wan/v2.2-5b/text-to-video", { prompt: "A slow pan across a calm blue sea.", resolution: "580p", num_frames: 17, frames_per_second: 24 }, 360_000);
+  if (vid) row("fal", "video", "fal-ai/wan/v2.2-5b/text-to-video", vid.r, vid.done && Boolean(vid.r.body?.video?.url), vid.done ? "video url returned" : "not completed");
 }
 
 const PROVIDERS = [["bytez", "BYTEZ_API_KEY", bytez], ["openrouter", "OPENROUTER_API_KEY", openrouter], ["nim", "NVIDIA_NIM_API_KEY", nim], ["fal", "FAL_KEY", fal]];
