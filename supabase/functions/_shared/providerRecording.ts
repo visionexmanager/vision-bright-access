@@ -192,6 +192,7 @@ export const VIDEO_PROVIDER_SLUG: Readonly<Record<string, string>> = {
   openai: "openai-video",
   luma: "luma-video",
   runpod: "runpod-video",
+  fal: "fal-video",
 };
 
 // ── Speech to text (Phase 2I) ─────────────────────────────────────────────────
