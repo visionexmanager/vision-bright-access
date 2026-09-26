@@ -59,6 +59,59 @@ describe("no provider path logs a raw error body", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("a response body never reaches a log, an Error or a response unless it passes through providerErrorSummary", () => {
+    // Data flow, not spelling: the first pattern missed `const t = await response.text()`.
+    const offenders: string[] = [];
+    for (const f of tsFiles("supabase/functions")) {
+      const src = readFileSync(f, "utf8");
+      const vars = [...src.matchAll(/const (\w+) = await (?:res|response|r)\.text\(\)/g)].map((m) => m[1]);
+      src.split(/\r?\n/).forEach((line, i) => {
+        const sink = /console\.(error|warn|log|info)\(|throw new Error\(|lastError =|JSON\.stringify\(\{ error/.test(line);
+        if (!sink) return;
+        if (/await (res|response|r)\.text\(\)/.test(line) && !/providerErrorSummary\(await (res|response|r)\.text\(\)\)/.test(line)) {
+          offenders.push(`${f}:${i + 1} (inline body)`);
+        }
+        for (const v of vars) {
+          const used = new RegExp(`\\$\\{${v}\\}|[,(]\\s*${v}\\s*[,)]|${v}\\.slice\\(`).test(line);
+          const wrapped = new RegExp(`providerErrorSummary\\(${v}\\)`).test(line);
+          if (used && !wrapped) offenders.push(`${f}:${i + 1} (${v})`);
+        }
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("the eval scripts that print to public CI logs keep provider codes only", () => {
+    for (const f of ["scripts/ai-eval/providers.mjs", "scripts/ai-eval/list-models.mjs"]) {
+      const src = readFileSync(f, "utf8");
+      expect(src, f).not.toMatch(/body\.slice\(/);
+      expect(src, f).toMatch(/providerErrorSummary\(body\)/);
+    }
+  });
+
+  it("no log line carries an email address", () => {
+    const offenders: string[] = [];
+    for (const f of tsFiles("supabase/functions")) {
+      readFileSync(f, "utf8").split(/\r?\n/).forEach((line, i) => {
+        if (/console\.(error|warn|log|info)\(.*\.email\b/.test(line)) offenders.push(`${f}:${i + 1}`);
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("publicMediaFailure logs a category and a code or a length — never the provider's sentence", () => {
+    const src = readFileSync("supabase/functions/_shared/providerInput.ts", "utf8");
+    const fn = src.slice(src.indexOf("export function publicMediaFailure"), src.indexOf("export function providerErrorSummary"));
+    expect(fn).toContain('console.error(`[${tag}] provider failure:`, category, code);');
+    expect(fn).not.toMatch(/text\.slice\(0, 300\)/);
+  });
+
+  it("realtime-session answers the browser with a fixed sentence, not OpenAI's message", () => {
+    const src = readFileSync("supabase/functions/realtime-session/index.ts", "utf8");
+    expect(src).not.toMatch(/openaiError|JSON\.parse\(err\)\?\.error\?\.message/);
+    expect(src).toContain("The voice session could not be started. Please try again shortly.");
+  });
+
   it("the shared chat layer and Gemini use it", () => {
     for (const f of ["aiProvider.ts", "geminiProvider.ts"]) {
       const src = readFileSync(`supabase/functions/_shared/${f}`, "utf8");

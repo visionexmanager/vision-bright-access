@@ -11,6 +11,26 @@
 // the results file.
 
 /** Cheap tier per provider — the tier a high-volume routed task would use. */
+/**
+ * The short machine codes of a provider error body, and nothing else — the
+ * same rule as supabase/functions/_shared/providerInput.ts providerErrorSummary.
+ * Eval runs print to a public CI log; bodies echo prompts and name accounts
+ * (an OpenAI 429 names the organization, an OpenRouter 429 the user).
+ */
+export function providerErrorSummary(body) {
+  let parsed;
+  try { parsed = JSON.parse(body); } catch { return "non-json body"; }
+  const root = parsed && typeof parsed === "object" ? parsed : {};
+  const err = root.error && typeof root.error === "object" ? root.error : root;
+  const meta = err.metadata && typeof err.metadata === "object" ? err.metadata : {};
+  const parts = [];
+  for (const [label, value] of [["code", err.code], ["type", err.type], ["status", err.status], ["limit", meta.limit_source]]) {
+    const text = typeof value === "number" ? String(value) : value;
+    if (typeof text === "string" && /^[\w.:-]{1,48}$/.test(text)) parts.push(`${label}=${text}`);
+  }
+  return parts.join(" ") || "no code";
+}
+
 export const DEFAULT_MODELS = {
   openai: "gpt-4o-mini",
   groq: "llama-3.1-8b-instant",
@@ -89,7 +109,7 @@ async function callOpenAICompatible({ provider, model, system, userText, schema,
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status}: ${body.slice(0, 200)}`);
+    throw new Error(`HTTP ${res.status}: ${providerErrorSummary(body)}`);
   }
 
   const data = await res.json();
@@ -123,7 +143,7 @@ async function callGemini({ model, system, userText, schema, maxTokens, env, fet
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status}: ${body.slice(0, 200)}`);
+    throw new Error(`HTTP ${res.status}: ${providerErrorSummary(body)}`);
   }
 
   const data = await res.json();

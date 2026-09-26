@@ -133,11 +133,16 @@ const NOT_CONFIGURED = /not configured|API_KEY|API_TOKEN|no video provider/i;
  */
 export function publicMediaFailure(raw: unknown, kind: "image" | "video", tag: string): string {
   const text = typeof raw === "string" ? raw : raw instanceof Error ? raw.message : "";
-  console.error(`[${tag}] provider failure:`, text.slice(0, 300) || "(no detail)");
-  if (CONTENT_POLICY.test(text)) {
+  // The category and a length — never the provider's sentence, which can echo
+  // the prompt or name the account (#356). A short code (FAL, the registry's
+  // own) is safe to keep and is what an operator acts on.
+  const category = CONTENT_POLICY.test(text) ? "content_policy" : NOT_CONFIGURED.test(text) ? "not_configured" : "other";
+  const code = /^[\w .:-]{1,40}$/.test(text) && !/\s.*\s.*\s/.test(text) ? text : `${text.length} chars withheld`;
+  console.error(`[${tag}] provider failure:`, category, code);
+  if (category === "content_policy") {
     return "This request was declined by the content filter. Please change the prompt and try again.";
   }
-  if (NOT_CONFIGURED.test(text)) {
+  if (category === "not_configured") {
     return `The ${kind} service is temporarily unavailable. Please try again later.`;
   }
   return `The ${kind} could not be created. Please try again later.`;

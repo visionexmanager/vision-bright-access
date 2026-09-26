@@ -94,7 +94,8 @@ Deno.serve(async (req) => {
   if (call.outcome === "failed") {
     const status = call.failure.reason === "rejected" ? call.failure.status : 0;
     const detail = call.failure.reason === "rejected" ? call.failure.detail : "";
-    console.error("TTS error:", status, detail);
+    // The provider's own sentence stays out of the log (#356); the status is enough to act on.
+    console.error("TTS error:", status, detail ? "(detail withheld)" : "");
     return new Response(JSON.stringify({ error: `TTS failed: ${status}` }), {
       status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
