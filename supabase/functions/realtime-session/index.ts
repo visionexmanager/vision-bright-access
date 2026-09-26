@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getAssistant } from "../_shared/assistants.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { providerErrorSummary } from "../_shared/providerInput.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -151,12 +152,10 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const err = await response.text();
-      console.error("OpenAI Realtime session error:", response.status, err);
-      let openaiError = `[${response.status}] Failed to create realtime session`;
-      try { openaiError = `[${response.status}] ${JSON.parse(err)?.error?.message || err}`; } catch {
-        openaiError = `[${response.status}] ${err.slice(0, 200)}`;
-      }
-      return new Response(JSON.stringify({ error: openaiError }), {
+      console.error("OpenAI Realtime session error:", response.status, providerErrorSummary(err));
+      // A fixed sentence: the provider's own message named the vendor and could
+      // echo the request, and it went straight to the browser (#356).
+      return new Response(JSON.stringify({ error: "The voice session could not be started. Please try again shortly." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
