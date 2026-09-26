@@ -10,12 +10,13 @@
 // `providerRouter.ts` functions now build their client and delegate, so there
 // is still exactly one implementation of "record a result" (Phase 2H).
 //
-// Pure: no imports but types, no Deno, no environment.
+// Pure: no imports but types, the pure ranking rules and the cooldown table; no Deno, no environment.
 
 import type { MediaKind, MediaOutcome } from "./contentMedia.ts";
 import type { SttProviderName, TranscribeAttempt } from "./voice/stt.ts";
 import type { TtsExecution, TtsProvider } from "./voice/tts.ts";
-import type { AIProvider, ProviderAttempt } from "./aiProvider.ts";
+import { ACTIVATION_GATED, COOLDOWN_MS, type AIProvider, type ProviderAttempt } from "./aiProvider.ts";
+import { registryVerdict, verifiedFor, type RegistryHealthRow, type RegistryVerdict } from "./providerSelection.ts";
 
 // deno-lint-ignore no-explicit-any
 export type RecordingDb = any;
@@ -32,6 +33,12 @@ export interface RecordResultParams {
   failover_to?:   string;
   /** Operational metadata only (e.g. the model id). Written only when given. */
   request_meta?:  Record<string, unknown>;
+  /**
+   * False when the failure says nothing about the provider's health — the
+   * request was malformed, the answer unparseable. The log row is written; the
+   * health metric is not. Defaults to true, so every other recorder is unchanged.
+   */
+  counts_toward_health?: boolean;
 }
 
 /** A `ph_providers` row by slug — for recording against it, not for choosing it. */
@@ -43,15 +50,53 @@ export async function providerBySlugIn(
   return data ?? null;
 }
 
+// ── Activation gate for providers that must be switched on ──────────────────
+//
+// A provider added after the audit of 2026-09-26 (FAL, and anything like it)
+// serves traffic only when its registry row says so: status active or
+// degraded — degraded is health, not a switch — AND config.production_eligible
+// is true. Both are admin decisions, taken after a real smoke test; no probe
+// or automation sets either. Anything else — no row, inactive, error, not
+// eligible, a registry that errors or takes longer than the timeout — is
+// "not routable". Fail closed: an unreadable registry never switches a
+// provider on.
+
+export const ROUTABLE_READ_TIMEOUT_MS = 1_500;
+
+export function rowIsRoutable(row: { status?: unknown; config?: unknown } | null | undefined): boolean {
+  if (!row) return false;
+  if (row.status !== "active" && row.status !== "degraded") return false;
+  const config = row.config && typeof row.config === "object" ? row.config as Record<string, unknown> : {};
+  return config.production_eligible === true;
+}
+
+export async function providerRoutableIn(db: RecordingDb, slug: string): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), ROUTABLE_READ_TIMEOUT_MS);
+    });
+    const read = db.from("ph_providers").select("status, config").eq("slug", slug).maybeSingle()
+      .then((r: { data: unknown }) => r.data);
+    return rowIsRoutable(await Promise.race([read, timeout]) as { status?: unknown; config?: unknown } | null);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Metrics, a log row, and a failover row when one happened. */
 export async function recordResultIn(db: RecordingDb, params: RecordResultParams): Promise<void> {
   // Upsert metrics
-  await db.rpc("ph_record_metric", {
-    p_provider_id: params.provider_id,
-    p_success:     params.success,
-    p_latency_ms:  params.latency_ms ?? null,
-    p_cost_usd:    params.cost_usd ?? 0,
-  });
+  if (params.counts_toward_health !== false) {
+    await db.rpc("ph_record_metric", {
+      p_provider_id: params.provider_id,
+      p_success:     params.success,
+      p_latency_ms:  params.latency_ms ?? null,
+      p_cost_usd:    params.cost_usd ?? 0,
+    });
+  }
 
   // `failover_to` arrives as a slug, but ph_logs.failover_to and
   // ph_failovers.to_provider_id are uuid columns. Writing the slug into the
@@ -107,7 +152,7 @@ export async function recordProviderOutcome(
   db: RecordingDb,
   slug: string,
   jobType: string,
-  outcome: { success: boolean; ms: number; error?: string },
+  outcome: { success: boolean; ms: number; error?: string; countsTowardHealth?: boolean },
   meta?: Record<string, unknown>,
 ): Promise<void> {
   try {
@@ -121,6 +166,7 @@ export async function recordProviderOutcome(
       latency_ms:    outcome.ms,
       error_message: outcome.error,
       ...(meta ? { request_meta: meta } : {}),
+      ...(outcome.countsTowardHealth === false ? { counts_toward_health: false } : {}),
     });
   } catch {
     // Best-effort. The caller's result must never depend on this.
@@ -156,6 +202,7 @@ export const VIDEO_PROVIDER_SLUG: Readonly<Record<string, string>> = {
   openai: "openai-video",
   luma: "luma-video",
   runpod: "runpod-video",
+  fal: "fal-video",
 };
 
 // ── Speech to text (Phase 2I) ─────────────────────────────────────────────────
@@ -238,6 +285,9 @@ export const CHAT_PROVIDER_SLUG: Partial<Record<AIProvider, string>> = {
   groq: "groq-chat",
   mistral: "mistral-chat",
   gemini: "gemini-chat",
+  // Activation-gated: the row (20261050000000) must be switched on before a
+  // single request is sent, and it names the model (default_model).
+  openrouter: "openrouter-chat",
 };
 
 /** The vision rows seeded in 20261042000000. */
@@ -254,8 +304,106 @@ export async function recordProviderAttempt(db: RecordingDb, attempt: ProviderAt
     db,
     slug,
     attempt.kind,
-    { success: attempt.success, ms: attempt.ms, error: attempt.error },
+    {
+      success: attempt.success,
+      ms: attempt.ms,
+      error: attempt.error,
+      // Since the chains read health back (registryDemotionFrom), only a
+      // failure that would repeat — the ones that cool a target — may lower it.
+      // A malformed request or an unreadable answer is logged, not held
+      // against the provider.
+      ...(attempt.success || (attempt.error && attempt.error in COOLDOWN_MS) ? {} : { countsTowardHealth: false }),
+    },
     // Token counts only, when the provider reported them — never content.
     { model: attempt.model, attempt: attempt.attempt, mode: attempt.mode, ...(attempt.usage ? { usage: attempt.usage } : {}) },
   );
+}
+
+// ── Reading health back for the chat/vision chains ──────────────────────────
+
+/** How old the registry snapshot may be before the next request refreshes it. */
+export const REGISTRY_SNAPSHOT_TTL_MS = 60_000;
+/** A registry read slower than this is abandoned; the chains keep policy order. */
+export const REGISTRY_READ_TIMEOUT_MS = 1_500;
+
+/**
+ * A synchronous `RegistryView` for `setProviderRegistryView()`.
+ *
+ * It never waits for the database: it answers from the last snapshot of the
+ * chat and vision rows and, when that snapshot is older than the TTL, starts
+ * one refresh and hands it to `background` (EdgeRuntime.waitUntil in
+ * production). Until the first read lands — and whenever a read fails or
+ * times out — it knows nothing: the established providers run in policy
+ * order, and every activation-gated provider stays off. Silence enables
+ * nothing.
+ */
+export function registryViewFrom(
+  db: RecordingDb,
+  opts: {
+    background?: (work: Promise<unknown>) => void;
+    now?: () => number;
+    random?: () => number;
+  } = {},
+): {
+  verdict(target: { provider: AIProvider; model: string }, kind: "chat" | "vision"): RegistryVerdict;
+  extras(kind: "chat" | "vision", mode: "stream" | "structured"): Array<{ provider: AIProvider; model: string }>;
+} {
+  const now = opts.now ?? Date.now;
+  let rows = new Map<string, RegistryHealthRow>();
+  let fetchedAt = -Infinity;
+  let inFlight = false;
+
+  const refresh = async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const read = db
+        .from("ph_providers")
+        .select("slug, status, health_score, default_model, config")
+        .in("type", ["chat", "vision"]);
+      const timeout = new Promise<{ data: null }>((resolve) => {
+        timer = setTimeout(() => resolve({ data: null }), REGISTRY_READ_TIMEOUT_MS);
+      });
+      const { data } = await Promise.race([read, timeout]);
+      if (Array.isArray(data)) rows = new Map(data.map((r: RegistryHealthRow) => [r.slug, r]));
+    } catch {
+      // Keep the last snapshot; a registry outage must not reorder anything.
+    } finally {
+      clearTimeout(timer);
+      fetchedAt = now();
+      inFlight = false;
+    }
+  };
+
+  const touch = () => {
+    if (!inFlight && now() - fetchedAt > REGISTRY_SNAPSHOT_TTL_MS) {
+      inFlight = true;
+      const work = refresh();
+      try { opts.background?.(work); } catch { /* the refresh runs regardless */ }
+    }
+  };
+  const rowFor = (provider: AIProvider, kind: "chat" | "vision") => {
+    const slug = (kind === "vision" ? VISION_PROVIDER_SLUG : CHAT_PROVIDER_SLUG)[provider];
+    return slug ? rows.get(slug) : undefined;
+  };
+
+  return {
+    verdict(target, kind) {
+      touch();
+      return registryVerdict(rowFor(target.provider, kind), ACTIVATION_GATED.has(target.provider), opts.random);
+    },
+    extras(kind, mode) {
+      touch();
+      const out: Array<{ provider: AIProvider; model: string }> = [];
+      for (const provider of ACTIVATION_GATED) {
+        const row = rowFor(provider, kind);
+        const model = row?.default_model;
+        if (!row || !model || registryVerdict(row, true, () => 0) === "excluded") continue;
+        // Capability is per model, as verified and written into the row:
+        // chat for a stream, tool calling for a structured answer, vision for an image.
+        const needs = [mode === "structured" ? "tools" : "chat", ...(kind === "vision" ? ["vision"] : [])];
+        if (needs.every((c) => verifiedFor(row, model, c))) out.push({ provider, model });
+      }
+      return out;
+    },
+  };
 }

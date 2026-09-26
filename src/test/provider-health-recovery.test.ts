@@ -75,7 +75,7 @@ describe("mock-video: administratively disabled, not deleted", () => {
     const studio = readFileSync("supabase/functions/video-studio/index.ts", "utf8");
     const getProvider = studio.slice(studio.indexOf("function getProvider("), studio.indexOf("// ── Provider registry recording"));
     expect(getProvider).not.toMatch(/mock/i);
-    expect(getProvider).toContain('throw new Error(`Unknown video provider: "${requested}". Supported: luma, runpod`);');
+    expect(getProvider).toContain('throw new Error(`Unknown video provider: "${requested}". Supported: luma, runpod, fal`);');
   });
 });
 
@@ -139,7 +139,8 @@ describe("provider selection is unchanged", () => {
 
   it("video-studio still chooses by environment key and never reads the registry", () => {
     const studio = readFileSync("supabase/functions/video-studio/index.ts", "utf8");
-    expect(studio).toContain('if (!requested) requested = "luma";');
+    // auto: Luma, or FAL only when Luma has no key and fal-video is routable (2026-09-26).
+    expect(studio).toContain('if (!requested) requested = !lumaKey && opts.falRoutable && falKey ? "fal" : "luma";');
     expect(studio).not.toMatch(/resolveProvider|from\("ph_providers"\)/);
   });
 

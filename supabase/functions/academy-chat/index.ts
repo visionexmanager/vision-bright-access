@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
-import { boundedChatMessages, boundedText } from "../_shared/providerInput.ts";
+import { boundedChatMessages, boundedText, providerErrorSummary } from "../_shared/providerInput.ts";
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -146,7 +146,7 @@ ALWAYS respond exclusively in ${responseLang}. Every single response must be in 
         );
       }
       const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
+      console.error("AI gateway error:", response.status, providerErrorSummary(errText));
       return new Response(
         JSON.stringify({ error: "خدمة الذكاء الاصطناعي غير متاحة مؤقتاً" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

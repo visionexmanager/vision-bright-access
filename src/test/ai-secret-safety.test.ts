@@ -22,7 +22,7 @@ describe("AI secret deployment safety", () => {
     }
   });
 
-  it("stores fal as a disabled reserve without assigning it any production task", () => {
+  it("keeps fal out of the chat chains and behind its registry gate", () => {
     const workflow = readFileSync(resolve(root, ".github/workflows/deploy.yml"), "utf8");
     const activeProviderSources = [
       "supabase/functions/_shared/aiProvider.ts",
@@ -32,7 +32,9 @@ describe("AI secret deployment safety", () => {
     ].map((path) => readFileSync(resolve(root, path), "utf8")).join("\n");
 
     expect(workflow).toContain("FAL_KEY:              ${{ secrets.FAL_KEY }}");
-    expect(workflow).toContain("Reserved only. No Edge Function reads FAL_KEY");
+    // Since the provider recovery of 2026-09-26 FAL may serve images and video,
+    // but only through its registry gate — pinned in fal-provider.test.ts.
+    expect(workflow).toMatch(/only while\s+# the fal-image \/ fal-video registry row is active AND production-eligible/);
     expect(workflow).not.toContain("VITE_FAL_KEY");
     expect(activeProviderSources).not.toContain("FAL_KEY");
     expect(activeProviderSources).not.toMatch(/fal\.ai|fal-ai|seedance/i);

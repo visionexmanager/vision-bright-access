@@ -76,8 +76,8 @@ const DEFAULT_PROVIDER: AIProvider = "openai";
 const DEFAULT_MODEL = "gpt-4o";
 const OPENAI = { provider: "openai", model: "gpt-4o" } as const;
 const GEMINI = { provider: "gemini", model: "gemini-flash-latest" } as const;
-const GROQ = { provider: "groq", model: "llama-3.1-8b-instant" } as const;
-const MISTRAL = { provider: "mistral", model: "mistral-small-latest" } as const;
+const GROQ = { provider: "groq", model: "openai/gpt-oss-20b" } as const;
+const MISTRAL = { provider: "mistral", model: "ministral-14b-latest" } as const;
 
 const MISTRAL_GENERATORS = new Set([
   "content-summary", "marketing-campaign", "content-writer",

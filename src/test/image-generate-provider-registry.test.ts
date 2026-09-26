@@ -15,7 +15,9 @@ const fn = readFileSync("supabase/functions/image-generate/index.ts", "utf8");
 
 describe("recording is wired to the seeded registry row", () => {
   it("records against openai-image, the exact slug Phase 2C seeded", () => {
-    expect(fn).toContain('const row = await providerBySlug("openai-image");');
+    // Since the FAL fallback (2026-09-26) the slug is a parameter; OpenAI is the default.
+    expect(fn).toContain('const row = await providerBySlug(params.slug ?? "openai-image");');
+    expect(fn).toMatch(/slug\?: "openai-image" \| "fal-image"/);
   });
 
   it("imports providerBySlug/recordResult from the same router speech-generate uses", () => {
@@ -34,8 +36,12 @@ describe("the model fallback loop is untouched", () => {
   });
 
   it("recordImageResult is called once per request, around the whole fallback loop, not per model tried", () => {
-    const calls = (fn.match(/await recordImageResult\(/g) ?? []).length;
-    expect(calls).toBe(2); // one on the failure branch, one on success
+    // OpenAI: exactly one record in the handler, after its whole model loop.
+    // FAL records its own attempt inside generateWithFal, against fal-image.
+    const handler = fn.slice(fn.indexOf("Deno.serve("));
+    expect((handler.match(/await recordImageResult\(/g) ?? []).length).toBe(1);
+    const fal = fn.slice(fn.indexOf("async function generateWithFal"), fn.indexOf("Deno.serve("));
+    expect((fal.match(/await recordImageResult\(\{ slug: "fal-image"/g) ?? []).length).toBe(2); // success, failure
   });
 });
 
@@ -53,19 +59,24 @@ describe("recording never gates or breaks the generation response", () => {
   });
 
   it("times the actual generateImage() call, not the storage upload or job bookkeeping around it", () => {
-    const handler = fn.slice(fn.indexOf("const startedAt = Date.now();"));
+    const serve = fn.slice(fn.indexOf("Deno.serve("));
+    const handler = serve.slice(serve.indexOf("const startedAt = Date.now();"));
     const between = handler.slice(0, handler.indexOf("const elapsedMs"));
     expect(between).toContain("await generateImage({");
     expect(between).not.toContain("storage");
   });
 
   it("records failure before the existing failure path runs, success before the existing completion path runs", () => {
-    const failAt = fn.indexOf("await recordImageResult({ ms: elapsedMs, success: false");
-    const failReturnAt = fn.indexOf("return json({ ok: false, error: result.error, job_id: jobId }, 500);");
-    const successAt = fn.indexOf("await recordImageResult({ ms: elapsedMs, success: true });");
-    expect(failAt).toBeGreaterThan(-1);
-    expect(failAt).toBeLessThan(failReturnAt);
-    expect(successAt).toBeGreaterThan(failReturnAt);
+    // One record carries either outcome, written before the FAL fallback, the
+    // failure response and the storage upload all run.
+    const recordAt = fn.indexOf("await recordImageResult({ ms: elapsedMs, success: result.ok");
+    const fallbackAt = fn.indexOf('await providerRoutableIn(serviceClient, "fal-image")');
+    const failReturnAt = fn.indexOf("return json({ ok: false, error: publicMediaFailure(result.error");
+    const uploadAt = fn.indexOf('.from("image-outputs")');
+    expect(recordAt).toBeGreaterThan(-1);
+    expect(recordAt).toBeLessThan(fallbackAt);
+    expect(fallbackAt).toBeLessThan(failReturnAt);
+    expect(failReturnAt).toBeLessThan(uploadAt);
   });
 });
 
