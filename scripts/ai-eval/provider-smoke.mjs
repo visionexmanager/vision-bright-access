@@ -104,7 +104,7 @@ let spokenAudio = null; // filled by the first TTS probe that succeeds, used for
 const RATE_HEADERS = [
   "x-ratelimit-limit-requests", "x-ratelimit-limit-tokens",
   "x-ratelimit-limit-requests-day", "x-ratelimit-limit-tokens-minute",
-  "ratelimit-limit", "x-ratelimit-limit",
+  "ratelimit-limit", "x-ratelimit-limit", "x-ratelimitbysize-limit-minute", "x-ratelimitbysize-limit-month", "retry-after",
 ];
 
 function rateOf(res) {
@@ -296,7 +296,7 @@ async function mistral(key) {
   const listing = await listIds(`${base}/models`, bearer(key));
   inventory.mistral = { list_status: listing.status, model_count: listing.ids.length, ocr: listing.ids.filter((i) => /ocr/i.test(i)), voxtral: listing.ids.filter((i) => /voxtral/i.test(i)) };
   await openAICompatible("mistral", base, key, {
-    chat: ["mistral-small-latest"],
+    chat: ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest", "ministral-8b-latest", "open-mistral-nemo"],
     tool: ["mistral-small-latest"],
     vision: ["mistral-small-latest"],
   });
@@ -328,12 +328,12 @@ async function nvidiaNim(key) {
     vision: ids.filter((i) => /vision|-vl/i.test(i)).slice(0, 10),
     embedding: ids.filter((i) => /embed/i.test(i)).slice(0, 10),
   };
-  const prefer = ["meta/llama-3.3-70b-instruct", "meta/llama-3.1-70b-instruct", "meta/llama-3.1-8b-instruct", "meta/llama-4-maverick-17b-128e-instruct", "mistralai/mistral-small-3.1-24b-instruct-2503"];
-  const chat = [...new Set([...prefer.filter((m) => ids.includes(m)), ...instruct])].slice(0, 2);
-  const vision = ids.includes("meta/llama-3.2-11b-vision-instruct") ? ["meta/llama-3.2-11b-vision-instruct"] : [];
+  // The listing is not reliable here: listed ids answered 404 on 2026-09-26.
+  // Probe current catalogue ids directly and let generation decide.
+  const chat = ["meta/llama-3.3-70b-instruct", "meta/llama-3.1-8b-instruct", "nvidia/llama-3.3-nemotron-super-49b-v1.5", "openai/gpt-oss-20b", "qwen/qwen3-next-80b-a3b-instruct", "mistralai/mistral-nemotron"];
+  const vision = ["meta/llama-3.2-11b-vision-instruct", "meta/llama-4-maverick-17b-128e-instruct"];
   await openAICompatible("nvidia_nim", base, key, { chat, tool: chat.slice(0, 1), vision });
-  const embed = inventory.nvidia_nim.embedding[0];
-  if (embed) {
+  for (const embed of ["nvidia/nv-embedqa-e5-v5", "nvidia/llama-3.2-nv-embedqa-1b-v2", "snowflake/arctic-embed-l"]) {
     await probe("nvidia_nim", "embeddings", embed, async () => ({
       ...(await post(`${base}/embeddings`, bearer(key), { model: embed, input: ["hello"], input_type: "query" })),
       check: (j) => (j?.data?.[0]?.embedding?.length ?? 0) > 0,
@@ -360,11 +360,17 @@ async function bytez(key) {
   const auth = (k) => ({ Authorization: k, "Content-Type": "application/json" });
   const listing = await call("https://api.bytez.com/models/v2/list/models?task=chat", { headers: auth(key) });
   const rows = Array.isArray(listing.body?.output) ? listing.body.output : [];
-  inventory.bytez = { list_status: listing.status, model_count: rows.length, meters: [...new Set(rows.map((r) => r.meter))].slice(0, 10) };
-  const chat = ["Qwen/Qwen3-1.7B", "Qwen/Qwen2.5-1.5B-Instruct"].filter((m) => rows.length === 0 || rows.some((r) => r.modelId === m)).slice(0, 1);
+  // Key names of the body only: 200 with no rows needs explaining, not guessing.
+  inventory.bytez = { list_status: listing.status, body_keys: Object.keys(listing.body ?? {}).slice(0, 10), output_type: Array.isArray(listing.body?.output) ? "array" : typeof listing.body?.output, model_count: rows.length, sample: rows.slice(0, 15).map((r) => r.modelId) };
+  const chat = ["Qwen/Qwen3-1.7B", "microsoft/Phi-3-mini-4k-instruct", "openai/gpt-4o-mini"];
   await openAICompatible("bytez", "https://api.bytez.com/models/v2/openai/v1", key, {
     chat, auth, extra: Object.fromEntries(chat.map((m) => [m, { max_completion_tokens: 256 }])),
   });
+  // The native run endpoint, in case only that one serves this key.
+  await probe("bytez", "text_native", chat[0], async () => ({
+    ...(await post(`https://api.bytez.com/models/v2/${chat[0]}`, auth(key), { messages: ASK_OK, params: { max_new_tokens: 256 } })),
+    check: (j) => /\bok\b/i.test(JSON.stringify(j?.output ?? "")),
+  }));
 }
 
 const PROVIDERS = [
