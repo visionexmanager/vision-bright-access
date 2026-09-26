@@ -10,12 +10,13 @@
 // `providerRouter.ts` functions now build their client and delegate, so there
 // is still exactly one implementation of "record a result" (Phase 2H).
 //
-// Pure: no imports but types, no Deno, no environment.
+// Pure: no imports but types, the pure ranking rules and the cooldown table; no Deno, no environment.
 
 import type { MediaKind, MediaOutcome } from "./contentMedia.ts";
 import type { SttProviderName, TranscribeAttempt } from "./voice/stt.ts";
 import type { TtsExecution, TtsProvider } from "./voice/tts.ts";
-import type { AIProvider, ProviderAttempt } from "./aiProvider.ts";
+import { COOLDOWN_MS, type AIProvider, type ProviderAttempt } from "./aiProvider.ts";
+import { registryDemotes, type RegistryHealthRow } from "./providerSelection.ts";
 
 // deno-lint-ignore no-explicit-any
 export type RecordingDb = any;
@@ -32,6 +33,12 @@ export interface RecordResultParams {
   failover_to?:   string;
   /** Operational metadata only (e.g. the model id). Written only when given. */
   request_meta?:  Record<string, unknown>;
+  /**
+   * False when the failure says nothing about the provider's health — the
+   * request was malformed, the answer unparseable. The log row is written; the
+   * health metric is not. Defaults to true, so every other recorder is unchanged.
+   */
+  counts_toward_health?: boolean;
 }
 
 /** A `ph_providers` row by slug — for recording against it, not for choosing it. */
@@ -46,12 +53,14 @@ export async function providerBySlugIn(
 /** Metrics, a log row, and a failover row when one happened. */
 export async function recordResultIn(db: RecordingDb, params: RecordResultParams): Promise<void> {
   // Upsert metrics
-  await db.rpc("ph_record_metric", {
-    p_provider_id: params.provider_id,
-    p_success:     params.success,
-    p_latency_ms:  params.latency_ms ?? null,
-    p_cost_usd:    params.cost_usd ?? 0,
-  });
+  if (params.counts_toward_health !== false) {
+    await db.rpc("ph_record_metric", {
+      p_provider_id: params.provider_id,
+      p_success:     params.success,
+      p_latency_ms:  params.latency_ms ?? null,
+      p_cost_usd:    params.cost_usd ?? 0,
+    });
+  }
 
   // `failover_to` arrives as a slug, but ph_logs.failover_to and
   // ph_failovers.to_provider_id are uuid columns. Writing the slug into the
@@ -107,7 +116,7 @@ export async function recordProviderOutcome(
   db: RecordingDb,
   slug: string,
   jobType: string,
-  outcome: { success: boolean; ms: number; error?: string },
+  outcome: { success: boolean; ms: number; error?: string; countsTowardHealth?: boolean },
   meta?: Record<string, unknown>,
 ): Promise<void> {
   try {
@@ -121,6 +130,7 @@ export async function recordProviderOutcome(
       latency_ms:    outcome.ms,
       error_message: outcome.error,
       ...(meta ? { request_meta: meta } : {}),
+      ...(outcome.countsTowardHealth === false ? { counts_toward_health: false } : {}),
     });
   } catch {
     // Best-effort. The caller's result must never depend on this.
@@ -254,8 +264,79 @@ export async function recordProviderAttempt(db: RecordingDb, attempt: ProviderAt
     db,
     slug,
     attempt.kind,
-    { success: attempt.success, ms: attempt.ms, error: attempt.error },
+    {
+      success: attempt.success,
+      ms: attempt.ms,
+      error: attempt.error,
+      // Since the chains read health back (registryDemotionFrom), only a
+      // failure that would repeat — the ones that cool a target — may lower it.
+      // A malformed request or an unreadable answer is logged, not held
+      // against the provider.
+      ...(attempt.success || (attempt.error && attempt.error in COOLDOWN_MS) ? {} : { countsTowardHealth: false }),
+    },
     // Token counts only, when the provider reported them — never content.
     { model: attempt.model, attempt: attempt.attempt, mode: attempt.mode, ...(attempt.usage ? { usage: attempt.usage } : {}) },
   );
+}
+
+// ── Reading health back for the chat/vision chains ──────────────────────────
+
+/** How old the registry snapshot may be before the next request refreshes it. */
+export const REGISTRY_SNAPSHOT_TTL_MS = 60_000;
+/** A registry read slower than this is abandoned; the chains keep policy order. */
+export const REGISTRY_READ_TIMEOUT_MS = 1_500;
+
+/**
+ * A synchronous `RegistryDemotion` for `setProviderRegistryDemotion()`.
+ *
+ * It never waits for the database: it answers from the last snapshot of the
+ * chat and vision rows and, when that snapshot is older than the TTL, starts
+ * one refresh and hands it to `background` (EdgeRuntime.waitUntil in
+ * production). Until the first read lands — and whenever a read fails or
+ * times out — it knows nothing and demotes nothing, so the chains run in
+ * their policy order exactly as they did before the registry was consulted.
+ */
+export function registryDemotionFrom(
+  db: RecordingDb,
+  opts: {
+    background?: (work: Promise<unknown>) => void;
+    now?: () => number;
+    random?: () => number;
+  } = {},
+): (target: { provider: AIProvider; model: string }, kind: "chat" | "vision") => boolean {
+  const now = opts.now ?? Date.now;
+  let rows = new Map<string, RegistryHealthRow>();
+  let fetchedAt = -Infinity;
+  let inFlight = false;
+
+  const refresh = async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const read = db
+        .from("ph_providers")
+        .select("slug, status, health_score")
+        .in("type", ["chat", "vision"]);
+      const timeout = new Promise<{ data: null }>((resolve) => {
+        timer = setTimeout(() => resolve({ data: null }), REGISTRY_READ_TIMEOUT_MS);
+      });
+      const { data } = await Promise.race([read, timeout]);
+      if (Array.isArray(data)) rows = new Map(data.map((r: RegistryHealthRow) => [r.slug, r]));
+    } catch {
+      // Keep the last snapshot; a registry outage must not reorder anything.
+    } finally {
+      clearTimeout(timer);
+      fetchedAt = now();
+      inFlight = false;
+    }
+  };
+
+  return (target, kind) => {
+    if (!inFlight && now() - fetchedAt > REGISTRY_SNAPSHOT_TTL_MS) {
+      inFlight = true;
+      const work = refresh();
+      try { opts.background?.(work); } catch { /* the refresh runs regardless */ }
+    }
+    const slug = (kind === "vision" ? VISION_PROVIDER_SLUG : CHAT_PROVIDER_SLUG)[target.provider];
+    return registryDemotes(slug ? rows.get(slug) : undefined, opts.random);
+  };
 }

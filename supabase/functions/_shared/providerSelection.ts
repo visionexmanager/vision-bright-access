@@ -79,6 +79,39 @@ export function rankProviders<T extends RankableProvider>(
   return { provider: eligible[0], alternatives: eligible.slice(1) };
 }
 
+// ── Chat and vision chains: may the registry move a target later? ────────────
+//
+// The chat/vision loops in aiProvider.ts keep their code-defined order (it is
+// quality policy) and ask the registry one question per target: should this
+// one wait its turn? Yes when an admin has taken the row out (inactive,
+// error), or when recorded attempts have degraded it or driven its health to
+// the router's own exclusion line (health_score <= 20, as rankProviders).
+//
+// A demoted target is still tried after the others — never removed — and a
+// row demoted by *health* (not by an admin) keeps its place on a small share
+// of requests. Without that share it would only be reached when everything
+// ahead of it failed, would earn no successes, and would stay demoted for
+// ever: the "health never recovers" hazard found in Phase 2J.
+
+export interface RegistryHealthRow {
+  slug: string;
+  status: string;
+  health_score: number;
+}
+
+/** Share of requests on which a health-demoted row keeps its place. */
+export const RECOVERY_TRIAL_SHARE = 0.1;
+
+export function registryDemotes(
+  row: RegistryHealthRow | undefined,
+  random: () => number = Math.random,
+): boolean {
+  if (!row) return false; // no row: nothing to say, policy order stands
+  if (row.status === "inactive" || row.status === "error") return true;
+  const unhealthy = row.status === "degraded" || row.health_score <= 20;
+  return unhealthy && random() >= RECOVERY_TRIAL_SHARE;
+}
+
 // ── Shadow mode ───────────────────────────────────────────────────────────────
 
 export const SHADOW_ENV = "PROVIDER_REGISTRY_SHADOW";

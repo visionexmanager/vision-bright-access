@@ -15,7 +15,7 @@ describe("site-wide AI provider routing", () => {
     expect(assistants).toContain('return [GROQ, GEMINI, MISTRAL, OPENAI]');
     expect(assistants).toContain('model: "gemini-flash-latest"');
     expect(assistants).toContain('model: "openai/gpt-oss-20b"');
-    expect(assistants).toContain('model: "mistral-small-latest"');
+    expect(assistants).toContain('model: "ministral-14b-latest"');
   });
 
   it("routes research plans to Gemini, writing to Mistral, and operational work to Groq", () => {
@@ -52,8 +52,9 @@ describe("site-wide AI provider routing", () => {
 
     expect(provider).toContain("streamChatCompletionWithFallback");
     expect(provider).toContain("structuredCompletionWithFallback");
-    // Both loops walk the targets in the order given (Phase 2K-4 added the index for recording).
-    expect(provider.match(/for \(const \[index, target\] of params\.targets\.entries\(\)\)/g)).toHaveLength(2);
+    // Both loops walk the targets in policy order, reordered only by health —
+    // never filtered (provider audit 2026-09-26; see provider-health-ordering.test.ts).
+    expect(provider.match(/for \(const \[index, target\] of orderTargets\(params\.targets, (?:"chat"|kind)\)\.entries\(\)\)/g)).toHaveLength(2);
     expect(consumers).toContain("streamChatCompletionWithFallback");
     expect(consumers).toContain("structuredCompletionWithFallback");
   });
