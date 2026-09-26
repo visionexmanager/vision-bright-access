@@ -209,14 +209,22 @@ describe("publicMediaFailure", () => {
     }
   });
 
-  it("keeps the raw text for the operator's log, truncated", () => {
+  // Until #356 the operator's log kept the first 300 characters of the
+  // provider's sentence. A provider sentence can echo the prompt or name the
+  // account, so the log now keeps a category and a short code or a length.
+  it("logs a category and a short code or a length, never the provider's sentence", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    publicMediaFailure(`Replicate error (422): ${"x".repeat(1000)}`, "image", "image-tools-generate");
+    publicMediaFailure(`Replicate error (422): the prompt "my phone is 555" ${"x".repeat(1000)}`, "image", "image-tools-generate");
     expect(log).toHaveBeenCalledTimes(1);
-    const [tag, text] = log.mock.calls[0] as [string, string];
+    const [tag, category, detail] = log.mock.calls[0] as [string, string, string];
     expect(tag).toContain("[image-tools-generate]");
-    expect(text).toContain("Replicate error (422)");
-    expect(text.length).toBeLessThanOrEqual(300);
+    expect(category).toBe("other");
+    expect(detail).toMatch(/^\d+ chars withheld$/);
+    expect(log.mock.calls[0].join(" ")).not.toMatch(/555|Replicate|prompt/);
+
+    log.mockClear();
+    publicMediaFailure("fal http_403", "image", "image-generate"); // a closed code is kept
+    expect(log.mock.calls[0].slice(1)).toEqual(["other", "fal http_403"]);
   });
 });
 

@@ -11,6 +11,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { providerErrorSummary } from "../_shared/providerInput.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -251,7 +252,7 @@ any[]> {
         max_tokens: maxTokens,
       }),
     });
-    if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
+    if (!res.ok) throw new Error(`OpenAI ${res.status}: ${providerErrorSummary(await res.text())}`);
     const data = await res.json();
     const parsed = JSON.parse(data.choices[0].message.content);
     // Return whichever top-level array exists
@@ -269,7 +270,7 @@ any[]> {
         messages: [{ role: "user", content: prompt }],
       }),
     });
-    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
+    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${providerErrorSummary(await res.text())}`);
     const data = await res.json();
     const text: string = data.content[0].text;
     const match = text.match(/\{[\s\S]*\}/);
@@ -596,13 +597,13 @@ Deno.serve(async (req: Request) => {
       } else {
         emailsFailed++;
         const body = await res.text().catch(() => "");
-        lastError = `${res.status}: ${body}`;
-        console.error(`[news-generate] Resend send failed for ${sub.email}:`, lastError);
+        lastError = `${res.status}: ${providerErrorSummary(body)}`;
+        console.error("[news-generate] Resend send failed:", lastError);
       }
     } catch (err) {
       emailsFailed++;
       lastError = err instanceof Error ? err.message : String(err);
-      console.error(`[news-generate] Resend fetch threw for ${sub.email}:`, lastError);
+      console.error("[news-generate] Resend fetch threw:", err instanceof Error ? err.name : "unknown");
     }
   }
 
