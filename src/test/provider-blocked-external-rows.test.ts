@@ -51,24 +51,44 @@ describe("the migration", () => {
 describe("no production path can reach them", () => {
   const functions = filesUnder("supabase/functions");
 
-  it("no Edge Function reads their keys or calls their APIs", () => {
+  it("NIM and Bytez are unreachable: no Edge Function reads their keys or calls their APIs", () => {
     for (const f of functions) {
       const src = readFileSync(f, "utf8");
-      expect(src, f).not.toMatch(/OPENROUTER_API_KEY|NVIDIA_NIM_API_KEY|BYTEZ_API_KEY|FAL_KEY/);
-      expect(src, f).not.toMatch(/openrouter\.ai|integrate\.api\.nvidia\.com|api\.bytez\.com|fal\.run|queue\.fal/);
+      expect(src, f).not.toMatch(/NVIDIA_NIM_API_KEY|BYTEZ_API_KEY/);
+      expect(src, f).not.toMatch(/integrate\.api\.nvidia\.com|api\.bytez\.com/);
     }
   });
 
-  it("the chat/vision chains cannot name them: the adapter's provider union excludes them", () => {
-    const ai = readFileSync("supabase/functions/_shared/aiProvider.ts", "utf8");
-    const union = ai.match(/export type AIProvider = ([^;]+);/)?.[1] ?? "";
-    expect(union).not.toMatch(/openrouter|nvidia|nim|bytez|fal/i);
+  // OpenRouter and FAL have adapters (provider recovery, #353–#355), and each
+  // may be read only behind its registry gate, so an inactive row still means
+  // no traffic. This holds whether or not those PRs have merged.
+  it("OpenRouter is read only by the chat adapter, and only as an activation-gated provider", () => {
+    for (const f of functions) {
+      const src = readFileSync(f, "utf8");
+      if (!/OPENROUTER_API_KEY|openrouter\.ai/.test(src)) continue;
+      expect(f.replace(/\\/g, "/"), "only aiProvider.ts may speak to OpenRouter").toMatch(/_shared\/aiProvider\.ts$/);
+      expect(src).toMatch(/ACTIVATION_GATED[^;]*new Set<AIProvider>\(\[[^\]]*"openrouter"/);
+    }
   });
 
-  it("the deploy does not sync the three chat keys into the Edge Function runtime", () => {
+  it("FAL is read only where its fal-* row is checked with the fail-closed gate", () => {
+    for (const f of functions) {
+      const src = readFileSync(f, "utf8");
+      if (!/Deno\.env\.get\("FAL_KEY"\)/.test(src)) continue;
+      expect(src, f).toMatch(/providerRoutableIn\([^)]*"fal-(image|video)"\)/);
+    }
+  });
+
+  it("the chat/vision chains cannot name NIM, Bytez or FAL: the adapter's provider union excludes them", () => {
+    const ai = readFileSync("supabase/functions/_shared/aiProvider.ts", "utf8");
+    const union = ai.match(/export type AIProvider = ([^;]+);/)?.[1] ?? "";
+    expect(union).not.toMatch(/nvidia|nim|bytez|fal/i);
+  });
+
+  it("the deploy does not sync the NIM or Bytez keys into the Edge Function runtime", () => {
     const deploy = readFileSync(".github/workflows/deploy.yml", "utf8");
     const loop = deploy.match(/for name in ([^;]+); do/)?.[1] ?? "";
     expect(loop.length).toBeGreaterThan(100);
-    for (const k of ["OPENROUTER_API_KEY", "NVIDIA_NIM_API_KEY", "BYTEZ_API_KEY"]) expect(loop.split(/\s+/)).not.toContain(k);
+    for (const k of ["NVIDIA_NIM_API_KEY", "BYTEZ_API_KEY"]) expect(loop.split(/\s+/)).not.toContain(k);
   });
 });
