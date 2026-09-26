@@ -265,6 +265,14 @@ async function gemini(key) {
       ] }], generationConfig: { maxOutputTokens: 512 } })),
       check: (j) => /42/.test(geminiText(j)),
     }));
+    // Structured output the way geminiProvider.ts asks for it: JSON mode with a schema.
+    await probe("gemini", "structured_output", model, async () => ({
+      ...(await post(`${base}/models/${model}:generateContent`, headers, { contents: [{ role: "user", parts: [{ text: "Return the word OK in the field word." }] }], generationConfig: {
+        maxOutputTokens: 512, responseMimeType: "application/json",
+        responseSchema: { type: "OBJECT", properties: { word: { type: "STRING" } }, required: ["word"] },
+      } })),
+      check: (j) => /ok/i.test(JSON.parse(geminiText(j)).word ?? ""),
+    }));
   }
 }
 // A thinking model spends its budget before it writes; 16 tokens read as empty.
@@ -296,16 +304,16 @@ async function mistral(key) {
   const listing = await listIds(`${base}/models`, bearer(key));
   inventory.mistral = { list_status: listing.status, model_count: listing.ids.length, ocr: listing.ids.filter((i) => /ocr/i.test(i)), voxtral: listing.ids.filter((i) => /voxtral/i.test(i)) };
   await openAICompatible("mistral", base, key, {
-    chat: ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest", "ministral-8b-latest", "open-mistral-nemo"],
-    tool: ["mistral-small-latest"],
-    vision: ["mistral-small-latest"],
+    chat: ["mistral-small-latest", "mistral-small-2506", "mistral-medium-latest", "mistral-large-latest", "ministral-8b-latest", "ministral-14b-latest", "open-mistral-nemo"],
+    tool: ["mistral-small-latest", "ministral-8b-latest", "open-mistral-nemo"],
+    vision: ["mistral-small-latest", "pixtral-12b-latest", "ministral-14b-latest"],
   });
   await probe("mistral", "embeddings", "mistral-embed", async () => ({
     ...(await post(`${base}/embeddings`, bearer(key), { model: "mistral-embed", input: ["hello"] })),
     check: (j) => (j?.data?.[0]?.embedding?.length ?? 0) > 0,
   }));
-  await probe("mistral", "ocr", "mistral-ocr-latest", async () => ({
-    ...(await post(`${base}/ocr`, bearer(key), { model: "mistral-ocr-latest", document: { type: "image_url", image_url: IMAGE_URL } })),
+  for (const ocr of ["mistral-ocr-latest", "mistral-ocr-2512"]) await probe("mistral", "ocr", ocr, async () => ({
+    ...(await post(`${base}/ocr`, bearer(key), { model: ocr, document: { type: "image_url", image_url: IMAGE_URL } })),
     check: (j) => /42/.test((j?.pages ?? []).map((p) => p.markdown).join(" ")),
   }));
   if (spokenAudio) {
@@ -332,7 +340,7 @@ async function nvidiaNim(key) {
   // Probe current catalogue ids directly and let generation decide.
   const chat = ["meta/llama-3.3-70b-instruct", "meta/llama-3.1-8b-instruct", "nvidia/llama-3.3-nemotron-super-49b-v1.5", "openai/gpt-oss-20b", "qwen/qwen3-next-80b-a3b-instruct", "mistralai/mistral-nemotron"];
   const vision = ["meta/llama-3.2-11b-vision-instruct", "meta/llama-4-maverick-17b-128e-instruct"];
-  await openAICompatible("nvidia_nim", base, key, { chat, tool: chat.slice(0, 1), vision });
+  await openAICompatible("nvidia_nim", base, key, { chat, tool: chat.slice(0, 1), vision, extra: Object.fromEntries(chat.map((m) => [m, { max_tokens: 256 }])) });
   for (const embed of ["nvidia/nv-embedqa-e5-v5", "nvidia/llama-3.2-nv-embedqa-1b-v2", "snowflake/arctic-embed-l"]) {
     await probe("nvidia_nim", "embeddings", embed, async () => ({
       ...(await post(`${base}/embeddings`, bearer(key), { model: embed, input: ["hello"], input_type: "query" })),
