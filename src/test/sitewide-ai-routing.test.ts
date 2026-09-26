@@ -54,7 +54,7 @@ describe("site-wide AI provider routing", () => {
     expect(provider).toContain("structuredCompletionWithFallback");
     // Both loops walk the targets in policy order, reordered only by health —
     // never filtered (provider audit 2026-09-26; see provider-health-ordering.test.ts).
-    expect(provider.match(/for \(const \[index, target\] of orderTargets\(params\.targets, (?:"chat"|kind)\)\.entries\(\)\)/g)).toHaveLength(2);
+    expect(provider.match(/for \(const \[index, target\] of orderTargets\(params\.targets, (?:"chat", "stream"|kind, "structured")\)\.entries\(\)\)/g)).toHaveLength(2);
     expect(consumers).toContain("streamChatCompletionWithFallback");
     expect(consumers).toContain("structuredCompletionWithFallback");
   });

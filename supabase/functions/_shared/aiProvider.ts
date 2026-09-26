@@ -18,7 +18,16 @@ import {
   geminiStructuredCompletion,
 } from "./geminiProvider.ts";
 
-export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral";
+export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral" | "openrouter";
+
+/**
+ * Providers that serve nothing until the registry switches them on. A target
+ * for one of these is used only when the installed registry view says its row
+ * is active or degraded AND production-eligible (see orderTargets); with no
+ * view installed, or a view that cannot say, it is never tried. They are never
+ * named in the static chains: their targets come from the registry row.
+ */
+export const ACTIVATION_GATED: ReadonlySet<AIProvider> = new Set<AIProvider>(["openrouter"]);
 
 export interface ProviderChatParams {
   provider: AIProvider;
@@ -56,9 +65,11 @@ interface OpenAICompatibleConfig {
   /** Supabase Edge Function secret holding the key. Never inlined anywhere. */
   envKey: string;
   chatUrl: string;
+  /** Extra request headers the vendor asks for. Never auth; never a secret. */
+  headers?: Record<string, string>;
 }
 
-const OPENAI_COMPATIBLE: Record<"openai" | "groq" | "mistral", OpenAICompatibleConfig> = {
+const OPENAI_COMPATIBLE: Record<"openai" | "groq" | "mistral" | "openrouter", OpenAICompatibleConfig> = {
   openai: {
     label: "OpenAI",
     envKey: "OPENAI_API_KEY",
@@ -73,6 +84,14 @@ const OPENAI_COMPATIBLE: Record<"openai" | "groq" | "mistral", OpenAICompatibleC
     label: "Mistral",
     envKey: "MISTRAL_API_KEY",
     chatUrl: "https://api.mistral.ai/v1/chat/completions",
+  },
+  // OpenAI's dialect verbatim. The two headers identify the app to OpenRouter
+  // (its docs recommend them); neither is authentication. Activation-gated.
+  openrouter: {
+    label: "OpenRouter",
+    envKey: "OPENROUTER_API_KEY",
+    chatUrl: "https://openrouter.ai/api/v1/chat/completions",
+    headers: { "HTTP-Referer": "https://visionex.app", "X-Title": "Visionex" },
   },
 };
 
@@ -297,8 +316,10 @@ function elapsedMs(start: number): number {
 //
 // A chain's order is quality policy (assistants.ts, generators.ts, …) and it
 // stays the order of first choice. Two things may move a target *later* in
-// its chain — never out of it, so every provider remains a last resort and an
-// outage of the others can never leave a request with nothing to try:
+// its chain, so an unhealthy provider remains a last resort and an outage of
+// the others does not leave a request with nothing to try. Only an explicit
+// switch removes one: a row an admin set inactive or error, or an
+// activation-gated provider (ACTIVATION_GATED) whose row is not switched on.
 //
 //   1. A short, per-isolate cooldown after a failure that will repeat if we
 //      ask again at once: a 429, a 5xx, a timeout, a dropped connection, a
@@ -309,9 +330,11 @@ function elapsedMs(start: number): number {
 //      that was itself malformed (400/413/422, unparseable answer) sets no
 //      cooldown: the next request is a different request.
 //
-//   2. The registry (ph_providers), when an entry point installs a reader:
-//      a row an admin marked inactive or error, or one whose health the
-//      recorded attempts have driven down. See installChatAttemptRecording().
+//   2. The registry (ph_providers), when an entry point installs a view:
+//      a row whose health the recorded attempts have driven down is demoted;
+//      a row an admin marked inactive or error is excluded; and the view
+//      contributes the targets of switched-on gated providers (RegistryView).
+//      See installChatAttemptRecording().
 //
 // This is the in-memory half of the health system, not a second one: the
 // durable half is ph_providers, fed by the same attempts via the recorder.
@@ -347,30 +370,64 @@ function noteOutcome(target: ProviderTarget, error: AttemptErrorCode | undefined
   if (ms) cooldownUntil.set(key, Date.now() + ms);
 }
 
-/** True when the registry says this target should wait its turn. Must not throw or block. */
-export type RegistryDemotion = (target: ProviderTarget, kind: AttemptKind) => boolean;
-let registryDemotion: RegistryDemotion | null = null;
+/**
+ * What the registry says about one target. Must not throw or block.
+ *   "ready"    — use it in policy order.
+ *   "demoted"  — unhealthy: try it after the healthy ones.
+ *   "excluded" — an admin switched its row off (inactive/error), or it is an
+ *                activation-gated provider whose row is not switched on. Never
+ *                tried: an inactive provider receives no traffic at all.
+ */
+export type RegistryVerdict = "ready" | "demoted" | "excluded";
+
+export interface RegistryView {
+  verdict(target: ProviderTarget, kind: AttemptKind): RegistryVerdict;
+  /**
+   * Targets the registry itself contributes — activation-gated providers whose
+   * rows are switched on, with the model an admin chose and verified for what
+   * this request needs (tools for structured output). Appended after the
+   * policy chain; empty until such a row exists.
+   */
+  extras(kind: AttemptKind, mode: "stream" | "structured"): ProviderTarget[];
+}
+let registryView: RegistryView | null = null;
 
 /** Installed once per function, beside the recorder; null removes it. */
-export function setProviderRegistryDemotion(demotion: RegistryDemotion | null): void {
-  registryDemotion = demotion;
+export function setProviderRegistryView(view: RegistryView | null): void {
+  registryView = view;
 }
 
 /**
  * The chain in the order it will be tried: targets in good standing first, in
- * policy order; then registry-demoted ones; then cooling ones, soonest to
- * recover first. Nothing is dropped.
+ * policy order; then the registry's own targets; then registry-demoted ones;
+ * then cooling ones, soonest to recover first. Excluded targets — rows an
+ * admin switched off, and gated providers not switched on — are dropped;
+ * nothing else is.
  */
-export function orderTargets(targets: ProviderTarget[], kind: AttemptKind, now = Date.now()): ProviderTarget[] {
+export function orderTargets(
+  targets: ProviderTarget[],
+  kind: AttemptKind,
+  mode: "stream" | "structured" = "structured",
+  now = Date.now(),
+): ProviderTarget[] {
   const ready: ProviderTarget[] = [];
   const demoted: ProviderTarget[] = [];
   const cooling: Array<[ProviderTarget, number]> = [];
-  for (const t of targets) {
+  let extras: ProviderTarget[] = [];
+  try { extras = registryView?.extras(kind, mode) ?? []; } catch { extras = []; }
+  const seen = new Set(targets.map(targetKey));
+  const all = [...targets, ...extras.filter((t) => !seen.has(targetKey(t)))];
+  for (const t of all) {
+    let verdict: RegistryVerdict = ACTIVATION_GATED.has(t.provider) ? "excluded" : "ready";
+    try {
+      const said = registryView?.verdict(t, kind);
+      if (said) verdict = said;
+    } catch { /* a view that throws says nothing: gated stays excluded, the rest ready */ }
+    if (ACTIVATION_GATED.has(t.provider) && !registryView) verdict = "excluded";
+    if (verdict === "excluded") continue;
     const until = cooldownUntil.get(targetKey(t)) ?? 0;
     if (until > now) { cooling.push([t, until]); continue; }
-    let down = false;
-    try { down = registryDemotion?.(t, kind) ?? false; } catch { down = false; }
-    (down ? demoted : ready).push(t);
+    (verdict === "demoted" ? demoted : ready).push(t);
   }
   cooling.sort((a, b) => a[1] - b[1]);
   return [...ready, ...demoted, ...cooling.map(([t]) => t)];
@@ -383,7 +440,7 @@ export async function streamChatCompletionWithFallback(
   if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
 
   let lastError: unknown;
-  for (const [index, target] of orderTargets(params.targets, "chat").entries()) {
+  for (const [index, target] of orderTargets(params.targets, "chat", "stream").entries()) {
     const start = Date.now();
     const base = { kind: "chat", mode: "stream", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
@@ -473,6 +530,7 @@ async function streamOpenAICompatible(
   const res = await fetch(cfg.chatUrl, {
     method: "POST",
     headers: {
+      ...cfg.headers,
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
     },
@@ -628,7 +686,7 @@ export async function structuredCompletionWithFallback(
 
   const kind: AttemptKind = params.image ? "vision" : "chat";
   let lastError: unknown;
-  for (const [index, target] of orderTargets(params.targets, kind).entries()) {
+  for (const [index, target] of orderTargets(params.targets, kind, "structured").entries()) {
     const start = Date.now();
     const base = { kind, mode: "structured", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
@@ -660,7 +718,7 @@ async function structuredOpenAICompatible(p: StructuredParams): Promise<{ result
 
   const res = await fetch(cfg.chatUrl, {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers: { ...cfg.headers, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: p.model,
       messages: [
