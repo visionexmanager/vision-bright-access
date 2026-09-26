@@ -30,15 +30,18 @@ change.
 | Groq | **production** | openai/gpt-oss-20b, gpt-oss-120b (text, tools); whisper-large-v3-turbo | llama-3.1-8b-instant, llama-3.3-70b-versatile: no longer served. No vision model. gpt-oss at max_tokens 200 and default effort returns **empty text** (reasoning eats the budget); fine at effort "low". TPM 8,000 per model. |
 | Gemini | **production** (was unfunded until at least 2026-08-20) | gemini-flash-latest, gemini-flash-lite-latest: text, vision, JSON-schema output | No rate-limit headers returned, so the tier's ceilings are not observable from here — treat as limited. |
 | Mistral | **partial** | ministral-8b-latest, ministral-14b-latest, open-mistral-nemo (text, tools); ministral-14b, pixtral-12b (vision); mistral-embed; voxtral-mini-latest (STT) | mistral-small-latest, mistral-small-2506, mistral-medium-latest: **429 on every call** (code 1300); mistral-large-latest: 403 (code 1910); mistral-ocr-latest / -2512: 429. A plan restriction, not a burst — it held across four runs with 1.5 s pacing. |
-| NVIDIA NIM | **not eligible** | meta/llama-3.2-11b-vision-instruct (vision); openai/gpt-oss-20b (text, 4.7 s) | Most catalogue ids answer **410 Gone**, including ids the listing returns; mistral-nemotron timed out at 45 s; every embedding id 404/410. Not in the runtime. |
-| OpenRouter | **not eligible** | key authenticates; free-tier key with a hard limit | Paid models 403; free models 429. Not in the runtime. |
-| Bytez | **not eligible** | — | Model listing 500; every chat id 404 on both the OpenAI-compatible and native endpoints. Not in the runtime. |
+| NVIDIA NIM | **blocked — licence** | Key authenticates (`nvapi-`). gemma-4-31b-it, gpt-oss-20b (text, tools, JSON); kimi-k3 (text, tools); llama-3.2-11b-vision (vision); 5 nemotron/glm text models | NVIDIA's FAQ: the build.nvidia.com catalogue is for prototyping and testing only; serving end-users needs NVIDIA AI Enterprise. Of 71 ids tried: 8 are 410 end-of-life (with dates), 46 are 404 not on this account — the listing is not a list of what works. |
+| OpenRouter | **blocked — account** | Key authenticates. 12 free models answer text; 2 (ling-3.0-flash) do tool calling | Paid: "Key limit exceeded (total limit)", no credits. Free: 50 requests/day and 20/min account-wide under $10 of purchased credits; some free models 429 upstream; two are "agentic harness only". |
+| Bytez | **blocked — account** | Key authenticates (no key and a wrong key are 401) | Every model, including Bytez's own documented example `Qwen/Qwen3-4B`, is "not in the Bytez catalog"; the listing is empty for this account. Our request matches the documented contract. |
+| FAL | **blocked — account** | Key authenticates | "User is locked. Reason: Exhausted balance." Nothing was spent. |
 | Anthropic | **unverifiable** | — | No key anywhere. |
 | RunPod, Luma, ElevenLabs | **unverifiable** | — | No key anywhere. Video generation is therefore unavailable (Luma). RunPod stays inert (#315). |
 
-NIM, OpenRouter and Bytez are deliberately **not integrated**: none of them
-passed a production-shaped test, and none adds a capability the verified four
-lack. Revisit with a funded key and a re-run of the workflow.
+None of NIM, OpenRouter, Bytez or FAL has a Visionex bug: none had Visionex
+code, and each one's blocker is outside the repository. They are registered as
+inactive rows carrying that evidence (#352). The workflow's "Diagnose" step
+re-tests them. Add the `provider-media-probe` label to a PR to run the paid FAL
+media probe once.
 
 ## What routes where (after #350)
 
@@ -55,4 +58,4 @@ lack. Revisit with a funded key and a re-run of the workflow.
 2. Single-provider OpenAI services have no fallback. Moving them to `structuredCompletionWithFallback` needs a per-service check of output quality on the fallback models — not a mechanical change.
 3. WhatsApp PDF and video reading are switched off because Gemini was unfunded (`DOCUMENT_TARGETS` / `VIDEO_TARGETS` in `whatsappUnderstand.ts`). Gemini now generates; re-enabling needs the owner to confirm the Gemini tier's limits.
 4. Video generation needs `LUMA_API_KEY`.
-5. A stream that starts and then breaks mid-body counts as a success for recording and cooldowns (pre-existing).
+5. ~~A stream that breaks mid-body counts as a success~~ — fixed in #350: a stream is settled when it ends.
