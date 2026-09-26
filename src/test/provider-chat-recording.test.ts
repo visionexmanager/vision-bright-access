@@ -1,9 +1,10 @@
 // Phase 2K-4: recording chat and vision attempts in the provider registry.
 //
-// Recording only. The two shared fallback loops in `aiProvider.ts` report every
-// provider attempt — the one that failed and the one that answered — to a
-// recorder the entry point installs; nothing reads the registry to choose,
-// reorder or skip a provider. These tests drive the real loops with a fake
+// The two shared fallback loops in `aiProvider.ts` report every provider
+// attempt — the one that failed and the one that answered — to a recorder the
+// entry point installs. (Since the 2026-09-26 provider audit the loops may also
+// move an unhealthy target later in its chain; that is pinned in
+// provider-health-ordering.test.ts, and nothing here depends on it.) These tests drive the real loops with a fake
 // `fetch` and a fake environment, so "the attempt was recorded" means the loop
 // called the recorder, not that a string appears in a file.
 
@@ -28,6 +29,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   ai.setProviderAttemptRecorder(null);
+  ai.resetProviderCooldowns();
   for (const k of Object.keys(env)) delete env[k];
   vi.unstubAllGlobals();
   vi.stubGlobal("Deno", { env: { get: (k: string) => env[k] } });
@@ -104,6 +106,7 @@ describe("the streaming loop records every attempt", () => {
     const attempts = capture();
 
     const out = await ai.streamChatCompletionWithFallback(chatParams([{ provider: "groq", model: "openai/gpt-oss-20b" }]));
+    await new Response(out.result).text(); // a stream's attempt settles when it ends
 
     expect(out.provider).toBe("groq");
     expect(attempts).toEqual([{
@@ -121,6 +124,7 @@ describe("the streaming loop records every attempt", () => {
       { provider: "mistral", model: "mistral-small-latest" },
       { provider: "openai", model: "gpt-4.1" },
     ]));
+    await new Response(out.result).text();
 
     expect(out).toMatchObject({ provider: "openai", model: "gpt-4.1" });
     expect(attempts.map(({ provider, model, attempt, success, error }) => ({ provider, model, attempt, success, error }))).toEqual([
@@ -145,27 +149,27 @@ describe("the streaming loop records every attempt", () => {
     ]);
   });
 
-  it("counts a stream as a success once the provider accepts it — a later break is not visible here", async () => {
+  it("a stream that is accepted and then breaks is recorded as a failure, once, when it breaks", async () => {
+    // Until 2026-09-26 this was recorded as a success at acceptance, and a
+    // later break was invisible. Now the attempt settles when the body ends.
     allKeys();
     const breaking = new ReadableStream<Uint8Array>({ pull(c) { c.error(new Error("connection reset")); } });
     fakeFetch({ [OPENAI]: [{ status: 200, stream: breaking }] });
     const attempts = capture();
 
     const out = await ai.streamChatCompletionWithFallback(chatParams([{ provider: "openai", model: "gpt-4.1" }]));
-
-    // The loop returned before a single byte of the body was read, and so did
-    // the recording: the attempt outcome is "the provider accepted the stream".
-    expect(attempts).toHaveLength(1);
-    expect(attempts[0]).toMatchObject({ mode: "stream", success: true });
+    expect(attempts).toHaveLength(0); // accepted is not delivered
     await expect(new Response(out.result).text()).rejects.toThrow();
     expect(attempts).toHaveLength(1);
+    expect(attempts[0]).toMatchObject({ mode: "stream", success: false, error: "stream_interrupted" });
   });
 
   it("never records image data or classifies a stream as vision — the stream carries text only", async () => {
     allKeys();
     fakeFetch({ [OPENAI]: [{ status: 200, stream: sse(ANSWER) }] });
     const attempts = capture();
-    await ai.streamChatCompletionWithFallback(chatParams([{ provider: "openai", model: "gpt-4.1" }]));
+    const out = await ai.streamChatCompletionWithFallback(chatParams([{ provider: "openai", model: "gpt-4.1" }]));
+    await new Response(out.result).text();
     expect(attempts[0].kind).toBe("chat");
   });
 });
@@ -388,6 +392,7 @@ describe("provider order is exactly what it was", () => {
     allKeys();
     env.GEMINI_API_KEY = undefined;
     for (const a of Object.values(assistants.ASSISTANTS)) {
+      ai.resetProviderCooldowns(); // each assistant starts from a healthy isolate
       vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
       const attempts = capture();
       await ai.streamChatCompletionWithFallback(chatParams(a.targets)).catch(() => undefined);
@@ -398,7 +403,7 @@ describe("provider order is exactly what it was", () => {
   it("the per-assistant quality policy is exactly the one in place before recording", () => {
     // Pinned as it stood on main at 6372d6d3. Recording must not move a single
     // assistant between chains, or change a chain's order or models.
-    const O = "openai/gpt-4.1", G = "gemini/gemini-flash-latest", Q = "groq/openai/gpt-oss-20b", M = "mistral/mistral-small-latest";
+    const O = "openai/gpt-4.1", G = "gemini/gemini-flash-latest", Q = "groq/openai/gpt-oss-20b", M = "mistral/ministral-14b-latest";
     const chain = (id: string) => assistants.assistantTargets(id).map((t) => `${t.provider}/${t.model}`);
     const OPENAI_FIRST = ["legal-advisor", "medical-support", "psychology", "empathy-oasis", "skin-care", "hair-care",
       "finance-advisor", "ivx-tutor", "ivx-project-grader", "whatsapp-support"];
@@ -420,9 +425,12 @@ describe("provider order is exactly what it was", () => {
     expect(assistants.assistantTargets("whatsapp-support")[0].provider).toBe("openai");
   });
 
-  it("the loops never consult the registry to choose", () => {
+  it("the loops never choose from the registry: they only defer to it through an injected, synchronous hook", () => {
+    // Since the 2026-09-26 audit the registry may move a target later in its
+    // chain (provider-health-ordering.test.ts). It still may not pick a model,
+    // and aiProvider.ts still has no database or router dependency.
     const src = readFileSync("supabase/functions/_shared/aiProvider.ts", "utf8");
-    expect(src).not.toMatch(/resolveProvider|rankProviders|getProvider|providerRouter|providerSelection|ph_providers/);
+    expect(src).not.toMatch(/resolveProvider|rankProviders|getProvider|providerRouter|from "\.\/providerSelection|createClient|\.from\("ph_providers"\)/);
   });
 });
 
