@@ -97,14 +97,28 @@ const OPENAI_REASONING_MODELS: Readonly<Record<string, { effort: "none" | "low" 
   "gpt-5.6-luna": { effort: "none" },
 };
 
+/**
+ * Groq's gpt-oss models reason before they answer, and `max_tokens` counts the
+ * reasoning. Measured 2026-09-26 (provider-smoke.yml): asked for two sentences
+ * with max_tokens 200 at the default effort, gpt-oss-20b returned HTTP 200 and
+ * *no text* — every token went on reasoning. An empty stream is a success to
+ * the fallback loop, so the user got silence. At effort "low" the same request
+ * answered. Low effort, plus headroom for the reasoning on top of the caller's
+ * budget for the answer.
+ */
+const GROQ_REASONING_MODELS: ReadonlySet<string> = new Set(["openai/gpt-oss-20b", "openai/gpt-oss-120b"]);
+export const GROQ_REASONING_HEADROOM = 512;
+
 /** The completion-budget fields a request carries, for this provider and model. */
-function completionBudget(provider: AIProvider, model: string, limit: number): Record<string, unknown> {
+export function completionBudget(provider: AIProvider, model: string, limit: number): Record<string, unknown> {
   const reasoning = provider === "openai" && Object.prototype.hasOwnProperty.call(OPENAI_REASONING_MODELS, model)
     ? OPENAI_REASONING_MODELS[model]
     : undefined;
-  return reasoning
-    ? { max_completion_tokens: limit, reasoning_effort: reasoning.effort }
-    : { max_tokens: limit };
+  if (reasoning) return { max_completion_tokens: limit, reasoning_effort: reasoning.effort };
+  if (provider === "groq" && GROQ_REASONING_MODELS.has(model)) {
+    return { max_tokens: limit + GROQ_REASONING_HEADROOM, reasoning_effort: "low" };
+  }
+  return { max_tokens: limit };
 }
 
 /**
@@ -239,12 +253,19 @@ export function setProviderAttemptRecorder(recorder: AttemptRecorder | null): vo
 }
 
 const SPECIFIC_4XX = new Set([400, 401, 403, 404, 408, 413, 422, 429]);
+const UNREADABLE_ANSWER = new Set([
+  "No structured response from AI",
+  "No structured response from Gemini",
+  "Gemini returned non-JSON output despite responseSchema",
+]);
 
 /** The one code an attempt's error is recorded as. Reads the error's type and status, never records its text. */
 export function attemptErrorCode(error: unknown): AttemptErrorCode {
   if (error instanceof ProviderError) {
     if (/ is not configured$/.test(error.message)) return "not_configured";
-    if (error.message === "No structured response from AI") return "invalid_response";
+    // Gemini's two parse failures arrive with status 500; they are an answer we
+    // could not read, not an outage, and must not cool Gemini down.
+    if (UNREADABLE_ANSWER.has(error.message)) return "invalid_response";
     if (SPECIFIC_4XX.has(error.status)) return `http_${error.status}` as AttemptErrorCode;
     if (error.status >= 400 && error.status < 500) return "http_4xx";
     if (error.status >= 500 && error.status < 600) return "http_5xx";

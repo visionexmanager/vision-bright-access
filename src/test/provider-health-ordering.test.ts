@@ -278,3 +278,74 @@ describe("wiring", () => {
     expect(sql).not.toMatch(/DELETE|DROP|TRUNCATE|INSERT/i);
   });
 });
+
+describe("only failures that would repeat count against a provider (review of #350)", () => {
+  it("Gemini's unreadable answers are invalid_response, not an outage, and set no cooldown", () => {
+    for (const message of ["No structured response from Gemini", "Gemini returned non-JSON output despite responseSchema"]) {
+      expect(ai.attemptErrorCode(new ai.ProviderError(500, message)), message).toBe("invalid_response");
+    }
+    expect(ai.attemptErrorCode(new ai.ProviderError(500, "Gemini request failed"))).toBe("http_5xx");
+    expect(ai.COOLDOWN_MS.invalid_response).toBeUndefined();
+  });
+
+  function fakeDb() {
+    const rpcs: string[] = [];
+    const logs: Record<string, unknown>[] = [];
+    const db = {
+      rpc: async (fn: string) => { rpcs.push(fn); return { data: null, error: null }; },
+      from: (table: string) => ({
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: table === "ph_providers" ? { id: "id-gc", slug: "groq-chat" } : null }) }) }),
+        insert: async (row: Record<string, unknown>) => { if (table === "ph_logs") logs.push(row); return { error: null }; },
+      }),
+    };
+    return { db, rpcs, logs };
+  }
+  const attempt = (error: AiProviderModule.AttemptErrorCode | undefined) => ({
+    kind: "chat" as const, mode: "structured" as const, provider: "groq" as const, model: "m", attempt: 1,
+    success: error === undefined, ms: 5, ...(error ? { error } : {}),
+  });
+
+  it("a malformed request or unreadable answer is logged but does not lower health", async () => {
+    for (const code of ["http_400", "http_413", "http_422", "http_4xx", "invalid_response", "unknown"] as const) {
+      const { db, rpcs, logs } = fakeDb();
+      await rec.recordProviderAttempt(db, attempt(code));
+      expect(rpcs, code).toEqual([]);
+      expect(logs.map((l) => [l.status, l.error_message]), code).toEqual([["failure", code]]);
+    }
+  });
+
+  it("a failure that would repeat, and every success, still move the health metric", async () => {
+    for (const code of [...Object.keys(ai.COOLDOWN_MS), undefined] as (AiProviderModule.AttemptErrorCode | undefined)[]) {
+      const { db, rpcs, logs } = fakeDb();
+      await rec.recordProviderAttempt(db, attempt(code));
+      expect(rpcs, String(code)).toEqual(["ph_record_metric"]);
+      expect(logs).toHaveLength(1);
+    }
+  });
+});
+
+describe("Groq gpt-oss budget: the answer must survive the reasoning", () => {
+  it("gpt-oss asks for low effort and adds reasoning headroom on top of the caller's budget", () => {
+    for (const model of ["openai/gpt-oss-20b", "openai/gpt-oss-120b"]) {
+      expect(ai.completionBudget("groq", model, 200)).toEqual({ max_tokens: 200 + ai.GROQ_REASONING_HEADROOM, reasoning_effort: "low" });
+    }
+  });
+
+  it("every other model keeps exactly the budget it had", () => {
+    expect(ai.completionBudget("groq", "whisper-like-other", 200)).toEqual({ max_tokens: 200 });
+    expect(ai.completionBudget("mistral", "ministral-14b-latest", 200)).toEqual({ max_tokens: 200 });
+    expect(ai.completionBudget("openai", "gpt-4.1", 200)).toEqual({ max_tokens: 200 });
+    expect(ai.completionBudget("openai", "gpt-5.6-luna", 200)).toEqual({ max_completion_tokens: 200, reasoning_effort: "none" });
+  });
+
+  it("the request actually sent to Groq carries it", async () => {
+    env.GROQ_API_KEY = "k";
+    const bodies: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)));
+      return answer();
+    }));
+    await ai.structuredCompletionWithFallback({ targets: [G], system: "s", userText: "u", schema: { type: "object" }, toolName: "answer", maxTokens: 24 });
+    expect(bodies[0]).toMatchObject({ model: "openai/gpt-oss-20b", max_tokens: 24 + ai.GROQ_REASONING_HEADROOM, reasoning_effort: "low" });
+  });
+});

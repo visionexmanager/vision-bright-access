@@ -10,12 +10,12 @@
 // `providerRouter.ts` functions now build their client and delegate, so there
 // is still exactly one implementation of "record a result" (Phase 2H).
 //
-// Pure: no imports but types and the pure ranking rules, no Deno, no environment.
+// Pure: no imports but types, the pure ranking rules and the cooldown table; no Deno, no environment.
 
 import type { MediaKind, MediaOutcome } from "./contentMedia.ts";
 import type { SttProviderName, TranscribeAttempt } from "./voice/stt.ts";
 import type { TtsExecution, TtsProvider } from "./voice/tts.ts";
-import type { AIProvider, ProviderAttempt } from "./aiProvider.ts";
+import { COOLDOWN_MS, type AIProvider, type ProviderAttempt } from "./aiProvider.ts";
 import { registryDemotes, type RegistryHealthRow } from "./providerSelection.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -33,6 +33,12 @@ export interface RecordResultParams {
   failover_to?:   string;
   /** Operational metadata only (e.g. the model id). Written only when given. */
   request_meta?:  Record<string, unknown>;
+  /**
+   * False when the failure says nothing about the provider's health — the
+   * request was malformed, the answer unparseable. The log row is written; the
+   * health metric is not. Defaults to true, so every other recorder is unchanged.
+   */
+  counts_toward_health?: boolean;
 }
 
 /** A `ph_providers` row by slug — for recording against it, not for choosing it. */
@@ -47,12 +53,14 @@ export async function providerBySlugIn(
 /** Metrics, a log row, and a failover row when one happened. */
 export async function recordResultIn(db: RecordingDb, params: RecordResultParams): Promise<void> {
   // Upsert metrics
-  await db.rpc("ph_record_metric", {
-    p_provider_id: params.provider_id,
-    p_success:     params.success,
-    p_latency_ms:  params.latency_ms ?? null,
-    p_cost_usd:    params.cost_usd ?? 0,
-  });
+  if (params.counts_toward_health !== false) {
+    await db.rpc("ph_record_metric", {
+      p_provider_id: params.provider_id,
+      p_success:     params.success,
+      p_latency_ms:  params.latency_ms ?? null,
+      p_cost_usd:    params.cost_usd ?? 0,
+    });
+  }
 
   // `failover_to` arrives as a slug, but ph_logs.failover_to and
   // ph_failovers.to_provider_id are uuid columns. Writing the slug into the
@@ -108,7 +116,7 @@ export async function recordProviderOutcome(
   db: RecordingDb,
   slug: string,
   jobType: string,
-  outcome: { success: boolean; ms: number; error?: string },
+  outcome: { success: boolean; ms: number; error?: string; countsTowardHealth?: boolean },
   meta?: Record<string, unknown>,
 ): Promise<void> {
   try {
@@ -122,6 +130,7 @@ export async function recordProviderOutcome(
       latency_ms:    outcome.ms,
       error_message: outcome.error,
       ...(meta ? { request_meta: meta } : {}),
+      ...(outcome.countsTowardHealth === false ? { counts_toward_health: false } : {}),
     });
   } catch {
     // Best-effort. The caller's result must never depend on this.
@@ -255,7 +264,16 @@ export async function recordProviderAttempt(db: RecordingDb, attempt: ProviderAt
     db,
     slug,
     attempt.kind,
-    { success: attempt.success, ms: attempt.ms, error: attempt.error },
+    {
+      success: attempt.success,
+      ms: attempt.ms,
+      error: attempt.error,
+      // Since the chains read health back (registryDemotionFrom), only a
+      // failure that would repeat — the ones that cool a target — may lower it.
+      // A malformed request or an unreadable answer is logged, not held
+      // against the provider.
+      ...(attempt.success || (attempt.error && attempt.error in COOLDOWN_MS) ? {} : { countsTowardHealth: false }),
+    },
     // Token counts only, when the provider reported them — never content.
     { model: attempt.model, attempt: attempt.attempt, mode: attempt.mode, ...(attempt.usage ? { usage: attempt.usage } : {}) },
   );
