@@ -272,7 +272,9 @@ describe("the worker's output is not trusted", () => {
 
 describe("selection is the server's, and RunPod is never the default", () => {
   it("auto resolves to luma, never runpod", () => {
-    expect(videoStudio).toContain('if (!requested) requested = "luma";');
+    // Since the FAL recovery (2026-09-26) auto may also mean FAL — only when
+    // Luma has no key and the fal-video row is routable. Never RunPod.
+    expect(videoStudio).toContain('if (!requested) requested = !lumaKey && opts.falRoutable && falKey ? "fal" : "luma";');
     expect(videoStudio).toContain("\"auto\" never resolves to RunPod");
   });
 

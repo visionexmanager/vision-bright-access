@@ -49,13 +49,16 @@ describe("1. the Sora registry row", () => {
 
 describe("2. video-studio records, and still chooses exactly as before", () => {
   it("maps each of its provider names to a registry row", () => {
-    expect(VIDEO_PROVIDER_SLUG).toEqual({ openai: "openai-video", luma: "luma-video", runpod: "runpod-video" });
+    expect(VIDEO_PROVIDER_SLUG).toEqual({ openai: "openai-video", luma: "luma-video", runpod: "runpod-video", fal: "fal-video" });
   });
 
-  it("never reads the registry to choose a provider", () => {
+  it("never reads the registry to choose a provider — only to let FAL on, failing closed", () => {
     expect(studio).not.toMatch(/resolveProvider|providerRouter|from\("ph_providers"\)/);
-    // The environment rule: auto means Luma (Sora was retired on 2026-09-24).
-    expect(studio).toContain('if (!requested) requested = "luma";');
+    // The one registry read is FAL's activation gate (provider recovery, 2026-09-26).
+    expect(studio.match(/providerRoutableIn\(/g)).toHaveLength(1);
+    expect(studio).toContain('await providerRoutableIn(dbService, "fal-video")');
+    // The environment rule: auto means Luma unless Luma has no key and FAL is routable.
+    expect(studio).toContain('if (!requested) requested = !lumaKey && opts.falRoutable && falKey ? "fal" : "luma";');
     // RunPod is still explicit-only and behind its own readiness gate.
     expect(studio).toContain("const readiness  = runpodReadiness(endpointId);");
   });
