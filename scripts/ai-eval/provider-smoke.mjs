@@ -290,6 +290,16 @@ async function groq(key) {
     vision,
     extra: { "openai/gpt-oss-20b": { max_tokens: 256 }, "openai/gpt-oss-120b": { max_tokens: 256 } },
   });
+  // gpt-oss reasons before it answers, and max_tokens counts the reasoning.
+  // A voice reply is asked for with max_tokens 200: does anything audible come
+  // back at that budget, at the default effort and at "low"?
+  const EXPLAIN = [{ role: "user", content: "In two sentences, explain why the sky is blue." }];
+  for (const [label, extra] of [["budget_200", { max_tokens: 200 }], ["budget_200_low", { max_tokens: 200, reasoning_effort: "low" }], ["budget_1224", { max_tokens: 1224 }]]) {
+    await probe("groq", label, "openai/gpt-oss-20b", async () => ({
+      ...(await post(`${base}/chat/completions`, bearer(key), { model: "openai/gpt-oss-20b", messages: EXPLAIN, ...extra })),
+      check: (j) => textOf(j).trim().length > 40,
+    }));
+  }
   for (const model of ["whisper-large-v3-turbo"]) {
     if (!spokenAudio) break;
     await probe("groq", "stt", model, async () => ({
