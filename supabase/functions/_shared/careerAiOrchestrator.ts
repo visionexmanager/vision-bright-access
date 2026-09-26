@@ -19,7 +19,9 @@ import {
 // deno-lint-ignore no-explicit-any
 type SupabaseServiceClient = any;
 
-export type CareerAiProvider = UpstreamProvider;
+// OpenRouter is activation-gated (aiProvider ACTIVATION_GATED) and has no
+// place in career AI's fixed, code-defined provider order.
+export type CareerAiProvider = Exclude<UpstreamProvider, "openrouter">;
 export type CostTier = "cheap" | "capable";
 
 // Gemini is out of the default chain, blocked on billing. Verified live on
@@ -55,8 +57,8 @@ const MODEL_MATRIX: Record<CareerAiProvider, Record<CostTier, string>> = {
   openai: { cheap: "gpt-4o-mini", capable: "gpt-4.1" },
   anthropic: { cheap: "claude-haiku-4-5-20251001", capable: "claude-sonnet-4-6" },
   gemini: { cheap: "gemini-flash-latest", capable: "gemini-flash-latest" },
-  groq: { cheap: "llama-3.1-8b-instant", capable: "llama-3.3-70b-versatile" },
-  mistral: { cheap: "mistral-small-latest", capable: "mistral-large-latest" },
+  groq: { cheap: "openai/gpt-oss-20b", capable: "openai/gpt-oss-120b" },
+  mistral: { cheap: "ministral-8b-latest", capable: "ministral-14b-latest" },
 };
 
 const DEFAULT_TIER_BY_SERVICE: Record<string, CostTier> = {

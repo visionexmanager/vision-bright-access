@@ -1,3 +1,4 @@
+import { providerErrorSummary } from "./providerInput.ts";
 // Real Gemini API adapter for the Career Center AI layer.
 //
 // Sibling to aiProvider.ts (openai/anthropic) — same calling shape
@@ -88,7 +89,7 @@ export async function geminiStructuredCompletion(
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    console.error("Gemini structured error:", res.status, errText);
+    console.error("Gemini structured error:", res.status, providerErrorSummary(errText));
     throw new GeminiProviderError(res.status || 500, "Gemini request failed");
   }
 
@@ -147,7 +148,7 @@ export async function geminiStreamChatCompletion(
 
   if (!res.ok || !res.body) {
     const errText = await res.text().catch(() => "");
-    console.error("Gemini stream error:", res.status, errText);
+    console.error("Gemini stream error:", res.status, providerErrorSummary(errText));
     throw new GeminiProviderError(res.status || 500, "Gemini request failed");
   }
 

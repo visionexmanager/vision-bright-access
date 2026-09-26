@@ -1,0 +1,41 @@
+name: OpenRouter adapter smoke test
+
+# A real request through Visionex's own chat adapter (aiProvider.ts) to
+# OpenRouter free models: a stream, a structured tool call, and a fallback past
+# an upstream 429. About four of the account's 50 free requests a day; never a
+# paid model. Prints results and attempt codes only — see the script header.
+#
+# No branch filter on pull_request: the PR that carries the adapter is stacked
+# on another PR, and the main CI workflows only run against main.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/ai-eval/openrouter-adapter-smoke.ts
+      - supabase/functions/_shared/aiProvider.ts
+      - .github/workflows/openrouter-adapter-smoke.yml
+
+concurrency:
+  group: openrouter-adapter-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Free models through the Visionex adapter
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Run
+        shell: bash
+        run: deno run --no-lock --node-modules-dir=none --allow-env --allow-net scripts/ai-eval/openrouter-adapter-smoke.ts | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
