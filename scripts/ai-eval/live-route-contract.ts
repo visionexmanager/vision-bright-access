@@ -46,16 +46,23 @@ async function run(route: string, target: ProviderTarget, fn: () => Promise<Reco
   const started = Date.now();
   let checks: Record<string, boolean> = {};
   let error = "";
+  let timer: number | undefined;
   try {
-    checks = await fn();
+    // A route that neither answers nor fails is a failure too, not a hung run.
+    const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject({ status: "timeout" }), 90_000); });
+    checks = await Promise.race([fn(), timeout]);
   } catch (e) {
     // The status only. A provider's message can carry an account id.
     const status = (e as { status?: unknown })?.status;
-    error = typeof status === "number" ? `http_${status}` : "error";
+    error = typeof status === "number" ? `http_${status}` : status === "timeout" ? "timeout" : "error";
+  } finally {
+    clearTimeout(timer);
   }
   const pass = !error && Object.values(checks).every(Boolean);
   const detail = error || Object.entries(checks).map(([k, v]) => `${k}:${v ? "y" : "N"}`).join(" ");
-  rows.push({ route, target: `${target.provider}/${target.model}`, pass, ms: Date.now() - started, checks: detail });
+  const row = { route, target: `${target.provider}/${target.model}`, pass, ms: Date.now() - started, checks: detail };
+  rows.push(row);
+  console.log(`${row.pass ? "PASS" : "FAIL"} ${row.route} ${row.target} ${row.ms}ms ${row.checks}`);
 }
 
 /** Read an OpenAI-compatible SSE stream to the end: the text, and how it finished. */
