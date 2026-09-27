@@ -15,6 +15,7 @@ import {
   structuredCompletion,
   streamChatCompletion,
 } from "./aiProvider.ts";
+import { parkedProviderReason } from "./providerState.ts";
 import { geminiStreamChatCompletion, geminiStructuredCompletion } from "./geminiProvider.ts";
 import {
   CareerAIStructuredResponse,
@@ -55,13 +56,12 @@ export type CostTier = "cheap" | "capable";
 // are verified by a real generation probe.
 const DEFAULT_PROVIDER_ORDER: CareerAiProvider[] = ["openai", "groq", "mistral", "anthropic"];
 
-// A provider this runtime has no key for, or a parked model, is skipped rather
-// than tried. Anthropic stays last in the order above, but with no
-// ANTHROPIC_API_KEY in production it was attempted — and failed locally — on
-// every request the other three could not serve. It rejoins by itself the day
-// the key is added.
+// A parked provider, a provider this runtime has no key for, or a parked model
+// is skipped rather than tried. Anthropic keeps its place in the order above,
+// but it is parked (providerState.ts): adding ANTHROPIC_API_KEY does not bring
+// it back — deleting its line there, after a smoke test, does.
 function careerTargetLive(provider: CareerAiProvider, model: string): boolean {
-  return providerHasCredential(provider) && !pausedReason({ provider, model });
+  return !parkedProviderReason(provider) && providerHasCredential(provider) && !pausedReason({ provider, model });
 }
 
 // Model identifiers follow the conventions already used elsewhere in this

@@ -157,9 +157,9 @@ describe("D/F. Luna is routed as OpenAI's second model, never chosen by a client
   const sources = readdirSync(`${functionsDir}/_shared`).filter((f) => f.endsWith(".ts"))
     .map((f) => [f, readFileSync(`${functionsDir}/_shared/${f}`, "utf8")] as const);
 
-  it("only the adapter and the assistant chains name Luna in _shared", () => {
+  it("only the adapter, the assistant and generator chains and the document readers name Luna in _shared", () => {
     const naming = sources.filter(([, s]) => s.includes('"gpt-5.6-luna"')).map(([f]) => f);
-    expect(naming).toEqual(["aiProvider.ts", "assistants.ts"]);
+    expect(naming).toEqual(["aiProvider.ts", "assistants.ts", "generators.ts", "whatsappUnderstand.ts"]);
   });
 
   it("every assistant chain has Luna exactly once, straight after gpt-4.1 and never first", async () => {

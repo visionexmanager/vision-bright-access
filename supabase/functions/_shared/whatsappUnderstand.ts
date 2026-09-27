@@ -44,6 +44,22 @@ export const VISION_TARGETS: ProviderTarget[] = [
 ];
 
 /**
+ * Readers for a document that arrives as text — a PDF's text layer, DOC/DOCX,
+ * TXT. No image is sent, so the chain need not be vision-capable, and it no
+ * longer rests on two vendors: Luna answers when gpt-4o-mini alone is refused,
+ * and Mistral when OpenAI and Gemini both are. Each passed this exact contract
+ * (ATTACHMENT_ANSWER_SCHEMA, an Arabic question about a bilingual invoice) in
+ * the live route contract probe (scripts/ai-eval/live-route-contract.ts).
+ */
+const TEXT_READERS: ProviderTarget[] = [
+  { provider: "openai", model: "gpt-4o-mini" },
+  { provider: "openai", model: "gpt-5.6-luna" },
+  { provider: "gemini", model: "gemini-flash-latest" }, // parked (PAUSED_MODELS), kept as configuration
+  { provider: "gemini", model: "gemini-flash-lite-latest" },
+  { provider: "mistral", model: "ministral-14b-latest" },
+];
+
+/**
  * PDFs no longer need a provider that can take a PDF.
  *
  * They used to be Gemini-or-nothing — `structuredOpenAICompatible` sends a
@@ -57,7 +73,7 @@ export const VISION_TARGETS: ProviderTarget[] = [
  * A PDF with no text layer is a stack of photographs, and it is answered as one
  * — see the `scanned_pdf` reason — rather than summarised from fragments.
  */
-export const DOCUMENT_TARGETS: ProviderTarget[] = VISION_TARGETS;
+export const DOCUMENT_TARGETS: ProviderTarget[] = TEXT_READERS;
 
 /**
  * Video is Gemini-only for the same reason a PDF is — it goes as `inline_data`
@@ -79,9 +95,9 @@ export const VIDEO_READING_AVAILABLE = VIDEO_TARGETS.length > 0;
  * unfunded key, which is why `gemini` is absent from `DEFAULT_PROVIDER_ORDER`
  * in `careerAiOrchestrator.ts` — turned a plain `.txt` into "I couldn't read
  * that file", a message that then blames the customer's format. Same targets
- * as an image, for the same reason.
+ * readers as a PDF, which since the local text-layer extraction travels as text too.
  */
-export const DOCUMENT_TEXT_TARGETS: ProviderTarget[] = VISION_TARGETS;
+export const DOCUMENT_TEXT_TARGETS: ProviderTarget[] = TEXT_READERS;
 
 export interface UnderstandResult {
   readable: boolean;

@@ -2,6 +2,7 @@
 // Provider-abstracted text-to-video generation
 // Actions: generate | poll | cancel | delete
 
+import { parkedProviderReason } from "../_shared/providerState.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
@@ -417,7 +418,8 @@ class FalVideoProvider implements VideoProvider {
 // A job already running on FAL is polled and cancelled regardless
 // (`existingJob`): deactivating the row must not strand a paid job.
 function getProvider(name?: string, opts: { falRoutable?: boolean; existingJob?: boolean } = {}): VideoProvider {
-  const lumaKey   = Deno.env.get("LUMA_API_KEY");
+  // Luma is parked (providerState.ts): its key alone does not select it.
+  const lumaKey   = parkedProviderReason("luma") ? undefined : Deno.env.get("LUMA_API_KEY");
   const falKey    = Deno.env.get("FAL_KEY");
 
   let requested = name && name !== "auto" ? name : "";
@@ -544,7 +546,7 @@ async function handleGenerate(
   try {
     const name = (providerName as string) || "auto";
     // The registry is asked only when FAL could be the answer.
-    const falRoutable = (name === "fal" || (name === "auto" && !Deno.env.get("LUMA_API_KEY")))
+    const falRoutable = (name === "fal" || (name === "auto" && (!!parkedProviderReason("luma") || !Deno.env.get("LUMA_API_KEY"))))
       && await providerRoutableIn(dbService, "fal-video");
     provider = getProvider(name, { falRoutable });
   } catch (err) {

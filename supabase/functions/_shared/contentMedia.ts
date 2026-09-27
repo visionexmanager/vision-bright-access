@@ -20,6 +20,7 @@
 // scheduled for tomorrow would find either gone. The file goes to the public
 // `social-media` bucket and the post carries that URL.
 
+import { parkedProviderReason } from "./providerState.ts";
 import type { ProposalView } from "./ownerContent.ts";
 
 /**
@@ -68,8 +69,12 @@ export function mediaApiKey(): string | undefined {
     : undefined;
 }
 
-/** The video key (Luma), read here for the same reason as mediaApiKey. */
+/**
+ * The video key (Luma), read here for the same reason as mediaApiKey. None
+ * while Luma is parked (providerState.ts): a key alone does not switch it on.
+ */
 export function mediaVideoKey(): string | undefined {
+  if (parkedProviderReason("luma")) return undefined;
   // deno-lint-ignore no-explicit-any
   const runtime = (globalThis as any).Deno;
   return typeof runtime?.env?.get === "function"

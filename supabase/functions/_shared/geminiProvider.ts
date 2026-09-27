@@ -42,7 +42,15 @@ function sanitizeSchemaForGemini(schema: unknown): unknown {
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(schema as Record<string, unknown>)) {
       if (key === "additionalProperties" || key === "$schema" || key === "title") continue;
-      out[key] = sanitizeSchemaForGemini(value);
+      // The keys of `properties` are field names, not schema keywords. A field
+      // called "title" (every generator's plan has one) used to be dropped here
+      // while `required` still named it, and Gemini refused the whole schema
+      // with a 400.
+      out[key] = key === "properties" && value && typeof value === "object" && !Array.isArray(value)
+        ? Object.fromEntries(
+          Object.entries(value as Record<string, unknown>).map(([name, field]) => [name, sanitizeSchemaForGemini(field)]),
+        )
+        : sanitizeSchemaForGemini(value);
     }
     return out;
   }
@@ -164,37 +172,47 @@ function transformGeminiToOpenAI(
   let buffer = "";
 
   return new ReadableStream<Uint8Array>({
+    // Reads until it has something to hand on. A pull that returns having
+    // enqueued nothing is not called again for a reader already waiting, so a
+    // network chunk holding no complete text line (Gemini's first chunks often
+    // do) left the reader waiting forever: a stream that never answered and
+    // never failed, so the chain never fell back.
     async pull(controller) {
-      const { done, value } = await reader.read();
-      if (done) {
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
-        return;
-      }
-
-      buffer += decoder.decode(value, { stream: true });
-
-      let idx: number;
-      while ((idx = buffer.indexOf("\n")) !== -1) {
-        let line = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 1);
-        if (line.endsWith("\r")) line = line.slice(0, -1);
-        if (!line.startsWith("data:")) continue;
-
-        const payload = line.slice(5).trim();
-        if (!payload) continue;
-
-        try {
-          const evt = JSON.parse(payload);
-          const text = evt?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (typeof text === "string" && text.length > 0) {
-            const chunk = { choices: [{ delta: { content: text } }] };
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
-          }
-        } catch {
-          buffer = line + "\n" + buffer;
-          break;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+          return;
         }
+
+        buffer += decoder.decode(value, { stream: true });
+        let enqueued = false;
+
+        let idx: number;
+        while ((idx = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (!line.startsWith("data:")) continue;
+
+          const payload = line.slice(5).trim();
+          if (!payload) continue;
+
+          try {
+            const evt = JSON.parse(payload);
+            const text = evt?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (typeof text === "string" && text.length > 0) {
+              const chunk = { choices: [{ delta: { content: text } }] };
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+              enqueued = true;
+            }
+          } catch {
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+        if (enqueued) return;
       }
     },
     cancel() {

@@ -10,6 +10,7 @@
  *  4. Send personalised digest to newsletter_subscribers in their language via Resend
  */
 
+import { parkedProviderReason } from "../_shared/providerState.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { providerErrorSummary } from "../_shared/providerInput.ts";
 
@@ -259,7 +260,8 @@ any[]> {
     return parsed.articles ?? parsed.translations ?? [];
   }
 
-  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+  // Anthropic is parked (providerState.ts): a key alone does not select it.
+  const anthropicKey = parkedProviderReason("anthropic") ? undefined : Deno.env.get("ANTHROPIC_API_KEY");
   if (anthropicKey) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
