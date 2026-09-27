@@ -149,11 +149,18 @@ describe("the streaming loop records every attempt", () => {
     ]);
   });
 
-  it("a stream that is accepted and then breaks is recorded as a failure, once, when it breaks", async () => {
+  it("a stream that breaks after its first text is recorded as a failure, once, when it breaks", async () => {
     // Until 2026-09-26 this was recorded as a success at acceptance, and a
     // later break was invisible. Now the attempt settles when the body ends.
     allKeys();
-    const breaking = new ReadableStream<Uint8Array>({ pull(c) { c.error(new Error("connection reset")); } });
+    let sent = false;
+    const breaking = new ReadableStream<Uint8Array>({
+      pull(c) {
+        if (sent) { c.error(new Error("connection reset")); return; }
+        sent = true;
+        c.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { content: "Hello" } }] })}\n\n`));
+      },
+    });
     fakeFetch({ [OPENAI]: [{ status: 200, stream: breaking }] });
     const attempts = capture();
 
@@ -162,6 +169,21 @@ describe("the streaming loop records every attempt", () => {
     await expect(new Response(out.result).text()).rejects.toThrow();
     expect(attempts).toHaveLength(1);
     expect(attempts[0]).toMatchObject({ mode: "stream", success: false, error: "stream_interrupted" });
+  });
+
+  it("a stream that breaks before its first text is a failed attempt, and the chain moves on", async () => {
+    // Nothing has reached the user yet, so the next target can still answer.
+    allKeys();
+    const breaking = new ReadableStream<Uint8Array>({ pull(c) { c.error(new Error("connection reset")); } });
+    fakeFetch({ [OPENAI]: [{ status: 200, stream: breaking }], [GROQ]: [{ status: 200, stream: sse(ANSWER) }] });
+    const attempts = capture();
+
+    const out = await ai.streamChatCompletionWithFallback(chatParams([
+      { provider: "openai", model: "gpt-4.1" },
+      { provider: "groq", model: "openai/gpt-oss-20b" },
+    ]));
+    expect(out.provider).toBe("groq");
+    expect(attempts[0]).toMatchObject({ provider: "openai", mode: "stream", success: false, error: "stream_interrupted" });
   });
 
   it("never records image data or classifies a stream as vision — the stream carries text only", async () => {

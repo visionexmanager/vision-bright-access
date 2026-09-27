@@ -22,9 +22,9 @@ describe("site-wide AI provider routing", () => {
     const generators = source("supabase/functions/_shared/generators.ts");
 
     expect(generators).toContain('"travel-itinerary", "career-roadmap", "tech-troubleshooting-plan"');
-    expect(generators).toContain('if (GEMINI_GENERATORS.has(id)) return [GEMINI, GEMINI_LITE, GROQ, MISTRAL, OPENAI, LUNA]');
-    expect(generators).toContain('if (MISTRAL_GENERATORS.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ, OPENAI, LUNA]');
-    expect(generators).toContain('return [GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA]');
+    expect(generators).toContain('if (GEMINI_GENERATORS.has(id)) return [GEMINI, GROQ_120, GEMINI_LITE, GROQ, MISTRAL, OPENAI, LUNA]');
+    expect(generators).toContain('if (MISTRAL_GENERATORS.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ_120, GROQ, OPENAI, LUNA]');
+    expect(generators).toContain('return [GROQ_120, GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA]');
   });
 
   it("uses Gemini first for image analysis with OpenAI fallback", () => {

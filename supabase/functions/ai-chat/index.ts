@@ -11,6 +11,7 @@ import { assistantTargets } from "../_shared/assistants.ts";
 import { boundMessages, callerAddress, callerHash, type ChatTurn } from "./limits.ts";
 import { sanitizeContext, UNTRUSTED_CONTEXT_RULES, untrustedContextBlock } from "./context.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+import { expectedScriptForMessage } from "../_shared/answerLanguage.ts";
 
 // Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
 installChatAttemptRecording();
@@ -633,6 +634,9 @@ Help the user learn real-world business skills through the simulation named in t
         targets,
         system: systemPrompt,
         messages: cleanMessages,
+        // Asked in Arabic (or any non-Latin script), answered in it: an English
+        // reply is a failed attempt and the next model answers instead.
+        expectScript: expectedScriptForMessage(lastQuestion),
       });
       if (provider !== targets[0].provider || model !== targets[0].model) {
         void signal("fallback", targets[0].provider, targets[0].model);

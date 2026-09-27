@@ -83,6 +83,10 @@ const GEMINI = { provider: "gemini", model: "gemini-flash-latest" } as const;
 // As in assistants.ts: after flash-latest where Gemini is a fallback, never where it leads.
 const GEMINI_LITE = { provider: "gemini", model: "gemini-flash-lite-latest" } as const;
 const GROQ = { provider: "groq", model: "openai/gpt-oss-20b" } as const;
+// Ahead of gpt-oss-20b in every chain: asked for these plans, 20b returned
+// well-formed JSON of the wrong shape (Groq: 400 tool_use_failed) in five of
+// eight cases; 120b returned all eight, in both languages, in 2–3 s.
+const GROQ_120 = { provider: "groq", model: "openai/gpt-oss-120b" } as const;
 const MISTRAL = { provider: "mistral", model: "ministral-14b-latest" } as const;
 
 const MISTRAL_GENERATORS = new Set([
@@ -94,12 +98,12 @@ const GEMINI_GENERATORS = new Set([
 ]);
 
 export function generatorTargets(id: string): ProviderTarget[] {
-  // flash-lite leads while flash-latest is parked: in the live route contract
-  // probe it returned all four of these plans in schema and in Arabic, where
-  // Groq, the chain's next model, was refused (HTTP 400) on two of the four.
-  if (GEMINI_GENERATORS.has(id)) return [GEMINI, GEMINI_LITE, GROQ, MISTRAL, OPENAI, LUNA];
-  if (MISTRAL_GENERATORS.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ, OPENAI, LUNA];
-  return [GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA];
+  // With flash-latest parked, gpt-oss-120b leads the Gemini-first plans: 8/8 in
+  // the live route contract probe, where flash-lite answered 5/8 and hung past
+  // 90 s on the other three. flash-lite stays in the chain, behind it.
+  if (GEMINI_GENERATORS.has(id)) return [GEMINI, GROQ_120, GEMINI_LITE, GROQ, MISTRAL, OPENAI, LUNA];
+  if (MISTRAL_GENERATORS.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ_120, GROQ, OPENAI, LUNA];
+  return [GROQ_120, GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA];
 }
 
 const LANG_NOTE =
