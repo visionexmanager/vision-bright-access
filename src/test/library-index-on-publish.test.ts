@@ -30,6 +30,23 @@ describe("Library books are indexed once published", () => {
     expect(callers[0]).toMatch(/x-cron-secret: \$CRON_SECRET/);
   });
 
+  it("never lets a run end with jobs stranded in processing", () => {
+    // The first scheduled run was cut off by the gateway at 150 s and left all
+    // 8 books in "processing", where nothing would ever look at them again.
+    const worker = readFileSync("supabase/functions/library-process-background-jobs/index.ts", "utf8");
+    const limit = (name: string) => Number(new RegExp(`const ${name} = ([\\d_]+)`).exec(worker)?.[1].replace(/_/g, ""));
+    expect(limit("RUN_BUDGET_MS") + limit("JOB_TIMEOUT_MS")).toBeLessThan(150_000);
+    expect(worker).toMatch(/withTimeout\(classifyAndIndexBook\(/);
+    // Stuck index jobs go back to the queue — and only index jobs: a report
+    // job sends email, and requeueing a half-sent one would send it twice.
+    const requeue = worker.slice(worker.indexOf("Hand back index jobs"), worker.indexOf("const requeued"));
+    expect(requeue.match(/\.eq\("job_type", "classify_and_index_book"\)/g)?.length).toBe(2);
+    expect(requeue).toMatch(/\.lt\("attempts", MAX_ATTEMPTS\)/);
+    // A failed write is a failed job, not a silent "completed".
+    expect(worker).toMatch(/if \(classifyErr\) throw/);
+    expect(worker).toMatch(/if \(embedErr\) throw/);
+  });
+
   it("lets the scheduler past the gateway, where the worker checks its own secret", () => {
     const script = readFileSync("scripts/deploy-changed-supabase-functions.sh", "utf8");
     expect(script).toMatch(/^\s*\[library-process-background-jobs\]=1\s*$/m);

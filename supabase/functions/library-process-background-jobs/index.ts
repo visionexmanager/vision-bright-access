@@ -21,15 +21,18 @@
  * and instead requires header `x-cron-secret` to match the CRON_SECRET env
  * var, so only whoever configured the scheduler can invoke it.
  *
- * IMPORTANT — what this does NOT set up: actually calling this function on a
- * schedule requires a scheduler, e.g. Supabase's built-in Cron Jobs (Dashboard
- * → Database → Cron Jobs) calling this URL with the `x-cron-secret` header,
- * or `pg_cron` + `pg_net` invoking it via `net.http_post`. That's a
- * dashboard/ops configuration step outside this codebase — this migration
- * and function provide the queue and the worker, not the schedule trigger.
+ * Scheduled by .github/workflows/library-jobs-cron.yml every 15 minutes.
+ *
+ * Time: the gateway gives up on a call after 150 s, and a run killed there
+ * leaves every claimed row in "processing" for good — the first scheduled run
+ * did exactly that to all 8 books. So each job has its own time limit, the run
+ * stops starting jobs well before the gateway would give up, and an index job
+ * stuck in "processing" is handed back to the queue by the next run. Report
+ * jobs are not: they send email, and a half-finished one must not send twice.
  *
  * Input: none required (optional JSON { batch_size })
- * Returns: JSON { ok, processed, failed }
+ * Returns: JSON { ok, processed, failed, requeued, results } — results carry
+ * the job type, outcome, the step reached, milliseconds and any error text.
  */
 
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -53,7 +56,25 @@ const CLASSIFY_SCHEMA = {
   additionalProperties: false,
 };
 
-async function classifyAndIndexBook(serviceClient: SupabaseClient, bookId: string): Promise<void> {
+/** A job still running after this long is abandoned and marked failed. */
+const JOB_TIMEOUT_MS = 45_000;
+/** No new job starts once this much of the gateway's 150 s has gone. */
+const RUN_BUDGET_MS = 90_000;
+/** An index job "processing" for longer than this was killed mid-run. */
+const STALE_PROCESSING_MS = 10 * 60_000;
+/** After this many attempts a stuck index job is failed instead of retried. */
+const MAX_ATTEMPTS = 3;
+
+function withTimeout<T>(work: Promise<T>, ms: number, where: () => string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out after ${ms} ms at ${where()}`)), ms);
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function classifyAndIndexBook(serviceClient: SupabaseClient, bookId: string, step: (name: string) => void): Promise<void> {
+  step("read_book");
   const { data: book, error: bookErr } = await serviceClient
     .from("library_books")
     .select("id, title, description, description_long, embedding")
@@ -62,6 +83,7 @@ async function classifyAndIndexBook(serviceClient: SupabaseClient, bookId: strin
   if (bookErr) throw bookErr;
   if (!book) throw new Error("Book not found");
 
+  step("read_chapters");
   const { data: chapters } = await serviceClient
     .from("library_chapters")
     .select("content_text")
@@ -79,6 +101,7 @@ async function classifyAndIndexBook(serviceClient: SupabaseClient, bookId: strin
     chapterExcerpt ? `Opening content excerpt:\n${chapterExcerpt}` : "",
   ].filter(Boolean).join("\n\n").slice(0, 8000);
 
+  step("classify");
   const classification = await structuredCompletion({
     provider: "openai",
     model: "gpt-4o-mini",
@@ -89,7 +112,8 @@ async function classifyAndIndexBook(serviceClient: SupabaseClient, bookId: strin
     maxTokens: 800,
   }) as { topics: string[]; subtopics: string[]; keywords: string[]; difficulty_level: string; reading_level: string };
 
-  await serviceClient.from("library_books").update({
+  step("save_classification");
+  const { error: classifyErr } = await serviceClient.from("library_books").update({
     topics: classification.topics,
     subtopics: classification.subtopics,
     keywords: classification.keywords,
@@ -97,14 +121,19 @@ async function classifyAndIndexBook(serviceClient: SupabaseClient, bookId: strin
     reading_level: classification.reading_level,
     auto_classified_at: new Date().toISOString(),
   }).eq("id", bookId);
+  if (classifyErr) throw new Error(`saving the classification failed: ${classifyErr.message}`);
 
   let embedding = book.embedding as number[] | null;
   if (!embedding) {
+    step("embed");
     [embedding] = await createEmbedding([`${book.title}\n${book.description ?? ""}`.slice(0, 2000)]);
-    await serviceClient.from("library_books").update({ embedding }).eq("id", bookId);
+    step("save_embedding");
+    const { error: embedErr } = await serviceClient.from("library_books").update({ embedding }).eq("id", bookId);
+    if (embedErr) throw new Error(`saving the embedding failed: ${embedErr.message}`);
   }
 
   if (embedding) {
+    step("related_books");
     const { data: matches } = await serviceClient.rpc("match_library_books_semantic", { _query_embedding: embedding, _match_count: 11 });
     const related = ((matches ?? []) as Array<{ book_id: string; similarity: number }>)
       .filter((m) => m.book_id !== bookId)
@@ -192,6 +221,23 @@ Deno.serve(async (req: Request) => {
     // no body is fine — use the default batch size
   }
 
+  const started = Date.now();
+
+  // Hand back index jobs a killed run left behind; fail the ones that keep dying.
+  const staleBefore = new Date(started - STALE_PROCESSING_MS).toISOString();
+  const { data: requeuedRows } = await serviceClient
+    .from("library_background_jobs")
+    .update({ status: "pending" })
+    .eq("status", "processing").eq("job_type", "classify_and_index_book")
+    .lt("updated_at", staleBefore).lt("attempts", MAX_ATTEMPTS)
+    .select("id");
+  await serviceClient
+    .from("library_background_jobs")
+    .update({ status: "failed", error: "abandoned in processing too many times" })
+    .eq("status", "processing").eq("job_type", "classify_and_index_book")
+    .lt("updated_at", staleBefore).gte("attempts", MAX_ATTEMPTS);
+  const requeued = requeuedRows?.length ?? 0;
+
   const { data: jobs, error: claimErr } = await serviceClient
     .from("library_background_jobs")
     .select("id, job_type, payload, attempts")
@@ -199,20 +245,32 @@ Deno.serve(async (req: Request) => {
     .order("created_at", { ascending: true })
     .limit(batchSize);
   if (claimErr) return json({ error: claimErr.message }, 500, cors);
-  if (!jobs || jobs.length === 0) return json({ ok: true, processed: 0, failed: 0 }, 200, cors);
+  if (!jobs || jobs.length === 0) return json({ ok: true, processed: 0, failed: 0, requeued, results: [] }, 200, cors);
 
   const jobIds = jobs.map((j) => j.id as string);
   await serviceClient.from("library_background_jobs").update({ status: "processing" }).in("id", jobIds);
 
   let processed = 0;
   let failed = 0;
-  for (const job of jobs as Array<{ id: string; job_type: string; payload: Record<string, unknown>; attempts: number }>) {
+  const results: Array<{ job_type: string; outcome: string; step: string; ms: number; error?: string }> = [];
+  const claimed = jobs as Array<{ id: string; job_type: string; payload: Record<string, unknown>; attempts: number }>;
+  for (const [index, job] of claimed.entries()) {
+    if (Date.now() - started > RUN_BUDGET_MS) {
+      // Out of time: the rest go back untouched, their attempts unchanged.
+      const left = claimed.slice(index).map((j) => j.id);
+      await serviceClient.from("library_background_jobs").update({ status: "pending" }).in("id", left);
+      results.push({ job_type: "*", outcome: `deferred ${left.length}`, step: "budget", ms: Date.now() - started });
+      break;
+    }
+    const jobStarted = Date.now();
+    let reached = "start";
+    const step = (name: string) => { reached = name; };
     try {
       switch (job.job_type) {
         case "classify_and_index_book": {
           const bookId = job.payload.book_id;
           if (typeof bookId !== "string") throw new Error("payload.book_id is required");
-          await classifyAndIndexBook(serviceClient, bookId);
+          await withTimeout(classifyAndIndexBook(serviceClient, bookId, step), JOB_TIMEOUT_MS, () => reached);
           break;
         }
         case "organization_scheduled_report": {
@@ -226,12 +284,14 @@ Deno.serve(async (req: Request) => {
       }
       await serviceClient.from("library_background_jobs").update({ status: "completed", error: null }).eq("id", job.id);
       processed++;
+      results.push({ job_type: job.job_type, outcome: "completed", step: reached, ms: Date.now() - jobStarted });
     } catch (err) {
       const msg = err instanceof ProviderError ? err.message : err instanceof Error ? err.message : String(err);
       await serviceClient.from("library_background_jobs").update({ status: "failed", error: msg, attempts: job.attempts + 1 }).eq("id", job.id);
       failed++;
+      results.push({ job_type: job.job_type, outcome: "failed", step: reached, ms: Date.now() - jobStarted, error: msg.slice(0, 200) });
     }
   }
 
-  return json({ ok: true, processed, failed }, 200, cors);
+  return json({ ok: true, processed, failed, requeued, results }, 200, cors);
 });
