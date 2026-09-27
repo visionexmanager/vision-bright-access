@@ -23,7 +23,9 @@ describe("workflows reading Supabase logs", () => {
     expect(readers.map((w) => w.name).sort()).toEqual(["messenger-diagnose.yml", "whatsapp-diagnose.yml"]);
     for (const { name, text } of readers) {
       expect(text, name).not.toMatch(/from (edge_logs|function_logs|function_edge_logs)\b/);
-      expect(text, name).toMatch(/from logs\s+where source = 'edge_logs'/);
+      // Edge Function calls are in function_edge_logs; edge_logs never has them.
+      expect(text, name).toMatch(/from logs\s+where source = 'function_edge_logs' and log_attributes\['request\.pathname'\]/);
+      expect(text, name).not.toMatch(/source = 'edge_logs'/);
       expect(text, name).toMatch(/from logs\s+where source = 'function_logs'/);
       // A failed query is shown, so it cannot pass for an empty log.
       expect(text, name).toMatch(/Log query failed/);
