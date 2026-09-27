@@ -1,0 +1,81 @@
+name: Luna usage report
+
+# How often production has actually reached openai/gpt-5.6-luna, read from
+# ph_logs. Luna sits straight after gpt-4.1 in the chat chains (PR #357), so it
+# is only tried when gpt-4.1 is refused; this is how that is seen happening.
+#
+# Every statement is a SELECT. This repository is PUBLIC, so the log holds
+# counts, days, attempt positions and the fixed attempt error codes — never a
+# user id, never content, never a provider's own error text (anything that is
+# not a bare lowercase code is printed as "other"), never a price.
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "How many days back to read (1-30)"
+        type: number
+        default: 7
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: Read ph_logs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Luna attempts
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+          DAYS:                  ${{ inputs.days }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [[ -z "$SUPABASE_ACCESS_TOKEN" || -z "$SUPABASE_PROJECT_REF" ]]; then
+            say "::error::SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF must be configured."
+            exit 1
+          fi
+          # A number from 1 to 30, or 7: it is interpolated into SQL.
+          if ! [[ "$DAYS" =~ ^[0-9]+$ ]] || (( DAYS < 1 || DAYS > 30 )); then DAYS=7; fi
+
+          ask() {
+            curl -s -X POST \
+              "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query:$q}')"
+          }
+          block() { say ""; say "## $1"; say '```json'; ask "$2" | tee -a "$GITHUB_STEP_SUMMARY"; echo; say '```'; }
+
+          code="CASE WHEN error_message ~ '^[a-z_]{1,40}\$' THEN error_message WHEN error_message IS NULL THEN NULL ELSE 'other' END"
+          since="created_at >= now() - interval '$DAYS days'"
+
+          say "# Luna usage — last $DAYS days"
+
+          # attempt > 1 means an earlier target in the chain was tried first:
+          # Luna reached as a fallback, which is the only way it is reached.
+          block "openai/gpt-5.6-luna attempts" "
+            SELECT created_at::date AS day, job_type AS kind, request_meta->>'mode' AS mode,
+                   request_meta->>'attempt' AS attempt, status, $code AS error,
+                   count(*) AS attempts,
+                   count(*) FILTER (WHERE request_meta ? 'usage') AS with_usage,
+                   COALESCE(sum((request_meta->'usage'->>'total_tokens')::bigint), 0) AS total_tokens
+              FROM public.ph_logs
+             WHERE request_meta->>'model' = 'gpt-5.6-luna' AND $since
+             GROUP BY 1, 2, 3, 4, 5, 6 ORDER BY 1 DESC, 7 DESC;"
+
+          # Why Luna was reached: what gpt-4.1 was refused with, in the same window.
+          block "openai/gpt-4.1 outcomes" "
+            SELECT status, $code AS error, count(*) AS attempts
+              FROM public.ph_logs
+             WHERE request_meta->>'model' = 'gpt-4.1' AND $since
+             GROUP BY 1, 2 ORDER BY 3 DESC;"
+
+          block "Latest Luna attempt" "
+            SELECT max(created_at) AS latest, count(*) AS total
+              FROM public.ph_logs WHERE request_meta->>'model' = 'gpt-5.6-luna';"
