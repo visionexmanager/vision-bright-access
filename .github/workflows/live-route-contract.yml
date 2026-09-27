@@ -15,6 +15,13 @@ on:
     paths:
       - scripts/ai-eval/live-route-contract.ts
       - .github/workflows/live-route-contract.yml
+      # The modules whose routes it proves: a change to any of them is proven again.
+      - supabase/functions/_shared/aiProvider.ts
+      - supabase/functions/_shared/geminiProvider.ts
+      - supabase/functions/_shared/assistants.ts
+      - supabase/functions/_shared/generators.ts
+      - supabase/functions/_shared/visionAnalysts.ts
+      - supabase/functions/_shared/whatsappUnderstand.ts
 
 concurrency:
   group: live-route-contract-${{ github.ref }}

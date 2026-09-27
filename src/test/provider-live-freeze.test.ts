@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Phase 0: only providers and models that work today take live traffic.
@@ -140,6 +140,80 @@ describe("providers with no credential are skipped, not tried", () => {
     expect(career.match(/const model = MODEL_MATRIX\[provider\]\[tier\];\s*if \(!careerTargetLive\(provider, model\)\) continue;/g)).toHaveLength(2);
     // Anthropic keeps its place and its model: parked, not deleted.
     expect(career).toContain('["openai", "groq", "mistral", "anthropic"]');
+  });
+});
+
+describe("Phase 1: a key is not a production approval", () => {
+  const state = () => import("../../supabase/functions/_shared/providerState.ts");
+  const ANTHROPIC = { provider: "anthropic", model: "claude-haiku-4-5-20251001" } as const;
+  const ROUTER = { provider: "openrouter", model: "google/gemma-4-26b-a4b-it:free" } as const;
+
+  it("parks exactly the providers whose only switch was their secret", async () => {
+    expect([...(await state()).PARKED_PROVIDERS.keys()].sort()).toEqual(["anthropic", "elevenlabs", "luma", "replicate"]);
+  });
+
+  it("a parked provider is never selected from a chain, even with its key present", () => {
+    env.ANTHROPIC_API_KEY = "sk-ant-test";
+    expect(ai.orderTargets([ANTHROPIC, OPENAI], "chat")).toEqual([OPENAI]);
+  });
+
+  it("a direct call to a parked provider fails closed, key or not, before any request", async () => {
+    env.ANTHROPIC_API_KEY = "sk-ant-test";
+    const spy = fetchSpy();
+    const error = await ai.streamChatCompletion({ ...ANTHROPIC, system: "s", messages: [{ role: "user", content: "hi" }] })
+      .catch((e) => e) as InstanceType<typeof ai.ProviderError>;
+    expect(error.status).toBe(503);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("a direct call to an activation-gated provider fails closed until the registry switches it on", async () => {
+    env.OPENROUTER_API_KEY = "sk-or-test";
+    const spy = fetchSpy();
+    const call = () => ai.structuredCompletion({ ...ROUTER, system: "s", userText: "u", schema: { type: "object" }, toolName: "t" });
+    expect(((await call().catch((e) => e)) as InstanceType<typeof ai.ProviderError>).status).toBe(503);
+    expect(spy).not.toHaveBeenCalled();
+    // Switched on by the registry, the same call reaches the provider.
+    ai.setProviderRegistryView({ verdict: () => "ready", extras: () => [] });
+    await call().catch(() => undefined);
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it("every selection point that used to trust a key alone now consults the parked list", () => {
+    const at = (path: string) => source(`supabase/functions/${path}`);
+    expect(at("_shared/careerAiOrchestrator.ts")).toContain("!parkedProviderReason(provider) && providerHasCredential(provider)");
+    expect(at("news-generate/index.ts")).toContain('parkedProviderReason("anthropic") ? undefined : Deno.env.get("ANTHROPIC_API_KEY")');
+    expect(at("_shared/contentMedia.ts")).toMatch(/export function mediaVideoKey\(\): string \| undefined \{\s*if \(parkedProviderReason\("luma"\)\) return undefined;/);
+    expect(at("video-studio/index.ts")).toContain('parkedProviderReason("luma") ? undefined : Deno.env.get("LUMA_API_KEY")');
+    expect(at("voice-studio/index.ts")).toContain('parkedProviderReason("elevenlabs") ? undefined : Deno.env.get("ELEVENLABS_API_KEY")');
+    expect(at("speech-generate/index.ts")).toContain("if (parkedProviderReason(name)) throw");
+    expect(at("_shared/whatsappVoiceChoice.ts")).toContain('parkedProviderReason("elevenlabs")) return null;');
+    expect(at("image-tools-generate/index.ts")).toContain('parkedProviderReason("replicate") || !Deno.env.get("REPLICATE_API_TOKEN")');
+  });
+
+  it("no other code reads a parked provider's secret to decide whether to use it", () => {
+    // The adapters and health-check read them; nothing else may.
+    const allowed = new Set([
+      "health-check/index.ts", "career-system-health/index.ts", "_shared/aiProvider.ts", "_shared/voice/tts.ts", "image-tools-generate/index.ts",
+      "news-generate/index.ts", "video-studio/index.ts", "voice-studio/index.ts", "_shared/contentMedia.ts",
+    ]);
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) walk(path);
+        else if (entry.name.endsWith(".ts") && !entry.name.includes("test")) {
+          const rel = path.replace("supabase/functions/", "");
+          // Code only: comments and strings that merely name a secret are not reads of it.
+          const code = readFileSync(path, "utf8").split(/\r?\n/).filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join("\n");
+          const reads = /Deno\.env\.get\(\s*"(ANTHROPIC_API_KEY|REPLICATE_API_TOKEN|LUMA_API_KEY|ELEVENLABS_API_KEY)"|env\.get\("(LUMA_API_KEY|ELEVENLABS_API_KEY)"\)|checkEnvVar\("ANTHROPIC_API_KEY"\)|KEY_FOR\[/;
+          if (reads.test(code) && !allowed.has(rel)) {
+            offenders.push(rel);
+          }
+        }
+      }
+    };
+    walk("supabase/functions");
+    expect(offenders).toEqual([]);
   });
 });
 

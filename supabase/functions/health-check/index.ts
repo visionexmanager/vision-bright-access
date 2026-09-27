@@ -10,6 +10,7 @@
 
 import { overpassViaProcessor, processorAvailable } from "../_shared/whatsappProcessor.ts";
 import { PAUSED_MODELS } from "../_shared/aiProvider.ts";
+import { PARKED_PROVIDERS } from "../_shared/providerState.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const CORS = {
@@ -37,7 +38,8 @@ type ProviderState =
   | "paused"
   | "missing_credentials"
   | "funding_limitation"
-  | "model_failure";
+  | "model_failure"
+  | "unverified";
 
 interface ComponentStatus {
   ok:     boolean;
@@ -891,6 +893,27 @@ Deno.serve(async (req: Request) => {
     probed.forEach((provider, i) => {
       results[`provider_live_${provider}`] = probeResults[i];
     });
+
+    // Parked providers: never selected, whatever secret is present
+    // (providerState.ts). A key is not a production approval, so none is probed.
+    for (const [provider, reason] of PARKED_PROVIDERS) {
+      results[`provider_parked_${provider}`] = {
+        ok:     false,
+        status: "paused",
+        state:  "paused",
+        detail: `${provider} is parked out of live routing: ${reason}.`,
+      };
+    }
+
+    // Live routes with no recent real generation. Reported as such rather than
+    // probed from here: each would spend money on every diagnostics view.
+    for (const [key, detail] of [
+      ["openai_image", "gpt-image-1 (image generation) has not had a real generation since the 2026-09-26 audit."],
+      ["openai_realtime", "gpt-realtime-2 (live voice) has never had an automated real-session test."],
+      ["mistral_tts", "Mistral Voxtral speech has never had a real generation test; it speaks only Mistral-cloned voices."],
+    ] as const) {
+      results[`unverified_${key}`] = { ok: true, status: "warning", state: "unverified", detail };
+    }
 
     // Parked models: never probed, never routed (aiProvider.ts PAUSED_MODELS).
     for (const [target, reason] of PAUSED_MODELS) {
