@@ -132,6 +132,43 @@ describe("a structured attempt that hangs", () => {
   });
 });
 
+describe("a result missing a required field", () => {
+  it("is invalid_response, not a success, and the chain moves on", async () => {
+    fakeFetch({ groq: () => tool({ summary: "x" }), openai: () => tool({ title: "t", summary: "s" }) });
+    const attempts = capture();
+    const out = await ai.structuredCompletionWithFallback({
+      targets: [GROQ, OPENAI], system: "s", userText: "u", toolName: "t",
+      schema: { type: "object", properties: { title: { type: "string" }, summary: { type: "string" } }, required: ["title", "summary"] },
+    });
+    expect(out.provider).toBe("openai");
+    expect(attempts[0]).toEqual({ provider: "groq", success: false, error: "invalid_response" });
+  });
+
+  it("an empty list or string is still an answer: only an absent or null field is refused", async () => {
+    fakeFetch({ groq: () => tool({ title: "", tips: [] }), openai: () => tool({ title: "t", tips: ["a"] }) });
+    const out = await ai.structuredCompletionWithFallback({
+      targets: [GROQ, OPENAI], system: "s", userText: "u", toolName: "t",
+      schema: { type: "object", required: ["title", "tips"] },
+    });
+    expect(out.provider).toBe("groq");
+  });
+});
+
+describe("a stream that says nothing", () => {
+  it("is abandoned at the first-text deadline, recorded as a timeout, and the next model answers", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => String(url).includes("groq.com")
+      ? new Response(new ReadableStream<Uint8Array>({ pull() { return new Promise(() => { /* silent */ }); } }))
+      : sse(ARABIC_ANSWER)));
+    const attempts = capture();
+    const out = await ai.streamChatCompletionWithFallback({
+      targets: [GROQ, OPENAI], system: "s", messages: [{ role: "user", content: "u" }], attemptTimeoutMs: 50,
+    });
+    expect(out.provider).toBe("openai");
+    expect(attempts[0]).toEqual({ provider: "groq", success: false, error: "timeout" });
+    expect(ai.STREAM_FIRST_TEXT_TIMEOUT_MS).toBe(20_000);
+  });
+});
+
 describe("streaming chains", () => {
   const read = (stream: ReadableStream<Uint8Array>) => new Response(stream).text();
   const textOf = (sseText: string) => sseText.split("\n").filter((l) => l.startsWith("data: {"))

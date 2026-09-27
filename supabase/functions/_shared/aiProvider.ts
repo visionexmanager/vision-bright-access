@@ -351,6 +351,7 @@ export function attemptErrorCode(error: unknown): AttemptErrorCode {
   }
   if (error instanceof SyntaxError) return "invalid_response";
   if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) return "timeout";
+  if (error instanceof Error && error.name === "StreamInterruptedError") return "stream_interrupted";
   if (error instanceof TypeError) return "network";
   return "unknown";
 }
@@ -510,6 +511,15 @@ export function orderTargets(
  */
 export const STRUCTURED_ATTEMPT_TIMEOUT_MS = 45_000;
 
+/** Whether a structured result omits a top-level field its schema requires. */
+function lacksRequired(result: unknown, schema: Record<string, unknown>): boolean {
+  const required = Array.isArray(schema.required) ? schema.required as unknown[] : [];
+  if (required.length === 0) return false;
+  if (!result || typeof result !== "object" || Array.isArray(result)) return true;
+  const record = result as Record<string, unknown>;
+  return required.some((key) => typeof key === "string" && (record[key] === undefined || record[key] === null));
+}
+
 /** Rejects with a TimeoutError (recorded as "timeout") if work is still pending after ms. */
 function withAttemptTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -529,7 +539,10 @@ export interface AnswerExpectation {
    * in another script is a failed attempt, and the chain moves on.
    */
   expectScript?: Script | null;
-  /** Structured chains only: overrides STRUCTURED_ATTEMPT_TIMEOUT_MS for this request. */
+  /**
+   * Overrides the per-attempt bound for this request: STRUCTURED_ATTEMPT_TIMEOUT_MS
+   * for a structured chain, STREAM_FIRST_TEXT_TIMEOUT_MS for a stream.
+   */
   attemptTimeoutMs?: number;
 }
 
@@ -543,18 +556,22 @@ export async function streamChatCompletionWithFallback(
     const start = Date.now();
     const base = { kind: "chat", mode: "stream", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
-      let accepted = await streamChatCompletion({ ...params, ...target });
-      if (params.expectScript) {
-        const gated = await gateStreamLanguage(accepted, params.expectScript);
-        if (!gated.ok) {
-          noteOutcome(target, "wrong_language");
-          reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: "wrong_language" });
-          lastError = new ProviderError(502, "The answer was not in the requested language");
-          console.warn(`[ai-provider] ${target.provider}/${target.model} answered in the wrong language; trying fallback`);
-          continue;
-        }
-        accepted = gated.stream;
+      // Until its first text, an attempt can still be abandoned for the next
+      // target: a model that accepts and then says nothing (flash-lite did, for
+      // 90 s and more, in the live route contract probe) no longer holds the
+      // user. After the first text, bytes are the user's and nothing is retried.
+      const limit = params.attemptTimeoutMs ?? STREAM_FIRST_TEXT_TIMEOUT_MS;
+      const deadline = start + limit;
+      const opened = await withAttemptTimeout(streamChatCompletion({ ...params, ...target }), limit);
+      const gated = await gateStream(opened, params.expectScript ?? null, deadline);
+      if (!gated.ok) {
+        noteOutcome(target, "wrong_language");
+        reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: "wrong_language" });
+        lastError = new ProviderError(502, "The answer was not in the requested language");
+        console.warn(`[ai-provider] ${target.provider}/${target.model} answered in the wrong language; trying fallback`);
+        continue;
       }
+      const accepted = gated.stream;
       const ms = elapsedMs(start);
       // Accepted is not delivered. The attempt is settled when the stream
       // ends: complete with text is a success; a body that breaks, or ends
@@ -586,23 +603,41 @@ export async function streamChatCompletionWithFallback(
 /** Letters read from a stream before its language is judged. */
 export const LANGUAGE_GATE_LETTERS = 40;
 
+/** How long a stream attempt has to produce its first text before the chain moves on. */
+export const STREAM_FIRST_TEXT_TIMEOUT_MS = 20_000;
+
 /**
- * Holds a stream back until its first LANGUAGE_GATE_LETTERS letters (or its
- * end) have arrived, judges their script, and either refuses the stream —
- * cancelled, so the chain can try the next target before a byte reaches the
- * user — or hands on the same bytes in order: the held ones, then the rest.
+ * Holds a stream back until its first text — LANGUAGE_GATE_LETTERS letters when
+ * a script is expected, one otherwise — or its end, and either refuses it
+ * (wrong script: cancelled, so the chain can try the next target before a byte
+ * reaches the user) or hands on the same bytes in order: the held ones, then
+ * the rest. No text by `deadline` is a TimeoutError, and the stream is cancelled.
  */
-async function gateStreamLanguage(
+async function gateStream(
   stream: ReadableStream<Uint8Array>,
-  expected: Script,
+  expected: Script | null,
+  deadline: number,
 ): Promise<{ ok: boolean; stream: ReadableStream<Uint8Array> }> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   const held: Uint8Array[] = [];
   let pending = "", text = "", done = false;
   const letters = () => [...text].filter((ch) => /\p{L}/u.test(ch)).length;
-  while (letters() < LANGUAGE_GATE_LETTERS) {
-    const { value, done: ended } = await reader.read();
+  const wanted = expected ? LANGUAGE_GATE_LETTERS : 1;
+  while (letters() < wanted) {
+    let read: ReadableStreamReadResult<Uint8Array>;
+    try {
+      read = await withAttemptTimeout(reader.read(), Math.max(0, deadline - Date.now()));
+    } catch (error) {
+      await reader.cancel().catch(() => undefined);
+      if (error instanceof Error && error.name === "TimeoutError") throw error;
+      // Broken before its first text: the same failure observeStream records
+      // for a later break, but here the chain can still move on.
+      const interrupted = new Error("The stream broke before its first text");
+      interrupted.name = "StreamInterruptedError";
+      throw interrupted;
+    }
+    const { value, done: ended } = read;
     if (ended) { done = true; break; }
     held.push(value);
     pending += decoder.decode(value, { stream: true });
@@ -614,7 +649,7 @@ async function gateStreamLanguage(
       try { text += JSON.parse(line.slice(5)).choices?.[0]?.delta?.content ?? ""; } catch { /* partial or keep-alive */ }
     }
   }
-  if (!answerIsInScript(text, expected)) {
+  if (expected && !answerIsInScript(text, expected)) {
     await reader.cancel().catch(() => undefined);
     return { ok: false, stream };
   }
@@ -862,6 +897,16 @@ export async function structuredCompletionWithFallback(
         structuredCompletionDetailed({ ...params, ...target }),
         params.attemptTimeoutMs ?? STRUCTURED_ATTEMPT_TIMEOUT_MS,
       );
+      // A result missing a field the schema requires is not a result: the
+      // caller would render a plan with no title, or no sections. Recorded as
+      // invalid_response (a content failure: no cooldown), and the chain moves on.
+      if (lacksRequired(result, params.schema)) {
+        noteOutcome(target, "invalid_response");
+        reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: "invalid_response", ...(usage ? { usage } : {}) });
+        lastError = new ProviderError(502, "The answer was missing required fields");
+        console.warn(`[ai-provider] ${target.provider}/${target.model} answered without a required field; trying fallback`);
+        continue;
+      }
       if (params.expectScript && !answerIsInScript(textOf(result), params.expectScript)) {
         noteOutcome(target, "wrong_language");
         reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: "wrong_language", ...(usage ? { usage } : {}) });

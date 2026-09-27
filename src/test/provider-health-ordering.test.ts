@@ -491,9 +491,11 @@ describe("a stream is settled when it ends, not when it is accepted", () => {
       ? new Response(streamOf([frame("x")], new Error("reset")), { status: 200 })
       : new Response(streamOf([frame("ok"), "data: [DONE]\n\n"]), { status: 200 })));
     const params = { targets: [G, O], system: "s", messages: [{ role: "user" as const, content: "u" }] };
+    // This stream errors before its first frame is read (an errored stream
+    // drops what it queued), so the chain moves on within the same request —
+    // and the broken target still cools, so the next request starts elsewhere.
     const first = await ai.streamChatCompletionWithFallback(params);
-    expect(first.provider).toBe("groq");
-    await expect(new Response(first.result).text()).rejects.toThrow();
+    expect(first.provider).toBe("openai");
     expect(ai.orderTargets([G, O], "chat")).toEqual([O, G]);
   });
 });
