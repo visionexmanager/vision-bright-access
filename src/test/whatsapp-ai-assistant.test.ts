@@ -338,7 +338,7 @@ describe("reliability", () => {
     // not dropping anything.
     expect(assistantsSource).toMatch(/OPENAI_FIRST = new Set\(\[[^\]]*"whatsapp-support"/s);
     expect(assistantsSource).not.toMatch(/MISTRAL_FIRST = new Set\(\[[^\]]*"whatsapp-support"/s);
-    expect(assistantsSource).toContain("if (OPENAI_FIRST.has(id)) return [OPENAI, GEMINI, MISTRAL, GROQ];");
+    expect(assistantsSource).toContain("if (OPENAI_FIRST.has(id)) return [OPENAI, LUNA, GEMINI, MISTRAL, GROQ];");
   });
 
   it("21. keeps the existing rate limit in front of the assistant", () => {

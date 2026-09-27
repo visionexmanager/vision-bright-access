@@ -152,14 +152,38 @@ describe("A/B. the catalog knows Luna, once, under OpenAI, at OpenAI's price", (
   });
 });
 
-describe("D/F. no route, default or client choice was added", () => {
+describe("D/F. Luna is routed as OpenAI's second model, never chosen by a client", () => {
   const functionsDir = "supabase/functions";
   const sources = readdirSync(`${functionsDir}/_shared`).filter((f) => f.endsWith(".ts"))
     .map((f) => [f, readFileSync(`${functionsDir}/_shared/${f}`, "utf8")] as const);
 
-  it("Luna is in no target list: nothing is routed to it until someone opts in", () => {
+  it("only the adapter and the assistant chains name Luna in _shared", () => {
     const naming = sources.filter(([, s]) => s.includes('"gpt-5.6-luna"')).map(([f]) => f);
-    expect(naming).toEqual(["aiProvider.ts"]);
+    expect(naming).toEqual(["aiProvider.ts", "assistants.ts"]);
+  });
+
+  it("every assistant chain has Luna exactly once, straight after gpt-4.1 and never first", async () => {
+    const { ASSISTANTS, assistantTargets } = await import("../../supabase/functions/_shared/assistants.ts");
+    const chains = [
+      ...Object.values(ASSISTANTS).map((a) => [a.id, a.targets] as const),
+      ["ivx-project-grader", assistantTargets("ivx-project-grader")] as const,
+      ["default", assistantTargets("no-such-assistant")] as const,
+    ];
+    for (const [id, targets] of chains) {
+      const models = targets.map((t) => `${t.provider}/${t.model}`);
+      expect(models.filter((m) => m === "openai/gpt-5.6-luna"), id).toHaveLength(1);
+      expect(models.indexOf("openai/gpt-5.6-luna"), id).toBe(models.indexOf("openai/gpt-4.1") + 1);
+      expect(models[0], id).not.toBe("openai/gpt-5.6-luna");
+    }
+  });
+
+  it("the inline chat and voice chains carry Luna straight after gpt-4.1 too", () => {
+    for (const [fn, count] of [["ai-chat", 2], ["ai-voice-chat", 1]] as const) {
+      const source = readFileSync(`${functionsDir}/${fn}/index.ts`, "utf8");
+      const pairs = source.match(/\{ provider: "openai", model: "gpt-4\.1" \},\s*\{ provider: "openai", model: "gpt-5\.6-luna" \}/g) ?? [];
+      expect(pairs, fn).toHaveLength(count);
+      expect(source.match(/gpt-5\.6-luna/g), fn).toHaveLength(count);
+    }
   });
 
   it("the reasoning table is keyed by exact model id, not a prefix a client could match", () => {

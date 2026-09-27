@@ -120,6 +120,7 @@ Deno.serve(async (req) => {
     { provider: "groq", model: "openai/gpt-oss-20b" },
     { provider: "mistral", model: "ministral-14b-latest" },
     { provider: "openai", model: "gpt-4.1" },
+    { provider: "openai", model: "gpt-5.6-luna" },
   ];
 
   if (assistantId) {
