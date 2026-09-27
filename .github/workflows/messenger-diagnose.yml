@@ -260,8 +260,14 @@ jobs:
           # two calls in total and waits between them — an earlier version swept
           # twelve query shapes and spent the whole quota before asking anything
           # that mattered.
+          # The Management API retired logs.all on 2026-09-23. Its replacement
+          # is one ClickHouse table, logs, filtered by `source`, with the old
+          # nested metadata flattened into log_attributes['a.b']. Query shape
+          # taken from Supabase's own MCP server. An error now comes back as
+          # {"error": ...}; it is printed, so a broken query cannot pass for a
+          # quiet system.
           logs() {
-            curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs.all" \
+            curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs" \
                  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
                  --data-urlencode "sql=$1" \
                  --data-urlencode "iso_timestamp_start=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
@@ -279,13 +285,12 @@ jobs:
           say '```json'
           # path and status only — never the full URL. Meta's GET handshake
           # carries the verify token in its query string, and this repo is public.
-          logs "select t.timestamp, r.method, r.path, resp.status_code
-                  from edge_logs as t
-                  cross join unnest(t.metadata) as m
-                  cross join unnest(m.request) as r
-                  cross join unnest(m.response) as resp
-                 where r.path like '%meta-messaging-webhook%'
-                 order by t.timestamp desc limit 50" | tee -a "$GITHUB_STEP_SUMMARY"
+          logs "select timestamp, log_attributes['request.method'] as method,
+                       log_attributes['request.path'] as path,
+                       log_attributes['response.status_code'] as status_code
+                  from logs
+                 where source = 'edge_logs' and log_attributes['request.path'] like '%meta-messaging-webhook%'
+                 order by timestamp desc limit 50" | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           say '```'
           say "An empty result WITH this workflow's own probes missing means the query is wrong. An empty result that omits only Meta means Meta has never called."
@@ -302,9 +307,11 @@ jobs:
           # filtered here, with the other functions counted rather than shown.
           # The count is what keeps an empty result honest: it separates "this
           # function said nothing" from "the query returned nothing at all".
-          logs "select t.timestamp, t.event_message
-                  from function_logs as t
-                 order by t.timestamp desc limit 50" > /tmp/logs.json
+          logs "select timestamp, event_message
+                  from logs
+                 where source = 'function_logs'
+                 order by timestamp desc limit 50" > /tmp/logs.json
+          jq -r 'select(.error) | "Log query failed: \(.error | tostring | .[0:300])"' /tmp/logs.json | tee -a "$GITHUB_STEP_SUMMARY"
           OTHERS=$(jq '[.result[]? | select(.event_message | test("meta-messaging") | not)] | length' /tmp/logs.json)
           say '```json'
           jq -c '[.result[]? | select(.event_message | test("meta-messaging"))]' /tmp/logs.json \
