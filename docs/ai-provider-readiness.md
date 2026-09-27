@@ -26,7 +26,7 @@ change.
 
 | Provider | Verdict | Verified | Refused / broken |
 | --- | --- | --- | --- |
-| OpenAI | **production** | gpt-4o-mini, gpt-4o, gpt-4.1, gpt-5.6-luna (text); tools on 4o-mini/4.1; vision on 4o-mini/4o; text-embedding-3-small (1536); omni-moderation-latest; gpt-4o-mini-tts; gpt-4o-mini-transcribe, whisper-1 | — |
+| OpenAI | **production** | gpt-4o-mini, gpt-4o, gpt-4.1, gpt-5.6-luna (text); tools on 4o-mini/4.1/5.6-luna; vision on 4o-mini/4o/5.6-luna; text-embedding-3-small (1536); omni-moderation-latest; gpt-4o-mini-tts; gpt-4o-mini-transcribe, whisper-1 | — |
 | Groq | **production** | openai/gpt-oss-20b, gpt-oss-120b (text, tools); whisper-large-v3-turbo | llama-3.1-8b-instant, llama-3.3-70b-versatile: no longer served. No vision model. gpt-oss at max_tokens 200 and default effort returns **empty text** (reasoning eats the budget); fine at effort "low". TPM 8,000 per model. |
 | Gemini | **production** (was unfunded until at least 2026-08-20) | gemini-flash-latest, gemini-flash-lite-latest: text, vision, JSON-schema output | No rate-limit headers returned, so the tier's ceilings are not observable from here — treat as limited. |
 | Mistral | **partial** | ministral-8b-latest, ministral-14b-latest, open-mistral-nemo (text, tools); ministral-14b, pixtral-12b (vision); mistral-embed; voxtral-mini-latest (STT) | mistral-small-latest, mistral-small-2506, mistral-medium-latest: **429 on every call** (code 1300); mistral-large-latest: 403 (code 1910); mistral-ocr-latest / -2512: 429. A plan restriction, not a burst — it held across four runs with 1.5 s pacing. |
@@ -45,7 +45,7 @@ media probe once.
 
 ## What routes where (after #350)
 
-- **Chat/structured chains** (`assistants.ts`, `generators.ts`, ai-chat, ai-voice-chat, kids-course-generate, whatsapp): OpenAI gpt-4.1/gpt-4o-mini, Gemini flash, Groq gpt-oss-20b/120b, Mistral ministral-14b, in each chain's quality order, reordered by health: a per-isolate cooldown after a repeatable failure and the `ph_providers` rows (inactive/error, degraded or health ≤ 20 go to the back; 10 % recovery share). Nothing is dropped.
+- **Chat/structured chains** (`assistants.ts`, `generators.ts`, ai-chat, ai-voice-chat, kids-course-generate, whatsapp): OpenAI gpt-4.1/gpt-4o-mini (gpt-5.6-luna straight after gpt-4.1 in the assistant, ai-chat and ai-voice-chat chains), Gemini flash, Groq gpt-oss-20b/120b, Mistral ministral-14b, in each chain's quality order, reordered by health: a per-isolate cooldown after a repeatable failure and the `ph_providers` rows (inactive/error, degraded or health ≤ 20 go to the back; 10 % recovery share). Nothing is dropped.
 - **Vision** (`visionAnalysts.ts`, WhatsApp images): Gemini flash, OpenAI gpt-4o / gpt-4o-mini.
 - **Embeddings**: OpenAI text-embedding-3-small only — the stored vectors are 1536-d, so no fallback of another dimension is possible.
 - **STT**: OpenAI Whisper/4o-transcribe and Groq Whisper, recorded. **TTS**: OpenAI gpt-4o-mini-tts; Mistral Voxtral for cloned voices.
