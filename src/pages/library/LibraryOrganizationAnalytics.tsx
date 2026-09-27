@@ -47,7 +47,7 @@ function AnalyticsBody({ ctx }: { ctx: ReturnType<typeof useOrganization> }) {
   const [recipientsText, setRecipientsText] = useState("");
 
   const handleExport = () => {
-    downloadOrganizationReport({
+    void downloadOrganizationReport({
       organizationName: organization.name,
       reportTitle: t("library.enterprise.analytics.reportTitle"),
       generatedAt: new Date().toLocaleString(),

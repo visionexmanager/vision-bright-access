@@ -62,7 +62,7 @@ export default function LibraryResearchProjectDetail() {
       citation: item.citation_text ?? undefined,
       addedAt: item.added_at,
     }));
-    downloadResearchExport({ projectTitle: project.title, projectDescription: project.description, items: exportItems }, exportFormat);
+    void downloadResearchExport({ projectTitle: project.title, projectDescription: project.description, items: exportItems }, exportFormat);
   };
 
   return (

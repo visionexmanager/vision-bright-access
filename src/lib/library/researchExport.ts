@@ -12,6 +12,7 @@
  */
 
 import { jsPDF } from "jspdf";
+import { enableArabicText, textInBox } from "@/lib/pdf/arabicText";
 
 export type ResearchExportFormat = "pdf" | "docx" | "markdown" | "html" | "csv" | "bibtex" | "ris" | "json";
 
@@ -110,22 +111,24 @@ function toJson(payload: ResearchExportPayload): string {
   return JSON.stringify(payload, null, 2);
 }
 
-function toPdf(payload: ResearchExportPayload): Blob {
+async function toPdf(payload: ResearchExportPayload): Promise<Blob> {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
+  await enableArabicText(doc, payload);
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 48;
+  const width = pageWidth - margin * 2;
   let y = 60;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(20);
-  doc.text(payload.projectTitle, margin, y);
+  textInBox(doc, payload.projectTitle, margin, y, width);
   y += 28;
 
   if (payload.projectDescription) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
-    const lines = doc.splitTextToSize(payload.projectDescription, pageWidth - margin * 2);
-    doc.text(lines, margin, y);
+    const lines = doc.splitTextToSize(payload.projectDescription, width);
+    textInBox(doc, lines, margin, y, width);
     y += lines.length * 14 + 16;
   }
 
@@ -133,23 +136,23 @@ function toPdf(payload: ResearchExportPayload): Blob {
     if (y > 740) { doc.addPage(); y = 60; }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text(item.title, margin, y);
+    textInBox(doc, item.title, margin, y, width);
     y += 16;
     doc.setFont("helvetica", "italic");
     doc.setFontSize(9);
-    doc.text(item.itemType, margin, y);
+    textInBox(doc, item.itemType, margin, y, width);
     y += 14;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     if (item.content) {
-      const lines = doc.splitTextToSize(item.content, pageWidth - margin * 2);
-      doc.text(lines, margin, y);
+      const lines = doc.splitTextToSize(item.content, width);
+      textInBox(doc, lines, margin, y, width);
       y += lines.length * 12 + 8;
     }
     if (item.citation) {
-      const lines = doc.splitTextToSize(item.citation, pageWidth - margin * 2);
+      const lines = doc.splitTextToSize(item.citation, width);
       doc.setFont("helvetica", "italic");
-      doc.text(lines, margin, y);
+      textInBox(doc, lines, margin, y, width);
       y += lines.length * 12 + 8;
     }
     y += 12;
@@ -158,12 +161,12 @@ function toPdf(payload: ResearchExportPayload): Blob {
   return doc.output("blob");
 }
 
-export function downloadResearchExport(payload: ResearchExportPayload, format: ResearchExportFormat) {
+export async function downloadResearchExport(payload: ResearchExportPayload, format: ResearchExportFormat) {
   const filename = payload.projectTitle.replace(/[^\w\- ]/g, "").trim() || "research-project";
 
   switch (format) {
     case "pdf":
-      triggerDownload(toPdf(payload), `${filename}.pdf`);
+      triggerDownload(await toPdf(payload), `${filename}.pdf`);
       return;
     case "docx":
       triggerDownload(toWordDoc(payload), `${filename}.doc`, "application/msword");

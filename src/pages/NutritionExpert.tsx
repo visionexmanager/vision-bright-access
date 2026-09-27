@@ -308,8 +308,9 @@ export default function NutritionExpert() {
 
   const exportPlanAsPdf = async () => {
     if (!dietPlan) return;
-    const { default: jsPDF } = await import("jspdf");
+    const [{ default: jsPDF }, { enableArabicText, textInBox }] = await Promise.all([import("jspdf"), import("@/lib/pdf/arabicText")]);
     const doc = new jsPDF();
+    await enableArabicText(doc, t("nutrition.name"), userData, dietPlan);
     const isAr = lang === "ar";
     const margin = 20;
     let y = 20;
@@ -323,9 +324,9 @@ export default function NutritionExpert() {
     // User info
     doc.setFontSize(11);
     doc.setTextColor(100, 100, 100);
-    doc.text(`${t("nutrition.name")}: ${userData.name}  |  BMI: ${bmi}  |  ${t("nutrition.caloriesLabel")}: ${calories} kcal`, margin, y);
+    textInBox(doc, `${t("nutrition.name")}: ${userData.name}  |  BMI: ${bmi}  |  ${t("nutrition.caloriesLabel")}: ${calories} kcal`, margin, y, 170);
     y += 8;
-    doc.text(`${t("nutrition.goalLabel") || "Goal"}: ${userData.goal}  |  ${t("nutrition.weightLabel") || "Weight"}: ${userData.weight} kg  |  ${t("nutrition.heightLabel") || "Height"}: ${userData.height} cm`, margin, y);
+    textInBox(doc, `${t("nutrition.goalLabel") || "Goal"}: ${userData.goal}  |  ${t("nutrition.weightLabel") || "Weight"}: ${userData.weight} kg  |  ${t("nutrition.heightLabel") || "Height"}: ${userData.height} cm`, margin, y, 170);
     y += 12;
 
     // Divider
@@ -360,7 +361,7 @@ export default function NutritionExpert() {
       doc.setFontSize(10);
       doc.setTextColor(60, 60, 60);
       const descLines = doc.splitTextToSize(meal.description, 165);
-      doc.text(descLines, margin + 3, y);
+      textInBox(doc, descLines, margin + 3, y, 165);
       y += descLines.length * 5 + 2;
 
       // Ingredients
@@ -368,7 +369,7 @@ export default function NutritionExpert() {
       doc.setTextColor(130, 130, 130);
       const ingText = meal.ingredients.join(" - ");
       const ingLines = doc.splitTextToSize(ingText, 165);
-      doc.text(ingLines, margin + 3, y);
+      textInBox(doc, ingLines, margin + 3, y, 165);
       y += ingLines.length * 4 + 8;
     });
 
@@ -379,7 +380,7 @@ export default function NutritionExpert() {
       doc.roundedRect(margin, y - 5, 170, 8, 2, 2, "F");
       doc.setFontSize(11);
       doc.setTextColor(180, 130, 0);
-      doc.text(t("nutrition.healthTip"), margin + 3, y);
+      textInBox(doc, t("nutrition.healthTip"), margin + 3, y, 164);
       y += 10;
 
       doc.setFontSize(10);
@@ -387,7 +388,7 @@ export default function NutritionExpert() {
       dietPlan.tips.forEach((tip) => {
         if (y > 275) { doc.addPage(); y = 20; }
         const tipLines = doc.splitTextToSize(`• ${tip}`, 165);
-        doc.text(tipLines, margin + 3, y);
+        textInBox(doc, tipLines, margin + 3, y, 165);
         y += tipLines.length * 5 + 3;
       });
     }

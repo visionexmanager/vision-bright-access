@@ -2,6 +2,7 @@ import { jsonAs } from "@/integrations/supabase/json";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { jsPDF } from "jspdf";
+import { enableArabicText, textInBox } from "@/lib/pdf/arabicText";
 import { ChevronLeft, Save, Plus, Trash2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,8 +63,10 @@ export default function BookCreator() {
     }
   };
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
     const doc = new jsPDF({ unit: "pt", format: "a5" });
+    const contentsHeading = t("kids.studio.tableOfContents");
+    await enableArabicText(doc, book, contentsHeading);
     const w = doc.internal.pageSize.getWidth();
     const h = doc.internal.pageSize.getHeight();
 
@@ -83,7 +86,7 @@ export default function BookCreator() {
     doc.addPage();
     doc.setTextColor("#000000");
     doc.setFontSize(18);
-    doc.text(t("kids.studio.tableOfContents"), 40, 50);
+    textInBox(doc, contentsHeading, 40, 50, w - 80);
     doc.setFontSize(12);
     book.pages.forEach((_, i) => doc.text(`${i + 1}`, 40, 80 + i * 20));
 
