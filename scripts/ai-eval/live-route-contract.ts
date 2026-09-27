@@ -19,11 +19,13 @@ import {
   type ProviderTarget,
   setProviderAttemptRecorder,
   streamChatCompletion,
+  streamChatCompletionWithFallback,
   structuredCompletion,
   structuredCompletionWithFallback,
 } from "../../supabase/functions/_shared/aiProvider.ts";
 import { ASSISTANTS } from "../../supabase/functions/_shared/assistants.ts";
-import { GENERATION_SCHEMA, getGenerator } from "../../supabase/functions/_shared/generators.ts";
+import { answerIsInScript, expectedScriptForMessage, scriptOfLanguage, textOf } from "../../supabase/functions/_shared/answerLanguage.ts";
+import { GENERATION_SCHEMA, generatorTargets, getGenerator } from "../../supabase/functions/_shared/generators.ts";
 import { getVisionAnalyst, VISION_SCHEMA } from "../../supabase/functions/_shared/visionAnalysts.ts";
 import { understandDocument, understandImage } from "../../supabase/functions/_shared/whatsappUnderstand.ts";
 
@@ -33,6 +35,7 @@ const T = {
   mini: { provider: "openai", model: "gpt-4o-mini" },
   luna: { provider: "openai", model: "gpt-5.6-luna" },
   groq20: { provider: "groq", model: "openai/gpt-oss-20b" },
+  groq120: { provider: "groq", model: "openai/gpt-oss-120b" },
   mistral14: { provider: "mistral", model: "ministral-14b-latest" },
   lite: { provider: "gemini", model: "gemini-flash-lite-latest" },
   flash: { provider: "gemini", model: "gemini-flash-latest" },
@@ -110,7 +113,8 @@ for (const id of GEMINI_FIRST) {
         return {
           text: text.trim().length > 40,
           finished: finish === null || finish === "stop",
-          language: lang === "ar" ? ARABIC.test(text) : !ARABIC.test(text),
+          // The same judgement production applies (answerLanguage.ts).
+          language: answerIsInScript(text, lang === "ar" ? "arabic" : "latin"),
         };
       });
     }
@@ -131,7 +135,7 @@ async function generate(id: string, target: ProviderTarget, lang: string) {
     ...target, system: generator.buildSystem(PARAMS[id], lang), userText: generator.buildUser(PARAMS[id], lang),
     schema: schema as unknown as Record<string, unknown>, toolName: generator.toolName ?? "generated_plan", maxTokens: 2000,
   });
-  return { schema: hasRequired(result, schema), language: lang === "ar" ? ARABIC.test(JSON.stringify(result)) : true };
+  return { schema: hasRequired(result, schema), language: answerIsInScript(textOf(result), scriptOfLanguage(lang)!) };
 }
 for (const id of Object.keys(PARAMS)) {
   for (const target of [T.lite, T.groq20]) await run(`generator ${id} (ar)`, target, () => generate(id, target, "ar"));
@@ -176,6 +180,79 @@ for (const target of [T.gpt4o, T.lite]) {
     });
     return { schema: hasRequired(result, VISION_SCHEMA) };
   });
+}
+
+// ── F. Generators: which model should follow flash-lite / lead the default chain? ──
+// Every generator, both languages, each candidate. Groq's 400s are classified
+// from the response body without printing it: the body carries the model's
+// own failed output, which is content.
+const groqFailures: string[] = [];
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const response = await realFetch(input, init);
+  if (String(input).includes("api.groq.com") && response.status === 400) {
+    try {
+      const err = (await response.clone().json())?.error ?? {};
+      const message = String(err.message ?? "");
+      const generation = String(err.failed_generation ?? "");
+      let parses = false;
+      try { JSON.parse(generation); parses = true; } catch { /* not JSON */ }
+      const kind = /max.{0,20}token|length/i.test(message) ? "length"
+        : /did not match schema|validation|missing propert|required/i.test(message) ? "schema"
+        : /not in request\.tools|unknown tool|no tool/i.test(message) ? "wrong_tool"
+        : /parse|json/i.test(message) ? "json"
+        : "other";
+      groqFailures.push(`${err.code ?? "?"}/${kind} gen_len=${generation.length} gen_json=${parses} ends_brace=${generation.trimEnd().endsWith("}")}`);
+    } catch { groqFailures.push("unreadable"); }
+  }
+  return response;
+};
+for (const id of Object.keys(PARAMS)) {
+  for (const lang of ["ar", "en"]) {
+    for (const target of [T.groq20, T.groq120, T.mistral14, T.lite]) {
+      await run(`gen-candidates ${id} (${lang})`, target, () => generate(id, target, lang));
+    }
+  }
+}
+globalThis.fetch = realFetch;
+console.log(`groq 400 diagnostics (${groqFailures.length}):`);
+for (const line of groqFailures) console.log(`  ${line}`);
+
+// ── G. The real chains, end to end, with language enforcement on ──
+// What a user gets: the production chain for each generator and for the site
+// assistant, asked in Arabic. Which model answered, and every attempt's code.
+{
+  const attempts: string[] = [];
+  setProviderAttemptRecorder((a) => attempts.push(`${a.model.split("/").pop()}:${a.success ? "ok" : a.error}`));
+  for (const id of Object.keys(PARAMS)) {
+    const generator = getGenerator(id)!;
+    const schema = (generator.schema ?? GENERATION_SCHEMA) as { required?: readonly string[] };
+    attempts.length = 0;
+    const chain = generator.targets ?? generatorTargets(id);
+    await run(`chain generator ${id} (ar)`, chain[0], async () => {
+      const { result, provider, model } = await structuredCompletionWithFallback({
+        targets: chain, system: generator.buildSystem(PARAMS[id], "ar"), userText: generator.buildUser(PARAMS[id], "ar"),
+        schema: schema as unknown as Record<string, unknown>, toolName: generator.toolName ?? "generated_plan", maxTokens: 2000,
+        expectScript: scriptOfLanguage("ar"),
+      });
+      console.log(`  answered by ${provider}/${model}; attempts ${attempts.join(" ")}`);
+      return { schema: hasRequired(result, schema), language: answerIsInScript(textOf(result), "arabic") };
+    });
+  }
+  const siteChain = [T.groq20, T.mistral14, T.gpt41, T.luna];
+  for (const question of [ASK.ar, "اشرح لي باختصار ما هي منصة Visionex وكيف تساعد المكفوفين."]) {
+    attempts.length = 0;
+    await run("chain site assistant (ar)", siteChain[0], async () => {
+      const { result, provider, model } = await streamChatCompletionWithFallback({
+        targets: siteChain, system: ASSISTANTS["travel-agency"].systemPrompt, messages: [{ role: "user", content: question }],
+        maxTokens: 800, expectScript: expectedScriptForMessage(question),
+      });
+      const { text } = await drain(result);
+      console.log(`  answered by ${provider}/${model}; attempts ${attempts.join(" ")}`);
+      return { text: text.trim().length > 20, language: answerIsInScript(text, "arabic") };
+    });
+  }
+  setProviderAttemptRecorder(null);
 }
 
 // ── E. The router itself: a parked model in a chain is never attempted ──

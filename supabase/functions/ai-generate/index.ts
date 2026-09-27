@@ -4,6 +4,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { getGenerator, GENERATION_SCHEMA } from "../_shared/generators.ts";
 import { structuredCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+import { scriptOfLanguage } from "../_shared/answerLanguage.ts";
 
 // Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
 installChatAttemptRecording();
@@ -60,6 +61,9 @@ Deno.serve(async (req) => {
         schema: generator.schema ?? (GENERATION_SCHEMA as unknown as Record<string, unknown>),
         toolName: generator.toolName ?? "generated_plan",
         maxTokens: 2000,
+        // A plan asked for in Arabic that comes back in English is a failure,
+        // not a result: the chain moves on to the next model.
+        expectScript: scriptOfLanguage(lang),
       });
       return new Response(JSON.stringify({ result }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

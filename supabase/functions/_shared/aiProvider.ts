@@ -19,6 +19,7 @@ import {
 } from "./geminiProvider.ts";
 import { providerErrorSummary } from "./providerInput.ts";
 import { parkedProviderReason } from "./providerState.ts";
+import { answerIsInScript, type Script, textOf } from "./answerLanguage.ts";
 
 export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral" | "openrouter";
 
@@ -288,6 +289,9 @@ export const ATTEMPT_ERROR_CODES = [
   "invalid_response", "timeout", "network", "unknown",
   // A stream the provider accepted that then broke, or ended with no text.
   "stream_interrupted", "empty_response",
+  // An answer in a script other than the one the request asked for
+  // (answerLanguage.ts). A content failure, not a provider fault: no cooldown.
+  "wrong_language",
 ] as const;
 export type AttemptErrorCode = typeof ATTEMPT_ERROR_CODES[number];
 
@@ -495,8 +499,17 @@ export function orderTargets(
 }
 
 /** Try providers in order until one accepts the streaming request. */
+/** What a chain may be told about the answer it must give. */
+export interface AnswerExpectation {
+  /**
+   * The script the answer must be written in (answerLanguage.ts). An answer
+   * in another script is a failed attempt, and the chain moves on.
+   */
+  expectScript?: Script | null;
+}
+
 export async function streamChatCompletionWithFallback(
-  params: Omit<ProviderChatParams, "provider" | "model"> & { targets: ProviderTarget[] },
+  params: Omit<ProviderChatParams, "provider" | "model"> & { targets: ProviderTarget[] } & AnswerExpectation,
 ): Promise<ProviderResult<ReadableStream<Uint8Array>>> {
   if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
 
@@ -505,7 +518,18 @@ export async function streamChatCompletionWithFallback(
     const start = Date.now();
     const base = { kind: "chat", mode: "stream", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
-      const accepted = await streamChatCompletion({ ...params, ...target });
+      let accepted = await streamChatCompletion({ ...params, ...target });
+      if (params.expectScript) {
+        const gated = await gateStreamLanguage(accepted, params.expectScript);
+        if (!gated.ok) {
+          noteOutcome(target, "wrong_language");
+          reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: "wrong_language" });
+          lastError = new ProviderError(502, "The answer was not in the requested language");
+          console.warn(`[ai-provider] ${target.provider}/${target.model} answered in the wrong language; trying fallback`);
+          continue;
+        }
+        accepted = gated.stream;
+      }
       const ms = elapsedMs(start);
       // Accepted is not delivered. The attempt is settled when the stream
       // ends: complete with text is a success; a body that breaks, or ends
@@ -532,6 +556,60 @@ export async function streamChatCompletionWithFallback(
   // "unavailable", not a failure of a provider that was never called.
   if (lastError === undefined) throw new ProviderError(503, "No AI provider is available right now");
   throw new ProviderError(500, "All AI providers failed");
+}
+
+/** Letters read from a stream before its language is judged. */
+export const LANGUAGE_GATE_LETTERS = 40;
+
+/**
+ * Holds a stream back until its first LANGUAGE_GATE_LETTERS letters (or its
+ * end) have arrived, judges their script, and either refuses the stream —
+ * cancelled, so the chain can try the next target before a byte reaches the
+ * user — or hands on the same bytes in order: the held ones, then the rest.
+ */
+async function gateStreamLanguage(
+  stream: ReadableStream<Uint8Array>,
+  expected: Script,
+): Promise<{ ok: boolean; stream: ReadableStream<Uint8Array> }> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  const held: Uint8Array[] = [];
+  let pending = "", text = "", done = false;
+  const letters = () => [...text].filter((ch) => /\p{L}/u.test(ch)).length;
+  while (letters() < LANGUAGE_GATE_LETTERS) {
+    const { value, done: ended } = await reader.read();
+    if (ended) { done = true; break; }
+    held.push(value);
+    pending += decoder.decode(value, { stream: true });
+    let idx: number;
+    while ((idx = pending.indexOf("\n")) !== -1) {
+      const line = pending.slice(0, idx).trim();
+      pending = pending.slice(idx + 1);
+      if (!line.startsWith("data:") || line.includes("[DONE]")) continue;
+      try { text += JSON.parse(line.slice(5)).choices?.[0]?.delta?.content ?? ""; } catch { /* partial or keep-alive */ }
+    }
+  }
+  if (!answerIsInScript(text, expected)) {
+    await reader.cancel().catch(() => undefined);
+    return { ok: false, stream };
+  }
+  return {
+    ok: true,
+    stream: new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of held) controller.enqueue(chunk);
+        if (done) controller.close();
+      },
+      async pull(controller) {
+        const { value, done: ended } = await reader.read();
+        if (ended) controller.close();
+        else controller.enqueue(value);
+      },
+      cancel(reason) {
+        return reader.cancel(reason);
+      },
+    }),
+  };
 }
 
 /**
@@ -745,7 +823,7 @@ async function structuredCompletionDetailed(p: StructuredParams): Promise<{ resu
 
 /** Try providers in order until one returns a valid structured result. */
 export async function structuredCompletionWithFallback(
-  params: Omit<StructuredParams, "provider" | "model"> & { targets: ProviderTarget[] },
+  params: Omit<StructuredParams, "provider" | "model"> & { targets: ProviderTarget[] } & AnswerExpectation,
 ): Promise<ProviderResult<unknown>> {
   if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
 
@@ -756,6 +834,13 @@ export async function structuredCompletionWithFallback(
     const base = { kind, mode: "structured", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
       const { result, usage } = await structuredCompletionDetailed({ ...params, ...target });
+      if (params.expectScript && !answerIsInScript(textOf(result), params.expectScript)) {
+        noteOutcome(target, "wrong_language");
+        reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: "wrong_language", ...(usage ? { usage } : {}) });
+        lastError = new ProviderError(502, "The answer was not in the requested language");
+        console.warn(`[ai-provider] ${target.provider}/${target.model} answered in the wrong language; trying fallback`);
+        continue;
+      }
       noteOutcome(target, undefined);
       reportAttempt({ ...base, success: true, ms: elapsedMs(start), ...(usage ? { usage } : {}) });
       return { ...target, result };
