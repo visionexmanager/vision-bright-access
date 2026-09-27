@@ -55,3 +55,40 @@ jobs:
           block "Latest worker run seen in the job queue" "
             SELECT max(updated_at) AS last_update, count(*) FILTER (WHERE status = 'completed') AS completed_ever
               FROM public.library_background_jobs;"
+
+      - name: What the worker's runs did
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          logs() {
+            curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs.all" \
+                 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+                 --data-urlencode "sql=$1" \
+                 --data-urlencode "iso_timestamp_start=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
+                 --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          say ""; say "## Worker calls, last 24h (status and duration)"
+          logs "select t.timestamp, resp.status_code, m.execution_time_ms, m.function_id
+                  from function_edge_logs as t
+                  cross join unnest(t.metadata) as m
+                  cross join unnest(m.request) as r
+                  cross join unnest(m.response) as resp
+                 where r.pathname like '%library-process-background-jobs%'
+                 order by t.timestamp desc limit 10" > edge.json
+          jq -c '[.result[]? | {timestamp, status_code, execution_time_ms}]' edge.json | tee -a "$GITHUB_STEP_SUMMARY"
+          fid=$(jq -r '.result[0].function_id // empty' edge.json)
+          [ -n "$fid" ] || { say "No worker calls found."; exit 0; }
+          sleep 30   # the analytics endpoint throttles hard
+          say ""; say "## What the worker printed (level, event type, first 160 characters)"
+          logs "select t.timestamp, m.level, m.event_type, t.event_message
+                  from function_logs as t
+                  cross join unnest(t.metadata) as m
+                 where m.function_id = '$fid'
+                 order by t.timestamp desc limit 40" \
+            | jq -c '[.result[]? | {timestamp, level, event_type, message: (.event_message | .[0:160])}]' \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          rm -f edge.json
