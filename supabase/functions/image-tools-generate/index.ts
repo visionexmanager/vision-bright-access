@@ -212,6 +212,17 @@ Deno.serve(async (req: Request) => {
   // ── Start a new job ────────────────────────────────────────────────────────
   // Only starting a job is charged against the daily ceiling; polling one is
   // free, so a client waiting on a prediction never exhausts it (Phase 2F-2).
+  //
+  // Replicate is parked while this runtime has no REPLICATE_API_TOKEN: the
+  // request is refused before it costs the caller a daily-limit unit or leaves
+  // a failed job behind. Adding the secret is the whole of reactivating it.
+  if (!Deno.env.get("REPLICATE_API_TOKEN")?.trim()) {
+    return json({
+      ok: false,
+      code: "provider_unavailable",
+      error: publicMediaFailure("REPLICATE_API_TOKEN is not configured", "image", "image-tools-generate"),
+    }, 503);
+  }
   const limited = await chargeDailyLimit(serviceClient, user.id, "image-tools-generate", cors);
   if (limited) return limited;
 

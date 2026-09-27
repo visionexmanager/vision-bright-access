@@ -39,6 +39,8 @@ import { readOfficeLocally } from "./whatsappOffice.ts";
 export const VISION_TARGETS: ProviderTarget[] = [
   { provider: "openai", model: "gpt-4o-mini" },
   { provider: "gemini", model: "gemini-flash-latest" },
+  // flash-latest is parked (PAUSED_MODELS); flash-lite keeps this chain two deep.
+  { provider: "gemini", model: "gemini-flash-lite-latest" },
 ];
 
 /**

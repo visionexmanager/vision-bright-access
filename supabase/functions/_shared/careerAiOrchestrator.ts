@@ -8,7 +8,13 @@
 // aiProvider.ts (openai/anthropic) unmodified, and the new geminiProvider.ts
 // for Gemini, behind one uniform interface.
 
-import { AIProvider as UpstreamProvider, structuredCompletion, streamChatCompletion } from "./aiProvider.ts";
+import {
+  AIProvider as UpstreamProvider,
+  pausedReason,
+  providerHasCredential,
+  structuredCompletion,
+  streamChatCompletion,
+} from "./aiProvider.ts";
 import { geminiStreamChatCompletion, geminiStructuredCompletion } from "./geminiProvider.ts";
 import {
   CareerAIStructuredResponse,
@@ -48,6 +54,15 @@ export type CostTier = "cheap" | "capable";
 // the request. Gemini remains opt-in until both its billing and model access
 // are verified by a real generation probe.
 const DEFAULT_PROVIDER_ORDER: CareerAiProvider[] = ["openai", "groq", "mistral", "anthropic"];
+
+// A provider this runtime has no key for, or a parked model, is skipped rather
+// than tried. Anthropic stays last in the order above, but with no
+// ANTHROPIC_API_KEY in production it was attempted — and failed locally — on
+// every request the other three could not serve. It rejoins by itself the day
+// the key is added.
+function careerTargetLive(provider: CareerAiProvider, model: string): boolean {
+  return providerHasCredential(provider) && !pausedReason({ provider, model });
+}
 
 // Model identifiers follow the conventions already used elsewhere in this
 // codebase. The Gemini candidate is intentionally opt-in: replacing the stale
@@ -259,6 +274,7 @@ export async function runStructuredCareerAI(p: CareerAIRequest): Promise<CareerA
 
   for (const provider of order) {
     const model = MODEL_MATRIX[provider][tier];
+    if (!careerTargetLive(provider, model)) continue;
     try {
       const { data, usage } = await callProvider(provider, model, p);
       const structured = sanitizeAiOutput(coerceToStructuredResponse(data));
@@ -330,6 +346,7 @@ export async function runCareerAIChatStream(
 
   for (const provider of order) {
     const model = MODEL_MATRIX[provider][tier];
+    if (!careerTargetLive(provider, model)) continue;
     try {
       const stream = provider === "gemini"
         ? await geminiStreamChatCompletion({ model, system: p.system, messages: p.messages, maxTokens: p.maxTokens })

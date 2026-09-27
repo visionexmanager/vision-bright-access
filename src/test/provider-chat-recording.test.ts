@@ -121,14 +121,14 @@ describe("the streaming loop records every attempt", () => {
     const attempts = capture();
 
     const out = await ai.streamChatCompletionWithFallback(chatParams([
-      { provider: "mistral", model: "mistral-small-latest" },
+      { provider: "mistral", model: "ministral-14b-latest" },
       { provider: "openai", model: "gpt-4.1" },
     ]));
     await new Response(out.result).text();
 
     expect(out).toMatchObject({ provider: "openai", model: "gpt-4.1" });
     expect(attempts.map(({ provider, model, attempt, success, error }) => ({ provider, model, attempt, success, error }))).toEqual([
-      { provider: "mistral", model: "mistral-small-latest", attempt: 1, success: false, error: "http_5xx" },
+      { provider: "mistral", model: "ministral-14b-latest", attempt: 1, success: false, error: "http_5xx" },
       { provider: "openai", model: "gpt-4.1", attempt: 2, success: true, error: undefined },
     ]);
   });
@@ -212,7 +212,7 @@ describe("the structured loop records every attempt, and tells chat from vision 
     const attempts = capture();
 
     await ai.structuredCompletionWithFallback(structuredParams([
-      { provider: "gemini", model: "gemini-flash-latest" },
+      { provider: "gemini", model: "gemini-flash-lite-latest" },
       { provider: "openai", model: "gpt-4o" },
     ], IMAGE));
 
@@ -389,7 +389,7 @@ describe("the registry side: one attempt, one ph_logs row, against the right row
 });
 
 describe("provider order is exactly what it was", () => {
-  it("every registered assistant's chain is tried in its own order, unchanged by recording", async () => {
+  it("every registered assistant's chain is tried in its own order, unchanged by recording, parked models skipped", async () => {
     allKeys();
     env.GEMINI_API_KEY = undefined;
     for (const a of Object.values(assistants.ASSISTANTS)) {
@@ -397,15 +397,19 @@ describe("provider order is exactly what it was", () => {
       vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
       const attempts = capture();
       await ai.streamChatCompletionWithFallback(chatParams(a.targets)).catch(() => undefined);
-      expect(attempts.map((x) => `${x.provider}/${x.model}`), a.id).toEqual(a.targets.map((t) => `${t.provider}/${t.model}`));
+      expect(attempts.map((x) => `${x.provider}/${x.model}`), a.id).toEqual(
+        a.targets.filter((t) => !ai.pausedReason(t)).map((t) => `${t.provider}/${t.model}`),
+      );
     }
   });
 
   it("the per-assistant quality policy is exactly the one in place before recording", () => {
     // Pinned as it stood on main at 6372d6d3. Recording must not move a single
     // assistant between chains, or change a chain's order or models. The one
-    // deliberate change since: gpt-5.6-luna straight after gpt-4.1 in every chain.
-    const O = "openai/gpt-4.1", L = "openai/gpt-5.6-luna", G = "gemini/gemini-flash-latest", Q = "groq/openai/gpt-oss-20b", M = "mistral/ministral-14b-latest";
+    // deliberate changes since: gpt-5.6-luna straight after gpt-4.1 in every chain,
+    // and gemini-flash-lite-latest straight after flash-latest wherever Gemini is
+    // a fallback (Phase 0: flash-latest is parked).
+    const O = "openai/gpt-4.1", L = "openai/gpt-5.6-luna", G = "gemini/gemini-flash-latest", GL = "gemini/gemini-flash-lite-latest", Q = "groq/openai/gpt-oss-20b", M = "mistral/ministral-14b-latest";
     const chain = (id: string) => assistants.assistantTargets(id).map((t) => `${t.provider}/${t.model}`);
     const OPENAI_FIRST = ["legal-advisor", "medical-support", "psychology", "empathy-oasis", "skin-care", "hair-care",
       "finance-advisor", "ivx-tutor", "ivx-project-grader", "whatsapp-support"];
@@ -413,12 +417,12 @@ describe("provider order is exactly what it was", () => {
       "media-companion", "voice-room-assistant"];
     const GEMINI_FIRST = ["travel-agency", "educational-empire", "music-conservatory", "tech-consulting",
       "professional-training", "simulation-mentor"];
-    for (const id of OPENAI_FIRST) expect(chain(id), id).toEqual([O, L, G, M, Q]);
-    for (const id of MISTRAL_FIRST) expect(chain(id), id).toEqual([M, G, Q, O, L]);
+    for (const id of OPENAI_FIRST) expect(chain(id), id).toEqual([O, L, G, GL, M, Q]);
+    for (const id of MISTRAL_FIRST) expect(chain(id), id).toEqual([M, G, GL, Q, O, L]);
     for (const id of GEMINI_FIRST) expect(chain(id), id).toEqual([G, Q, M, O, L]);
     const pinned = new Set([...OPENAI_FIRST, ...MISTRAL_FIRST, ...GEMINI_FIRST]);
     for (const a of Object.values(assistants.ASSISTANTS)) {
-      if (!pinned.has(a.id)) expect(a.targets.map((t) => `${t.provider}/${t.model}`), a.id).toEqual([Q, G, M, O, L]);
+      if (!pinned.has(a.id)) expect(a.targets.map((t) => `${t.provider}/${t.model}`), a.id).toEqual([Q, G, GL, M, O, L]);
       else expect(a.targets.map((t) => `${t.provider}/${t.model}`), a.id).toEqual(chain(a.id));
     }
   });

@@ -48,6 +48,9 @@ const DEFAULT_MODEL = "gemini-flash-latest"; // multimodal and long-context
 const VISION_TARGETS: ProviderTarget[] = [
   { provider: "gemini", model: "gemini-flash-latest" },
   { provider: "openai", model: "gpt-4o" },
+  // flash-latest is parked (PAUSED_MODELS), so gpt-4o leads for now. flash-lite
+  // is the fallback only: whether it can lead medical and skin analysis is untested.
+  { provider: "gemini", model: "gemini-flash-lite-latest" },
 ];
 
 const LANG_NOTE =
