@@ -77,9 +77,9 @@ jobs:
                   cross join unnest(t.metadata) as m
                   cross join unnest(m.request) as r
                   cross join unnest(m.response) as resp
-                 where r.pathname like '%library-process-background-jobs%'
+                 where r.url like '%library-process-background-jobs%'
                  order by t.timestamp desc limit 10" > edge.json
-          jq -c '[.result[]? | {timestamp, status_code, execution_time_ms}]' edge.json | tee -a "$GITHUB_STEP_SUMMARY"
+          jq -c 'if .error then {error: (.error|tostring|.[0:300])} else [.result[]? | {timestamp, status_code, execution_time_ms}] end' edge.json | tee -a "$GITHUB_STEP_SUMMARY"
           fid=$(jq -r '.result[0].function_id // empty' edge.json)
           [ -n "$fid" ] || { say "No worker calls found."; exit 0; }
           sleep 30   # the analytics endpoint throttles hard
