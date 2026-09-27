@@ -4,15 +4,14 @@
  * Pure client-side generation, no edge function — every format here is a
  * deterministic transform of data already in the browser. PDF uses jsPDF
  * (already a dependency, reused from the Learning Hub certificates).
- * DOCX: rather than adding a heavy new dependency for a real OOXML .docx
- * writer, this uses the well-established "Word HTML" technique — HTML
- * wrapped in Word-specific XML namespaces, saved with a .doc extension —
- * which Microsoft Word opens natively and correctly. This is a legitimate,
- * long-standing technique (not a placeholder), documented here plainly.
+ * DOCX: a real Word document from src/lib/documents/docx.ts — the project
+ * title as its Title, each item a Heading 2 — replacing the HTML-saved-as-.doc
+ * this used to write, which Word opened in compatibility mode.
  */
 
 import { jsPDF } from "jspdf";
 import { enableArabicText, textInBox } from "@/lib/pdf/arabicText";
+import { DOCX_MIME, buildDocx, type DocxBlock } from "@/lib/documents/docx";
 
 export type ResearchExportFormat = "pdf" | "docx" | "markdown" | "html" | "csv" | "bibtex" | "ris" | "json";
 
@@ -79,15 +78,16 @@ ${body}
 </html>`;
 }
 
-/** The "Word HTML" technique: Word-specific XML namespaces make Word open
- *  this as a real formatted document rather than a raw HTML file. */
-function toWordDoc(payload: ResearchExportPayload): string {
-  const html = toHtml(payload);
-  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8"><title>${payload.projectTitle}</title>
-<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
-</head>
-${html.slice(html.indexOf("<body>"))}`;
+async function toDocx(payload: ResearchExportPayload): Promise<Blob> {
+  const blocks: DocxBlock[] = [];
+  if (payload.projectDescription) blocks.push({ type: "paragraph", text: payload.projectDescription });
+  for (const item of payload.items) {
+    blocks.push({ type: "heading", level: 2, text: item.title });
+    if (item.content) blocks.push({ type: "paragraph", text: item.content });
+    if (item.citation) blocks.push({ type: "paragraph", text: item.citation });
+  }
+  const bytes = await buildDocx({ title: payload.projectTitle, blocks });
+  return new Blob([bytes as unknown as BlobPart], { type: DOCX_MIME });
 }
 
 function toCsv(payload: ResearchExportPayload): string {
@@ -169,7 +169,7 @@ export async function downloadResearchExport(payload: ResearchExportPayload, for
       triggerDownload(await toPdf(payload), `${filename}.pdf`);
       return;
     case "docx":
-      triggerDownload(toWordDoc(payload), `${filename}.doc`, "application/msword");
+      triggerDownload(await toDocx(payload), `${filename}.docx`);
       return;
     case "markdown":
       triggerDownload(toMarkdown(payload), `${filename}.md`, "text/markdown");
