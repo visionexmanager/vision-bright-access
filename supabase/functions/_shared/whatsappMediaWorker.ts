@@ -24,6 +24,8 @@
 
 import { nextStatus, shouldTellSender, jobQuery, type JobStatus } from "./whatsappMediaJobs.ts";
 import { translateDocument } from "./whatsappTranslateDoc.ts";
+import type { DeliveryResult } from "./whatsappAssetDelivery.ts";
+import { WHATSAPP_DELIVERABLE_TARGETS } from "./whatsappConvertFormats.ts";
 
 /** A job as the claim hands it back. Only the fields the work needs. */
 export interface MediaJob {
@@ -64,14 +66,15 @@ export interface WorkerPorts {
   download(mediaId: string): Promise<Uint8Array | null>;
   /** The VPS conversion service. */
   convert(bytes: Uint8Array, query: string): Promise<ConvertResult>;
-  /** Meta's media upload. Returns the new media id, or null. */
-  upload(bytes: Uint8Array, mime: string, filename: string): Promise<string | null>;
-  /** Send the converted file to the sender. */
-  send(mediaId: string, mime: string, filename: string): Promise<boolean>;
+  /**
+   * Put the converted file in front of the sender: upload, send, and the
+   * transient retries of both (whatsappAssetDelivery.ts deliverAsset).
+   */
+  deliver(bytes: Uint8Array, mime: string, filename: string): Promise<DeliveryResult>;
   /** Record how it ended. */
   finish(status: JobStatus, errorCode: string | null): Promise<void>;
   /** One sentence to the sender, when they are owed one. */
-  notify(kind: "failed"): Promise<void>;
+  notify(kind: "failed" | "too_large"): Promise<void>;
 }
 
 /**
@@ -91,20 +94,6 @@ export function outputFilename(target: string): string {
 }
 
 /**
- * Which kind of WhatsApp message carries this.
- *
- * Audio as `audio` and video as `video` so they play in place, which for
- * somebody using a screen reader is one gesture rather than a download and an
- * app switch. Anything else — a GIF is the case today — travels as a document,
- * because that is the only type Meta will accept for it.
- */
-export function messageKindFor(mime: string): "audio" | "video" | "document" {
-  if (mime.startsWith("audio/")) return "audio";
-  if (mime.startsWith("video/")) return "video";
-  return "document";
-}
-
-/**
  * Run one claimed job to its end.
  *
  * Returns the status it recorded, which is what the caller logs. Never throws:
@@ -115,11 +104,15 @@ export async function runMediaJob(job: MediaJob, ports: WorkerPorts): Promise<Jo
   let code: string | null = null;
 
   try {
-    const source = await ports.download(job.source_media_id);
+    // A format WhatsApp will not carry back is not made at all. The menu no
+    // longer offers one; this catches a job queued before it stopped.
+    if (!WHATSAPP_DELIVERABLE_TARGETS.has(job.target)) code = "undeliverable";
+
+    const source = code ? null : await ports.download(job.source_media_id);
     // Meta keeps inbound media for thirty days and this queue's rows for one,
     // so a download that fails is far more likely to be a bad minute than an
     // expired id — which is why `upstream` is on the retryable list.
-    if (!source || source.length === 0) code = "upstream";
+    if (!code && (!source || source.length === 0)) code = "upstream";
 
     if (!code) {
       const converted = await ports.convert(source as Uint8Array, jobQuery(job));
@@ -129,16 +122,20 @@ export async function runMediaJob(job: MediaJob, ports: WorkerPorts): Promise<Jo
       // of `undefined`.
       if (converted.ok && converted.bytes?.length && converted.mime) {
         const filename = outputFilename(job.target);
-        const mediaId = await ports.upload(converted.bytes, converted.mime, filename);
-        if (!mediaId) {
-          code = "upstream";
-        } else if (!await ports.send(mediaId, converted.mime, filename)) {
-          // The upload succeeded and the send did not. Retrying re-uploads,
-          // which costs a Graph call rather than a transcode — the expensive
-          // half is already done and will be done again, and that is accepted:
-          // holding a media id across attempts would mean storing it, and the
-          // whole design of this queue is that nothing about the file is kept.
-          code = "upstream";
+        const delivered = await ports.deliver(converted.bytes, converted.mime, filename);
+        // A delivery failure is not a conversion failure, and is told apart:
+        //  - too large for WhatsApp: will not change on a retry, and the sender
+        //    is told what to do about it;
+        //  - a transport fault that outlived deliverAsset's own retries: the
+        //    queue tries again. That re-converts, because nothing about the
+        //    file is kept between attempts — the design of this queue — and
+        //    it is now rare, since the upload and send retry in place first;
+        //  - anything else Meta refused: a code of its own, not retried.
+        if (!delivered.outcome.startsWith("delivered_")) {
+          const reason = "reason" in delivered ? delivered.reason : "whatsapp_transport_error";
+          code = reason === "asset_too_large" ? "too_large"
+            : reason === "whatsapp_transport_error" ? "upstream"
+            : reason;
         }
       } else {
         code = converted.code ?? "conversion_failed";
@@ -156,7 +153,7 @@ export async function runMediaJob(job: MediaJob, ports: WorkerPorts): Promise<Jo
   // Only at the end, and only once. A job going back into the queue is not
   // news: the sender was already told the work is happening, and "still working
   // on it" three times is three notifications that say nothing.
-  if (status === "failed" && shouldTellSender(status)) await ports.notify("failed");
+  if (status === "failed" && shouldTellSender(status)) await ports.notify(code === "too_large" ? "too_large" : "failed");
 
   return status;
 }

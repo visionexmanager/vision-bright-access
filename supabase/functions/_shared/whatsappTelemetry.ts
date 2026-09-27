@@ -125,6 +125,17 @@ export const TELEMETRY_FIELDS: readonly string[] = [
   "language",
   "verified",
   "ok",
+
+  // Delivering a file (whatsappAssetDelivery.ts). Which producer, a MIME type
+  // out of a fixed list, where the bytes came from ("bytes" or "url" — never
+  // the URL), how big, how many tries, and why it failed: a category, not a
+  // message. Nothing about whose file it was or what was in it.
+  "flow",
+  "mime",
+  "source",
+  "bytes",
+  "upload_tries",
+  "send_tries",
 ];
 
 const ALLOWED = new Set(TELEMETRY_FIELDS);

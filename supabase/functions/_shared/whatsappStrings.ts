@@ -736,6 +736,23 @@ const BASE_STRINGS = {
     ar: "لم أستطع تحويل هذا الملف. قد تكون الصيغة غير مدعومة أو الملف تالفاً.",
     en: "I couldn't convert this file. The format may be unsupported, or the file may be damaged.",
   },
+  /**
+   * Sent when a file could not be delivered in the chat and a link to it
+   * exists (whatsappAssetDelivery.ts). Carries `{url}`; a translation must keep it.
+   */
+  assetFallbackLink: {
+    ar: "لم أستطع إرسال الملف هنا مباشرة، وهذا رابط لتنزيله: {url}",
+    en: "I couldn't send the file here directly, so here's a link to download it: {url}",
+  },
+  /** The caption on a delivered picture. Short: it is read with the picture. */
+  assetReadyImage: { ar: "صورتك جاهزة.", en: "Your image is ready." },
+  /** The caption on a delivered document or video. */
+  assetReadyFile: { ar: "ملفك جاهز.", en: "Your file is ready." },
+  /** A finished file WhatsApp will not carry because of its size. */
+  assetTooLarge: {
+    ar: "هذا الملف أكبر من أن يُرسل عبر واتساب. جرّب حجماً أصغر أو جودة أقل.",
+    en: "This file is too large to send on WhatsApp. Try a smaller size or a lower quality.",
+  },
   nearbyTapHint: {
     ar: "اضغط على أي مكان لأرسل لك موقعه.",
     en: "Tap a place and I will send you its location.",
