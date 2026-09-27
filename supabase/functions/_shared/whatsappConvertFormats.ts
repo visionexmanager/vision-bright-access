@@ -57,6 +57,25 @@ export function targetLabel(target: string): string {
     ?? target.toUpperCase();
 }
 
+/**
+ * The outputs a WhatsApp sender can actually receive.
+ *
+ * Meta publishes the list (developers.facebook.com/docs/whatsapp/cloud-api/
+ * reference/media), and `whatsapp-media-acceptance.yml` checked it against
+ * Meta itself with a sample of every format the processor makes: WAV, FLAC,
+ * MOV, MKV, WebM, GIF, BMP and TIFF were refused at upload, even labelled as a
+ * generic file. WebP is taken only as a sticker, and `ogg` here is Vorbis where
+ * Meta plays Ogg with the Opus codec only. Offering any of those meant a
+ * transcode that could never arrive — retried as if the failure were
+ * transient, then reported as a conversion failure.
+ *
+ * The processor still makes every format; this is only what the WhatsApp menu
+ * offers and what a typed request here may ask for.
+ */
+export const WHATSAPP_DELIVERABLE_TARGETS: ReadonlySet<string> = new Set([
+  "mp3", "m4a", "aac", "opus", "mp4", "jpg", "png",
+]);
+
 /** What the answer will be, so the send can name a type Meta accepts. */
 export function targetMime(target: string): string {
   return AUDIO_TARGETS_BY_NAME[target]?.mime

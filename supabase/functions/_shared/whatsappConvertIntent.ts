@@ -26,6 +26,7 @@ import {
   AUDIO_TARGETS_BY_NAME,
   IMAGE_TARGETS_BY_NAME,
   VIDEO_TARGETS_BY_NAME,
+  WHATSAPP_DELIVERABLE_TARGETS,
 } from "./whatsappConvertFormats.ts";
 
 /** Every target the processing service will produce, as one set. */
@@ -97,6 +98,9 @@ export function parseConvertTarget(text: string): string | null {
 export function targetAllowedFrom(sourceKind: MediaKindForConvert, target: string): boolean {
   const wanted = targetKind(target);
   if (!wanted) return false;
+  // A file WhatsApp will not carry is not made at all: the sender is offered
+  // the formats that can arrive instead (WHATSAPP_DELIVERABLE_TARGETS).
+  if (!WHATSAPP_DELIVERABLE_TARGETS.has(target)) return false;
   // A picture can only become another picture. There is nothing to take the
   // sound out of, and a video made from one still is not a conversion.
   if (sourceKind === "image") return wanted === "image";
@@ -134,9 +138,12 @@ export function parseConvertRequest(params: {
  * this feature exists for.
  */
 export function offeredTargets(sourceKind: MediaKindForConvert): readonly string[] {
-  if (sourceKind === "audio") return ["mp3", "wav", "m4a", "ogg", "flac"];
-  if (sourceKind === "image") return ["jpg", "png", "webp", "tiff", "bmp"];
-  return ["mp4", "mp3", "webm", "gif", "mkv"];
+  // Only what WhatsApp can carry back (WHATSAPP_DELIVERABLE_TARGETS): the list
+  // used to offer WAV, OGG, FLAC, WebP, TIFF, BMP, WebM, GIF and MKV, every
+  // one of which Meta refuses.
+  if (sourceKind === "audio") return ["mp3", "m4a", "aac", "opus"];
+  if (sourceKind === "image") return ["jpg", "png"];
+  return ["mp4", "mp3", "m4a"];
 }
 
 /**

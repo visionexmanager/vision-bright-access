@@ -47,7 +47,6 @@ import {
   SUMMARY_INSTRUCTION,
   summaryPreamble,
   sendWhatsAppLocation,
-  sendWhatsAppMediaById,
   sendWhatsAppText,
   unsupportedTypeNotice,
   userAskedForHuman,
@@ -287,10 +286,8 @@ import { sendVoiceChoice } from "../_shared/whatsappInteractive.ts";
 import {
   deliverReply,
   replyMedium,
-  sendWhatsAppAudio,
   speakReply,
   synthesiseSpeech,
-  uploadWhatsAppMedia,
   wantsSpokenReply,
 } from "../_shared/whatsappVoiceReply.ts";
 import { recordTtsInBackground } from "../_shared/ttsRecorder.ts";
@@ -410,7 +407,13 @@ import {
   MAX_ATTEMPTS,
   queuedNotice,
 } from "../_shared/whatsappMediaJobs.ts";
-import { messageKindFor, runMediaJob, runTranslateJob } from "../_shared/whatsappMediaWorker.ts";
+import { runMediaJob, runTranslateJob } from "../_shared/whatsappMediaWorker.ts";
+import {
+  deliverAsset,
+  deliveryCaption,
+  deliveryLogFields,
+  type DeliveryResult,
+} from "../_shared/whatsappAssetDelivery.ts";
 import { extractDocumentText } from "../_shared/whatsappDocumentText.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { readOfficeLocally } from "../_shared/whatsappOffice.ts";
@@ -1786,18 +1789,19 @@ Deno.serve(async (req) => {
                 },
                 sendFile: async (content, filename, mime) => {
                   if (!token || !phoneNumberId) return false;
-                  const mediaId = await uploadWhatsAppMedia({
+                  const delivered = await deliverAsset({
                     phoneNumberId,
                     token,
-                    bytes: new TextEncoder().encode(content),
-                    mimeType: mime,
-                    filename,
+                    to: incoming.from,
+                    asset: {
+                      bytes: new TextEncoder().encode(content),
+                      mimeType: mime,
+                      fileName: filename,
+                      caption: deliveryCaption(mime, jobLanguage),
+                    },
                   });
-                  if (!mediaId) return false;
-                  return await sendWhatsAppMediaById({
-                    phoneNumberId, token, to: incoming.from,
-                    mediaId, kind: "document", filename,
-                  });
+                  log("asset_delivery", { flow: "translate", ...deliveryLogFields(delivered, "bytes", mime) });
+                  return delivered.outcome.startsWith("delivered_");
                 },
                 finish: async (status, errorCode) => {
                   await db.rpc("whatsapp_finish_media_job", {
@@ -1845,20 +1849,16 @@ Deno.serve(async (req) => {
                 return media.ok ? media.bytes : null;
               },
               convert: (bytes, query) => convertMediaLocally({ bytes, query }),
-              upload: async (bytes, mimeType, filename) => {
-                if (!token || !phoneNumberId) return null;
-                return await uploadWhatsAppMedia({ phoneNumberId, token, bytes, mimeType, filename });
-              },
-              send: async (mediaId, mimeType, filename) => {
-                if (!token || !phoneNumberId) return false;
-                return await sendWhatsAppMediaById({
+              deliver: async (bytes, mimeType, filename): Promise<DeliveryResult> => {
+                if (!token || !phoneNumberId) return { outcome: "failed", reason: "whatsapp_transport_error", ms: 0 };
+                const delivered = await deliverAsset({
                   phoneNumberId,
                   token,
                   to: incoming.from,
-                  mediaId,
-                  kind: messageKindFor(mimeType),
-                  filename,
+                  asset: { bytes, mimeType, fileName: filename, caption: deliveryCaption(mimeType, jobLanguage) },
                 });
+                log("asset_delivery", { flow: "convert", ...deliveryLogFields(delivered, "bytes", mimeType) });
+                return delivered;
               },
               finish: async (status, errorCode) => {
                 await db.rpc("whatsapp_finish_media_job", {
@@ -1870,13 +1870,15 @@ Deno.serve(async (req) => {
               // The sender is told in the language the job was created in, not
               // the language of whatever message happened to drain it — this
               // delivery may belong to somebody else entirely.
-              notify: async () => {
+              notify: async (kind) => {
                 if (!token || !phoneNumberId) return;
                 await sendWhatsAppText({
                   phoneNumberId,
                   token,
                   to: incoming.from,
-                  body: failedNotice(jobLanguage),
+                  // A file too large for WhatsApp is not a failed conversion:
+                  // the sender is told what would get it through.
+                  body: kind === "too_large" ? say("assetTooLarge", jobLanguage) : failedNotice(jobLanguage),
                 });
               },
             },
@@ -2117,6 +2119,9 @@ Deno.serve(async (req) => {
       const deliverSong = async (song: Song): Promise<void> => {
         /** Fetch, upload and send one address. False if any of the three fails. */
         const sendAudioFrom = async (url: string): Promise<boolean> => {
+          // fetchAudio keeps the song hosts' own allowlist and size cap; the
+          // delivery checks the bytes, uploads and sends, retrying what is
+          // transient. The sentence about the song was sent before this.
           const audio = await fetchAudio(url).catch(() => null);
           if (!audio) return false;
           // Narrowed at the top of the handler (`if (!token || !phoneNumberId)`);
@@ -2125,14 +2130,14 @@ Deno.serve(async (req) => {
           // closure stored in a variable rather than invoked inline. Asserted,
           // not re-checked, so a missing-credentials delivery still logs and
           // continues exactly as it does everywhere else in this function.
-          const mediaId = await uploadWhatsAppMedia({
+          const delivered = await deliverAsset({
             phoneNumberId: phoneNumberId!,
             token: token!,
-            bytes: audio.bytes,
-            mimeType: audio.mimeType,
+            to: incoming.from,
+            asset: { bytes: audio.bytes, mimeType: audio.mimeType, fileName: "visionex-song" },
           });
-          if (!mediaId) return false;
-          return await sendWhatsAppAudio({ phoneNumberId: phoneNumberId!, token: token!, to: incoming.from, mediaId });
+          log("asset_delivery", { flow: "song", ...deliveryLogFields(delivered, "bytes", audio.mimeType) });
+          return delivered.outcome.startsWith("delivered_");
         };
 
         // The free recording is tried first and is allowed to fail all the way

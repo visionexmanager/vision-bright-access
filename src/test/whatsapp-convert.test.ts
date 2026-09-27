@@ -27,7 +27,6 @@ import {
   targetKind,
 } from "../../supabase/functions/_shared/whatsappConvertIntent.ts";
 import {
-  messageKindFor,
   outputFilename,
   runMediaJob,
   type WorkerPorts,
@@ -127,7 +126,9 @@ describe("reading a conversion request", () => {
     // Taking the sound off a recording is the most asked-for conversion there
     // is. The other direction is not a conversion, it is an invention.
     expect(targetAllowedFrom("video", "mp3")).toBe(true);
-    expect(targetAllowedFrom("video", "webm")).toBe(true);
+    expect(targetAllowedFrom("video", "m4a")).toBe(true);
+    // WebM is a video Meta refuses to carry, so it is not made here at all.
+    expect(targetAllowedFrom("video", "webm")).toBe(false);
     expect(targetAllowedFrom("audio", "mp3")).toBe(true);
     expect(targetAllowedFrom("audio", "mp4")).toBe(false);
 
@@ -156,8 +157,10 @@ function ports(overrides: Partial<WorkerPorts> = {}) {
   const base: WorkerPorts = {
     download: vi.fn(async () => { calls.push("download"); return bytes(64); }),
     convert: vi.fn(async () => { calls.push("convert"); return { ok: true, bytes: bytes(32), mime: "audio/mpeg" }; }),
-    upload: vi.fn(async () => { calls.push("upload"); return "meta-out"; }),
-    send: vi.fn(async () => { calls.push("send"); return true; }),
+    deliver: vi.fn(async () => {
+      calls.push("deliver");
+      return { outcome: "delivered_audio", kind: "audio", bytes: 32, uploadTries: 1, sendTries: 1, ms: 1 } as const;
+    }),
     finish: vi.fn(async (status, code) => { calls.push("finish"); finished.push({ status, code }); }),
     notify: vi.fn(async (kind) => { calls.push("notify"); notified.push(kind); }),
   };
@@ -168,7 +171,7 @@ describe("running a claimed job", () => {
   it("does the four things in order and records success", async () => {
     const p = ports();
     expect(await runMediaJob(JOB, p.ports)).toBe("done");
-    expect(p.calls).toEqual(["download", "convert", "upload", "send", "finish"]);
+    expect(p.calls).toEqual(["download", "convert", "deliver", "finish"]);
     expect(p.finished[0]).toEqual({ status: "done", code: null });
     // Nothing is said on success: the file arriving is the message.
     expect(p.notified).toEqual([]);
@@ -208,19 +211,41 @@ describe("running a claimed job", () => {
     expect(p.notified).toEqual(["failed"]);
   });
 
-  it("treats a send that failed after a successful upload as retryable", async () => {
+  it("treats a transport fault that outlived the delivery's own retries as retryable", async () => {
     // The expensive half is already done and will be done again. That is
     // accepted: holding a media id across attempts would mean storing it, and
     // the whole design of this queue is that nothing about the file is kept.
-    const p = ports({ send: vi.fn(async () => false) });
+    const p = ports({ deliver: vi.fn(async () => ({ outcome: "failed", reason: "whatsapp_transport_error", ms: 1 }) as const) });
     expect(await runMediaJob(JOB, p.ports)).toBe("queued");
     expect(p.finished[0].code).toBe("upstream");
+  });
+
+  it("does not retry a file too large for WhatsApp, and tells the sender what would get it through", async () => {
+    const p = ports({ deliver: vi.fn(async () => ({ outcome: "failed", reason: "asset_too_large", ms: 1 }) as const) });
+    expect(await runMediaJob(JOB, p.ports)).toBe("failed");
+    expect(p.finished[0]).toEqual({ status: "failed", code: "too_large" });
+    expect(p.notified).toEqual(["too_large"]);
+  });
+
+  it("does not retry a file Meta refused: a delivery failure keeps its own code, not a conversion's", async () => {
+    const p = ports({ deliver: vi.fn(async () => ({ outcome: "failed", reason: "whatsapp_upload_rejected", ms: 1 }) as const) });
+    expect(await runMediaJob(JOB, p.ports)).toBe("failed");
+    expect(p.finished[0].code).toBe("whatsapp_upload_rejected");
+  });
+
+  it("makes nothing for a format WhatsApp cannot carry back — not even the download", async () => {
+    // A job queued before the menu stopped offering WAV must not transcode a
+    // file that Meta will refuse, three times, and then call it a failure.
+    const p = ports();
+    expect(await runMediaJob({ ...JOB, target: "wav" }, p.ports)).toBe("failed");
+    expect(p.calls).toEqual(["finish", "notify"]);
+    expect(p.finished[0].code).toBe("undeliverable");
   });
 
   it("never throws, whatever a port does", async () => {
     // A job that throws is a job whose row stays `running` until its lease
     // expires, and the sender hears nothing at all in the meantime.
-    for (const port of ["download", "convert", "upload", "send"] as const) {
+    for (const port of ["download", "convert", "deliver"] as const) {
       const p = ports({ [port]: vi.fn(async () => { throw new Error("https://graph.facebook.com/v20.0/meta-1?secret"); }) });
       await expect(runMediaJob(JOB, p.ports)).resolves.toBeTruthy();
       expect(p.finished[0].code, port).toBe("network");
@@ -263,12 +288,25 @@ describe("the file the sender receives", () => {
     }
   });
 
-  it("plays in place where it can, and is a document where it cannot", () => {
+  it("every format the menu offers is one WhatsApp carries, and plays in place where it can", async () => {
     // One gesture rather than a download and an app switch, which matters most
-    // to the people this channel is for.
-    expect(messageKindFor("audio/mpeg")).toBe("audio");
-    expect(messageKindFor("video/mp4")).toBe("video");
-    expect(messageKindFor("image/gif")).toBe("document");
+    // to the people this channel is for. The kind comes from the one delivery
+    // table (whatsappAssetDelivery.ts), checked against Meta itself.
+    const { deliveryRuleFor } = await import("../../supabase/functions/_shared/whatsappAssetDelivery.ts");
+    const { targetMime, WHATSAPP_DELIVERABLE_TARGETS } = await import("../../supabase/functions/_shared/whatsappConvertFormats.ts");
+    for (const kind of ["audio", "video", "image"] as const) {
+      for (const target of offeredTargets(kind)) {
+        expect(WHATSAPP_DELIVERABLE_TARGETS.has(target), target).toBe(true);
+        expect(deliveryRuleFor(targetMime(target)), target).not.toBeNull();
+      }
+    }
+    expect(deliveryRuleFor("audio/mpeg")?.kind).toBe("audio");
+    expect(deliveryRuleFor("video/mp4")?.kind).toBe("video");
+    expect(deliveryRuleFor("image/png")?.kind).toBe("image");
+    // Refused by Meta in any form: not offered, and not deliverable.
+    for (const refused of ["image/gif", "audio/wav", "video/webm", "image/tiff"]) {
+      expect(deliveryRuleFor(refused), refused).toBeNull();
+    }
   });
 });
 
@@ -394,7 +432,9 @@ describe("converting a picture", () => {
 
   it("lets a picture become another picture, and nothing else", () => {
     expect(targetAllowedFrom("image", "png")).toBe(true);
-    expect(targetAllowedFrom("image", "webp")).toBe(true);
+    expect(targetAllowedFrom("image", "jpg")).toBe(true);
+    // WebP, TIFF and BMP are pictures Meta will not carry as a picture.
+    for (const refused of ["webp", "tiff", "bmp"]) expect(targetAllowedFrom("image", refused), refused).toBe(false);
     // There is nothing to take the sound out of, and a video made from one
     // still is not a conversion.
     expect(targetAllowedFrom("image", "mp3")).toBe(false);
@@ -413,7 +453,9 @@ describe("converting a picture", () => {
 
   it("reads a bare image format as a request", () => {
     expect(parseConvertRequest({ text: "png", sourceKind: "image" })).toEqual({ target: "png" });
-    expect(parseConvertRequest({ text: "حوّلها إلى webp", sourceKind: "image" })).toEqual({ target: "webp" });
+    expect(parseConvertRequest({ text: "حوّلها إلى jpg", sourceKind: "image" })).toEqual({ target: "jpg" });
+    // Asked for a format WhatsApp cannot carry back, nothing is queued.
+    expect(parseConvertRequest({ text: "حوّلها إلى webp", sourceKind: "image" })).toBeNull();
     expect(parseConvertRequest({ text: "mp4", sourceKind: "image" })).toBeNull();
   });
 });
