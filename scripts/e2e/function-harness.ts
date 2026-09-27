@@ -242,7 +242,13 @@ const AR = "كيف أبدأ بتعلم البرمجة؟ أجب باختصار.";
 await run("ai-chat", "default assistant, Arabic", { messages: [{ role: "user", content: AR }] }, okStream("arabic"));
 await run("ai-chat", "legal assistant, Arabic", { messages: [{ role: "user", content: "ما هي حقوقي إذا تأخر راتبي؟" }], assistantId: "legal-advisor" }, okStream("arabic"));
 await run("academy-chat", "tutor, Arabic", { messages: [{ role: "user", content: AR }], studentProfile: { name: "Test", level: "beginner", interests: ["coding"] }, language: "ar" }, okStream("arabic"));
-await run("ai-voice-chat", "voice chat, Arabic", { messages: [{ role: "user", content: AR }], assistant: "visionex", language: "ar" }, ({ http, body }) => ({ ok: http === 200, detail: `kind=${body.kind} keys=${keysOf(body.json)} chars=${body.text?.length ?? 0} bytes=${body.bytes ?? 0}` }));
+await run("ai-voice-chat", "voice chat, Arabic", { messages: [{ role: "user", content: AR }], assistant: "visionex", language: "ar" }, ({ http, body }) => {
+  const audio = typeof body.json?.audio === "string" ? (body.json.audio as string).length : 0;
+  const said = String(body.json?.transcript ?? "");
+  return { ok: http === 200 && audio > 1000 && answerIsInScript(said, "arabic"), detail: `keys=${keysOf(body.json)} audio_b64=${audio} transcript_chars=${said.length} in_arabic=${answerIsInScript(said, "arabic")}` };
+});
+await run("career-ai", "salary insight", { action: "salary", input: "Junior data analyst in Amman" }, ({ http, body }) => ({ ok: http === 200, detail: `keys=${keysOf(body.json)}${body.json?.error ? ` error=${String(body.json.error).slice(0, 70)}` : ""}` }));
+await run("career-ai", "chat, Arabic", { action: "chat", messages: [{ role: "user", content: "كيف أكتب سيرة ذاتية جيدة؟" }] }, ({ http, body }) => ({ ok: http === 200 && (body.kind === "sse" ? (body.text ?? "").length > 10 : !!body.json), detail: `kind=${body.kind} chars=${body.text?.length ?? 0} keys=${keysOf(body.json)}${body.json?.error ? ` error=${String(body.json.error).slice(0, 70)}` : ""}` }));
 await run("realtime-session", "session token", { assistant: "visionex" }, ({ http, body }) => ({ ok: http === 200 && !!body.json, detail: `keys=${keysOf(body.json)}` }));
 await run("radar-ai", "scene description", { image: IMAGE, lang: "en" }, ({ http, body }) => ({ ok: http === 200, detail: `keys=${keysOf(body.json)}${body.json?.error ? ` error=${String(body.json.error).slice(0, 70)}` : ""}` }));
 await run("analyze-meal", "meal photo", { image: IMAGE, lang: "en" }, ({ http, body }) => ({ ok: http === 200, detail: `keys=${keysOf(body.json)}${body.json?.error ? ` error=${String(body.json.error).slice(0, 70)}` : ""}` }));

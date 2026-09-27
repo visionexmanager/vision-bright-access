@@ -115,6 +115,10 @@ Deno.serve(async (req) => {
 
     // Both actions are open to strangers and both send mail, so both are
     // metered: without this the auto-reply was a free way to mail anyone.
+    // Public at the gateway (verify_jwt = false in config.toml and the deploy
+    // script): the site calls this with the publishable key, which is not a JWT,
+    // and a gateway check rejected every caller with 401 before this line ran.
+    // This limit is therefore what stands between a stranger and the work below.
     if ((action === "contact" || action === "request_sourcing") && !(await allowCaller(serviceClient, req, "contact-form"))) {
       return new Response(
         JSON.stringify({ error: "Too many requests from this connection today. Please try again tomorrow or write to us directly." }),

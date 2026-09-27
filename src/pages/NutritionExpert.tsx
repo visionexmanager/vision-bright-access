@@ -100,6 +100,8 @@ export default function NutritionExpert() {
   }, [t]);
 
   const generateDietPlan = async () => {
+    // Both analyses need an account: say so, rather than "analysis failed".
+    if (!user) { toast.error(t("services.signInToUse")); return; }
     setGeneratingPlan(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-diet-plan", {
@@ -190,6 +192,7 @@ export default function NutritionExpert() {
       toast.error(t("nutrition.imageTooLarge"));
       return;
     }
+    if (!user) { toast.error(t("services.signInToUse")); return; }
 
     // Show preview
     const url = URL.createObjectURL(file);

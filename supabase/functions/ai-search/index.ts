@@ -79,6 +79,10 @@ Deno.serve(async (req) => {
     );
 
     // Every search is a paid embedding call, and this endpoint needs no account.
+    // Public at the gateway (verify_jwt = false in config.toml and the deploy
+    // script): the site calls this with the publishable key, which is not a JWT,
+    // and a gateway check rejected every caller with 401 before this line ran.
+    // This limit is therefore what stands between a stranger and the work below.
     if (!(await allowCaller(service, req, "ai-search"))) {
       return new Response(JSON.stringify({ error: "Too many searches from this connection today. Please try again later." }), {
         status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },

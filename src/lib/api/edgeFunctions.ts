@@ -169,7 +169,8 @@ export async function callRadarAI(
   return callEdge({
     fn: "radar-ai",
     body: { image, lang },
-    auth: "anon",
+    // Requires a signed-in caller; the publishable key is not a JWT.
+    auth: "user-jwt",
     signal,
   }) as Promise<RadarAIResponse>;
 }
@@ -185,7 +186,7 @@ export async function callAnalyzeMeal(
   return callEdge({
     fn: "analyze-meal",
     body: { image, lang },
-    auth: "anon",
+    auth: "user-jwt",
     signal,
   }) as Promise<MealAnalysisResponse>;
 }
@@ -200,7 +201,7 @@ export async function callGenerateDietPlan(
   return callEdge({
     fn: "generate-diet-plan",
     body: params,
-    auth: "anon",
+    auth: "user-jwt",
     signal,
   }) as Promise<DietPlanResponse>;
 }

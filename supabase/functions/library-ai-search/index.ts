@@ -20,6 +20,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createEmbedding, structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
+import { allowCaller } from "../_shared/securityGuard.ts";
 
 function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
@@ -59,6 +60,15 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const client = createClient(supabaseUrl, anonKey);
+
+  // Public at the gateway (verify_jwt = false: the site calls it with the
+  // publishable key, which is not a JWT), so this is the only thing between a
+  // stranger and a paid embedding call — the same limit library-semantic-search
+  // applies, before any provider is asked.
+  const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  if (!(await allowCaller(service, req, "library-ai-search"))) {
+    return json({ error: "Too many searches from this connection today. Please try again later." }, 429, cors);
+  }
 
   const authHeader = req.headers.get("Authorization");
   let userId: string | null = null;

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AnimatedSection } from "@/components/AnimatedSection";
@@ -36,6 +37,7 @@ function stopSpeak() {
 
 export default function RadarAI() {
   const { lang, t } = useLanguage();
+  const { user } = useAuth();
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -59,6 +61,13 @@ export default function RadarAI() {
     }
     if (file.size > 10 * 1024 * 1024) {
       toast.error(t("radar.errFileSize"));
+      return;
+    }
+    // The analysis needs an account (radar-ai checks the caller's session).
+    // Said plainly, before anything is uploaded, rather than an "analysis
+    // failed" that sends a signed-out visitor looking for a fault in the photo.
+    if (!user) {
+      toast.error(t("services.signInToUse"));
       return;
     }
 
@@ -91,7 +100,7 @@ export default function RadarAI() {
     } finally {
       setAnalyzing(false);
     }
-  }, [lang, t]);
+  }, [lang, t, user]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
