@@ -8,6 +8,7 @@
  */
 
 import { jsPDF } from "jspdf";
+import { enableArabicText, textInBox } from "@/lib/pdf/arabicText";
 import * as XLSX from "xlsx";
 
 export type OrganizationReportFormat = "pdf" | "xlsx" | "csv";
@@ -63,26 +64,28 @@ function toXlsx(payload: OrganizationReportPayload): Blob {
   return new Blob([arrayBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
 
-function toPdf(payload: OrganizationReportPayload): Blob {
+async function toPdf(payload: OrganizationReportPayload): Promise<Blob> {
   const doc = new jsPDF();
+  await enableArabicText(doc, payload);
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 40;
+  const width = pageWidth - margin * 2;
   let y = 50;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text(payload.reportTitle, margin, y);
+  textInBox(doc, payload.reportTitle, margin, y, width);
   y += 20;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text(`${payload.organizationName} — Generated ${payload.generatedAt}`, margin, y);
+  textInBox(doc, `${payload.organizationName} — Generated ${payload.generatedAt}`, margin, y, width);
   y += 30;
 
   for (const table of payload.tables) {
     if (y > 700) { doc.addPage(); y = 50; }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text(table.title, margin, y);
+    textInBox(doc, table.title, margin, y, width);
     y += 16;
 
     doc.setFontSize(9);
@@ -101,9 +104,9 @@ function toPdf(payload: OrganizationReportPayload): Blob {
   return doc.output("blob");
 }
 
-export function downloadOrganizationReport(payload: OrganizationReportPayload, format: OrganizationReportFormat) {
+export async function downloadOrganizationReport(payload: OrganizationReportPayload, format: OrganizationReportFormat) {
   const filename = `${payload.organizationName}-${payload.reportTitle}`.replace(/[^\w\- ]/g, "").trim() || "organization-report";
-  if (format === "pdf") triggerDownload(toPdf(payload), `${filename}.pdf`);
+  if (format === "pdf") triggerDownload(await toPdf(payload), `${filename}.pdf`);
   else if (format === "xlsx") triggerDownload(toXlsx(payload), `${filename}.xlsx`);
   else triggerDownload(toCsv(payload), `${filename}.csv`, "text/csv");
 }

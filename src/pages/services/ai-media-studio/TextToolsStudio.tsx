@@ -180,20 +180,22 @@ function DocumentToolPanel({ tool, label, placeholder, lang }: { tool: "resume" 
 
   const downloadPdf = async () => {
     if (!result) return;
-    const { default: jsPDF } = await import("jspdf");
+    const [{ default: jsPDF }, { enableArabicText, textInBox }] = await Promise.all([import("jspdf"), import("@/lib/pdf/arabicText")]);
     const doc = new jsPDF();
+    await enableArabicText(doc, result);
     const margin = 20;
+    const width = 170;
     let y = 22;
 
     doc.setFontSize(20);
     doc.setTextColor(16, 42, 67);
-    doc.text(result.title, margin, y);
+    textInBox(doc, result.title, margin, y, width);
     y += 9;
 
     if (result.subtitle) {
       doc.setFontSize(12);
       doc.setTextColor(100, 100, 100);
-      doc.text(result.subtitle, margin, y);
+      textInBox(doc, result.subtitle, margin, y, width);
       y += 10;
     } else {
       y += 4;
@@ -203,7 +205,7 @@ function DocumentToolPanel({ tool, label, placeholder, lang }: { tool: "resume" 
       if (y > 265) { doc.addPage(); y = 20; }
       doc.setFontSize(13);
       doc.setTextColor(16, 185, 129);
-      doc.text(section.heading, margin, y);
+      textInBox(doc, section.heading, margin, y, width);
       y += 8;
 
       doc.setFontSize(10.5);
@@ -213,7 +215,7 @@ function DocumentToolPanel({ tool, label, placeholder, lang }: { tool: "resume" 
         const lines = doc.splitTextToSize(`•  ${bullet}`, 170) as string[];
         for (const line of lines) {
           if (y > 275) { doc.addPage(); y = 20; }
-          doc.text(line, margin + 2, y);
+          textInBox(doc, line, margin + 2, y, width);
           y += 6;
         }
       }

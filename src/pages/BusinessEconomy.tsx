@@ -72,8 +72,9 @@ export default function BusinessEconomy() {
 
   const exportPDF = useCallback(async () => {
     if (!result) return;
-    const { default: jsPDF } = await import("jspdf");
+    const [{ default: jsPDF }, { enableArabicText }] = await Promise.all([import("jspdf"), import("@/lib/pdf/arabicText")]);
     const doc = new jsPDF();
+    await enableArabicText(doc, t("econ.feasibilityReport"), projectName, sector, result);
     const isRtl = lang === "ar";
     
     // Title

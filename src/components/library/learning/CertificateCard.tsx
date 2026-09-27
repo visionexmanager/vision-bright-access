@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Award, Download } from "lucide-react";
 import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
+import { enableArabicText } from "@/lib/pdf/arabicText";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -29,6 +30,7 @@ export function CertificateCard({ certificate }: CertificateCardProps) {
 
   const handleDownloadPdf = async () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    await enableArabicText(doc, certificate, new Date(certificate.issued_at).toLocaleDateString());
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 

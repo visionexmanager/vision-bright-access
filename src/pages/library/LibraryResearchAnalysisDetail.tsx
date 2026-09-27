@@ -33,7 +33,7 @@ export default function LibraryResearchAnalysisDetail() {
 
   const handleExport = () => {
     if (!analysis) return;
-    downloadResearchExport(
+    void downloadResearchExport(
       {
         projectTitle: analysis.title,
         items: [{ itemType: "analysis", title: analysis.title, content: researchResultToText(analysis.analysis_type, analysis.result), addedAt: analysis.created_at }],
