@@ -204,6 +204,8 @@ describe("Arabic PDFs through every generator", () => {
     expect(text).toContain("رحلة سارة إلى القمر");
     expect(text).toContain(ar["kids.studio.tableOfContents"].split(" ")[0]);
     expect(text).toContain("في ليلة صافية");
+    // The cover emoji is a picture now, never Helvetica's "Ø=Þ€".
+    expect(runs.some((r) => !r.embedded && /Ø=Þ/.test(r.text))).toBe(false);
     expect(saved[0].name).toBe("رحلة سارة إلى القمر.pdf");
   });
 

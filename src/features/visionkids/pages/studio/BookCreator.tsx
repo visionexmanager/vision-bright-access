@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import { enableArabicText, textInBox } from "@/lib/pdf/arabicText";
+import { drawEmoji } from "@/lib/pdf/emojiImage";
 import { ChevronLeft, Save, Plus, Trash2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,8 +73,7 @@ export default function BookCreator() {
 
     doc.setFillColor(book.coverColor);
     doc.rect(0, 0, w, h, "F");
-    doc.setFontSize(48);
-    doc.text(book.coverEmoji, w / 2, h / 2 - 40, { align: "center" });
+    drawEmoji(doc, book.coverEmoji, w / 2, h / 2 - 40, 48);
     doc.setTextColor("#ffffff");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(24);
