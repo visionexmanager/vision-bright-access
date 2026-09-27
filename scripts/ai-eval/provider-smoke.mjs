@@ -204,8 +204,8 @@ async function openai(key) {
   const reasoning = { max_completion_tokens: 64, reasoning_effort: "none" };
   await openAICompatible("openai", base, key, {
     chat: ["gpt-4o-mini", "gpt-4o", "gpt-4.1", "gpt-5.6-luna"],
-    tool: ["gpt-4o-mini", "gpt-4.1"],
-    vision: ["gpt-4o-mini", "gpt-4o"],
+    tool: ["gpt-4o-mini", "gpt-4.1", "gpt-5.6-luna"],
+    vision: ["gpt-4o-mini", "gpt-4o", "gpt-5.6-luna"],
     extra: { "gpt-5.6-luna": reasoning },
   });
   await probe("openai", "embeddings", "text-embedding-3-small", async () => ({

@@ -438,6 +438,7 @@ Deno.serve(async (req) => {
       { provider: "groq", model: "openai/gpt-oss-20b" },
       { provider: "mistral", model: "ministral-14b-latest" },
       { provider: "openai", model: "gpt-4.1" },
+      { provider: "openai", model: "gpt-5.6-luna" },
     ];
     let systemPrompt = SYSTEM_PROMPT;
     let userMemory: UserMemory | null = null;
@@ -545,6 +546,7 @@ VOICE RULES (mandatory — you are speaking, not writing):
           { provider: "groq", model: "openai/gpt-oss-20b" },
           { provider: "mistral", model: "ministral-14b-latest" },
           { provider: "openai", model: "gpt-4.1" },
+          { provider: "openai", model: "gpt-5.6-luna" },
         ];
         const simName = (context.productName ?? "").replace("Business Simulation:", "").trim();
         systemPrompt = `You are a Business Mentor AI on the Visionex platform, specializing in guiding users through interactive business simulations.

@@ -35,6 +35,11 @@ function build(role: string, body: string, disclaimer?: string): string {
 const DEFAULT_PROVIDER: AIProvider = "openai";
 const DEFAULT_MODEL = "gpt-4.1";
 const OPENAI = { provider: "openai", model: "gpt-4.1" } as const;
+// OpenAI's second model, always straight after gpt-4.1 and never first. It
+// answers on the same key when gpt-4.1 alone is refused — gpt-4.1 has a 30k
+// tokens-a-minute ceiling on this account, Luna 500k — and it costs a tenth.
+// Verified for text, tool calls and vision by provider-smoke.
+const LUNA = { provider: "openai", model: "gpt-5.6-luna" } as const;
 const GEMINI = { provider: "gemini", model: "gemini-flash-latest" } as const;
 const GROQ = { provider: "groq", model: "openai/gpt-oss-20b" } as const;
 const MISTRAL = { provider: "mistral", model: "ministral-14b-latest" } as const;
@@ -73,10 +78,10 @@ const GEMINI_FIRST = new Set([
 ]);
 
 export function assistantTargets(id: string): ProviderTarget[] {
-  if (OPENAI_FIRST.has(id)) return [OPENAI, GEMINI, MISTRAL, GROQ];
-  if (GEMINI_FIRST.has(id)) return [GEMINI, GROQ, MISTRAL, OPENAI];
-  if (MISTRAL_FIRST.has(id)) return [MISTRAL, GEMINI, GROQ, OPENAI];
-  return [GROQ, GEMINI, MISTRAL, OPENAI];
+  if (OPENAI_FIRST.has(id)) return [OPENAI, LUNA, GEMINI, MISTRAL, GROQ];
+  if (GEMINI_FIRST.has(id)) return [GEMINI, GROQ, MISTRAL, OPENAI, LUNA];
+  if (MISTRAL_FIRST.has(id)) return [MISTRAL, GEMINI, GROQ, OPENAI, LUNA];
+  return [GROQ, GEMINI, MISTRAL, OPENAI, LUNA];
 }
 
 // Convenience: most assistants share provider/model; only prompt differs.

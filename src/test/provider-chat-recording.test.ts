@@ -403,8 +403,9 @@ describe("provider order is exactly what it was", () => {
 
   it("the per-assistant quality policy is exactly the one in place before recording", () => {
     // Pinned as it stood on main at 6372d6d3. Recording must not move a single
-    // assistant between chains, or change a chain's order or models.
-    const O = "openai/gpt-4.1", G = "gemini/gemini-flash-latest", Q = "groq/openai/gpt-oss-20b", M = "mistral/ministral-14b-latest";
+    // assistant between chains, or change a chain's order or models. The one
+    // deliberate change since: gpt-5.6-luna straight after gpt-4.1 in every chain.
+    const O = "openai/gpt-4.1", L = "openai/gpt-5.6-luna", G = "gemini/gemini-flash-latest", Q = "groq/openai/gpt-oss-20b", M = "mistral/ministral-14b-latest";
     const chain = (id: string) => assistants.assistantTargets(id).map((t) => `${t.provider}/${t.model}`);
     const OPENAI_FIRST = ["legal-advisor", "medical-support", "psychology", "empathy-oasis", "skin-care", "hair-care",
       "finance-advisor", "ivx-tutor", "ivx-project-grader", "whatsapp-support"];
@@ -412,12 +413,12 @@ describe("provider order is exactly what it was", () => {
       "media-companion", "voice-room-assistant"];
     const GEMINI_FIRST = ["travel-agency", "educational-empire", "music-conservatory", "tech-consulting",
       "professional-training", "simulation-mentor"];
-    for (const id of OPENAI_FIRST) expect(chain(id), id).toEqual([O, G, M, Q]);
-    for (const id of MISTRAL_FIRST) expect(chain(id), id).toEqual([M, G, Q, O]);
-    for (const id of GEMINI_FIRST) expect(chain(id), id).toEqual([G, Q, M, O]);
+    for (const id of OPENAI_FIRST) expect(chain(id), id).toEqual([O, L, G, M, Q]);
+    for (const id of MISTRAL_FIRST) expect(chain(id), id).toEqual([M, G, Q, O, L]);
+    for (const id of GEMINI_FIRST) expect(chain(id), id).toEqual([G, Q, M, O, L]);
     const pinned = new Set([...OPENAI_FIRST, ...MISTRAL_FIRST, ...GEMINI_FIRST]);
     for (const a of Object.values(assistants.ASSISTANTS)) {
-      if (!pinned.has(a.id)) expect(a.targets.map((t) => `${t.provider}/${t.model}`), a.id).toEqual([Q, G, M, O]);
+      if (!pinned.has(a.id)) expect(a.targets.map((t) => `${t.provider}/${t.model}`), a.id).toEqual([Q, G, M, O, L]);
       else expect(a.targets.map((t) => `${t.provider}/${t.model}`), a.id).toEqual(chain(a.id));
     }
   });
