@@ -17,6 +17,7 @@ import type {
 import { DOCUMENT_FORMATS } from "@/lib/types/fileStudio";
 import { ArchiveError } from "./archiveFormats";
 import { isOfficeTextFormat, officeText } from "./officeText";
+import { DOCX_MIME, blocksFromHtml, blocksFromMarkdown, blocksFromPlainText, buildDocx, isRtlText } from "@/lib/documents/docx";
 
 export const DocumentModule: ConverterModule = {
   moduleType: "document",
@@ -64,6 +65,13 @@ export const DocumentModule: ConverterModule = {
       // CSV → JSON (developer utility crossover)
       else if (inFmt === "csv" && opts.targetFormat === "txt") {
         resultBlob = new Blob([text], { type: "text/plain" });
+      }
+      // TXT / Markdown / HTML → a real Word document, headings and lists kept
+      else if (opts.targetFormat === "docx" && (inFmt === "txt" || inFmt === "md" || inFmt === "html")) {
+        const blocks = inFmt === "md" ? blocksFromMarkdown(text) : inFmt === "html" ? blocksFromHtml(text) : blocksFromPlainText(text);
+        const title = file.name.replace(/\.[^.]+$/, "") || file.name;
+        const bytes = await buildDocx({ title, language: isRtlText(text) ? "ar" : undefined, blocks });
+        resultBlob = new Blob([bytes], { type: DOCX_MIME });
       }
       else {
         onProgress(100);

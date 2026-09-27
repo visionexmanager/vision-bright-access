@@ -225,6 +225,25 @@ function DocumentToolPanel({ tool, label, placeholder, lang }: { tool: "resume" 
     doc.save(`${tool}-${result.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`);
   };
 
+  // The same document as a real Word file: sections are headings and the
+  // points are a list, so a screen reader moves through it by structure.
+  const downloadWord = async () => {
+    if (!result) return;
+    const { downloadDocx } = await import("@/lib/documents/docx");
+    await downloadDocx(
+      {
+        title: result.title,
+        subtitle: result.subtitle,
+        language: lang,
+        blocks: result.sections.flatMap((section) => [
+          { type: "heading" as const, text: section.heading },
+          ...section.bullets.map((bullet) => ({ type: "bullet" as const, text: bullet })),
+        ]),
+      },
+      `${tool}-${result.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.docx`,
+    );
+  };
+
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-4">
       <h2 className="text-sm font-semibold">{label}</h2>
@@ -247,9 +266,14 @@ function DocumentToolPanel({ tool, label, placeholder, lang }: { tool: "resume" 
               <h3 className="font-bold">{result.title}</h3>
               {result.subtitle && <p className="text-sm text-muted-foreground">{result.subtitle}</p>}
             </div>
-            <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={downloadPdf}>
-              <Download className="h-3.5 w-3.5" /> Download PDF
-            </Button>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={downloadPdf}>
+                <Download className="h-3.5 w-3.5" /> Download PDF
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => void downloadWord()}>
+                <Download className="h-3.5 w-3.5" /> Download Word
+              </Button>
+            </div>
           </div>
           <div className="space-y-3 max-h-[420px] overflow-y-auto">
             {result.sections.map((section, i) => (

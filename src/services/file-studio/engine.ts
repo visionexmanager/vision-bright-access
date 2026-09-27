@@ -68,12 +68,15 @@ export function getSupportedOutputFormats(moduleType: ModuleType): readonly stri
 //
 
 const DOCUMENT_WORKING_TARGETS: Record<string, readonly string[]> = {
-  txt:  ["html", "md"],
-  html: ["txt"],
+  // Text, Markdown and HTML become a real Word document (src/lib/documents/docx.ts),
+  // with their headings and lists as Word's own.
+  txt:  ["html", "md", "docx"],
+  md:   ["docx"],
+  html: ["txt", "docx"],
   csv:  ["txt"],
   // Reading a Word document or a deck, not rewriting one: a .docx is a ZIP of
-  // XML, so the archive reader opens it and the text comes out. Writing one is
-  // a different problem that needs a document engine this project does not run,
+  // XML, so the archive reader opens it and the text comes out. Rewriting its
+  // layout, or writing a PDF, needs a document engine this project does not run,
   // which is why PDF is absent and these two are one-way.
   docx: ["txt", "html"],
   pptx: ["txt", "html"],

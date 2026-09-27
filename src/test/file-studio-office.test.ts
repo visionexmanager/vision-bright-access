@@ -140,10 +140,15 @@ describe("the document module, as the page uses it", () => {
   it("offers exactly what it implements", () => {
     expect(getWorkingOutputFormats("document", "report.docx")).toEqual(["txt", "html"]);
     expect(getWorkingOutputFormats("document", "deck.pptx")).toEqual(["txt", "html"]);
-    // Writing a PDF or a Word file needs a document engine this project does
-    // not run. Reading one and writing one are not the same capability.
+    // Rewriting a Word file's layout, or writing a PDF, needs a document engine
+    // this project does not run. Reading one and writing one are not the same
+    // capability.
     expect(getWorkingOutputFormats("document", "paper.pdf")).toEqual([]);
     expect(getWorkingOutputFormats("document", "report.docx")).not.toContain("docx");
+    // Writing a new Word document from text is done here, in the tab.
+    expect(getWorkingOutputFormats("document", "notes.txt")).toContain("docx");
+    expect(getWorkingOutputFormats("document", "notes.md")).toEqual(["docx"]);
+    expect(getWorkingOutputFormats("document", "page.html")).toContain("docx");
   });
 });
 
