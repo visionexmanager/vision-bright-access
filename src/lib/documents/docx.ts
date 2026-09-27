@@ -202,7 +202,9 @@ export async function buildDocx(doc: DocxDocument, when: Date = new Date()): Pro
 /** Build the .docx and hand it to the browser as a download. */
 export async function downloadDocx(doc: DocxDocument, filename: string): Promise<void> {
   const bytes = await buildDocx(doc);
-  const blob = new Blob([bytes], { type: DOCX_MIME });
+  // Cast as archives.ts does: newer TypeScript types a ZIP's bytes as backed by
+  // ArrayBufferLike, which Blob's declaration does not accept.
+  const blob = new Blob([bytes as unknown as BlobPart], { type: DOCX_MIME });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

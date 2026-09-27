@@ -87,7 +87,7 @@ async function toDocx(payload: ResearchExportPayload): Promise<Blob> {
     if (item.citation) blocks.push({ type: "paragraph", text: item.citation });
   }
   const bytes = await buildDocx({ title: payload.projectTitle, blocks });
-  return new Blob([bytes], { type: DOCX_MIME });
+  return new Blob([bytes as unknown as BlobPart], { type: DOCX_MIME });
 }
 
 function toCsv(payload: ResearchExportPayload): string {

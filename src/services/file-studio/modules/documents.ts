@@ -71,7 +71,7 @@ export const DocumentModule: ConverterModule = {
         const blocks = inFmt === "md" ? blocksFromMarkdown(text) : inFmt === "html" ? blocksFromHtml(text) : blocksFromPlainText(text);
         const title = file.name.replace(/\.[^.]+$/, "") || file.name;
         const bytes = await buildDocx({ title, language: isRtlText(text) ? "ar" : undefined, blocks });
-        resultBlob = new Blob([bytes], { type: DOCX_MIME });
+        resultBlob = new Blob([bytes as unknown as BlobPart], { type: DOCX_MIME });
       }
       else {
         onProgress(100);
