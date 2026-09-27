@@ -30,6 +30,49 @@ export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral" 
  */
 export const ACTIVATION_GATED: ReadonlySet<AIProvider> = new Set<AIProvider>(["openrouter"]);
 
+/**
+ * Models parked out of live routing, keyed `provider/model`, with the evidence.
+ *
+ * A provider is switched on and off by its `ph_providers` row; a row is per
+ * provider, and the model catalog is OpenAI's discovery
+ * record, not a routing input. So a single failing model of a provider that
+ * otherwise works is parked here. A parked model stays in every chain that
+ * names it — the chain is configuration, and reactivating it is deleting one
+ * line here after a real generation passes in provider-smoke — but it is never
+ * tried: `orderTargets` drops it, and a direct call to it is refused before any
+ * request is sent.
+ */
+export const PAUSED_MODELS: ReadonlyMap<string, string> = new Map([
+  ["gemini/gemini-flash-latest", "429 on vision and structured output, 503 on text (provider-smoke 2026-09-27); gemini-flash-lite-latest passes"],
+  ["mistral/mistral-small-latest", "429 code 1300: not included in the account's plan (provider-smoke 2026-09-27)"],
+  ["mistral/mistral-small-2506", "429 code 1300: not included in the account's plan (provider-smoke 2026-09-27)"],
+  ["mistral/mistral-medium-latest", "429 code 1300: not included in the account's plan (provider-smoke 2026-09-27)"],
+  ["mistral/mistral-large-latest", "403 code 1910: not included in the account's plan (provider-smoke 2026-09-27)"],
+]);
+
+/** Why this target is parked, or null when it may be routed to. */
+export function pausedReason(target: { provider: AIProvider; model: string }): string | null {
+  return PAUSED_MODELS.get(`${target.provider}/${target.model}`) ?? null;
+}
+
+const CREDENTIAL_ENV: Readonly<Record<AIProvider, string>> = {
+  openai: "OPENAI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  gemini: "GEMINI_API_KEY",
+  groq: "GROQ_API_KEY",
+  mistral: "MISTRAL_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+};
+
+/** Whether this runtime holds the provider's credential. Never reads its value out. */
+export function providerHasCredential(provider: AIProvider): boolean {
+  return !!Deno.env.get(CREDENTIAL_ENV[provider])?.trim();
+}
+
+function refusePaused(target: { provider: AIProvider; model: string }): void {
+  if (pausedReason(target)) throw new ProviderError(503, `${target.provider}/${target.model} is paused`);
+}
+
 export interface ProviderChatParams {
   provider: AIProvider;
   model: string;
@@ -194,6 +237,7 @@ function asProviderError(e: unknown): never {
 export async function streamChatCompletion(
   params: ProviderChatParams,
 ): Promise<ReadableStream<Uint8Array>> {
+  refusePaused(params);
   if (params.provider === "anthropic") return streamAnthropic(params);
   if (params.provider === "gemini") {
     return geminiStreamChatCompletion({
@@ -402,7 +446,7 @@ export function setProviderRegistryView(view: RegistryView | null): void {
  * The chain in the order it will be tried: targets in good standing first, in
  * policy order; then the registry's own targets; then registry-demoted ones;
  * then cooling ones, soonest to recover first. Excluded targets — rows an
- * admin switched off, and gated providers not switched on — are dropped;
+ * admin switched off, gated providers not switched on, and PAUSED_MODELS — are dropped;
  * nothing else is.
  */
 export function orderTargets(
@@ -419,6 +463,7 @@ export function orderTargets(
   const seen = new Set(targets.map(targetKey));
   const all = [...targets, ...extras.filter((t) => !seen.has(targetKey(t)))];
   for (const t of all) {
+    if (pausedReason(t)) continue;
     let verdict: RegistryVerdict = ACTIVATION_GATED.has(t.provider) ? "excluded" : "ready";
     try {
       const said = registryView?.verdict(t, kind);
@@ -468,6 +513,9 @@ export async function streamChatCompletionWithFallback(
   }
 
   if (lastError instanceof ProviderError) throw lastError;
+  // Nothing tried at all: every target was excluded or parked. A controlled
+  // "unavailable", not a failure of a provider that was never called.
+  if (lastError === undefined) throw new ProviderError(503, "No AI provider is available right now");
   throw new ProviderError(500, "All AI providers failed");
 }
 
@@ -664,6 +712,7 @@ export async function structuredCompletion(p: StructuredParams): Promise<unknown
 
 /** The structured result, plus the provider's token usage where it reports one. */
 async function structuredCompletionDetailed(p: StructuredParams): Promise<{ result: unknown; usage?: AttemptUsage }> {
+  refusePaused(p);
   if (p.provider === "anthropic") return { result: await structuredAnthropic(p) };
   if (p.provider === "gemini") {
     const { data } = await geminiStructuredCompletion({
@@ -705,6 +754,9 @@ export async function structuredCompletionWithFallback(
   }
 
   if (lastError instanceof ProviderError) throw lastError;
+  // Nothing tried at all: every target was excluded or parked. A controlled
+  // "unavailable", not a failure of a provider that was never called.
+  if (lastError === undefined) throw new ProviderError(503, "No AI provider is available right now");
   throw new ProviderError(500, "All AI providers failed");
 }
 

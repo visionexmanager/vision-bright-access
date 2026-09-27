@@ -76,6 +76,8 @@ const DEFAULT_PROVIDER: AIProvider = "openai";
 const DEFAULT_MODEL = "gpt-4o";
 const OPENAI = { provider: "openai", model: "gpt-4o" } as const;
 const GEMINI = { provider: "gemini", model: "gemini-flash-latest" } as const;
+// As in assistants.ts: after flash-latest where Gemini is a fallback, never where it leads.
+const GEMINI_LITE = { provider: "gemini", model: "gemini-flash-lite-latest" } as const;
 const GROQ = { provider: "groq", model: "openai/gpt-oss-20b" } as const;
 const MISTRAL = { provider: "mistral", model: "ministral-14b-latest" } as const;
 
@@ -89,8 +91,8 @@ const GEMINI_GENERATORS = new Set([
 
 export function generatorTargets(id: string): ProviderTarget[] {
   if (GEMINI_GENERATORS.has(id)) return [GEMINI, GROQ, MISTRAL, OPENAI];
-  if (MISTRAL_GENERATORS.has(id)) return [MISTRAL, GEMINI, GROQ, OPENAI];
-  return [GROQ, GEMINI, MISTRAL, OPENAI];
+  if (MISTRAL_GENERATORS.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ, OPENAI];
+  return [GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI];
 }
 
 const LANG_NOTE =

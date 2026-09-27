@@ -5,10 +5,11 @@
  * detailed status for each. No auth required (read-only diagnostics).
  *
  * Returns:
- *   { ok, timestamp, components: { [name]: { ok, status, detail } } }
+ *   { ok, timestamp, components: { [name]: { ok, status, detail, state? } } }
  */
 
 import { overpassViaProcessor, processorAvailable } from "../_shared/whatsappProcessor.ts";
+import { PAUSED_MODELS } from "../_shared/aiProvider.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const CORS = {
@@ -24,10 +25,25 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+/**
+ * What a provider or model can do right now, for the lines that describe one.
+ * `status` stays the four-colour summary the diagnostics page reads; `state`
+ * says why, so a parked provider is never mistaken for a healthy one.
+ */
+type ProviderState =
+  | "operational"
+  | "degraded"
+  | "unavailable"
+  | "paused"
+  | "missing_credentials"
+  | "funding_limitation"
+  | "model_failure";
+
 interface ComponentStatus {
   ok:     boolean;
-  status: "ok" | "warning" | "error" | "missing";
+  status: "ok" | "warning" | "error" | "missing" | "paused";
   detail: string;
+  state?: ProviderState;
 }
 
 async function checkEnvVar(name: string): Promise<ComponentStatus> {
@@ -324,19 +340,11 @@ const LIVE_PROBES: Record<string, ProbeTarget> = {
     body: (model) => ({ model, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
   },
   gemini: {
-    // Deliberately NOT the id in MODEL_MATRIX. That row still holds
-    // `gemini-2.5-flash`, which is confirmed dead (404 "no longer available to
-    // new users"), and Gemini is out of the default provider chain because of
-    // it. Pointing this probe at the known-dead id would only re-report a fault
-    // we have already recorded; pointing it at the candidate replacement is the
-    // one useful thing it can do.
-    //
-    // Do not "resync" this to MODEL_MATRIX. Sync it the other way once this
-    // probe reports ok — that is the signal the id is safe to route to.
-    //
-    // Expect `error: out of credit` until the Gemini account is funded, which
-    // is a separate fault from the model id and blocks verifying either.
-    model: "gemini-flash-latest",
+    // The Gemini model the chains can actually reach. gemini-flash-latest is
+    // parked (PAUSED_MODELS in aiProvider.ts) and is listed as paused rather
+    // than probed: probing a model known to be refusing only spends a request
+    // to learn that again.
+    model: "gemini-flash-lite-latest",
     envKey: "GEMINI_API_KEY",
     url: "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
     headers: (key) => ({ "x-goog-api-key": key, "Content-Type": "application/json" }),
@@ -355,16 +363,16 @@ function classifyProviderFailure(status: number, body: string): ComponentStatus 
   const lower = body.toLowerCase();
 
   if (lower.includes("insufficient_quota") || lower.includes("no credits remaining")) {
-    return { ok: false, status: "error", detail: "Out of credit — the key is valid but every generation is refused. Add credit or enable billing." };
+    return { ok: false, status: "error", state: "funding_limitation", detail: "Out of credit — the key is valid but every generation is refused. Add credit or enable billing." };
   }
   if (status === 429) {
-    return { ok: false, status: "warning", detail: "Rate limited or over quota. Key works; requests are being throttled." };
+    return { ok: false, status: "warning", state: "degraded", detail: "Rate limited or over quota. Key works; requests are being throttled." };
   }
   if (status === 401 || status === 403) {
-    return { ok: false, status: "error", detail: "Key is invalid, revoked, or lacks permission for this model." };
+    return { ok: false, status: "error", state: "unavailable", detail: "Key is invalid, revoked, or lacks permission for this model." };
   }
   if (status === 404) {
-    return { ok: false, status: "error", detail: "Model not available to this key. The configured model id is stale — update it." };
+    return { ok: false, status: "error", state: "model_failure", detail: "Model not available to this key. The configured model id is stale — update it." };
   }
   return null;
 }
@@ -374,7 +382,7 @@ async function probeGeneration(provider: string): Promise<ComponentStatus> {
   const target = LIVE_PROBES[provider];
   const apiKey = Deno.env.get(target.envKey);
   if (!apiKey) {
-    return { ok: false, status: "missing", detail: `${target.envKey} not configured.` };
+    return { ok: false, status: "missing", state: "missing_credentials", detail: `${target.envKey} not configured.` };
   }
 
   try {
@@ -390,10 +398,10 @@ async function probeGeneration(provider: string): Promise<ComponentStatus> {
       if (classified) {
         return { ...classified, detail: `${provider} (${target.model}): ${classified.detail}` };
       }
-      return { ok: false, status: "error", detail: `${provider} (${target.model}) returned HTTP ${res.status}.` };
+      return { ok: false, status: "error", state: "unavailable", detail: `${provider} (${target.model}) returned HTTP ${res.status}.` };
     }
 
-    return { ok: true, status: "ok", detail: `${provider} (${target.model}) generated successfully.` };
+    return { ok: true, status: "ok", state: "operational", detail: `${provider} (${target.model}) generated successfully.` };
   } catch (e) {
     return { ok: false, status: "error", detail: `Cannot reach ${provider}: ${e}` };
   }
@@ -508,6 +516,7 @@ async function checkLuma(): Promise<ComponentStatus> {
     return {
       ok:     false,
       status: "missing",
+      state:  "missing_credentials",
       detail: "LUMA_API_KEY not configured. Video generation (Video Studio and the owner's /video) is unavailable — OpenAI Sora was retired on 2026-09-24.",
     };
   }
@@ -540,10 +549,13 @@ async function checkElevenLabs(): Promise<ComponentStatus> {
   if (!apiKey) {
     // Optional since 2026-09-25: voice-studio clones with Mistral (Voxtral)
     // when this key is absent, so only the absence of both is an outage.
+    // Not "ok": ElevenLabs itself is parked (no credential), even though the
+    // service it backed is covered.
     const hasMistral = !!Deno.env.get("MISTRAL_API_KEY");
     return {
       ok:     hasMistral,
-      status: hasMistral ? "ok" : "warning",
+      status: hasMistral ? "paused" : "warning",
+      state:  "missing_credentials",
       detail: hasMistral
         ? "ELEVENLABS_API_KEY not configured. Voice cloning runs on Mistral Voxtral (MISTRAL_API_KEY)."
         : "Neither ELEVENLABS_API_KEY nor MISTRAL_API_KEY is configured. Voice cloning is unavailable.",
@@ -651,6 +663,14 @@ const PLATFORM_SECRETS: { name: string; impact: string }[] = [
   { name: "SITE_URL",             impact: "Checkout return URLs. Redirects break without it." },
   { name: "ALLOWED_ORIGINS",      impact: "CORS allow-list for the LiveKit token endpoint." },
 ];
+
+interface RegistryRow {
+  slug: string;
+  name: string;
+  status: string;
+  api_key_ref: string | null;
+  config: Record<string, unknown> | null;
+}
 
 /** True only for a caller presenting a valid JWT whose user has the admin role. */
 async function callerIsAdmin(
@@ -871,6 +891,49 @@ Deno.serve(async (req: Request) => {
     probed.forEach((provider, i) => {
       results[`provider_live_${provider}`] = probeResults[i];
     });
+
+    // Parked models: never probed, never routed (aiProvider.ts PAUSED_MODELS).
+    for (const [target, reason] of PAUSED_MODELS) {
+      results[`model_paused_${target.replace(/[^a-z0-9]+/gi, "_")}`] = {
+        ok:     false,
+        status: "paused",
+        state:  "model_failure",
+        detail: `${target} is parked out of live routing: ${reason}.`,
+      };
+    }
+
+    // The registry's own verdict. A row switched off is parked; a row still
+    // marked active whose secret is missing can route nothing, and says so
+    // rather than reading as healthy.
+    if (supabaseUrl && serviceKey) {
+      try {
+        const registry = createClient(supabaseUrl, serviceKey);
+        const { data: rows } = await (registry as any)
+          .from("ph_providers")
+          .select("slug, name, status, api_key_ref, config");
+        for (const row of (Array.isArray(rows) ? rows : []) as RegistryRow[]) {
+          const blocker = typeof row.config?.blocker === "string" ? row.config.blocker.slice(0, 200) : "";
+          if (row.status === "inactive" || row.status === "error") {
+            results[`registry_${row.slug}`] = {
+              ok:     false,
+              status: "paused",
+              state:  row.config?.blocker_kind === "account" ? "funding_limitation" : "paused",
+              detail: `${row.name} is ${row.status} in the provider registry and receives no traffic` +
+                (blocker ? ` — ${blocker}.` : "."),
+            };
+          } else if (row.api_key_ref && !Deno.env.get(row.api_key_ref)) {
+            results[`registry_${row.slug}`] = {
+              ok:     false,
+              status: "missing",
+              state:  "missing_credentials",
+              detail: `${row.name} is ${row.status} in the provider registry, but ${row.api_key_ref} is not configured, so nothing can be routed to it.`,
+            };
+          }
+        }
+      } catch {
+        results.registry_read = { ok: false, status: "warning", detail: "The provider registry could not be read." };
+      }
+    }
   }
 
   // ── Summary ───────────────────────────────────────────────────────────────────

@@ -41,6 +41,11 @@ const OPENAI = { provider: "openai", model: "gpt-4.1" } as const;
 // Verified for text, tool calls and vision by provider-smoke.
 const LUNA = { provider: "openai", model: "gpt-5.6-luna" } as const;
 const GEMINI = { provider: "gemini", model: "gemini-flash-latest" } as const;
+// Straight after flash-latest wherever Gemini is a fallback, never where it
+// leads: flash-latest is parked (PAUSED_MODELS in aiProvider.ts) and flash-lite
+// passes text, vision and structured output in provider-smoke. Whether it can
+// lead a chain is a quality question that has not been tested.
+const GEMINI_LITE = { provider: "gemini", model: "gemini-flash-lite-latest" } as const;
 const GROQ = { provider: "groq", model: "openai/gpt-oss-20b" } as const;
 const MISTRAL = { provider: "mistral", model: "ministral-14b-latest" } as const;
 
@@ -78,10 +83,10 @@ const GEMINI_FIRST = new Set([
 ]);
 
 export function assistantTargets(id: string): ProviderTarget[] {
-  if (OPENAI_FIRST.has(id)) return [OPENAI, LUNA, GEMINI, MISTRAL, GROQ];
+  if (OPENAI_FIRST.has(id)) return [OPENAI, LUNA, GEMINI, GEMINI_LITE, MISTRAL, GROQ];
   if (GEMINI_FIRST.has(id)) return [GEMINI, GROQ, MISTRAL, OPENAI, LUNA];
-  if (MISTRAL_FIRST.has(id)) return [MISTRAL, GEMINI, GROQ, OPENAI, LUNA];
-  return [GROQ, GEMINI, MISTRAL, OPENAI, LUNA];
+  if (MISTRAL_FIRST.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ, OPENAI, LUNA];
+  return [GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA];
 }
 
 // Convenience: most assistants share provider/model; only prompt differs.

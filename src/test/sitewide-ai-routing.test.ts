@@ -9,10 +9,10 @@ describe("site-wide AI provider routing", () => {
 
     expect(assistants).toContain('"legal-advisor", "medical-support"');
     expect(assistants).toContain('"travel-agency", "educational-empire", "music-conservatory", "tech-consulting"');
-    expect(assistants).toContain('if (OPENAI_FIRST.has(id)) return [OPENAI, LUNA, GEMINI, MISTRAL, GROQ]');
+    expect(assistants).toContain('if (OPENAI_FIRST.has(id)) return [OPENAI, LUNA, GEMINI, GEMINI_LITE, MISTRAL, GROQ]');
     expect(assistants).toContain('if (GEMINI_FIRST.has(id)) return [GEMINI, GROQ, MISTRAL, OPENAI, LUNA]');
-    expect(assistants).toContain('if (MISTRAL_FIRST.has(id)) return [MISTRAL, GEMINI, GROQ, OPENAI, LUNA]');
-    expect(assistants).toContain('return [GROQ, GEMINI, MISTRAL, OPENAI, LUNA]');
+    expect(assistants).toContain('if (MISTRAL_FIRST.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ, OPENAI, LUNA]');
+    expect(assistants).toContain('return [GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA]');
     expect(assistants).toContain('model: "gemini-flash-latest"');
     expect(assistants).toContain('model: "openai/gpt-oss-20b"');
     expect(assistants).toContain('model: "ministral-14b-latest"');
@@ -23,8 +23,8 @@ describe("site-wide AI provider routing", () => {
 
     expect(generators).toContain('"travel-itinerary", "career-roadmap", "tech-troubleshooting-plan"');
     expect(generators).toContain('if (GEMINI_GENERATORS.has(id)) return [GEMINI, GROQ, MISTRAL, OPENAI]');
-    expect(generators).toContain('if (MISTRAL_GENERATORS.has(id)) return [MISTRAL, GEMINI, GROQ, OPENAI]');
-    expect(generators).toContain('return [GROQ, GEMINI, MISTRAL, OPENAI]');
+    expect(generators).toContain('if (MISTRAL_GENERATORS.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ, OPENAI]');
+    expect(generators).toContain('return [GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI]');
   });
 
   it("uses Gemini first for image analysis with OpenAI fallback", () => {

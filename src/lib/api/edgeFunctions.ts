@@ -809,8 +809,10 @@ export async function callImageToolsGenerate(
 
 export interface HealthCheckComponentStatus {
   ok:     boolean;
-  status: "ok" | "warning" | "error" | "missing";
+  status: "ok" | "warning" | "error" | "missing" | "paused";
   detail: string;
+  /** Why, for provider and model lines: operational, degraded, paused, missing_credentials, … */
+  state?: string;
 }
 
 export interface HealthCheckResponse {

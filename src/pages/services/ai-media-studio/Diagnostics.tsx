@@ -57,6 +57,7 @@ function StatusBadge({ status }: { status: ComponentStatus["status"] }) {
     warning: "bg-amber-500/10 text-amber-600 border-amber-500/20",
     error:   "bg-destructive/10 text-destructive border-destructive/20",
     missing: "bg-muted text-muted-foreground border-border",
+    paused:  "bg-muted text-muted-foreground border-border",
   };
   return (
     <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded border", variants[status])}>

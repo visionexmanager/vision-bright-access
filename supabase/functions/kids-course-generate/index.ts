@@ -56,6 +56,7 @@ const PROVIDER_TARGETS: ProviderTarget[] = [
   { provider: "groq", model: "openai/gpt-oss-120b" },
   { provider: "mistral", model: "ministral-14b-latest" },
   { provider: "gemini", model: "gemini-flash-latest" },
+  { provider: "gemini", model: "gemini-flash-lite-latest" }, // flash-latest is parked (PAUSED_MODELS)
 ];
 
 const COURSE_SCHEMA = {
