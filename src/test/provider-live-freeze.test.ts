@@ -118,6 +118,36 @@ describe("no live chain is left without a working model", () => {
     expect(live(travel)[0].provider).toBe("groq");
   });
 
+  it("Phase 1: flash-lite leads the Gemini-first generators (it passed their contract), not the Gemini-first assistants (Groq did better)", () => {
+    for (const id of ["travel-itinerary", "career-roadmap", "tech-troubleshooting-plan", "training-curriculum"]) {
+      expect(live(generators.generatorTargets(id)).map((t) => t.model).slice(0, 2), id)
+        .toEqual(["gemini-flash-lite-latest", "openai/gpt-oss-20b"]);
+    }
+    for (const id of ["travel-agency", "educational-empire", "tech-consulting"]) {
+      expect(live(assistants.assistantTargets(id))[0], id).toEqual({ provider: "groq", model: "openai/gpt-oss-20b" });
+    }
+  });
+
+  it("Phase 1: Luna is the last resort of every generator chain", () => {
+    for (const id of ["travel-itinerary", "content-writer", "no-such-generator"]) {
+      const chain = generators.generatorTargets(id);
+      expect(chain.at(-1), id).toEqual({ provider: "openai", model: "gpt-5.6-luna" });
+      expect(chain.at(-2), id).toEqual({ provider: "openai", model: "gpt-4o" });
+    }
+  });
+
+  it("Phase 1: documents read as text (PDF text layer, DOC/DOCX, TXT) span three live vendors", () => {
+    const text = source("supabase/functions/_shared/whatsappUnderstand.ts");
+    const start = text.indexOf("const TEXT_READERS");
+    const chain = [...text.slice(start, text.indexOf("];", start)).matchAll(/provider: "([a-z]+)", model: "([^"]+)"/g)]
+      .map((m) => ({ provider: m[1], model: m[2] }));
+    expect(live(chain).map((t) => `${t.provider}/${t.model}`)).toEqual([
+      "openai/gpt-4o-mini", "openai/gpt-5.6-luna", "gemini/gemini-flash-lite-latest", "mistral/ministral-14b-latest",
+    ]);
+    expect(text).toContain("export const DOCUMENT_TARGETS: ProviderTarget[] = TEXT_READERS;");
+    expect(text).toContain("export const DOCUMENT_TEXT_TARGETS: ProviderTarget[] = TEXT_READERS;");
+  });
+
   it("site image analysis is led by gpt-4o while flash-latest is parked, with flash-lite behind it", () => {
     const analysts = source("supabase/functions/_shared/visionAnalysts.ts");
     const chain = analysts.slice(analysts.indexOf("const VISION_TARGETS"), analysts.indexOf("];", analysts.indexOf("const VISION_TARGETS")));
@@ -233,6 +263,15 @@ describe("health-check tells parked from healthy", () => {
     expect(admin).toContain('status: "paused"');
     // A row still marked active whose secret is missing is not reported as fine.
     expect(admin).toContain('state:  "missing_credentials"');
+  });
+
+  it("reports every parked provider as paused and every untested live route as unverified, without probing either", () => {
+    const admin = health.slice(health.indexOf("if (isAdmin) {"));
+    expect(admin).toContain("for (const [provider, reason] of PARKED_PROVIDERS)");
+    expect(admin).toMatch(/results\[`provider_parked_\$\{provider\}`\] = \{\s*ok:\s*false,\s*status: "paused",\s*state:\s*"paused"/);
+    for (const route of ["openai_image", "openai_realtime", "mistral_tts"]) expect(admin).toContain(`["${route}",`);
+    expect(admin).toContain('state: "unverified"');
+    expect(health).toContain('| "unverified"');
   });
 
   it("no longer reports ElevenLabs as ok when its key is missing", () => {

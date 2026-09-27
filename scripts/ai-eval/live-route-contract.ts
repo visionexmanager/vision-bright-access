@@ -46,7 +46,7 @@ async function run(route: string, target: ProviderTarget, fn: () => Promise<Reco
   const started = Date.now();
   let checks: Record<string, boolean> = {};
   let error = "";
-  let timer: number | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     // A route that neither answers nor fails is a failure too, not a hung run.
     const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject({ status: "timeout" }), 90_000); });

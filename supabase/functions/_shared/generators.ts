@@ -75,6 +75,10 @@ export const GENERATION_SCHEMA = {
 const DEFAULT_PROVIDER: AIProvider = "openai";
 const DEFAULT_MODEL = "gpt-4o";
 const OPENAI = { provider: "openai", model: "gpt-4o" } as const;
+// The last resort after gpt-4o, on the same key: it returns every generator's
+// plan schema in the live route contract probe, though slowly (11–17 s), which
+// is why it is last and not earlier.
+const LUNA = { provider: "openai", model: "gpt-5.6-luna" } as const;
 const GEMINI = { provider: "gemini", model: "gemini-flash-latest" } as const;
 // As in assistants.ts: after flash-latest where Gemini is a fallback, never where it leads.
 const GEMINI_LITE = { provider: "gemini", model: "gemini-flash-lite-latest" } as const;
@@ -90,9 +94,12 @@ const GEMINI_GENERATORS = new Set([
 ]);
 
 export function generatorTargets(id: string): ProviderTarget[] {
-  if (GEMINI_GENERATORS.has(id)) return [GEMINI, GROQ, MISTRAL, OPENAI];
-  if (MISTRAL_GENERATORS.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ, OPENAI];
-  return [GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI];
+  // flash-lite leads while flash-latest is parked: in the live route contract
+  // probe it returned all four of these plans in schema and in Arabic, where
+  // Groq, the chain's next model, was refused (HTTP 400) on two of the four.
+  if (GEMINI_GENERATORS.has(id)) return [GEMINI, GEMINI_LITE, GROQ, MISTRAL, OPENAI, LUNA];
+  if (MISTRAL_GENERATORS.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ, OPENAI, LUNA];
+  return [GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA];
 }
 
 const LANG_NOTE =

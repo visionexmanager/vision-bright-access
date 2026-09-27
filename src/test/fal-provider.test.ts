@@ -257,7 +257,7 @@ describe("video-studio wiring", () => {
     expect(factory).toContain("if (!opts.existingJob && !opts.falRoutable) throw new Error");
     expect(generate).toContain('await providerRoutableIn(dbService, "fal-video")');
     // The registry is not even asked when Luma can serve "auto".
-    expect(generate).toMatch(/\(name === "fal" \|\| \(name === "auto" && \(parkedProviderReason\("luma"\) \|\| !Deno\.env\.get\("LUMA_API_KEY"\)\)\)\)\s*&& await providerRoutableIn/);
+    expect(generate).toMatch(/\(name === "fal" \|\| \(name === "auto" && \(!!parkedProviderReason\("luma"\) \|\| !Deno\.env\.get\("LUMA_API_KEY"\)\)\)\)\s*&& await providerRoutableIn/);
   });
 
   it("a running FAL job is polled and cancelled even if the row is later switched off", () => {

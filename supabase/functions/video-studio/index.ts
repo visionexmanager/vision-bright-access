@@ -546,7 +546,7 @@ async function handleGenerate(
   try {
     const name = (providerName as string) || "auto";
     // The registry is asked only when FAL could be the answer.
-    const falRoutable = (name === "fal" || (name === "auto" && (parkedProviderReason("luma") || !Deno.env.get("LUMA_API_KEY"))))
+    const falRoutable = (name === "fal" || (name === "auto" && (!!parkedProviderReason("luma") || !Deno.env.get("LUMA_API_KEY"))))
       && await providerRoutableIn(dbService, "fal-video");
     provider = getProvider(name, { falRoutable });
   } catch (err) {

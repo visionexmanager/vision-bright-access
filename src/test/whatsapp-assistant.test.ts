@@ -914,7 +914,7 @@ describe("attachment understanding", () => {
     const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
     // A PDF no longer needs a provider that accepts PDFs — its text is
     // extracted locally — so only video is still gated on an unfunded chain.
-    expect(source).toContain("export const DOCUMENT_TARGETS: ProviderTarget[] = VISION_TARGETS;");
+    expect(source).toContain("export const DOCUMENT_TARGETS: ProviderTarget[] = TEXT_READERS;");
     expect(source).toContain("export const VIDEO_TARGETS: ProviderTarget[] = [];");
 
     // An empty chain must short-circuit, not fall through to the provider layer
@@ -964,7 +964,7 @@ describe("attachment understanding", () => {
     // Asserted against the source, not the module: whatsappUnderstand.ts
     // imports the Deno provider layer and cannot be loaded under Node.
     const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
-    expect(source).toContain("export const DOCUMENT_TEXT_TARGETS: ProviderTarget[] = VISION_TARGETS;");
+    expect(source).toContain("export const DOCUMENT_TEXT_TARGETS: ProviderTarget[] = TEXT_READERS;");
     // The condition gained a second shape rather than changing meaning. An
     // Office file is unpacked into words before any model sees it, so by the
     // time a provider is chosen there is no document left to require one that
@@ -972,11 +972,12 @@ describe("attachment understanding", () => {
     expect(source).toContain('const textShaped = shape === "text" || shape === "office";');
     expect(source).toContain("textShaped ? DOCUMENT_TEXT_TARGETS : DOCUMENT_TARGETS");
 
-    // VISION_TARGETS is the chain it borrows, so it inherits a real fallback.
-    const vision = source.slice(source.indexOf("export const VISION_TARGETS"));
+    // TEXT_READERS spans three vendors, so one outage is never the end of it.
+    const vision = source.slice(source.indexOf("const TEXT_READERS"));
     const block = vision.slice(0, vision.indexOf("];"));
     expect(block).toContain('provider: "openai"');
     expect(block).toContain('provider: "gemini"');
+    expect(block).toContain('provider: "mistral"');
   });
 
   it("tells the user what to do when an attachment cannot be read", () => {

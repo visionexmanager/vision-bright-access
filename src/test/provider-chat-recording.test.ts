@@ -189,16 +189,17 @@ describe("the structured loop records every attempt, and tells chat from vision 
   });
 
   it("the same vision-capable chain carrying only text is recorded as chat", async () => {
-    // whatsappUnderstand sends decoded text documents down VISION_TARGETS with
-    // no image: the chain's name does not decide the kind, the request does.
+    // whatsappUnderstand sends decoded text documents down TEXT_READERS — a chain
+    // that also holds vision models — with no image: the chain does not decide
+    // the kind, the request does.
     allKeys();
     fakeFetch({ [OPENAI]: [{ status: 200, body: toolReply({ ok: true }) }] });
     const attempts = capture();
 
     // (whatsappUnderstand imports an npm module, so its chain is read, not imported.)
     const understand = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
-    expect(understand).toContain("export const DOCUMENT_TEXT_TARGETS: ProviderTarget[] = VISION_TARGETS;");
-    const VISION_TARGETS = [...(/export const VISION_TARGETS[^=]*=\s*\[([\s\S]*?)\];/.exec(understand)?.[1] ?? "")
+    expect(understand).toContain("export const DOCUMENT_TEXT_TARGETS: ProviderTarget[] = TEXT_READERS;");
+    const VISION_TARGETS = [...(/const TEXT_READERS[^=]*=\s*\[([\s\S]*?)\];/.exec(understand)?.[1] ?? "")
       .matchAll(/provider: "(\w+)", model: "([^"]+)"/g)].map((m) => ({ provider: m[1] as "openai", model: m[2] }));
     expect(VISION_TARGETS.length).toBeGreaterThan(0);
     await ai.structuredCompletionWithFallback(structuredParams(VISION_TARGETS));
