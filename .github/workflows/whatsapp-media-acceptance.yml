@@ -1,0 +1,42 @@
+name: WhatsApp media acceptance
+
+# Asks Meta which of the formats Visionex produces it will take for a WhatsApp
+# message: a one-second sample of each, made with the media processor's own
+# ffmpeg arguments, uploaded to the phone number's media store and deleted
+# straight after. Nothing is sent to anybody — an upload is not a message.
+# See scripts/ai-eval/whatsapp-media-acceptance.mjs.
+#
+# The repository is public: the script prints formats, labels, HTTP statuses and
+# Meta's error codes only, never the token, the phone number id or a media id.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/ai-eval/whatsapp-media-acceptance.mjs
+      - .github/workflows/whatsapp-media-acceptance.yml
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    name: WhatsApp media acceptance
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+
+      - name: Upload one sample per format
+        env:
+          WHATSAPP_TOKEN:           ${{ secrets.WHATSAPP_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+        run: node scripts/ai-eval/whatsapp-media-acceptance.mjs
