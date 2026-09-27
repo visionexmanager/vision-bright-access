@@ -18,6 +18,7 @@ import {
   geminiStructuredCompletion,
 } from "./geminiProvider.ts";
 import { providerErrorSummary } from "./providerInput.ts";
+import { parkedProviderReason } from "./providerState.ts";
 
 export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral" | "openrouter";
 
@@ -69,8 +70,15 @@ export function providerHasCredential(provider: AIProvider): boolean {
   return !!Deno.env.get(CREDENTIAL_ENV[provider])?.trim();
 }
 
-function refusePaused(target: { provider: AIProvider; model: string }): void {
-  if (pausedReason(target)) throw new ProviderError(503, `${target.provider}/${target.model} is paused`);
+/**
+ * A direct call is held to the same rules as a chain: a parked model, a parked
+ * provider, or a target the registry excludes (an activation-gated provider
+ * not switched on) is refused before any request, whoever named it.
+ */
+function refuseUnroutable(target: { provider: AIProvider; model: string }, kind: AttemptKind): void {
+  if (pausedReason(target) || parkedProviderReason(target.provider) || registryVerdictOf(target, kind) === "excluded") {
+    throw new ProviderError(503, `${target.provider}/${target.model} is not available`);
+  }
 }
 
 export interface ProviderChatParams {
@@ -237,7 +245,7 @@ function asProviderError(e: unknown): never {
 export async function streamChatCompletion(
   params: ProviderChatParams,
 ): Promise<ReadableStream<Uint8Array>> {
-  refusePaused(params);
+  refuseUnroutable(params, "chat");
   if (params.provider === "anthropic") return streamAnthropic(params);
   if (params.provider === "gemini") {
     return geminiStreamChatCompletion({
@@ -442,11 +450,23 @@ export function setProviderRegistryView(view: RegistryView | null): void {
   registryView = view;
 }
 
+/** The registry's verdict on one target; gated providers are excluded unless it says otherwise. */
+function registryVerdictOf(t: ProviderTarget, kind: AttemptKind): RegistryVerdict {
+  let verdict: RegistryVerdict = ACTIVATION_GATED.has(t.provider) ? "excluded" : "ready";
+  try {
+    const said = registryView?.verdict(t, kind);
+    if (said) verdict = said;
+  } catch { /* a view that throws says nothing: gated stays excluded, the rest ready */ }
+  if (ACTIVATION_GATED.has(t.provider) && !registryView) verdict = "excluded";
+  return verdict;
+}
+
 /**
  * The chain in the order it will be tried: targets in good standing first, in
  * policy order; then the registry's own targets; then registry-demoted ones;
  * then cooling ones, soonest to recover first. Excluded targets — rows an
- * admin switched off, gated providers not switched on, and PAUSED_MODELS — are dropped;
+ * admin switched off, gated providers not switched on, PAUSED_MODELS and
+ * PARKED_PROVIDERS (providerState.ts) — are dropped;
  * nothing else is.
  */
 export function orderTargets(
@@ -463,13 +483,8 @@ export function orderTargets(
   const seen = new Set(targets.map(targetKey));
   const all = [...targets, ...extras.filter((t) => !seen.has(targetKey(t)))];
   for (const t of all) {
-    if (pausedReason(t)) continue;
-    let verdict: RegistryVerdict = ACTIVATION_GATED.has(t.provider) ? "excluded" : "ready";
-    try {
-      const said = registryView?.verdict(t, kind);
-      if (said) verdict = said;
-    } catch { /* a view that throws says nothing: gated stays excluded, the rest ready */ }
-    if (ACTIVATION_GATED.has(t.provider) && !registryView) verdict = "excluded";
+    if (pausedReason(t) || parkedProviderReason(t.provider)) continue;
+    const verdict = registryVerdictOf(t, kind);
     if (verdict === "excluded") continue;
     const until = cooldownUntil.get(targetKey(t)) ?? 0;
     if (until > now) { cooling.push([t, until]); continue; }
@@ -712,7 +727,7 @@ export async function structuredCompletion(p: StructuredParams): Promise<unknown
 
 /** The structured result, plus the provider's token usage where it reports one. */
 async function structuredCompletionDetailed(p: StructuredParams): Promise<{ result: unknown; usage?: AttemptUsage }> {
-  refusePaused(p);
+  refuseUnroutable(p, p.image ? "vision" : "chat");
   if (p.provider === "anthropic") return { result: await structuredAnthropic(p) };
   if (p.provider === "gemini") {
     const { data } = await geminiStructuredCompletion({

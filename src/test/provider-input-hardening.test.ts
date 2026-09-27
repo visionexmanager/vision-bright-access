@@ -286,7 +286,7 @@ describe("the wiring", () => {
 
   it("image-tools-generate refuses while Replicate is parked, before charging a daily unit or writing a job", () => {
     const handler = src("image-tools-generate").slice(src("image-tools-generate").indexOf("Deno.serve("));
-    const parked = handler.indexOf('if (!Deno.env.get("REPLICATE_API_TOKEN")?.trim())');
+    const parked = handler.indexOf('if (parkedProviderReason("replicate") || !Deno.env.get("REPLICATE_API_TOKEN")?.trim())');
     expect(parked).toBeGreaterThan(0);
     expect(parked).toBeLessThan(handler.indexOf("chargeDailyLimit("));
     expect(parked).toBeLessThan(handler.indexOf('provider: "replicate", status: "processing"'));

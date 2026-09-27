@@ -237,9 +237,15 @@ describe("reading what the database returned", () => {
 });
 
 describe("resolving a selection into something that can speak", () => {
-  it("passes a cloned voice through with its provider and model", () => {
-    expect(readResolvedVoice({ provider: "elevenlabs", voice_id: "el_abc", model: "eleven_multilingual_v2" }))
-      .toEqual({ provider: "elevenlabs", voice: "el_abc", model: "eleven_multilingual_v2" });
+  it("speaks an ElevenLabs voice with the default while ElevenLabs is parked", () => {
+    // Parked in providerState.ts: a stored ElevenLabs voice must not select it,
+    // key or no key. The default voice answers instead of nothing.
+    expect(readResolvedVoice({ provider: "elevenlabs", voice_id: "el_abc", model: "eleven_multilingual_v2" })).toBeNull();
+  });
+
+  it("passes a Mistral cloned voice through with its provider and model", () => {
+    expect(readResolvedVoice({ provider: "mistral", voice_id: "mv_abc", model: "voxtral-mini-tts-2603" }))
+      .toEqual({ provider: "mistral", voice: "mv_abc", model: "voxtral-mini-tts-2603" });
   });
 
   it("falls back to the default whenever there is nothing usable", () => {
@@ -252,8 +258,8 @@ describe("resolving a selection into something that can speak", () => {
   });
 
   it("supplies the model when the row has none", () => {
-    expect(readResolvedVoice({ provider: "elevenlabs", voice_id: "el_abc" })?.model)
-      .toBe("eleven_multilingual_v2");
+    expect(readResolvedVoice({ provider: "mistral", voice_id: "mv_abc" })?.model)
+      .toBe("voxtral-mini-tts-2603");
   });
 });
 

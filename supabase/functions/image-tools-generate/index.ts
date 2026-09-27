@@ -8,6 +8,7 @@
  * Actions: generate | poll (predictions are async — mirrors the video-studio pattern)
  */
 
+import { parkedProviderReason } from "../_shared/providerState.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
@@ -213,10 +214,10 @@ Deno.serve(async (req: Request) => {
   // Only starting a job is charged against the daily ceiling; polling one is
   // free, so a client waiting on a prediction never exhausts it (Phase 2F-2).
   //
-  // Replicate is parked while this runtime has no REPLICATE_API_TOKEN: the
+  // Replicate is parked (providerState.ts), and needs its token besides: the
   // request is refused before it costs the caller a daily-limit unit or leaves
-  // a failed job behind. Adding the secret is the whole of reactivating it.
-  if (!Deno.env.get("REPLICATE_API_TOKEN")?.trim()) {
+  // a failed job behind. A token alone does not reactivate it.
+  if (parkedProviderReason("replicate") || !Deno.env.get("REPLICATE_API_TOKEN")?.trim()) {
     return json({
       ok: false,
       code: "provider_unavailable",

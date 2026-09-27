@@ -22,6 +22,7 @@
 //
 // Pure. No `Deno`, no fetch, no database client.
 
+import { parkedProviderReason } from "./providerState.ts";
 import type { Language } from "./whatsappCatalog.ts";
 import { say } from "./whatsappStrings.ts";
 
@@ -176,7 +177,8 @@ export function readResolvedVoice(row: unknown): ResolvedVoice | null {
       : "voxtral-mini-tts-2603";
     return { provider: "mistral", voice, model };
   }
-  if (record.provider !== "elevenlabs") return null;
+  // ElevenLabs is parked (providerState.ts): the default voice speaks instead.
+  if (record.provider !== "elevenlabs" || parkedProviderReason("elevenlabs")) return null;
   const model = typeof record.model === "string" && record.model
     ? record.model
     : "eleven_multilingual_v2";

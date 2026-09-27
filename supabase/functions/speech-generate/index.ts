@@ -9,6 +9,7 @@
  * Returns: JSON { ok, job_id, asset_id, audio_base64, mime_type, duration_sec, size_bytes }
  */
 
+import { parkedProviderReason } from "../_shared/providerState.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
@@ -32,6 +33,8 @@ import {
 // sentences in `describeTtsFailure` were written for this screen.
 
 function speechProviderOf(name: string): TtsProvider {
+  // A parked provider cannot be named into service (providerState.ts).
+  if (parkedProviderReason(name)) throw new Error(`Speech provider "${name}" is not configured.`);
   if (name === "openai" || name === "elevenlabs" || name === "mistral") return name;
   throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs, mistral`);
 }

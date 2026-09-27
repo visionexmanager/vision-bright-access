@@ -136,7 +136,7 @@ describe("providers with no credential are skipped, not tried", () => {
 
   it("Career AI skips a provider without a key, and a parked model, in both loops", () => {
     const career = source("supabase/functions/_shared/careerAiOrchestrator.ts");
-    expect(career).toMatch(/function careerTargetLive\(provider: CareerAiProvider, model: string\): boolean \{\s*return providerHasCredential\(provider\) && !pausedReason\(\{ provider, model \}\);/);
+    expect(career).toMatch(/function careerTargetLive\(provider: CareerAiProvider, model: string\): boolean \{\s*return !parkedProviderReason\(provider\) && providerHasCredential\(provider\) && !pausedReason\(\{ provider, model \}\);/);
     expect(career.match(/const model = MODEL_MATRIX\[provider\]\[tier\];\s*if \(!careerTargetLive\(provider, model\)\) continue;/g)).toHaveLength(2);
     // Anthropic keeps its place and its model: parked, not deleted.
     expect(career).toContain('["openai", "groq", "mistral", "anthropic"]');

@@ -16,6 +16,7 @@
 // Handles: create profile, start training, cancel training, profile management
 // Provider abstraction: ElevenLabsVoiceProvider | MistralVoiceProvider
 
+import { parkedProviderReason } from "../_shared/providerState.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -239,7 +240,8 @@ class MistralVoiceProvider implements VoiceProvider {
 // rather than a fake successful clone that can never actually speak.
 
 function getProvider(): VoiceProvider {
-  const elevenLabsKey = Deno.env.get("ELEVENLABS_API_KEY");
+  // ElevenLabs is parked (providerState.ts): its key alone does not select it.
+  const elevenLabsKey = parkedProviderReason("elevenlabs") ? undefined : Deno.env.get("ELEVENLABS_API_KEY");
   if (elevenLabsKey) return new ElevenLabsVoiceProvider(elevenLabsKey);
   const mistralKey = Deno.env.get("MISTRAL_API_KEY");
   if (mistralKey) return new MistralVoiceProvider(mistralKey);

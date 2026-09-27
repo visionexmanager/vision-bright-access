@@ -1,0 +1,45 @@
+name: Live route contracts
+
+# Runs the production chat, generator, document and vision modules against the
+# LIVE models only, and checks each route's own contract (schema, stream,
+# language). See scripts/ai-eval/live-route-contract.ts.
+#
+# Only the four live providers' keys are passed, so no parked provider can be
+# called from here — unlike provider-smoke, whose Diagnose step reaches
+# OpenRouter, NIM, Bytez and FAL. The repository is public: the script prints
+# verdicts, latencies and booleans, never a prompt, an answer or a key.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/ai-eval/live-route-contract.ts
+      - .github/workflows/live-route-contract.yml
+
+concurrency:
+  group: live-route-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Live route contracts
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Probe live routes
+        env:
+          OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
+          GROQ_API_KEY:    ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+        run: deno run --no-lock --node-modules-dir=none --allow-env --allow-net --allow-read --allow-sys scripts/ai-eval/live-route-contract.ts
