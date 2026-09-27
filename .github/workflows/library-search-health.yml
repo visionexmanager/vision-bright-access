@@ -71,7 +71,7 @@ jobs:
                  --data-urlencode "iso_timestamp_start=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
                  --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
-          shape() { jq -c 'if .error then {error: (.error | tostring | .[0:300])} else .result end'; }
+          shape() { jq -c 'if .result then .result else {keys: keys, error: ((.error // .message // "") | tostring | .[0:300])} end'; }
           say ""; say "## Worker calls at the gateway, last 24h"
           logs "select t.timestamp, resp.status_code
                   from edge_logs as t
