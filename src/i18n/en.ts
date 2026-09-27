@@ -1,4 +1,5 @@
 export const translations: Record<string, string> = {
+  "services.signInToUse": "Sign in to use this service.",
   "common.dismiss": "Dismiss",
   "footer.legal": "Legal",
   "footer.marketplace": "Marketplace",

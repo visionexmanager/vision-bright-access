@@ -24,6 +24,22 @@ verify_jwt = false
 [functions.health-check]
 verify_jwt = false
 
+# Public site endpoints: the site calls them with the publishable key, which is
+# not a JWT, so a gateway check rejected every caller with 401 before the
+# function ran. Each limits anonymous callers itself (allowCaller) and treats a
+# signed-in user as one. Listed in the deploy script too.
+[functions.ai-search]
+verify_jwt = false
+
+[functions.contact-form]
+verify_jwt = false
+
+[functions.library-semantic-search]
+verify_jwt = false
+
+[functions.library-ai-search]
+verify_jwt = false
+
 [functions.news-generate]
 verify_jwt = false
 

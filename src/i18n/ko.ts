@@ -1,4 +1,5 @@
 export const translations: Record<string, string> = {
+  "services.signInToUse": "이 서비스를 이용하려면 로그인하세요.",
   "common.dismiss": "닫기",
   "footer.legal": "법무",
   "footer.marketplace": "마켓플레이스",

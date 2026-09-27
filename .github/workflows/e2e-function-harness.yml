@@ -1,0 +1,51 @@
+name: Edge Function end-to-end
+
+# Runs the Edge Functions a user reaches — their own handlers, the router, the
+# real providers and the real media processor — against a local Supabase stub.
+# See scripts/e2e/function-harness.ts.
+#
+# Nothing here touches production data, and nobody is messaged: Supabase is a
+# stub on localhost, and every Graph API call is intercepted and recorded. The
+# WhatsApp token passed is a dummy; the app secret only signs the harness's own
+# synthetic inbound message. Only live providers' keys are passed.
+#
+# The repository is public: the harness prints statuses, shapes, sizes and
+# booleans, never a key, a prompt, an answer or a media URL.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/e2e/function-harness.ts
+      - .github/workflows/e2e-function-harness.yml
+      - scripts/e2e/**
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Edge Function end-to-end
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run the functions
+        env:
+          OPENAI_API_KEY:           ${{ secrets.OPENAI_API_KEY }}
+          GROQ_API_KEY:             ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY:           ${{ secrets.GEMINI_API_KEY }}
+          MISTRAL_API_KEY:          ${{ secrets.MISTRAL_API_KEY }}
+          MEDIA_PROCESSOR_URL:      https://visionex.app/internal/media
+          MEDIA_PROCESSOR_TOKEN:    ${{ secrets.PROCESSOR_TOKEN }}
+          WHATSAPP_APP_SECRET:      ${{ secrets.WHATSAPP_APP_SECRET }}
+          WHATSAPP_PHONE_NUMBER_ID: "000000000000000"
+          WHATSAPP_TOKEN:           stub-token-never-sent
+          WHATSAPP_VERIFY_TOKEN:    stub-verify
+        run: deno run --no-lock --node-modules-dir=none --import-map=scripts/e2e/import-map.json -A scripts/e2e/function-harness.ts

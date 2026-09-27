@@ -2,6 +2,7 @@ import { translationsPart } from "./chunks/hi";
 
 export const translations: Record<string, string> = {
   ...translationsPart,
+  "services.signInToUse": "इस सेवा का उपयोग करने के लिए साइन इन करें।",
   "careersPage.dashboard.user.title": "आपका करियर डैशबोर्ड",
   "careersPage.dashboard.user.subtitle": "लॉग-इन उम्मीदवार को क्या दिखता है—एक नज़र में।",
   "careersPage.dashboard.user.savedJobs": "सेव किए गए जॉब्स",
