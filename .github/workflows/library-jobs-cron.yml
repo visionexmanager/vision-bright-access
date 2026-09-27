@@ -1,0 +1,53 @@
+# Library background jobs — the worker nobody called.
+#
+# library-process-background-jobs claims a small batch of pending rows from
+# library_background_jobs and runs them: classify_and_index_book (the
+# embedding Library search reads) and organization_scheduled_report. It only
+# runs when something calls it, and until this workflow nothing did — no
+# pg_cron job, no scheduler — so the queue never moved and search found
+# nothing (library-search-health.yml, 2026-09-27).
+#
+# Authenticated by the `x-cron-secret` header against CRON_SECRET; the
+# function is in the deploy script's NO_VERIFY_JWT list, so the gateway lets
+# the call through to that check.
+#
+# This repository is public and so are its logs: counts only, never the body.
+name: Library background jobs
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: library-background-jobs
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: Run one batch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the worker
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::Repository secrets SUPABASE_URL and CRON_SECRET must be configured."
+            exit 1
+          fi
+          status=$(curl -sS -o response.json -w '%{http_code}' -X POST \
+            "$SUPABASE_URL/functions/v1/library-process-background-jobs" \
+            -H "x-cron-secret: $CRON_SECRET" -H "Content-Type: application/json" \
+            --data '{"batch_size":10}')
+          node -e '
+            const r = JSON.parse(require("fs").readFileSync("response.json", "utf8"));
+            if (!r.ok) process.exit(1);
+            console.log(`processed=${r.processed} failed=${r.failed}`);
+          ' || { echo "::error::library-process-background-jobs answered HTTP $status"; exit 1; }
+          rm -f response.json

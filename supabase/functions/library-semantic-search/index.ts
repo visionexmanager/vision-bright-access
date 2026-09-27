@@ -55,10 +55,6 @@ Deno.serve(async (req: Request) => {
 
   // Every search is a paid embedding call, and this endpoint needs no account.
   const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  // Public at the gateway (verify_jwt = false in config.toml and the deploy
-  // script): the site calls this with the publishable key, which is not a JWT,
-  // and a gateway check rejected every caller with 401 before this line ran.
-  // This limit is therefore what stands between a stranger and the work below.
   if (!(await allowCaller(service, req, "library-semantic-search"))) {
     return json({ error: "Too many searches from this connection today. Please try again later." }, 429, cors);
   }

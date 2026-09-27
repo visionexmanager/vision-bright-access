@@ -61,10 +61,9 @@ Deno.serve(async (req: Request) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const client = createClient(supabaseUrl, anonKey);
 
-  // Public at the gateway (verify_jwt = false: the site calls it with the
-  // publishable key, which is not a JWT), so this is the only thing between a
-  // stranger and a paid embedding call — the same limit library-semantic-search
-  // applies, before any provider is asked.
+  // Signed-out visitors reach this with the site's publishable key, so every
+  // call can cost a paid embedding: the same per-connection limit
+  // library-semantic-search applies, before any provider is asked.
   const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   if (!(await allowCaller(service, req, "library-ai-search"))) {
     return json({ error: "Too many searches from this connection today. Please try again later." }, 429, cors);
