@@ -1,0 +1,57 @@
+name: Library search health
+
+# Why does Library search return nothing? Semantic search reads
+# library_books.embedding, which library-process-background-jobs writes — a
+# worker that only runs when a scheduler calls it. This reads, without writing
+# anything: which schedules exist (name, schedule, active — never the command,
+# which may carry a secret), what the job queue holds, and how many published
+# books are searchable.
+#
+# The repository is public: counts, names and dates only.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/library-search-health.yml
+
+permissions:
+  contents: read
+
+jobs:
+  read:
+    name: Read the Library's search state
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          ask() {
+            curl -s -X POST "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query:$q}')"
+          }
+          block() { say ""; say "## $1"; say '```json'; ask "$2" | tee -a "$GITHUB_STEP_SUMMARY"; echo; say '```'; }
+
+          say "# Library search health"
+          block "Scheduled jobs (pg_cron)" "
+            SELECT jobname, schedule, active FROM cron.job ORDER BY jobname;"
+          block "Library background job queue" "
+            SELECT job_type, status, count(*) AS jobs, min(created_at)::date AS oldest, max(created_at)::date AS newest
+              FROM public.library_background_jobs GROUP BY 1, 2 ORDER BY 1, 2;"
+          block "Published books: searchable?" "
+            SELECT count(*) FILTER (WHERE publish_status = 'published') AS published,
+                   count(*) FILTER (WHERE publish_status = 'published' AND embedding IS NOT NULL) AS with_embedding,
+                   count(*) FILTER (WHERE publish_status = 'published' AND auto_classified_at IS NOT NULL) AS classified,
+                   count(*) AS all_books
+              FROM public.library_books;"
+          block "Latest worker run seen in the job queue" "
+            SELECT max(updated_at) AS last_update, count(*) FILTER (WHERE status = 'completed') AS completed_ever
+              FROM public.library_background_jobs;"

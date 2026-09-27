@@ -29,15 +29,6 @@ declare -A NO_VERIFY_JWT=(
   [newsletter-preferences]=1
   [ai-chat]=1
   [health-check]=1
-  # Public site endpoints, found by the 2026-09-27 E2E audit. The site calls them with the
-  # publishable key, which is not a JWT, so the gateway answered every caller
-  # 401 before the function ran — site search, the commerce agent, the contact
-  # form, and Library search for signed-out visitors. Each limits anonymous
-  # callers itself with allowCaller, and treats a signed-in user as one.
-  [ai-search]=1
-  [contact-form]=1
-  [library-semantic-search]=1
-  [library-ai-search]=1
   [library-crypto-webhook]=1
   [library-paypal-webhook]=1
   [library-process-background-jobs]=1

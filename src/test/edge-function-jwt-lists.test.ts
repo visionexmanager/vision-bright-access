@@ -78,29 +78,6 @@ describe("the two verify_jwt lists", () => {
     }
   });
 
-  it("exempts the public site endpoints the site calls with its publishable key", () => {
-    // The publishable key is not a JWT. A gateway check on these answered every
-    // caller 401 before the function ran (found by the 2026-09-27 E2E audit):
-    // site search, the commerce agent, the contact form, Library search.
-    for (const name of ["ai-search", "contact-form", "library-semantic-search", "library-ai-search"]) {
-      expect(exemptedInDeployScript(), `${name} must stay exempt`).toContain(name);
-      expect(exemptedInConfig(), `${name} must stay exempt`).toContain(name);
-    }
-  });
-
-  it("sends the publishable key only to functions the gateway lets it through to", () => {
-    // The site's publishable key is not a JWT, so a call in "anon" mode to a
-    // function the gateway still guards is a 401 for everybody, signed in or
-    // not — which is how site search, the commerce agent and sourcing requests
-    // were all broken at once (2026-09-27 E2E audit).
-    const api = readFileSync("src/lib/api/edgeFunctions.ts", "utf8");
-    const anonCalls = [...api.matchAll(/fn:\s*"([a-z0-9-]+)"[^}]*?auth:\s*"anon"/g)].map((m) => m[1]);
-    expect(anonCalls.length).toBeGreaterThan(0);
-    for (const name of anonCalls) {
-      expect(exemptedInDeployScript(), `${name} is called with the publishable key but the gateway requires a JWT`).toContain(name);
-    }
-  });
-
   it("checks for a signed-in user before calling a function that needs one, and says so", () => {
     const radar = readFileSync("src/pages/services/RadarAI.tsx", "utf8");
     expect(radar.indexOf('toast.error(t("services.signInToUse"))')).toBeGreaterThan(0);
@@ -114,9 +91,10 @@ describe("the two verify_jwt lists", () => {
     }
   });
 
-  it("gives every public site endpoint its own limit on anonymous callers", () => {
-    // Open at the gateway means the function is the only thing between a
-    // stranger and a paid embedding call.
+  it("gives every endpoint signed-out visitors call its own limit on anonymous callers", () => {
+    // The gateway lets the site's publishable key through (checked live with
+    // the bundle's own key, 2026-09-27), so for these the function is the only
+    // thing between a stranger and a paid embedding call.
     for (const name of ["ai-search", "contact-form", "library-semantic-search", "library-ai-search"]) {
       const source = readFileSync(`supabase/functions/${name}/index.ts`, "utf8");
       expect(source, name).toMatch(/allowCaller\(/);
