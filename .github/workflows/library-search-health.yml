@@ -64,6 +64,9 @@ jobs:
         run: |
           set -uo pipefail
           say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          # The Management API's logs endpoint: one `logs` table, filtered by
+          # source_name, attributes in the log_attributes map (it replaced
+          # logs.all, which answered "removed").
           logs() {
             curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs" \
                  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
@@ -71,32 +74,36 @@ jobs:
                  --data-urlencode "iso_timestamp_start=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
                  --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
-          shape() { jq -c 'if .result then .result else {keys: keys, error: ((.error // .message // "") | tostring | .[0:300])} end'; }
-          say ""; say "## Worker calls at the gateway, last 24h"
-          logs "select t.timestamp, resp.status_code
-                  from edge_logs as t
-                  cross join unnest(t.metadata) as m
-                  cross join unnest(m.request) as r
-                  cross join unnest(m.response) as resp
-                 where r.path like '%library-process-background-jobs%'
-                 order by t.timestamp desc limit 10" | shape | tee -a "$GITHUB_STEP_SUMMARY"
+          err() { jq -c 'if .result then empty else {error: ((.error // .message // "") | tostring | .[0:300])} end'; }
           fid=$(curl -s "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/functions/library-process-background-jobs" \
                   -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" | jq -r '.id // empty')
           [ -n "$fid" ] || { say "Function id not found."; exit 0; }
-          sleep 30   # the analytics endpoint throttles hard
-          say ""; say "## Worker runs: duration and status"
-          logs "select t.timestamp, resp.status_code, m.execution_time_ms
-                  from function_edge_logs as t
-                  cross join unnest(t.metadata) as m
-                  cross join unnest(m.response) as resp
-                 where m.function_id = '$fid'
-                 order by t.timestamp desc limit 10" | shape | tee -a "$GITHUB_STEP_SUMMARY"
-          sleep 30
-          say ""; say "## What the worker printed (level, event type, first 160 characters)"
-          logs "select t.timestamp, m.level, m.event_type, t.event_message
-                  from function_logs as t
-                  cross join unnest(t.metadata) as m
-                 where m.function_id = '$fid'
-                 order by t.timestamp desc limit 40" \
-            | jq -c 'if (.result|not) then {error: ((.error // .message // "") | tostring | .[0:300])} else [.result[]? | {timestamp, level, event_type, message: (.event_message | .[0:160])}] end' \
+
+          say ""; say "## Attribute keys per source (names only)"
+          logs "select source_name, mapKeys(log_attributes) as keys from logs
+                 where source_name in ('function_edge_logs', 'function_logs')
+                 order by timestamp desc limit 1 by source_name" > k.json
+          err < k.json | tee -a "$GITHUB_STEP_SUMMARY"
+          jq -c '[.result[]? | {source_name, keys}]' k.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+          sleep 20   # the analytics endpoint throttles
+          say ""; say "## Worker runs, last 24h (method, status, path, duration)"
+          logs "select timestamp, event_message, log_attributes from logs
+                 where source_name = 'function_edge_logs' and positionCaseInsensitive(event_message, 'library-process-background-jobs') > 0
+                 order by timestamp desc limit 10" > e.json
+          err < e.json | tee -a "$GITHUB_STEP_SUMMARY"
+          jq -c '[.result[]? | {timestamp, line: (.event_message | split("?")[0]),
+                   ms: ([.log_attributes | to_entries[]? | select(.key | test("execution_time")) | .value][0])}]' e.json \
             | tee -a "$GITHUB_STEP_SUMMARY"
+
+          sleep 20
+          say ""; say "## What the worker printed (first 160 characters)"
+          logs "select timestamp, event_message, log_attributes from logs
+                 where source_name = 'function_logs' and has(mapValues(log_attributes), '$fid')
+                 order by timestamp desc limit 40" > f.json
+          err < f.json | tee -a "$GITHUB_STEP_SUMMARY"
+          jq -c '[.result[]? | {timestamp,
+                   level: ([.log_attributes | to_entries[]? | select(.key | test("level$")) | .value][0]),
+                   type: ([.log_attributes | to_entries[]? | select(.key | test("event_type$")) | .value][0]),
+                   message: (.event_message | .[0:160])}]' f.json | tee -a "$GITHUB_STEP_SUMMARY"
+          rm -f k.json e.json f.json
