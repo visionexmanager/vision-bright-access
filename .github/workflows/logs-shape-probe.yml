@@ -1,0 +1,41 @@
+name: Logs shape probe (temporary)
+
+# Throwaway, never merged: which log_attributes keys carry a request path in
+# the unified logs table? Counts and key NAMES only — never values.
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/logs-shape-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Probe
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -uo pipefail
+          logs() {
+            curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs" \
+                 -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+                 --data-urlencode "sql=$1" \
+                 --data-urlencode "iso_timestamp_start=$(date -u -d '48 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
+                 --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          q() { echo "--- $1"; logs "$2" | jq -c 'if .result then .result else {error: ((.error // .message // "") | tostring | .[0:200])} end'; sleep 12; }
+          q "rows per source" "select source, count(*) as n from logs group by source order by n desc limit 20"
+          q "edge_logs attribute key names containing path/url" "select arrayFilter(k -> positionCaseInsensitive(k, 'path') > 0 or positionCaseInsensitive(k, 'url') > 0, mapKeys(log_attributes)) as keys from logs where source = 'edge_logs' limit 1"
+          q "edge_logs: request.path set" "select count(*) as n from logs where source = 'edge_logs' and log_attributes['request.path'] != ''"
+          q "edge_logs: request.path like whatsapp-webhook" "select count(*) as n from logs where source = 'edge_logs' and log_attributes['request.path'] like '%whatsapp-webhook%'"
+          q "edge_logs: event_message mentions whatsapp-webhook" "select count(*) as n from logs where source = 'edge_logs' and positionCaseInsensitive(event_message, 'whatsapp-webhook') > 0"
+          q "function_edge_logs attribute key names containing path/url/function" "select arrayFilter(k -> positionCaseInsensitive(k, 'path') > 0 or positionCaseInsensitive(k, 'url') > 0 or positionCaseInsensitive(k, 'function') > 0, mapKeys(log_attributes)) as keys from logs where source = 'function_edge_logs' limit 1"
+          q "function_edge_logs: event_message mentions whatsapp-webhook" "select count(*) as n from logs where source = 'function_edge_logs' and positionCaseInsensitive(event_message, 'whatsapp-webhook') > 0"
+          q "latest whatsapp-webhook call in either source (time only)" "select source, max(timestamp) as last from logs where source in ('edge_logs', 'function_edge_logs') and positionCaseInsensitive(event_message, 'whatsapp-webhook') > 0 group by source"
