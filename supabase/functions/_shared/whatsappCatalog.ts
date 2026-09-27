@@ -777,6 +777,27 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     accepts: ["text"],
   },
   {
+    id: "ocr.word",
+    parent: "ocr",
+    order: 8,
+    kind: "action",
+    enabled: true,
+    title: { ar: "ملف وورد", en: "Word document" },
+    description: { ar: "اطلب أي نص وتصلك الإجابة كملف وورد", en: "Ask for any text and get it back as a Word file" },
+    aliases: { ar: ["مستند وورد", "وورد"], en: ["word file", "docx"] },
+    phrase: { ar: "ملف وورد", en: "word document" },
+    // The request and the wish for a file arrive in one sentence — «سيرة ذاتية
+    // لمهندس مدني كملف وورد» — and the assistant's answer is sent as a .docx
+    // (whatsappWordDocument.ts). This row is how somebody finds that out: the
+    // intro says what to write, and nothing is armed.
+    handler: "prompt",
+    accepts: ["text"],
+    intro: {
+      ar: "اكتب ما تريده في المستند وأضف «كملف وورد»، مثلاً: «سيرة ذاتية لمهندس مدني كملف وورد». سأكتبه وأرسله لك ملفاً تفتحه في Word.",
+      en: "Write what the document should contain and add \"as a Word file\", for example: \"a CV for a civil engineer as a Word file\". I'll write it and send it to you as a file you can open in Word.",
+    },
+  },
+  {
     id: "services.nearby",
     parent: "services",
     order: 4,

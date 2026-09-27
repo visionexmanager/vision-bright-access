@@ -373,11 +373,11 @@ describe("what delivery must never do", () => {
 describe("the WhatsApp flows that deliver a file all go through it", () => {
   const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
 
-  it("conversions, translated subtitles and songs use deliverAsset and log the outcome", () => {
-    for (const flow of ["convert", "translate", "song"]) {
+  it("conversions, translated subtitles, songs and Word documents use deliverAsset and log the outcome", () => {
+    for (const flow of ["convert", "translate", "song", "document"]) {
       expect(webhook, flow).toContain(`log("asset_delivery", { flow: "${flow}", ...deliveryLogFields(`);
     }
-    expect(webhook.match(/await deliverAsset\(\{/g)).toHaveLength(3);
+    expect(webhook.match(/await deliverAsset\(\{/g)).toHaveLength(4);
   });
 
   it("no longer uploads or sends a file any other way", () => {

@@ -408,6 +408,8 @@ import {
   queuedNotice,
 } from "../_shared/whatsappMediaJobs.ts";
 import { runMediaJob, runTranslateJob } from "../_shared/whatsappMediaWorker.ts";
+import { buildDocx, DOCX_MIME } from "../_shared/docxDocument.ts";
+import { documentFileName, documentFromAnswer, wantsWordDocument, WORD_DOCUMENT_DIRECTIVE } from "../_shared/whatsappWordDocument.ts";
 import {
   deliverAsset,
   deliveryCaption,
@@ -5669,6 +5671,9 @@ Deno.serve(async (req) => {
       // what the case needs. Nothing here knows which it has, and no
       // environment variable decides — that is what makes the failure, timeout
       // and empty-answer paths testable rather than merely written down.
+      // "…as a Word file": the one answer is written as a document and sent
+      // as a .docx. Not for a spoken question — that answer is a voice note.
+      const wantsDocument = !spokenInput && wantsWordDocument(questionText);
       const asked = await askAssistant(
         {
           systemParts: [
@@ -5691,6 +5696,7 @@ Deno.serve(async (req) => {
             bookNotFound ? bookNotFoundDirective(bookNotFound) : null,
             mediaNotFound ? mediaNotFoundDirective(mediaNotFound) : null,
             productNotFound ? productNotFoundDirective(productNotFound) : null,
+            wantsDocument ? WORD_DOCUMENT_DIRECTIVE : null,
           ],
           summary,
           turns,
@@ -5747,9 +5753,32 @@ Deno.serve(async (req) => {
       // audio, and three text parts each becoming three voice notes would be
       // nine voice notes for one question. The answer itself was generated
       // exactly once either way — this only chooses how it travels.
-      const parts = spokenInput ? [answer] : splitAnswer(answer, limits);
-      for (const part of parts) await reply(part, "reply");
-      if (parts.length > 1) log("ai_split", { parts: parts.length });
+      // Asked for as a Word file: the same answer, as a .docx. Anything short
+      // of Meta accepting the file sends the text instead — the answer was paid
+      // for and written, and a transport failure must not lose it.
+      let sentAsDocument = false;
+      if (wantsDocument && token && phoneNumberId) {
+        const document = documentFromAnswer(answer, answerLanguage, localized(nodeById("ocr.word")!.title, answerLanguage));
+        const delivered = await deliverAsset({
+          phoneNumberId,
+          token,
+          to: incoming.from,
+          asset: {
+            bytes: await buildDocx(document),
+            mimeType: DOCX_MIME,
+            fileName: documentFileName(document.title),
+            caption: deliveryCaption(DOCX_MIME, answerLanguage),
+          },
+        });
+        log("asset_delivery", { flow: "document", ...deliveryLogFields(delivered, "bytes", DOCX_MIME) });
+        sentAsDocument = delivered.outcome.startsWith("delivered_");
+      }
+
+      if (!sentAsDocument) {
+        const parts = spokenInput ? [answer] : splitAnswer(answer, limits);
+        for (const part of parts) await reply(part, "reply");
+        if (parts.length > 1) log("ai_split", { parts: parts.length });
+      }
       await saveSession();
 
       // One warning, after the answer and near the end of the allowance, so
