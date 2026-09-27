@@ -21,12 +21,12 @@ export function useResearchAssistant() {
     enabled: !!user,
   });
 
-  const run = async (params: { bookIds?: string[]; authorIds?: string[]; topic?: string; title?: string }) => {
+  const run = async (params: { bookIds?: string[]; authorIds?: string[]; topic?: string; title?: string; language?: string }) => {
     setIsRunning(true);
     setResult(null);
     try {
       const response = await runResearchAssistant({
-        mode, book_ids: params.bookIds, author_ids: params.authorIds, topic: params.topic, title: params.title,
+        mode, book_ids: params.bookIds, author_ids: params.authorIds, topic: params.topic, title: params.title, language: params.language,
       });
       setResult(response.result);
       if (response.analysis_id && user) {

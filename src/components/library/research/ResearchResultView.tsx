@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { LibraryResearchMode, LibraryResearchResult } from "@/services/library/researchAssistant";
+import { ExternalSourcesResult } from "./ExternalSourcesResult";
 
 interface ResearchResultViewProps {
   mode: LibraryResearchMode;
@@ -122,7 +123,11 @@ export function ResearchResultView({ mode, result }: ResearchResultViewProps) {
     );
   }
 
-  if (mode === "suggest_references" && "references" in result) {
+  if (mode === "external_sources" && "sources" in result) {
+    return <ExternalSourcesResult result={result} />;
+  }
+
+  if (mode === "suggest_references" && "references" in result && !("sources" in result)) {
     return (
       <div className="grid gap-2 sm:grid-cols-2">
         {result.references.map((ref) => (

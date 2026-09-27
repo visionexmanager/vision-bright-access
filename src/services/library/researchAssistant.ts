@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type LibraryResearchMode =
   | "summarize_multiple" | "compare_books" | "compare_authors"
-  | "literature_review" | "research_outline" | "suggest_references" | "knowledge_gaps";
+  | "literature_review" | "research_outline" | "suggest_references" | "external_sources" | "knowledge_gaps";
 
 export interface LibraryResearchRequest {
   mode: LibraryResearchMode;
@@ -15,6 +15,8 @@ export interface LibraryResearchRequest {
   author_ids?: string[];
   topic?: string;
   title?: string;
+  /** external_sources: the reader's language, for Wikipedia. */
+  language?: string;
 }
 
 export interface LibrarySummarizeMultipleResult {
@@ -48,10 +50,29 @@ export interface LibrarySuggestReferencesResult {
   references: { id: string; title: string; author_id: string; published_date: string | null; library_authors: { name: string } | null }[];
 }
 
+/** A record an open catalogue returned (OpenAlex, Open Library, Wikipedia) — never model output. */
+export interface LibraryExternalReference {
+  source: "openalex" | "openlibrary" | "wikipedia";
+  kind: "article" | "book" | "encyclopedia";
+  title: string;
+  authors: string[];
+  year: number | null;
+  url: string;
+  doi: string | null;
+  openAccess: boolean;
+  snippet: string | null;
+  citation: string;
+}
+
+export interface LibraryExternalSourcesResult {
+  references: LibraryExternalReference[];
+  sources: Record<LibraryExternalReference["source"], "ok" | "failed" | "timeout">;
+}
+
 export type LibraryResearchResult =
   | LibrarySummarizeMultipleResult | LibraryCompareBooksResult | LibraryCompareAuthorsResult
   | LibraryLiteratureReviewResult | LibraryResearchOutlineResult | LibraryKnowledgeGapsResult
-  | LibrarySuggestReferencesResult;
+  | LibrarySuggestReferencesResult | LibraryExternalSourcesResult;
 
 export interface LibraryResearchResponse {
   ok: boolean;
