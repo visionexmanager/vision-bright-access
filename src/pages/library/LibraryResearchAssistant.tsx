@@ -20,14 +20,14 @@ import type { LibraryBookSearchHit, LibraryAuthorSearchHit } from "@/services/li
 
 const MODES: LibraryResearchMode[] = [
   "compare_books", "summarize_multiple", "compare_authors",
-  "literature_review", "research_outline", "suggest_references", "knowledge_gaps",
+  "literature_review", "research_outline", "suggest_references", "external_sources", "knowledge_gaps",
 ];
 
 const BOOK_MODES: LibraryResearchMode[] = ["compare_books", "summarize_multiple", "literature_review", "knowledge_gaps"];
-const TOPIC_ONLY_MODES: LibraryResearchMode[] = ["research_outline", "suggest_references"];
+const TOPIC_ONLY_MODES: LibraryResearchMode[] = ["research_outline", "suggest_references", "external_sources"];
 
 export default function LibraryResearchAssistant() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { mode, setMode, isRunning, result, run, analyses, remove } = useResearchAssistant();
   const [books, setBooks] = useState<LibraryBookSearchHit[]>([]);
   const [authors, setAuthors] = useState<LibraryAuthorSearchHit[]>([]);
@@ -49,6 +49,7 @@ export default function LibraryResearchAssistant() {
       bookIds: usesBooks ? books.map((b) => b.id) : undefined,
       authorIds: usesAuthors ? authors.map((a) => a.id) : undefined,
       topic: usesTopicOnly || !usesAuthors ? topic.trim() || undefined : undefined,
+      language: lang,
     });
   };
 

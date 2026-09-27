@@ -14,6 +14,7 @@
  *   literature_review     — book_ids[] -> structured literature-review draft
  *   research_outline      — topic (free text) -> a research outline
  *   suggest_references    — topic -> real catalog matches via semantic search (never hallucinated)
+ *   external_sources      — topic -> real records from OpenAlex, Open Library and Wikipedia (never hallucinated)
  *   knowledge_gaps        — book_ids[] and/or topic -> gaps not covered by the given sources
  *
  * Auth: user-jwt required. Access to every book_id is checked via
@@ -26,12 +27,13 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, createEmbedding, ProviderError } from "../_shared/aiProvider.ts";
 import { ensureBookIndexed, retrieveChunks, formatChunksAsContext } from "../_shared/libraryRag.ts";
+import { searchOpenSources } from "../_shared/openResearchSources.ts";
 
 function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
 }
 
-type Mode = "summarize_multiple" | "compare_books" | "compare_authors" | "literature_review" | "research_outline" | "suggest_references" | "knowledge_gaps";
+type Mode = "summarize_multiple" | "compare_books" | "compare_authors" | "literature_review" | "research_outline" | "suggest_references" | "external_sources" | "knowledge_gaps";
 
 interface RequestBody {
   mode?: Mode;
@@ -39,6 +41,8 @@ interface RequestBody {
   author_ids?: string[];
   topic?: string;
   title?: string;
+  /** external_sources: the reader's language, for Wikipedia. */
+  language?: string;
 }
 
 const SCHEMAS: Record<string, { toolName: string; system: string; schema: Record<string, unknown> }> = {
@@ -153,6 +157,14 @@ Deno.serve(async (req: Request) => {
   if (allowed === false) return json({ error: "Daily limit reached. Try again tomorrow." }, 429, cors);
 
   try {
+    if (body.mode === "external_sources") {
+      if (!body.topic?.trim()) return json({ error: "topic is required" }, 400, cors);
+      // Records the open catalogues returned, not a model's answer. Like
+      // suggest_references it is a lookup, so nothing is persisted.
+      const result = await searchOpenSources(fetch, body.topic, body.language);
+      return json({ ok: true, analysis_id: null, result }, 200, cors);
+    }
+
     if (body.mode === "suggest_references") {
       if (!body.topic?.trim()) return json({ error: "topic is required" }, 400, cors);
       const [embedding] = await createEmbedding([body.topic.slice(0, 2000)]);
