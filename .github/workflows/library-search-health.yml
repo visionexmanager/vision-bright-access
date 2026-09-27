@@ -65,7 +65,7 @@ jobs:
           set -uo pipefail
           say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
           logs() {
-            curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs.all" \
+            curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs" \
                  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
                  --data-urlencode "sql=$1" \
                  --data-urlencode "iso_timestamp_start=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
@@ -98,5 +98,5 @@ jobs:
                   cross join unnest(t.metadata) as m
                  where m.function_id = '$fid'
                  order by t.timestamp desc limit 40" \
-            | jq -c 'if .error then {error: (.error | tostring | .[0:300])} else [.result[]? | {timestamp, level, event_type, message: (.event_message | .[0:160])}] end' \
+            | jq -c 'if (.result|not) then {error: ((.error // .message // "") | tostring | .[0:300])} else [.result[]? | {timestamp, level, event_type, message: (.event_message | .[0:160])}] end' \
             | tee -a "$GITHUB_STEP_SUMMARY"
