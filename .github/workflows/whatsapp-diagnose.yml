@@ -167,11 +167,15 @@ jobs:
           say "## 5. Did Meta actually call the webhook?"
           say "Method, path and status only — the GET handshake carries the verify token in its query string."
           say '```json'
+          # Calls to an Edge Function land in function_edge_logs, not edge_logs:
+          # probed 2026-09-28, edge_logs held 1,249 rows and none for the
+          # webhook. pathname is the path alone; request.url would carry the
+          # query string, and with it the verify token.
           logs "select timestamp, log_attributes['request.method'] as method,
-                       log_attributes['request.path'] as path,
+                       log_attributes['request.pathname'] as path,
                        log_attributes['response.status_code'] as status_code
                   from logs
-                 where source = 'edge_logs' and log_attributes['request.path'] like '%whatsapp-webhook%'
+                 where source = 'function_edge_logs' and log_attributes['request.pathname'] like '%whatsapp-webhook%'
                  order by timestamp desc limit 40" | tee -a "$GITHUB_STEP_SUMMARY"
           echo
           say '```'
