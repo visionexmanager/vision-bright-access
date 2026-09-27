@@ -118,10 +118,14 @@ describe("no live chain is left without a working model", () => {
     expect(live(travel)[0].provider).toBe("groq");
   });
 
-  it("Phase 1: flash-lite leads the Gemini-first generators (it passed their contract), not the Gemini-first assistants (Groq did better)", () => {
+  it("Phase 1: gpt-oss-120b leads every Groq-led or Gemini-first generator, always ahead of 20b (8/8 against 3/8)", () => {
     for (const id of ["travel-itinerary", "career-roadmap", "tech-troubleshooting-plan", "training-curriculum"]) {
       expect(live(generators.generatorTargets(id)).map((t) => t.model).slice(0, 2), id)
-        .toEqual(["gemini-flash-lite-latest", "openai/gpt-oss-20b"]);
+        .toEqual(["openai/gpt-oss-120b", "gemini-flash-lite-latest"]);
+    }
+    for (const id of ["travel-itinerary", "content-writer", "no-such-generator"]) {
+      const models = generators.generatorTargets(id).map((t) => t.model);
+      expect(models.indexOf("openai/gpt-oss-120b"), id).toBeLessThan(models.indexOf("openai/gpt-oss-20b"));
     }
     for (const id of ["travel-agency", "educational-empire", "tech-consulting"]) {
       expect(live(assistants.assistantTargets(id))[0], id).toEqual({ provider: "groq", model: "openai/gpt-oss-20b" });

@@ -500,12 +500,37 @@ export function orderTargets(
 
 /** Try providers in order until one accepts the streaming request. */
 /** What a chain may be told about the answer it must give. */
+/**
+ * How long one structured attempt may take before the chain moves on. A model
+ * that neither answers nor fails used to hold the whole chain: flash-lite hung
+ * past 90 s on three plan requests in the live route contract probe, and with
+ * no limit the user waited on it instead of on the next model. The slowest
+ * healthy answers measured there (Luna, 13–19 s; Mistral, up to 23 s) fit well
+ * inside this.
+ */
+export const STRUCTURED_ATTEMPT_TIMEOUT_MS = 45_000;
+
+/** Rejects with a TimeoutError (recorded as "timeout") if work is still pending after ms. */
+function withAttemptTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error("The model did not answer in time");
+      error.name = "TimeoutError";
+      reject(error);
+    }, ms);
+  });
+  return Promise.race([work, expired]).finally(() => clearTimeout(timer));
+}
+
 export interface AnswerExpectation {
   /**
    * The script the answer must be written in (answerLanguage.ts). An answer
    * in another script is a failed attempt, and the chain moves on.
    */
   expectScript?: Script | null;
+  /** Structured chains only: overrides STRUCTURED_ATTEMPT_TIMEOUT_MS for this request. */
+  attemptTimeoutMs?: number;
 }
 
 export async function streamChatCompletionWithFallback(
@@ -833,7 +858,10 @@ export async function structuredCompletionWithFallback(
     const start = Date.now();
     const base = { kind, mode: "structured", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
-      const { result, usage } = await structuredCompletionDetailed({ ...params, ...target });
+      const { result, usage } = await withAttemptTimeout(
+        structuredCompletionDetailed({ ...params, ...target }),
+        params.attemptTimeoutMs ?? STRUCTURED_ATTEMPT_TIMEOUT_MS,
+      );
       if (params.expectScript && !answerIsInScript(textOf(result), params.expectScript)) {
         noteOutcome(target, "wrong_language");
         reportAttempt({ ...base, success: false, ms: elapsedMs(start), error: "wrong_language", ...(usage ? { usage } : {}) });

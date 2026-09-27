@@ -114,6 +114,24 @@ describe("structured chains", () => {
   });
 });
 
+describe("a structured attempt that hangs", () => {
+  it("times out and the chain moves on, recorded as a timeout", async () => {
+    vi.stubGlobal("fetch", vi.fn((url: string) => String(url).includes("groq.com")
+      ? new Promise<Response>(() => { /* never answers */ })
+      : Promise.resolve(tool({ title: ARABIC_ANSWER }))));
+    const attempts = capture();
+    const out = await ai.structuredCompletionWithFallback({
+      targets: [GROQ, OPENAI], system: "s", userText: "u", schema: { type: "object" }, toolName: "t", attemptTimeoutMs: 50,
+    });
+    expect(out.provider).toBe("openai");
+    expect(attempts[0]).toEqual({ provider: "groq", success: false, error: "timeout" });
+  });
+
+  it("gives every attempt a bound by default, generous enough for the slowest healthy answer measured", () => {
+    expect(ai.STRUCTURED_ATTEMPT_TIMEOUT_MS).toBe(45_000);
+  });
+});
+
 describe("streaming chains", () => {
   const read = (stream: ReadableStream<Uint8Array>) => new Response(stream).text();
   const textOf = (sseText: string) => sseText.split("\n").filter((l) => l.startsWith("data: {"))
