@@ -325,6 +325,30 @@ export async function recordProviderAttempt(db: RecordingDb, attempt: ProviderAt
 export const REGISTRY_SNAPSHOT_TTL_MS = 60_000;
 /** A registry read slower than this is abandoned; the chains keep policy order. */
 export const REGISTRY_READ_TIMEOUT_MS = 1_500;
+/** A live check older than this says nothing about a model today. */
+export const MODEL_CHECK_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+
+/**
+ * The latest verdict of each model's live check (`ai_model_checks`, written by
+ * the live route contract on main), keyed `provider/model`. Only a check that
+ * genuinely failed is recorded as a failure: the probe records a model whose
+ * every route was rate-limited as nothing at all, so a burst of 429s never
+ * marks a working model broken (scripts/ai-eval/live-route-contract.ts).
+ */
+export function latestModelChecks(
+  rows: Array<{ provider?: unknown; model_id?: unknown; passed?: unknown; checked_at?: unknown }>,
+): Map<string, boolean> {
+  const latest = new Map<string, { passed: boolean; at: number }>();
+  for (const r of rows) {
+    if (typeof r.provider !== "string" || typeof r.model_id !== "string" || typeof r.passed !== "boolean") continue;
+    const at = Date.parse(String(r.checked_at));
+    if (!Number.isFinite(at)) continue;
+    const key = `${r.provider}/${r.model_id}`;
+    const seen = latest.get(key);
+    if (!seen || at > seen.at) latest.set(key, { passed: r.passed, at });
+  }
+  return new Map([...latest].map(([key, v]) => [key, v.passed]));
+}
 
 /**
  * A synchronous `RegistryView` for `setProviderRegistryView()`.
@@ -336,6 +360,13 @@ export const REGISTRY_READ_TIMEOUT_MS = 1_500;
  * times out — it knows nothing: the established providers run in policy
  * order, and every activation-gated provider stays off. Silence enables
  * nothing.
+ *
+ * The same refresh reads each model's latest live check. A model whose latest
+ * check (within MODEL_CHECK_MAX_AGE_MS) failed is demoted: tried only after
+ * every model in good standing, so a chain that names an unverified model
+ * first reaches a verified one — in practice OpenAI — before it. Demoted, not
+ * excluded: when every verified model has failed at runtime, it is still a
+ * better answer than none. A model never checked keeps its policy place.
  */
 export function registryViewFrom(
   db: RecordingDb,
@@ -350,10 +381,35 @@ export function registryViewFrom(
 } {
   const now = opts.now ?? Date.now;
   let rows = new Map<string, RegistryHealthRow>();
+  let checks = new Map<string, boolean>();
   let fetchedAt = -Infinity;
   let inFlight = false;
 
-  const refresh = async () => {
+  // Apart from the provider read on purpose: a checks read that fails, hangs
+  // or is not supported keeps the last snapshot and never touches the rows.
+  const refreshChecks = async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const since = new Date(now() - MODEL_CHECK_MAX_AGE_MS).toISOString();
+      const read = db
+        .from("ai_model_checks")
+        .select("provider, model_id, passed, checked_at")
+        .gte("checked_at", since)
+        .order("checked_at", { ascending: false })
+        .limit(2000);
+      const timeout = new Promise<{ data: null }>((resolve) => {
+        timer = setTimeout(() => resolve({ data: null }), REGISTRY_READ_TIMEOUT_MS);
+      });
+      const { data } = await Promise.race([read, timeout]);
+      if (Array.isArray(data)) checks = latestModelChecks(data);
+    } catch {
+      // Keep the last snapshot.
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const refreshRows = async () => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const read = db
@@ -369,6 +425,13 @@ export function registryViewFrom(
       // Keep the last snapshot; a registry outage must not reorder anything.
     } finally {
       clearTimeout(timer);
+    }
+  };
+
+  const refresh = async () => {
+    try {
+      await Promise.all([refreshRows(), refreshChecks()]);
+    } finally {
       fetchedAt = now();
       inFlight = false;
     }
@@ -389,7 +452,9 @@ export function registryViewFrom(
   return {
     verdict(target, kind) {
       touch();
-      return registryVerdict(rowFor(target.provider, kind), ACTIVATION_GATED.has(target.provider), opts.random);
+      const verdict = registryVerdict(rowFor(target.provider, kind), ACTIVATION_GATED.has(target.provider), opts.random);
+      if (verdict === "excluded") return verdict;
+      return checks.get(`${target.provider}/${target.model}`) === false ? "demoted" : verdict;
     },
     extras(kind, mode) {
       touch();

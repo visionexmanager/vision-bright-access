@@ -15,6 +15,8 @@
 // Run: deno run --allow-env --allow-net --allow-read --allow-sys scripts/ai-eval/live-route-contract.ts
 
 import {
+  createEmbedding,
+  EMBEDDING_DIM,
   pausedReason,
   type ProviderTarget,
   setProviderAttemptRecorder,
@@ -30,6 +32,9 @@ import { GENERATION_SCHEMA, generatorTargets, getGenerator } from "../../supabas
 import { getVisionAnalyst, VISION_SCHEMA } from "../../supabase/functions/_shared/visionAnalysts.ts";
 import { understandDocument, understandImage } from "../../supabase/functions/_shared/whatsappUnderstand.ts";
 import { meteredFetch } from "../../supabase/functions/_shared/meteredFetch.ts";
+import { synthesize } from "../../supabase/functions/_shared/voice/tts.ts";
+import { transcribe } from "../../supabase/functions/_shared/voice/stt.ts";
+import { defaultSpokenVoice } from "../../supabase/functions/_shared/whatsappVoiceReply.ts";
 import type { UsageEvent } from "../../supabase/functions/_shared/metering.ts";
 
 const T = {
@@ -44,11 +49,29 @@ const T = {
   flash: { provider: "gemini", model: "gemini-flash-latest" },
 } as const satisfies Record<string, ProviderTarget>;
 
-type Row = { route: string; target: string; pass: boolean; ms: number; checks: string };
+// `rateLimited`: the provider answered 429. That says the account is busy, not
+// that the model is broken — the 2026-09-28 run marked every Gemini and Groq
+// model not ready on 51 such rows it caused itself — so a rate-limited row is
+// reported but never counted in a model's verdict.
+type Row = { route: string; target: string; pass: boolean; ms: number; checks: string; rateLimited?: boolean };
 const rows: Row[] = [];
 const ARABIC = /[؀-ۿ]/;
 
+// Free-tier providers are paced so the probe does not rate-limit itself. The
+// gaps fit their per-minute request limits with room to spare (section K
+// prints the real limits).
+const PACE_MS: Partial<Record<string, number>> = { groq: 2_500, gemini: 4_500, mistral: 1_200 };
+const lastCallAt = new Map<string, number>();
+async function pace(provider: string) {
+  const gap = PACE_MS[provider];
+  if (!gap) return;
+  const wait = (lastCallAt.get(provider) ?? 0) + gap - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastCallAt.set(provider, Date.now());
+}
+
 async function run(route: string, target: ProviderTarget, fn: () => Promise<Record<string, boolean>>) {
+  await pace(target.provider);
   const started = Date.now();
   let checks: Record<string, boolean> = {};
   let error = "";
@@ -66,9 +89,17 @@ async function run(route: string, target: ProviderTarget, fn: () => Promise<Reco
   }
   const pass = !error && Object.values(checks).every(Boolean);
   const detail = error || Object.entries(checks).map(([k, v]) => `${k}:${v ? "y" : "N"}`).join(" ");
-  const row = { route, target: `${target.provider}/${target.model}`, pass, ms: Date.now() - started, checks: detail };
+  const row: Row = { route, target: `${target.provider}/${target.model}`, pass, ms: Date.now() - started, checks: detail };
+  if (error === "http_429") row.rateLimited = true;
   rows.push(row);
-  console.log(`${row.pass ? "PASS" : "FAIL"} ${row.route} ${row.target} ${row.ms}ms ${row.checks}`);
+  console.log(`${verdictLabel(row)} ${row.route} ${row.target} ${row.ms}ms ${row.checks}`);
+}
+
+/** Routes that exercise a whole chain or the router, not the model in their target column. */
+const CHAIN_ROUTE = /^(chain |router |fallback )/;
+
+function verdictLabel(row: Row): string {
+  return row.pass ? "PASS" : row.rateLimited ? "RATE-LIMITED" : "FAIL";
 }
 
 /** Read an OpenAI-compatible SSE stream to the end: the text, and how it finished. */
@@ -402,13 +433,158 @@ for (const line of groqFailures) console.log(`  ${line}`);
   setUsageSink(null);
 }
 
+// ── K. Each free-tier provider's own limits: busy, or broken? ──
+// One minimal call each, and only the limit figures are printed: requests and
+// tokens per minute or per day, as the provider states them. A provider whose
+// limit is a handful of requests a minute will answer 429 to real traffic too;
+// one that answers a 1-token request is working. Figures only, never a key.
+{
+  const minimal = { messages: [{ role: "user", content: "hi" }], max_tokens: 1 };
+  const limitHeaders = (h: Headers) => [...h.entries()]
+    .filter(([k]) => /ratelimit|retry-after/i.test(k))
+    .map(([k, v]) => `${k.replace(/^x-/, "")}=${v.replace(/[^0-9.a-z]/gi, "").slice(0, 16)}`)
+    .join(" ") || "no limit headers";
+  const probes: Array<[ProviderTarget, string, Record<string, string>, unknown]> = [
+    [T.groq20, "https://api.groq.com/openai/v1/chat/completions", { Authorization: `Bearer ${Deno.env.get("GROQ_API_KEY") ?? ""}` }, { model: T.groq20.model, ...minimal }],
+    [T.groq120, "https://api.groq.com/openai/v1/chat/completions", { Authorization: `Bearer ${Deno.env.get("GROQ_API_KEY") ?? ""}` }, { model: T.groq120.model, ...minimal }],
+    [T.mistral14, "https://api.mistral.ai/v1/chat/completions", { Authorization: `Bearer ${Deno.env.get("MISTRAL_API_KEY") ?? ""}` }, { model: T.mistral14.model, ...minimal }],
+  ];
+  for (const [target, url, auth, body] of probes) {
+    await pace(target.provider);
+    const res = await fetch(url, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    await res.body?.cancel();
+    console.log(`  limits ${target.provider}/${target.model}: HTTP ${res.status} ${limitHeaders(res.headers)}`);
+  }
+  // Gemini states its limit in the 429 body instead: the quota id and its value.
+  await pace("gemini");
+  const g = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${T.lite.model}:generateContent`, {
+    method: "POST",
+    headers: { "x-goog-api-key": Deno.env.get("GEMINI_API_KEY") ?? "", "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts: [{ text: "hi" }] }], generationConfig: { maxOutputTokens: 1 } }),
+  });
+  const gBody = await g.json().catch(() => null) as { error?: { details?: Array<{ violations?: Array<{ quotaId?: string; quotaValue?: string }>; retryDelay?: string }> } } | null;
+  const quotas = (gBody?.error?.details ?? []).flatMap((d) => d.violations ?? []).map((v) => `${String(v.quotaId).replace(/[^A-Za-z]/g, "")}=${String(v.quotaValue).replace(/\D/g, "")}`);
+  const retry = (gBody?.error?.details ?? []).find((d) => d.retryDelay)?.retryDelay?.replace(/[^0-9s.]/g, "");
+  console.log(`  limits gemini/${T.lite.model}: HTTP ${g.status} ${quotas.join(" ") || "no quota in body"}${retry ? ` retry=${retry}` : ""}`);
+}
+
+// ── L. Every OpenAI capability a service relies on, through production code ──
+// The reliability backend has to be proven per capability, not per catalog
+// entry: text (stream, schema), vision in both languages, both speech
+// directions in both languages, image generation and editing, embeddings,
+// and a realtime session. Minimal payloads; image calls at the lowest quality.
+{
+  const key = Deno.env.get("OPENAI_API_KEY") ?? "";
+  const DESCRIBE = { type: "object", properties: { answer: { type: "string" } }, required: ["answer"], additionalProperties: false };
+  const pngData = `data:image/png;base64,${btoa(String.fromCharCode(...PNG))}`;
+
+  for (const target of [T.gpt4o, T.mini]) {
+    await run("adapter stream", target, async () => {
+      const { text, finish } = await drain(await streamChatCompletion({ ...target, system: "Answer in one short sentence.", messages: [{ role: "user", content: ASK.en }], maxTokens: 60 }));
+      return { text: text.trim().length > 0, finished: finish === "stop" || finish === "length" };
+    });
+    for (const [lang, question] of [["en", "What number is written in this image? Answer with the number."], ["ar", "ما الرقم المكتوب في هذه الصورة؟ أجب بالرقم."]] as const) {
+      await run(`vision ${lang}`, target, async () => {
+        const result = await structuredCompletion({
+          ...target, system: "You describe images for blind and low-vision users, clearly and accurately.", userText: question,
+          image: pngData, schema: DESCRIBE, toolName: "describe_image", maxTokens: 200,
+        }) as { answer?: string };
+        const answer = result?.answer ?? "";
+        return { digits: /42|٤٢/.test(answer), ...(lang === "ar" ? { arabic: ARABIC.test(answer) || /^\s*(42|٤٢)\s*$/.test(answer) } : {}) };
+      });
+    }
+  }
+
+  // Speech out, then back in: what the WhatsApp voice reply and the site voices
+  // send, transcribed by both STT providers — each language a round trip.
+  const spoken: Record<string, Uint8Array | null> = { en: null, ar: null };
+  const SAY = { en: "Hello, this is Visionex. Forty two.", ar: "مرحبا، هذه منصة فيجن إكس." } as const;
+  for (const lang of ["en", "ar"] as const) {
+    const voice = defaultSpokenVoice();
+    await run(`tts ${lang} (whatsapp voice)`, { provider: "openai", model: voice.model }, async () => {
+      const out = await synthesize({ text: SAY[lang], provider: "openai", model: voice.model, voice: voice.voice, format: "mp3", instructions: voice.instructions });
+      if (out.outcome === "audio") spoken[lang] = out.bytes;
+      return { audio: out.outcome === "audio" && out.bytes.byteLength > 2000 };
+    });
+  }
+  await run("tts en (speech-generate)", { provider: "openai", model: "tts-1" }, async () => {
+    const out = await synthesize({ text: SAY.en, provider: "openai", model: "tts-1", voice: "alloy", format: "opus" });
+    return { audio: out.outcome === "audio" && out.bytes.byteLength > 1000 };
+  });
+  for (const provider of ["openai", "groq"] as const) {
+    for (const lang of ["en", "ar"] as const) {
+      const model = provider === "openai" ? "whisper-1" : "whisper-large-v3-turbo";
+      await run(`stt ${lang}`, { provider, model }, async (): Promise<Record<string, boolean>> => {
+        const audio = spoken[lang];
+        if (!audio) return { audio: false };
+        const heard = await transcribe({ bytes: audio, mimeType: "audio/mpeg", providers: [provider] });
+        const text = heard.outcome === "transcript" ? heard.text : "";
+        return { text: lang === "en" ? /visionex|vision ex|forty.?two|42/i.test(text) : ARABIC.test(text) };
+      });
+    }
+  }
+
+  // Image generation, as image-generate asks for it, and an edit as the image
+  // tools would. Lowest quality: these cost money on every run.
+  // The first generated picture is the edit's source below: a real RGB image,
+  // as an upload is — not the probe's 8-bit greyscale digits.
+  let generated: Uint8Array | null = null;
+  for (const model of ["gpt-image-1", "gpt-image-1-mini"]) {
+    await run("image generation", { provider: "openai", model }, async () => {
+      const res = await meteredFetch("https://api.openai.com/v1/images/generations", {
+        method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, prompt: "A simple flat icon of a blue circle on a white background.", n: 1, size: "1024x1024", quality: "low" }),
+      });
+      if (!res.ok) throw { status: res.status };
+      const body = await res.json() as { data?: Array<{ b64_json?: string }> };
+      const b64 = body.data?.[0]?.b64_json ?? "";
+      generated ??= b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : null;
+      return { image: b64.length > 1000 };
+    });
+  }
+  await run("image edit (transparent background)", { provider: "openai", model: "gpt-image-1" }, async () => {
+    const form = new FormData();
+    form.append("model", "gpt-image-1");
+    form.append("image", new Blob([(generated ?? PNG).slice()], { type: "image/png" }), "probe.png");
+    form.append("prompt", "Remove the background completely. Keep the main subject exactly as it is.");
+    form.append("background", "transparent");
+    form.append("output_format", "png");
+    form.append("quality", "low");
+    form.append("size", "1024x1024");
+    const res = await meteredFetch("https://api.openai.com/v1/images/edits", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form });
+    if (!res.ok) throw { status: res.status };
+    const body = await res.json() as { data?: Array<{ b64_json?: string }> };
+    const b64 = body.data?.[0]?.b64_json ?? "";
+    // PNG colour type 6 (RGBA) is byte 25 of the file: an alpha channel came back.
+    const bytes = Uint8Array.from(atob(b64.slice(0, 64)), (c) => c.charCodeAt(0));
+    return { image: b64.length > 1000, alpha: bytes[25] === 6 };
+  });
+
+  await run("embeddings", { provider: "openai", model: "text-embedding-3-small" }, async () => {
+    const [vector] = await createEmbedding(["Visionex accessible library search"]);
+    return { dims: vector?.length === EMBEDDING_DIM };
+  });
+
+  await run("realtime session", { provider: "openai", model: "gpt-realtime-2" }, async () => {
+    // What realtime-session asks for, minus the user and the voice config: an
+    // ephemeral secret for a session. Nothing is spoken, so nothing is billed.
+    const res = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
+      method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ expires_after: { anchor: "created_at", seconds: 60 }, session: { type: "realtime", model: "gpt-realtime-2" } }),
+    });
+    if (!res.ok) throw { status: res.status };
+    const body = await res.json() as { value?: unknown };
+    return { secret: typeof body.value === "string" && body.value.length > 10 };
+  });
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 const lines = [
   "| route | target | verdict | ms | checks |",
   "| --- | --- | --- | --- | --- |",
-  ...rows.map((r) => `| ${r.route} | \`${r.target}\` | ${r.pass ? "PASS" : "FAIL"} | ${r.ms} | ${r.checks} |`),
+  ...rows.map((r) => `| ${r.route} | \`${r.target}\` | ${verdictLabel(r)} | ${r.ms} | ${r.checks} |`),
   "",
-  `${rows.filter((r) => r.pass).length}/${rows.length} passed`,
+  `${rows.filter((r) => r.pass).length}/${rows.length} passed, ${rows.filter((r) => r.rateLimited).length} rate-limited (inconclusive)`,
 ];
 console.log(lines.join("\n"));
 const summary = Deno.env.get("GITHUB_STEP_SUMMARY");
@@ -470,6 +646,14 @@ const checksOut = Deno.env.get("MODEL_CHECKS_OUT");
 if (checksOut) {
   const verdicts = new Map<string, boolean>();
   for (const r of rows) {
+    // A rate-limited row is no evidence either way. A model whose every row was
+    // rate-limited gets no verdict at all, so its last real one stands.
+    if (r.rateLimited) continue;
+    // A chain or router row names the chain's first target, but whichever model
+    // answered is what passed (G's generators were answered by Mistral with
+    // flash-latest in the column; H's fallback by terra with gpt-5-codex). It
+    // proves the router, not the model it names.
+    if (CHAIN_ROUTE.test(r.route)) continue;
     const [provider, ...rest] = r.target.split("/");
     const key = `${provider}\t${rest.join("/")}`;
     verdicts.set(key, (verdicts.get(key) ?? true) && r.pass);

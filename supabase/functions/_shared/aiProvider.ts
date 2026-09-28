@@ -422,6 +422,7 @@ export function attemptErrorCode(error: unknown): AttemptErrorCode {
   if (error instanceof SyntaxError) return "invalid_response";
   if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) return "timeout";
   if (error instanceof Error && error.name === "StreamInterruptedError") return "stream_interrupted";
+  if (error instanceof Error && error.name === "EmptyResponseError") return "empty_response";
   if (error instanceof TypeError) return "network";
   return "unknown";
 }
@@ -438,6 +439,17 @@ function reportAttempt(attempt: ProviderAttempt): void {
 
 function elapsedMs(start: number): number {
   return Math.min(MAX_RECORDED_ATTEMPT_MS, Math.max(0, Math.round(Date.now() - start)));
+}
+
+/**
+ * One line per answered chain, in the function's own log: which model
+ * answered, on which attempt, and whether that was a fallback. The failed
+ * attempts before it are already logged as "unavailable; trying fallback" and
+ * recorded with their error codes (reportAttempt). Provider and model ids
+ * only — never a key, a prompt, a price or a cost.
+ */
+export function routeLogLine(kind: AttemptKind, mode: "stream" | "structured", target: ProviderTarget, attempt: number, ms: number): string {
+  return `[ai-route] ${kind}/${mode} answered=${target.provider}/${target.model} attempt=${attempt} fallback=${attempt > 1} ms=${ms}`;
 }
 
 // ── Health-aware ordering ────────────────────────────────────────────────────
@@ -657,6 +669,7 @@ export async function streamChatCompletionWithFallback(
         noteOutcome(target, error);
         reportAttempt({ ...base, success: !error, ms, ...(error ? { error } : {}) });
       });
+      console.info(routeLogLine("chat", "stream", target, index + 1, ms));
       return { ...target, result };
     } catch (error) {
       const code = attemptErrorCode(error);
@@ -722,6 +735,13 @@ async function gateStream(
       if (!line.startsWith("data:") || line.includes("[DONE]")) continue;
       try { text += JSON.parse(line.slice(5)).choices?.[0]?.delta?.content ?? ""; } catch { /* partial or keep-alive */ }
     }
+  }
+  // Ended without a word: nothing has reached the user yet, so this is still a
+  // failed attempt the chain can move past, not an empty answer to hand on.
+  if (done && letters() === 0 && text.trim() === "") {
+    const empty = new Error("The stream ended before any text");
+    empty.name = "EmptyResponseError";
+    throw empty;
   }
   if (expected && !answerIsInScript(text, expected)) {
     await reader.cancel().catch(() => undefined);
@@ -1032,7 +1052,9 @@ export async function structuredCompletionWithFallback(
         continue;
       }
       noteOutcome(target, undefined);
-      reportAttempt({ ...base, success: true, ms: elapsedMs(start), ...(usage ? { usage } : {}) });
+      const ms = elapsedMs(start);
+      reportAttempt({ ...base, success: true, ms, ...(usage ? { usage } : {}) });
+      console.info(routeLogLine(kind, "structured", target, index + 1, ms));
       return { ...target, result };
     } catch (error) {
       const code = attemptErrorCode(error);
