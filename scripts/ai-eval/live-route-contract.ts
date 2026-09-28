@@ -526,6 +526,9 @@ for (const line of groqFailures) console.log(`  ${line}`);
 
   // Image generation, as image-generate asks for it, and an edit as the image
   // tools would. Lowest quality: these cost money on every run.
+  // The first generated picture is the edit's source below: a real RGB image,
+  // as an upload is — not the probe's 8-bit greyscale digits.
+  let generated: Uint8Array | null = null;
   for (const model of ["gpt-image-1", "gpt-image-1-mini"]) {
     await run("image generation", { provider: "openai", model }, async () => {
       const res = await meteredFetch("https://api.openai.com/v1/images/generations", {
@@ -534,14 +537,16 @@ for (const line of groqFailures) console.log(`  ${line}`);
       });
       if (!res.ok) throw { status: res.status };
       const body = await res.json() as { data?: Array<{ b64_json?: string }> };
-      return { image: (body.data?.[0]?.b64_json?.length ?? 0) > 1000 };
+      const b64 = body.data?.[0]?.b64_json ?? "";
+      generated ??= b64 ? Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)) : null;
+      return { image: b64.length > 1000 };
     });
   }
   await run("image edit (transparent background)", { provider: "openai", model: "gpt-image-1" }, async () => {
     const form = new FormData();
     form.append("model", "gpt-image-1");
-    form.append("image", new Blob([PNG.slice()], { type: "image/png" }), "probe.png");
-    form.append("prompt", "Remove the white background, keep the black digits exactly as they are.");
+    form.append("image", new Blob([(generated ?? PNG).slice()], { type: "image/png" }), "probe.png");
+    form.append("prompt", "Remove the background completely. Keep the main subject exactly as it is.");
     form.append("background", "transparent");
     form.append("output_format", "png");
     form.append("quality", "low");
