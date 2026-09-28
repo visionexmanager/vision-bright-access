@@ -170,6 +170,59 @@ describe("a failed live check sends the request to OpenAI first", () => {
   });
 });
 
+describe("a fresh function instance: the first request waits for the verdicts", () => {
+  // Production, 2026-09-28: three chats on fresh instances each tried the
+  // failed gpt-oss-20b first, because the verdicts were read in the background.
+  function slowDb(checkRows: unknown[], delayMs: number) {
+    const later = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), delayMs));
+    return {
+      from: () => ({
+        select: () => ({
+          in: () => later({ data: [] }),
+          gte: () => ({ order: () => ({ limit: () => later({ data: checkRows }) }) }),
+        }),
+      }),
+    };
+  }
+
+  it("never calls a model whose check failed, even on the instance's first request", async () => {
+    const view = rec.registryViewFrom(slowDb([{ provider: "groq", model_id: GROQ.model, passed: false, checked_at: new Date().toISOString() }], 20), {});
+    ai.setProviderRegistryView(view); // no pre-read: exactly a cold instance
+    const hosts = fakeFetch(() => tool({ answer: "groq" }), () => tool({ answer: "openai" }));
+    const out = await ai.structuredCompletionWithFallback({ targets: [GROQ, OPENAI], system: "s", userText: "u", schema: SCHEMA, toolName: "t" });
+    expect(key(out)).toBe(key(OPENAI));
+    expect(hosts).toEqual(["openai"]);
+  });
+
+  it("the same for a stream", async () => {
+    const view = rec.registryViewFrom(slowDb([{ provider: "groq", model_id: GROQ.model, passed: false, checked_at: new Date().toISOString() }], 20), {});
+    ai.setProviderRegistryView(view);
+    const hosts = fakeFetch(() => sse("from groq"), () => sse("from openai"));
+    const out = await ai.streamChatCompletionWithFallback({ targets: [GROQ, OPENAI], system: "s", messages: [{ role: "user", content: "hi" }] });
+    expect(key(out)).toBe(key(OPENAI));
+    expect(hosts).toEqual(["openai"]);
+  });
+
+  it("waits once: after the first snapshot, ready() resolves at once", async () => {
+    const view = rec.registryViewFrom(slowDb([], 20), {});
+    await view.ready();
+    let settled = false;
+    void view.ready().then(() => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(true);
+  });
+
+  it("a verdict read that fails does not hold the request: policy order, at once", async () => {
+    const failing = { from: () => ({ select: () => ({ in: () => Promise.reject(new Error("down")), gte: () => { throw new Error("down"); } }) }) };
+    const view = rec.registryViewFrom(failing, {});
+    ai.setProviderRegistryView(view);
+    const hosts = fakeFetch(() => tool({ answer: "groq" }), () => tool({ answer: "openai" }));
+    const out = await ai.structuredCompletionWithFallback({ targets: [GROQ, OPENAI], system: "s", userText: "u", schema: SCHEMA, toolName: "t" });
+    expect(out.provider).toBe("groq");
+    expect(hosts).toEqual(["groq"]);
+  });
+});
+
 describe("runtime failure of the preferred provider falls back to OpenAI", () => {
   const FAILURES: Array<[string, () => Response | Promise<Response>]> = [
     ["401", () => new Response("{}", { status: 401 })],
