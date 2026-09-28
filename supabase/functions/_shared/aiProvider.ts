@@ -165,9 +165,26 @@ type OpenAICompatibleProvider = keyof typeof OPENAI_COMPATIBLE;
  *
  * Exact ids, never a prefix: a model is added here deliberately, and nothing a
  * caller sends can match its way in. Only the `openai` provider reads it.
+ *
+ * Each effort is the lowest the model accepted on Chat Completions against our
+ * key (openai-inventory.yml, 2026-09-28); gpt-6-astra refuses "none". Being
+ * listed makes a model callable through this adapter, nothing more: no chain
+ * names any of them but Luna. Deprecated (gpt-5, -mini, -nano, o3) and
+ * Responses-only (-pro, -codex) models are left out on purpose.
  */
 const OPENAI_REASONING_MODELS: Readonly<Record<string, { effort: "none" | "low" | "medium" | "high" }>> = {
   "gpt-5.6-luna": { effort: "none" },
+  "gpt-5.6-terra": { effort: "none" },
+  "gpt-5.6-sol": { effort: "none" },
+  "gpt-6-luna": { effort: "none" },
+  "gpt-6-sol": { effort: "none" },
+  "gpt-6-astra": { effort: "low" },
+  "gpt-5.5": { effort: "none" },
+  "gpt-5.4": { effort: "none" },
+  "gpt-5.4-mini": { effort: "none" },
+  "gpt-5.4-nano": { effort: "none" },
+  "gpt-5.2": { effort: "none" },
+  "gpt-5.1": { effort: "none" },
 };
 
 /**

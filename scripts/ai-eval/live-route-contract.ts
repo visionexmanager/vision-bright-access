@@ -273,6 +273,54 @@ for (const line of groqFailures) console.log(`  ${line}`);
   setProviderAttemptRecorder(null);
 }
 
+// ── H. Every OpenAI model the adapter serves, through the adapter itself ──
+// The 2026-09-28 audit made these callable (OPENAI_REASONING_MODELS) without
+// routing them. Each must stream to the end and fill a tool schema through the
+// production adapter, and its token usage must reach the attempt recorder.
+{
+  const usage: string[] = [];
+  setProviderAttemptRecorder((a) => usage.push(a.usage?.total_tokens ? "usage" : "no-usage"));
+  const REPLY = { type: "object", properties: { reply: { type: "string" } }, required: ["reply"] };
+  for (const model of ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
+    "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.2", "gpt-5.1", "gpt-4.1", "gpt-4.1-mini"]) {
+    const target: ProviderTarget = { provider: "openai", model };
+    await run("adapter stream", target, async () => {
+      const { result } = await streamChatCompletionWithFallback({
+        targets: [target], system: "Answer in one short sentence.", messages: [{ role: "user", content: "What colour is the sky on a clear day?" }], maxTokens: 200,
+      });
+      const { text, finish } = await drain(result);
+      return { text: text.trim().length > 0, finished: finish === "stop" };
+    });
+    usage.length = 0;
+    await run("adapter structured", target, async () => {
+      const { result } = await structuredCompletionWithFallback({
+        targets: [target], system: "Answer briefly.", userText: "Say hello.", schema: REPLY, toolName: "reply", maxTokens: 300,
+      });
+      return { schema: typeof (result as { reply?: unknown })?.reply === "string", usage: usage.includes("usage") };
+    });
+  }
+  setProviderAttemptRecorder(null);
+}
+
+// A model the key lists but cannot call (gpt-5-codex: 404 in the audit) is
+// recorded as a failure, and the chain answers from the next target.
+{
+  const attempts: string[] = [];
+  setProviderAttemptRecorder((a) => attempts.push(`${a.model}:${a.success ? "ok" : a.error}`));
+  const chain: ProviderTarget[] = [{ provider: "openai", model: "gpt-5-codex" }, { provider: "openai", model: "gpt-5.6-terra" }];
+  await run("fallback past a refused model", chain[0], async () => {
+    const { model } = await structuredCompletionWithFallback({
+      targets: chain, system: "Answer briefly.", userText: "Say hello.",
+      schema: { type: "object", properties: { reply: { type: "string" } }, required: ["reply"] }, toolName: "reply", maxTokens: 300,
+    });
+    return {
+      "failure-recorded": attempts[0]?.startsWith("gpt-5-codex:") && !attempts[0].endsWith(":ok"),
+      "answered-by-terra": model === "gpt-5.6-terra",
+    };
+  });
+  setProviderAttemptRecorder(null);
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 const lines = [
   "| route | target | verdict | ms | checks |",

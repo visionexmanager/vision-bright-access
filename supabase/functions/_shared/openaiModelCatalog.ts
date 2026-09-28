@@ -14,9 +14,9 @@
 //
 // Pure: fetch, database and clock are the caller's. See openaiModelDiscovery.ts.
 
-/** The capability names a catalog row may carry: ph_providers.type, plus embedding. */
+/** The capability names a catalog row may carry: ph_providers.type, plus embedding, moderation and realtime. */
 export const MODEL_CAPABILITIES = [
-  "chat", "vision", "tts", "stt", "image", "text_to_video", "voice_cloning", "embedding",
+  "chat", "vision", "tts", "stt", "image", "text_to_video", "voice_cloning", "embedding", "moderation", "realtime",
 ] as const;
 export type ModelCapability = typeof MODEL_CAPABILITIES[number];
 
@@ -99,7 +99,7 @@ export function classifyOpenAIModel(modelId: string): ModelCapability[] {
   if (/^tts-1(-hd)?(-\d{4})?$/.test(id) || /-tts(-\d{4}-\d{2}-\d{2})?$/.test(id)) return ["tts"];
   if (/^whisper-\d$/.test(id) || /-transcribe(-\d{4}-\d{2}-\d{2})?$/.test(id)) return ["stt"];
   if (/^text-embedding-/.test(id)) return ["embedding"];
-  if (/^gpt-(4o|4\.1|5(\.\d+)?)(-(mini|nano|luna|sol|terra))?(-\d{4}-\d{2}-\d{2})?$/.test(id)) return ["chat"];
+  if (/^gpt-(4o|4\.1|[56](\.\d+)?)(-(mini|nano|luna|sol|terra|astra))?(-\d{4}-\d{2}-\d{2})?$/.test(id)) return ["chat"];
   return [];
 }
 
