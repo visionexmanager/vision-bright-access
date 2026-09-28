@@ -18,6 +18,7 @@ import {
   createEmbedding,
   EMBEDDING_DIM,
   pausedReason,
+  type ProviderAttempt,
   type ProviderTarget,
   setProviderAttemptRecorder,
   setUsageSink,
@@ -71,8 +72,21 @@ async function pace(provider: string) {
   lastCallAt.set(provider, Date.now());
 }
 
+// Every attempt the router makes is seen here. A route whose own helper
+// swallows a provider error (understandImage and understandDocument answer
+// "not readable" rather than throw) is judged by its attempts: if every one was
+// a 429, the row is rate-limited, not failed. A section that wants the attempts
+// for itself sets `sectionRecorder`.
+let sectionRecorder: ((a: ProviderAttempt) => void) | null = null;
+let runAttempts: string[] = [];
+setProviderAttemptRecorder((a) => {
+  runAttempts.push(a.success ? "ok" : a.error ?? "unknown");
+  sectionRecorder?.(a);
+});
+
 async function run(route: string, target: ProviderTarget, fn: () => Promise<Record<string, boolean>>) {
   await pace(target.provider);
+  runAttempts = [];
   const started = Date.now();
   let checks: Record<string, boolean> = {};
   let error = "";
@@ -91,7 +105,7 @@ async function run(route: string, target: ProviderTarget, fn: () => Promise<Reco
   const pass = !error && Object.values(checks).every(Boolean);
   const detail = error || Object.entries(checks).map(([k, v]) => `${k}:${v ? "y" : "N"}`).join(" ");
   const row: Row = { route, target: `${target.provider}/${target.model}`, pass, ms: Date.now() - started, checks: detail };
-  if (error === "http_429") row.rateLimited = true;
+  if (error === "http_429" || (!pass && runAttempts.length > 0 && runAttempts.every((c) => c === "http_429"))) row.rateLimited = true;
   rows.push(row);
   console.log(`${verdictLabel(row)} ${row.route} ${row.target} ${row.ms}ms ${row.checks}`);
 }
@@ -213,7 +227,10 @@ for (const target of [T.gpt4o, T.lite]) {
       image: `data:image/png;base64,${btoa(String.fromCharCode(...PNG))}`,
       schema: VISION_SCHEMA as unknown as Record<string, unknown>, toolName: "vision_analysis", maxTokens: 1200,
     });
-    return { schema: hasRequired(result, VISION_SCHEMA) };
+    // Every key the page renders, and a summary. An appearance analyst shown a
+    // picture of digits rightly finds nothing, so empty lists are a valid answer.
+    const r = (result ?? {}) as Record<string, unknown>;
+    return { schema: VISION_SCHEMA.required.every((k) => r[k] !== undefined && r[k] !== null) && typeof r.summary === "string" && r.summary.trim().length > 0 };
   });
 }
 
@@ -258,7 +275,7 @@ for (const line of groqFailures) console.log(`  ${line}`);
 // assistant, asked in Arabic. Which model answered, and every attempt's code.
 {
   const attempts: string[] = [];
-  setProviderAttemptRecorder((a) => attempts.push(`${a.model.split("/").pop()}:${a.success ? "ok" : a.error}`));
+  sectionRecorder = ((a) => attempts.push(`${a.model.split("/").pop()}:${a.success ? "ok" : a.error}`));
   for (const id of Object.keys(PARAMS)) {
     const generator = getGenerator(id)!;
     const schema = (generator.schema ?? GENERATION_SCHEMA) as { required?: readonly string[] };
@@ -287,13 +304,13 @@ for (const line of groqFailures) console.log(`  ${line}`);
       return { text: text.trim().length > 20, language: answerIsInScript(text, "arabic") };
     });
   }
-  setProviderAttemptRecorder(null);
+  sectionRecorder = null;
 }
 
 // ── E. The router itself: a parked model in a chain is never attempted ──
 {
   const attempts: string[] = [];
-  setProviderAttemptRecorder((a) => attempts.push(`${a.provider}/${a.model}`));
+  sectionRecorder = ((a) => attempts.push(`${a.provider}/${a.model}`));
   await run("router skips parked flash-latest", T.lite, async () => {
     const { provider, model } = await structuredCompletionWithFallback({
       targets: [T.flash, T.lite], system: "Answer briefly.", userText: "Say hello.",
@@ -305,7 +322,7 @@ for (const line of groqFailures) console.log(`  ${line}`);
       "answered-by-lite": `${provider}/${model}` === "gemini/gemini-flash-lite-latest",
     };
   });
-  setProviderAttemptRecorder(null);
+  sectionRecorder = null;
 }
 
 // ── H. Every OpenAI model the adapter serves, through the adapter itself ──
@@ -314,7 +331,7 @@ for (const line of groqFailures) console.log(`  ${line}`);
 // production adapter, and its token usage must reach the attempt recorder.
 {
   const usage: string[] = [];
-  setProviderAttemptRecorder((a) => usage.push(a.usage?.total_tokens ? "usage" : "no-usage"));
+  sectionRecorder = ((a) => usage.push(a.usage?.total_tokens ? "usage" : "no-usage"));
   const REPLY = { type: "object", properties: { reply: { type: "string" } }, required: ["reply"] };
   for (const model of ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
     "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.2", "gpt-5.1", "gpt-4.1", "gpt-4.1-mini"]) {
@@ -334,14 +351,14 @@ for (const line of groqFailures) console.log(`  ${line}`);
       return { schema: typeof (result as { reply?: unknown })?.reply === "string", usage: usage.includes("usage") };
     });
   }
-  setProviderAttemptRecorder(null);
+  sectionRecorder = null;
 }
 
 // A model the key lists but cannot call (gpt-5-codex: 404 in the audit) is
 // recorded as a failure, and the chain answers from the next target.
 {
   const attempts: string[] = [];
-  setProviderAttemptRecorder((a) => attempts.push(`${a.model}:${a.success ? "ok" : a.error}`));
+  sectionRecorder = ((a) => attempts.push(`${a.model}:${a.success ? "ok" : a.error}`));
   const chain: ProviderTarget[] = [{ provider: "openai", model: "gpt-5-codex" }, { provider: "openai", model: "gpt-5.6-terra" }];
   await run("fallback past a refused model", chain[0], async () => {
     const { model } = await structuredCompletionWithFallback({
@@ -353,7 +370,7 @@ for (const line of groqFailures) console.log(`  ${line}`);
       "answered-by-terra": model === "gpt-5.6-terra",
     };
   });
-  setProviderAttemptRecorder(null);
+  sectionRecorder = null;
 }
 
 // ── I. Every live provider reports a stream's usage (metering) ──
