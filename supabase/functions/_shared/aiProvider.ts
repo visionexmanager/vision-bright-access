@@ -20,7 +20,19 @@ import {
 import { providerErrorSummary } from "./providerInput.ts";
 import { parkedProviderReason } from "./providerState.ts";
 import { answerIsInScript, type Script, textOf } from "./answerLanguage.ts";
-import { embeddingUsage, geminiUsage, hasUsage, modelIdOf, type NormalizedUsage, type UsageEvent } from "./metering.ts";
+import {
+  chatUsage,
+  embeddingUsage,
+  geminiUsage,
+  hasUsage,
+  modelIdOf,
+  type NormalizedUsage,
+  streamUsageFrom,
+  type UsageEvent,
+  utf8Bytes,
+} from "./metering.ts";
+import { meterSseStream, type StreamUsageSeen } from "./streamUsage.ts";
+import { emitUsage } from "./usageSink.ts";
 
 export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral" | "openrouter";
 
@@ -89,7 +101,17 @@ export interface ProviderChatParams {
   system: string;
   messages: Array<{ role: "user" | "assistant"; content: string }>;
   maxTokens?: number;
+  /** Set by the fallback loop so metering can group a chain's attempts. Callers leave it out. */
+  meter?: MeterContext;
+  /** The VX hold this call bills against (vx/meteredRequest.ts). Absent: shadow metering only. */
+  reservationId?: string;
 }
+
+/**
+ * The output budget a stream gets when its caller sets none — every provider.
+ * A metered request is bounded by it (vx/billing.ts), so it lives in one place.
+ */
+export const STREAM_DEFAULT_MAX_TOKENS = 2048;
 
 export interface ProviderTarget {
   provider: AIProvider;
@@ -217,23 +239,7 @@ export function completionBudget(provider: AIProvider, model: string, limit: num
  * recorded as a zero.
  */
 function usageOf(data: unknown): AttemptUsage | undefined {
-  const usage = (data as { usage?: Record<string, unknown> } | null)?.usage;
-  if (!usage || typeof usage !== "object") return undefined;
-  const count = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined);
-  const prompt = usage.prompt_tokens_details as Record<string, unknown> | undefined;
-  const completion = usage.completion_tokens_details as Record<string, unknown> | undefined;
-  const out: AttemptUsage = {};
-  const input = count(usage.prompt_tokens);
-  const cached = count(prompt?.cached_tokens);
-  const output = count(usage.completion_tokens);
-  const reasoning = count(completion?.reasoning_tokens);
-  const total = count(usage.total_tokens);
-  if (input !== undefined) out.input_tokens = input;
-  if (cached !== undefined) out.cached_input_tokens = cached;
-  if (output !== undefined) out.output_tokens = output;
-  if (reasoning !== undefined) out.reasoning_tokens = reasoning;
-  if (total !== undefined) out.total_tokens = total;
-  return Object.keys(out).length > 0 ? out : undefined;
+  return chatUsage(data);
 }
 
 function openAICompatibleConfig(provider: AIProvider): OpenAICompatibleConfig {
@@ -265,16 +271,43 @@ export async function streamChatCompletion(
   params: ProviderChatParams,
 ): Promise<ReadableStream<Uint8Array>> {
   refuseUnroutable(params, "chat");
+  const base = {
+    operation: "stream", provider: params.provider, model: params.model, ...(params.meter ?? {}),
+    ...(params.reservationId ? { reservation_id: params.reservationId } : {}),
+  } as const;
+  let opened: ReadableStream<Uint8Array>;
+  try {
+    opened = await openStream(params);
+  } catch (error) {
+    emitUsage({ ...base, outcome: "error", error_code: attemptErrorCode(error), usage_source: "missing" });
+    throw error;
+  }
+  // Every stream — direct or one attempt of a chain — is metered as it passes,
+  // and reported once when it ends (streamUsage.ts). Its usage-only chunk is
+  // removed here, so no caller downstream ever sees one.
+  return meterSseStream(opened, (seen) => emitUsage({ ...base, ...streamUsageEvent(params, seen) }));
+}
+
+function openStream(params: ProviderChatParams): Promise<ReadableStream<Uint8Array>> {
   if (params.provider === "anthropic") return streamAnthropic(params);
   if (params.provider === "gemini") {
     return geminiStreamChatCompletion({
       model: params.model,
       system: params.system,
       messages: params.messages,
-      maxTokens: params.maxTokens,
+      maxTokens: params.maxTokens ?? STREAM_DEFAULT_MAX_TOKENS,
     }).catch(asProviderError);
   }
   return streamOpenAICompatible(params);
+}
+
+/** What an ended stream used (metering.ts streamUsageFrom), given this request's prompt. */
+function streamUsageEvent(
+  params: ProviderChatParams,
+  seen: StreamUsageSeen,
+): Omit<UsageEvent, "operation" | "provider" | "model"> {
+  const promptBytes = utf8Bytes(params.system) + params.messages.reduce((n, m) => n + utf8Bytes(m.content), 0);
+  return streamUsageFrom(seen, promptBytes);
 }
 
 // ── Attempt recording (Phase 2K-4) ──────────────────────────────────────────
@@ -357,23 +390,9 @@ export function setProviderAttemptRecorder(recorder: AttemptRecorder | null): vo
 // It is emitted once per provider call, at the lowest layer, so a direct call
 // and each attempt of a fallback chain are each reported exactly once.
 
-export type UsageSink = (event: UsageEvent) => void;
-let usageSink: UsageSink | null = null;
-
-/** Installed once per function by `installUsageMetering()`; null removes it. */
-export function setUsageSink(sink: UsageSink | null): void {
-  usageSink = sink;
-}
-
-function emitUsage(event: UsageEvent): void {
-  const sink = usageSink;
-  if (!sink) return;
-  try {
-    sink(event);
-  } catch {
-    // Metering never reaches the request.
-  }
-}
+// The sink itself lives in usageSink.ts, shared with meteredFetch.ts; it is
+// re-exported here for the callers that install it through this module.
+export { setUsageSink, type UsageSink } from "./usageSink.ts";
 
 /** Which chain, and which attempt of it, a structured call belongs to. Internal. */
 export interface MeterContext {
@@ -602,6 +621,7 @@ export async function streamChatCompletionWithFallback(
 ): Promise<ProviderResult<ReadableStream<Uint8Array>>> {
   if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
 
+  const chainId = crypto.randomUUID();
   let lastError: unknown;
   for (const [index, target] of orderTargets(params.targets, "chat", "stream").entries()) {
     const start = Date.now();
@@ -613,7 +633,10 @@ export async function streamChatCompletionWithFallback(
       // user. After the first text, bytes are the user's and nothing is retried.
       const limit = params.attemptTimeoutMs ?? STREAM_FIRST_TEXT_TIMEOUT_MS;
       const deadline = start + limit;
-      const opened = await withAttemptTimeout(streamChatCompletion({ ...params, ...target }), limit);
+      const opened = await withAttemptTimeout(
+        streamChatCompletion({ ...params, ...target, meter: { chain_id: chainId, attempt: index + 1 } }),
+        limit,
+      );
       const gated = await gateStream(opened, params.expectScript ?? null, deadline);
       if (!gated.ok) {
         noteOutcome(target, "wrong_language");
@@ -774,6 +797,15 @@ export function observeStream(
   });
 }
 
+/**
+ * Providers that send a stream's token counts only when asked
+ * (stream_options.include_usage → a final `"choices": []` chunk, which
+ * streamUsage.ts removes). Mistral is not asked: it puts usage in its last
+ * chunk unprompted, and an option it does not document is a 422 risk on the
+ * streaming path of every chain it is in.
+ */
+const STREAM_USAGE_ON_REQUEST: ReadonlySet<AIProvider> = new Set(["openai", "groq", "openrouter"]);
+
 async function streamOpenAICompatible(
   p: ProviderChatParams,
 ): Promise<ReadableStream<Uint8Array>> {
@@ -790,8 +822,9 @@ async function streamOpenAICompatible(
     body: JSON.stringify({
       model: p.model,
       messages: [{ role: "system", content: p.system }, ...p.messages],
-      ...completionBudget(p.provider, p.model, p.maxTokens ?? 2048),
+      ...completionBudget(p.provider, p.model, p.maxTokens ?? STREAM_DEFAULT_MAX_TOKENS),
       stream: true,
+      ...(STREAM_USAGE_ON_REQUEST.has(p.provider) ? { stream_options: { include_usage: true } } : {}),
     }),
   });
 
@@ -820,7 +853,7 @@ async function streamAnthropic(p: ProviderChatParams): Promise<ReadableStream<Ui
     },
     body: JSON.stringify({
       model: p.model,
-      max_tokens: p.maxTokens ?? 2048,
+      max_tokens: p.maxTokens ?? STREAM_DEFAULT_MAX_TOKENS,
       // Anthropic takes the system prompt as a top-level field, not a message.
       system: p.system,
       messages: p.messages,
@@ -910,6 +943,8 @@ export interface StructuredParams {
   maxTokens?: number;
   /** Set by the fallback loop so metering can group a chain's attempts. Callers leave it out. */
   meter?: MeterContext;
+  /** The VX hold this call bills against (vx/meteredRequest.ts). Absent: shadow metering only. */
+  reservationId?: string;
 }
 
 export async function structuredCompletion(p: StructuredParams): Promise<unknown> {
@@ -925,7 +960,10 @@ type StructuredOutcome = { result: unknown; usage?: AttemptUsage; metered?: Norm
  */
 async function structuredCompletionDetailed(p: StructuredParams): Promise<StructuredOutcome> {
   refuseUnroutable(p, p.image ? "vision" : "chat");
-  const base = { operation: "structured", provider: p.provider, model: p.model, ...(p.meter ?? {}) } as const;
+  const base = {
+    operation: "structured", provider: p.provider, model: p.model, ...(p.meter ?? {}),
+    ...(p.reservationId ? { reservation_id: p.reservationId } : {}),
+  } as const;
   try {
     const out = await structuredCompletionOnce(p);
     const usage = out.metered ?? out.usage;
@@ -1111,12 +1149,15 @@ export const EMBEDDING_MODEL = "text-embedding-3-small";
 export const EMBEDDING_DIM = 1536;
 
 /** Create embeddings for one or more input strings. Returns one vector each. */
-export async function createEmbedding(input: string[]): Promise<number[][]> {
+export async function createEmbedding(input: string[], options: { reservationId?: string } = {}): Promise<number[][]> {
   const key = Deno.env.get("OPENAI_API_KEY");
   if (!key) throw new ProviderError(500, "OPENAI_API_KEY is not configured");
   if (input.length === 0) return [];
 
-  const base = { operation: "embedding", provider: "openai", model: EMBEDDING_MODEL } as const;
+  const base = {
+    operation: "embedding", provider: "openai", model: EMBEDDING_MODEL,
+    ...(options.reservationId ? { reservation_id: options.reservationId } : {}),
+  } as const;
   const res = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },

@@ -9,7 +9,7 @@
 // The SQL in this migration was executed against real PostgreSQL before it
 // landed; this file pins the decisions that a future edit could quietly undo.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -75,8 +75,15 @@ describe("no price, allowance or ceiling is written anywhere but the registry", 
   });
 
   it("names a service for every surface the platform bills", () => {
+    // A service may be seeded after the first price list (ai_chat, 20261056);
+    // what matters is that every id the code names has a registry row.
+    const seeding = readdirSync("supabase/migrations")
+      .filter((f) => f.endsWith(".sql"))
+      .map((f) => readFileSync(`supabase/migrations/${f}`, "utf8"))
+      .filter((sql) => /INSERT INTO public\.central_pricing_registry/.test(sql))
+      .join("\n");
     for (const service of SERVICE_IDS) {
-      expect(migration, service).toContain(`('${service}',`);
+      expect(seeding, service).toContain(`('${service}',`);
     }
   });
 });

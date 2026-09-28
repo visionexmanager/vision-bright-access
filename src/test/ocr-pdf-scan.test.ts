@@ -75,12 +75,12 @@ describe("ocr-scan's PDF path", () => {
 
   it("runs before the image check and before any model call", () => {
     expect(pdfBranch.length).toBeGreaterThan(0);
-    expect(handler.indexOf("if (isPdfDataUrl(image))")).toBeLessThan(handler.indexOf("fetch("));
+    expect(handler.indexOf("if (isPdfDataUrl(image))")).toBeLessThan(handler.indexOf("meteredFetch("));
   });
 
   it("reads the text layer locally and never calls a provider", () => {
     expect(pdfBranch).toContain("await extractPdfText(upload.bytes)");
-    expect(pdfBranch).not.toContain("fetch(");
+    expect(pdfBranch).not.toMatch(/[Ff]etch\(/);
     expect(pdfBranch).not.toMatch(/OPENAI|openai\.com/);
   });
 

@@ -13,6 +13,10 @@
 import { parkedProviderReason } from "../_shared/providerState.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { providerErrorSummary } from "../_shared/providerInput.ts";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("news-generate");
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -242,7 +246,7 @@ async function aiCall(prompt: string, maxTokens: number): Promise<// deno-lint-i
 any[]> {
   const openaiKey = Deno.env.get("OPENAI_API_KEY");
   if (openaiKey) {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    const res = await meteredFetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({

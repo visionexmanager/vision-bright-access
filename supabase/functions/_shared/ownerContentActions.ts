@@ -37,6 +37,7 @@ import {
   type ProposalView,
 } from "./ownerContent.ts";
 import { sendWhatsAppMediaByLink, sendWhatsAppTemplate, sendWhatsAppText } from "./whatsapp.ts";
+import { meteredFetch } from "./meteredFetch.ts";
 
 // deno-lint-ignore no-explicit-any
 type Db = any;
@@ -66,7 +67,7 @@ export async function attachProposalMedia(
   ref: string,
   apiKey: string | undefined,
   kind?: MediaKind,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = meteredFetch,
   videoKey: string | undefined = mediaVideoKey(),
 ): Promise<MediaResult> {
   const proposal = await findProposal(db, ref);

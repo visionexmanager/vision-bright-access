@@ -15,6 +15,24 @@ import { providerRoutableIn } from "../_shared/providerRecording.ts";
 import { publicMediaFailure } from "../_shared/providerInput.ts";
 import { FalError, falGenerateImage } from "../_shared/providers/fal.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { billedRequest, billingRefusalResponse, requestIdempotencyKey } from "../_shared/vx/billing.ts";
+import { chatUsageBound, utf8Bytes } from "../_shared/metering.ts";
+
+/**
+ * The most image tokens one generation here can return. OpenAI's gpt-image-1
+ * page gives $0.25 as the most one image costs (high quality) at $40 per 1M
+ * output tokens: 0.25 / 40 × 1e6 = 6,250. It bounds a metered hold only; the
+ * charge is settled from the tokens actually billed.
+ */
+const IMAGE_MAX_OUTPUT_TOKENS = 6250;
+
+/** A generation the person did not receive: thrown so any hold is returned, answered as before. */
+class ImageNotDelivered extends Error {
+  constructor(readonly response: Response) {
+    super("image not delivered");
+  }
+}
 
 installUsageMetering("image-generate");
 
@@ -137,7 +155,7 @@ async function generateImage(params: {
   let lastError = "Image generation failed.";
 
   for (const model of IMAGE_MODELS) {
-    const res = await fetch("https://api.openai.com/v1/images/generations", {
+    const res = await meteredFetch("https://api.openai.com/v1/images/generations", {
       method:  "POST",
       headers: {
         Authorization:  `Bearer ${apiKey}`,
@@ -334,65 +352,96 @@ Deno.serve(async (req: Request) => {
 
   // Generate the image
   try {
-    const startedAt = Date.now();
-    let result = await generateImage({
-      prompt:  prompt.trim(),
-      size:    wantedSize,
-      quality: wantedQuality,
-    });
-    const elapsedMs = Date.now() - startedAt;
-    // The registry keeps a short code, never the provider's sentence.
-    await recordImageResult({ ms: elapsedMs, success: result.ok, ...(result.ok ? {} : { errorMessage: result.code ?? "unknown" }) });
-
-    if (!result.ok && result.retryElsewhere && await providerRoutableIn(serviceClient, "fal-image")) {
-      result = await generateWithFal({ prompt: prompt.trim(), size: wantedSize });
-    }
-
-    if (!result.ok) {
-      if (jobRow) {
-        await serviceClient.from("ams_image_jobs").update({
-          status:        "failed",
-          error_message: result.code ?? "failed",
-          completed_at:  new Date().toISOString(),
-        }).eq("id", jobId);
-      }
-      // A fixed sentence: no vendor, secret name or status code reaches the studio (Phase 2F-3).
-      return json({ ok: false, error: publicMediaFailure(result.error, "image", "image-generate"), job_id: jobId }, 500);
-    }
-
     // Parse dimensions from the size actually asked of the model.
     const [widthStr, heightStr] = wantedSize.split("x");
     const width  = parseInt(widthStr ?? "1024", 10);
     const height = parseInt(heightStr ?? "1024", 10);
-
-    // ── Where the picture lives ────────────────────────────────────────
-    //
-    // The old code handed back OpenAI's own link, which expires within the
-    // hour — so an image saved to a project was a dead URL by the afternoon.
-    // The current models return no link at all, so the bytes are stored in
-    // the studio's own bucket, under the owner's folder as its policies
-    // require, and the caller gets a signed URL for them.
     const objectPath = `${user.id}/${jobId}.png`;
-    const { error: uploadErr } = await serviceClient.storage
-      .from("image-outputs")
-      .upload(objectPath, result.bytes!, { contentType: result.mime ?? "image/png", upsert: true });
-    if (uploadErr) {
-      console.error("Image upload failed:", uploadErr.message);
-      if (jobRow) {
-        await serviceClient.from("ams_image_jobs").update({
-          status: "failed", error_message: "Storage upload failed", completed_at: new Date().toISOString(),
-        }).eq("id", jobId);
-      }
-      return json({ ok: false, error: "The image was generated but could not be saved.", job_id: jobId }, 500);
-    }
 
-    const { data: signed } = await serviceClient.storage
-      .from("image-outputs")
-      .createSignedUrl(objectPath, 60 * 60 * 24 * 7);
-    const imageUrl = signed?.signedUrl ?? null;
-    if (!imageUrl) {
-      return json({ ok: false, error: "The image was saved but could not be linked.", job_id: jobId }, 500);
+    // Billed through the service registry: shadow while "image" is disabled
+    // (today). Once enabled, the charge covers an image the person actually
+    // receives — generated, stored and linked. Any step that fails throws,
+    // the hold is returned, and the answer is the same as before.
+    let delivered;
+    try {
+      const billed = await billedRequest(serviceClient, {
+        serviceId: "image",
+        userId: user.id,
+        source: "website",
+        idempotencyKey: requestIdempotencyKey(req, "image-generate"),
+        targets: IMAGE_MODELS.map((m) => ({ provider: "openai", model: m })),
+        bound: chatUsageBound(utf8Bytes(prompt.trim()), IMAGE_MAX_OUTPUT_TOKENS),
+      }, async () => {
+        const startedAt = Date.now();
+        let result = await generateImage({
+          prompt:  prompt.trim(),
+          size:    wantedSize,
+          quality: wantedQuality,
+        });
+        const elapsedMs = Date.now() - startedAt;
+        // The registry keeps a short code, never the provider's sentence.
+        await recordImageResult({ ms: elapsedMs, success: result.ok, ...(result.ok ? {} : { errorMessage: result.code ?? "unknown" }) });
+
+        if (!result.ok && result.retryElsewhere && await providerRoutableIn(serviceClient, "fal-image")) {
+          result = await generateWithFal({ prompt: prompt.trim(), size: wantedSize });
+        }
+
+        if (!result.ok) {
+          if (jobRow) {
+            await serviceClient.from("ams_image_jobs").update({
+              status:        "failed",
+              error_message: result.code ?? "failed",
+              completed_at:  new Date().toISOString(),
+            }).eq("id", jobId);
+          }
+          // A fixed sentence: no vendor, secret name or status code reaches the studio (Phase 2F-3).
+          throw new ImageNotDelivered(json({ ok: false, error: publicMediaFailure(result.error, "image", "image-generate"), job_id: jobId }, 500));
+        }
+
+        // ── Where the picture lives ──────────────────────────────────────
+        //
+        // The old code handed back OpenAI's own link, which expires within the
+        // hour — so an image saved to a project was a dead URL by the afternoon.
+        // The current models return no link at all, so the bytes are stored in
+        // the studio's own bucket, under the owner's folder as its policies
+        // require, and the caller gets a signed URL for them.
+        const { error: uploadErr } = await serviceClient.storage
+          .from("image-outputs")
+          .upload(objectPath, result.bytes!, { contentType: result.mime ?? "image/png", upsert: true });
+        if (uploadErr) {
+          console.error("Image upload failed:", uploadErr.message);
+          if (jobRow) {
+            await serviceClient.from("ams_image_jobs").update({
+              status: "failed", error_message: "Storage upload failed", completed_at: new Date().toISOString(),
+            }).eq("id", jobId);
+          }
+          throw new ImageNotDelivered(json({ ok: false, error: "The image was generated but could not be saved.", job_id: jobId }, 500));
+        }
+
+        const { data: signed } = await serviceClient.storage
+          .from("image-outputs")
+          .createSignedUrl(objectPath, 60 * 60 * 24 * 7);
+        const imageUrl = signed?.signedUrl ?? null;
+        if (!imageUrl) {
+          throw new ImageNotDelivered(json({ ok: false, error: "The image was saved but could not be linked.", job_id: jobId }, 500));
+        }
+        return { value: { result, imageUrl } };
+      });
+      if (billed.status === "refused" || billed.status === "duplicate") {
+        if (jobRow) {
+          await serviceClient.from("ams_image_jobs").update({
+            status: "failed", error_message: `billing: ${billed.status === "refused" ? billed.reason : "duplicate"}`,
+            completed_at: new Date().toISOString(),
+          }).eq("id", jobId);
+        }
+        return billingRefusalResponse(billed, CORS);
+      }
+      delivered = billed.value;
+    } catch (error) {
+      if (error instanceof ImageNotDelivered) return error.response;
+      throw error;
     }
+    const { result, imageUrl } = delivered;
 
     // Create asset record (best-effort)
     let assetId: string | null = null;

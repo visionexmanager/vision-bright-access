@@ -1,5 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { boundedText, providerErrorSummary } from "../_shared/providerInput.ts";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("enrich-product");
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -85,7 +89,7 @@ Generate enriched product data. Return a JSON object with these fields:
 
 Only return valid JSON, no markdown.`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await meteredFetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,

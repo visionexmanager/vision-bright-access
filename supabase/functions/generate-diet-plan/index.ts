@@ -1,6 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { providerErrorSummary } from "../_shared/providerInput.ts";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("generate-diet-plan");
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -76,7 +80,7 @@ Reply in JSON only with fields:
 meals (array of: name, time like "08:00 AM", calories, ingredients (string array), description),
 totalCalories (number), tips (array of 3 string tips), waterIntake (string like "3.5 Liters per day")`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await meteredFetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
