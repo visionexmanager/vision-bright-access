@@ -15,7 +15,7 @@ describe("ai-route-report", () => {
     expect(wf).toContain("workflow_dispatch:");
     expect(wf).not.toMatch(/^\s*(schedule|push|pull_request):/m);
     expect(wf).toContain("permissions:\n  contents: read");
-    expect(wf).toMatch(/sql=select event_message from logs where source = 'function_logs' and regexp_contains/);
+    expect(wf).toContain("sql=select event_message from logs where source = 'function_logs' order by timestamp desc limit 1000");
     expect(wf).not.toMatch(/\b(insert|update|delete|drop|alter)\b/i);
     expect(wf).toContain('[[ "$HOURS" -gt 24 ]] && HOURS=24');
   });

@@ -49,11 +49,14 @@ jobs:
 
           curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs" \
                -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-               --data-urlencode "sql=select event_message from logs where source = 'function_logs' and regexp_contains(event_message, r'^\[ai-(route|provider)\] ') order by timestamp desc limit 1000" \
+               --data-urlencode "sql=select event_message from logs where source = 'function_logs' order by timestamp desc limit 1000" \
                --data-urlencode "iso_timestamp_start=$(date -u -d "${HOURS} hours ago" +%Y-%m-%dT%H:%M:%SZ)" \
                --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /tmp/route-logs.json
           jq -r 'select(.error) | "Log query failed: \(.error | tostring | .[0:200] | gsub("[^A-Za-z0-9 _.:/-]"; ""))"' /tmp/route-logs.json
 
+          # The endpoint answers "Backend error" to a regexp_contains filter
+          # (twice, 2026-09-28), so it returns the latest function log lines as
+          # the diagnose workflows ask for them, and the filtering happens here.
           # The two shapes, anchored at both ends. Ids are [a-z0-9._/:-] only.
           ROUTE='^\[ai-route\] (chat|vision)/(stream|structured) answered=([a-z0-9]+/[A-Za-z0-9._/:-]+) attempt=([0-9]+) fallback=(true|false) ms=([0-9]+)$'
           FALLBACK='^\[ai-provider\] ([a-z0-9]+/[A-Za-z0-9._/:-]+) (unavailable|answered in the wrong language|answered without a required field|structured request failed); trying fallback$'
@@ -85,4 +88,4 @@ jobs:
           TOTAL=$(jq '[.result[]?] | length' /tmp/route-logs.json)
           SHOWN=$(jq --arg a "$ROUTE" --arg b "$FALLBACK" '[.result[]? | .event_message | select(type == "string") | select(test($a) or test($b))] | length' /tmp/route-logs.json)
           say ""
-          say "Counted ${SHOWN:-0} of ${TOTAL:-0} matching log lines; any line not in one of the two exact shapes is withheld."
+          say "Counted ${SHOWN:-0} routing lines among the latest ${TOTAL:-0} function log lines (at most 1,000); every other line is withheld."
