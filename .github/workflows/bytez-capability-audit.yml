@@ -31,6 +31,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # Bytez's official SDK, as a control: its own requests with the same key.
+      - name: Install the Bytez SDK
+        run: npm i --no-save --no-package-lock bytez.js
       - name: Audit
         env:
           BYTEZ_API_KEY:  ${{ secrets.BYTEZ_API_KEY }}

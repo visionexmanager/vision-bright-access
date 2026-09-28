@@ -342,6 +342,20 @@ if (!KEY) {
 }
 await account();
 await sanity();
+// Control: Bytez's own SDK, making its own requests with the same key. If it
+// fails identically, the request format on our side is not the cause.
+try {
+  const { default: Bytez } = await import("bytez.js");
+  const sdk = new Bytez(KEY);
+  const started = Date.now();
+  const listed = await sdk.list.models().catch((e) => ({ error: String(e?.message ?? e) }));
+  const n = Array.isArray(listed?.output) ? listed.output.length : 0;
+  row("sdk-control", "sdk.list.models()", "-", listed?.error ? "err" : 200, n > 0, `models=${n} ${listed?.error ?? ""}`, Date.now() - started);
+  const ran = await sdk.model("openai-community/gpt2").run("Once upon a time").catch((e) => ({ error: String(e?.message ?? e) }));
+  row("sdk-control", "sdk.model(gpt2).run()", "openai-community/gpt2", ran?.error ? "err" : 200, !ran?.error && !!ran?.output, ran?.error ? String(ran.error) : "output returned", Date.now() - started);
+} catch (e) {
+  row("sdk-control", "import bytez.js", "-", 0, false, `sdk unavailable: ${e?.name ?? "error"}`);
+}
 const anything = rows.some((r) => r.area === "sanity" && r.ok) || (facts.catalogSize ?? 0) > 0;
 facts.accountCanRunAnything = anything;
 // Every capability is still asked even if the catalog looks empty: an empty
