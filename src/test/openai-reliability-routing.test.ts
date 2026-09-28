@@ -388,3 +388,18 @@ describe("billing stays off when a request falls back", () => {
     expect(rpcs).toEqual([]);
   });
 });
+
+describe("the probe names each failure by kind", () => {
+  const probe = readFileSync("scripts/ai-eval/live-route-contract.ts", "utf8");
+  it("rate-limited, authentication, provider unavailable, capability failed", () => {
+    expect(probe).toContain('if (row.rateLimited) return "RATE-LIMITED";');
+    expect(probe).toContain('if (/^http_(401|403)$/.test(row.checks)) return "AUTHENTICATION-FAILED";');
+    expect(probe).toContain(String.raw`if (/^(http_(408|5\d\d)|timeout)$/.test(row.checks)) return "PROVIDER-UNAVAILABLE";`);
+    expect(probe).toContain('return "CAPABILITY-FAILED";');
+  });
+
+  it("asks whether OpenAI video exists without generating anything", () => {
+    expect(probe).toContain('await run("video api create (empty request)"');
+    expect(probe).toContain('method: "POST", headers: { Authorization: `Bearer ${key}` }, body: new FormData(),');
+  });
+});

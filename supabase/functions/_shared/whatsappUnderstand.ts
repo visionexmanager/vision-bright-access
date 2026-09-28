@@ -24,6 +24,15 @@ import {
   toDataUrl,
 } from "./whatsappAttachments.ts";
 import { readOfficeLocally } from "./whatsappOffice.ts";
+import {
+  convertMediaLocally,
+  processorAvailable,
+  processorConfig,
+  probeMediaLocally,
+  type ProcessorConfig,
+} from "./whatsappProcessor.ts";
+import { transcribe } from "./voice/stt.ts";
+import { denoEnv } from "./voice/providers/types.ts";
 
 /**
  * Vision-capable targets.
@@ -76,15 +85,33 @@ const TEXT_READERS: ProviderTarget[] = [
 export const DOCUMENT_TARGETS: ProviderTarget[] = TEXT_READERS;
 
 /**
- * Video is Gemini-only for the same reason a PDF is — it goes as `inline_data`
- * and no other provider in this layer takes it — and is empty for the same
- * reason too. The webhook checks this before downloading the clip, so an
- * unwatchable video does not also cost the bandwidth.
+ * Providers that take a video whole, as `inline_data` (Gemini). Empty: the
+ * account is unfunded. A video is read the other way instead — see
+ * `understandVideo`: a sheet of frames for a vision model, and a transcript
+ * of what is said, on the OpenAI models the rest of this file already uses.
  */
 export const VIDEO_TARGETS: ProviderTarget[] = [];
 
-/** Whether a video can be watched at all right now. Read by the webhook. */
-export const VIDEO_READING_AVAILABLE = VIDEO_TARGETS.length > 0;
+/**
+ * Whether a video can be read at all right now. Read by the webhook before it
+ * downloads the clip, so an unreadable video does not also cost the bandwidth.
+ * The frames route needs the media processor; the transcript alone needs only
+ * an STT key. Either is enough to say something true about a clip.
+ */
+export const VIDEO_READING_AVAILABLE = VIDEO_TARGETS.length > 0 || processorAvailable() ||
+  !!(denoEnv("OPENAI_API_KEY")?.trim() || denoEnv("GROQ_API_KEY")?.trim());
+
+/** Frames on a contact sheet: 3 × 2, as the media processor tiles them. */
+export const VIDEO_SHEET_FRAMES = 6;
+/** Spoken words handed to the model, at most. A support clip says far less. */
+export const VIDEO_TRANSCRIPT_BUDGET = 4_000;
+
+/** Seconds between frames, so six of them span the whole clip. */
+export function sheetInterval(durationSeconds: number | null): string {
+  const seconds = durationSeconds && durationSeconds > 0 ? durationSeconds : 12;
+  const interval = Math.min(600, Math.max(0.5, Math.round((seconds / VIDEO_SHEET_FRAMES) * 10) / 10));
+  return String(interval);
+}
 
 /**
  * A text document is decoded here and travels as text, so it carries no image
@@ -150,12 +177,14 @@ export async function understandImage(params: {
 /**
  * Watch a short video.
  *
- * Gemini only: it takes video as `inline_data` the same way it takes a PDF, so
- * this needs no frame extraction, no ffmpeg and no second pipeline. There is no
- * fallback provider on purpose — if Gemini is unavailable the honest answer is
- * "I couldn't watch it", not a guess from the filename. With `VIDEO_TARGETS`
- * empty the caller should not reach here at all; the guard below is the
- * backstop for a caller that passes its own empty list.
+ * With a provider that takes video whole (`VIDEO_TARGETS`, Gemini), the clip
+ * goes to it as `inline_data`. With none — today — it is read the way a person
+ * with the clip muted and then unmuted would: the media processor tiles six
+ * frames spread across it into one picture, the STT chain (Groq, then OpenAI
+ * Whisper, which both take an MP4 as it is) transcribes what is said, and a
+ * vision model answers from the two together. Either half alone still says
+ * something true; neither is a guess from the filename. When both fail the
+ * answer is "I couldn't watch it".
  */
 export async function understandVideo(params: {
   bytes: Uint8Array;
@@ -163,8 +192,79 @@ export async function understandVideo(params: {
   question: string;
   languageName: string;
   targets?: ProviderTarget[];
+  /** For tests: the processor configuration, fetch, and the transcriber. */
+  processor?: ProcessorConfig | null;
+  fetchImpl?: typeof fetch;
+  transcribeImpl?: typeof transcribe;
 }): Promise<UnderstandResult | null> {
   const targets = params.targets ?? VIDEO_TARGETS;
+  if (targets.length === 0) return await understandVideoFromFramesAndSpeech(params);
+  return await understandVideoWhole({ ...params, targets });
+}
+
+/** A clip read as a sheet of frames plus a transcript. Null when neither could be had. */
+async function understandVideoFromFramesAndSpeech(params: {
+  bytes: Uint8Array;
+  mimeType: string;
+  question: string;
+  languageName: string;
+  processor?: ProcessorConfig | null;
+  fetchImpl?: typeof fetch;
+  transcribeImpl?: typeof transcribe;
+}): Promise<UnderstandResult | null> {
+  const config = params.processor === undefined ? processorConfig() : params.processor;
+  const probed = config
+    ? await probeMediaLocally({ bytes: params.bytes, config, fetchImpl: params.fetchImpl })
+    : { ok: false as const, code: "not_configured" };
+  const interval = sheetInterval(probed.ok ? probed.durationSeconds : null);
+  const [sheet, heard] = await Promise.all([
+    config
+      ? convertMediaLocally({ bytes: params.bytes, query: `to=jpg&sheet=${interval}&quality=balanced`, config, fetchImpl: params.fetchImpl })
+      : Promise.resolve({ ok: false as const, code: "not_configured" }),
+    (params.transcribeImpl ?? transcribe)({ bytes: params.bytes, mimeType: params.mimeType }).catch(() => null),
+  ]);
+  const frames = sheet.ok && sheet.bytes ? sheet.bytes : null;
+  const transcript = heard && heard.outcome === "transcript" ? heard.text.trim().slice(0, VIDEO_TRANSCRIPT_BUDGET) : "";
+  // Codes and sizes only: the frames and the words are somebody's private clip.
+  console.info(`[whatsapp-video] frames=${frames ? "yes" : `no:${sheet.ok ? "empty" : sheet.code}`} speech=${transcript ? `${transcript.length}ch` : "none"} interval=${interval}s`);
+  if (!frames && !transcript) return null;
+
+  const userText = [
+    params.question || "What happens in this clip, and what should the customer do about it?",
+    frames
+      ? `The picture is a sheet of up to ${VIDEO_SHEET_FRAMES} frames from the clip, in order from left to right and top to bottom, one every ${interval} seconds.`
+      : "No frames could be taken from the clip: answer only from what is said in it, and say that you could not see it.",
+    transcript
+      ? `What is said in the clip (a machine transcript; it may contain mistakes):\n"""\n${transcript}\n"""`
+      : "Nothing said in the clip could be transcribed: answer only from what the frames show.",
+  ].join("\n\n");
+
+  try {
+    const { result } = await structuredCompletionWithFallback({
+      targets: frames ? VISION_TARGETS : TEXT_READERS,
+      system: attachmentSystemPrompt(params.languageName, "video"),
+      userText,
+      ...(frames ? { image: toDataUrl(frames, "image/jpeg") } : {}),
+      schema: ATTACHMENT_ANSWER_SCHEMA as unknown as Record<string, unknown>,
+      toolName: "answer_from_video",
+      maxTokens: 600,
+    });
+    return coerce(result);
+  } catch (e) {
+    console.error("[whatsapp-vision] video read failed:", describeError(e));
+    return null;
+  }
+}
+
+/** A clip sent whole to a provider that takes video (`VIDEO_TARGETS`). */
+async function understandVideoWhole(params: {
+  bytes: Uint8Array;
+  mimeType: string;
+  question: string;
+  languageName: string;
+  targets: ProviderTarget[];
+}): Promise<UnderstandResult | null> {
+  const targets = params.targets;
   if (targets.length === 0) return null;
 
   try {
@@ -211,6 +311,38 @@ export type DocumentFailure =
 export type DocumentResult =
   | { ok: true; value: UnderstandResult }
   | { ok: false; reason: DocumentFailure };
+
+/**
+ * A PDF with no text layer, read by a model that reads PDFs as pages: OpenAI's
+ * `file` part (and Gemini's inline data, when funded). The vision chain, since
+ * it is the pages' images that carry the words. `scanned_pdf` — "send photos
+ * instead" — is still the answer when no model can read it.
+ */
+export async function readScannedPdf(params: {
+  bytes: Uint8Array;
+  userText: string;
+  languageName: string;
+  targets?: ProviderTarget[];
+}): Promise<DocumentResult> {
+  const targets = (params.targets ?? VISION_TARGETS).filter((t) => t.provider === "openai" || t.provider === "gemini");
+  if (targets.length === 0) return { ok: false, reason: "scanned_pdf" };
+  try {
+    const { result } = await structuredCompletionWithFallback({
+      targets,
+      system: attachmentSystemPrompt(params.languageName, "document"),
+      userText: `${params.userText}\n\nThe PDF is a scan: read the words on its pages.`,
+      pdf: toDataUrl(params.bytes, "application/pdf"),
+      schema: ATTACHMENT_ANSWER_SCHEMA as unknown as Record<string, unknown>,
+      toolName: "answer_from_document",
+      maxTokens: 700,
+    });
+    const value = coerce(result);
+    return value ? { ok: true, value } : { ok: false, reason: "scanned_pdf" };
+  } catch (e) {
+    console.error("[whatsapp-vision] scanned PDF read failed:", describeError(e));
+    return { ok: false, reason: "scanned_pdf" };
+  }
+}
 
 /** Read a customer's document. Format policy lives in `classifyDocument`. */
 export async function understandDocument(params: {
@@ -283,6 +415,12 @@ export async function understandDocument(params: {
     // several megabytes of PDF on every turn — costs a provider that accepts
     // PDFs and pays image-token rates for pages that are mostly prose.
     const extracted = await extractPdfText(params.bytes);
+    // A scan has no text layer to extract. OpenAI reads the PDF itself — its
+    // text and an image of every page — so the scan is read like a
+    // photograph rather than refused with "send photos of the pages".
+    if (!extracted.ok && extracted.reason === "scanned") {
+      return await readScannedPdf({ ...params, userText });
+    }
     if (!extracted.ok) {
       return {
         ok: false,

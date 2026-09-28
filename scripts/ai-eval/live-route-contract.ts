@@ -37,6 +37,7 @@ import { synthesize } from "../../supabase/functions/_shared/voice/tts.ts";
 import { transcribe } from "../../supabase/functions/_shared/voice/stt.ts";
 import { defaultSpokenVoice } from "../../supabase/functions/_shared/whatsappVoiceReply.ts";
 import { editWithOpenAI } from "../../supabase/functions/_shared/providers/openaiImageEdit.ts";
+import { scannedPdfFromPng } from "./scanned-pdf-fixture.ts";
 import type { UsageEvent } from "../../supabase/functions/_shared/metering.ts";
 
 const T = {
@@ -113,8 +114,17 @@ async function run(route: string, target: ProviderTarget, fn: () => Promise<Reco
 /** Routes that exercise a whole chain or the router, not the model in their target column. */
 const CHAIN_ROUTE = /^(chain |router |fallback )/;
 
+/**
+ * A failed row names its kind: busy (429), the key (401/403), the provider
+ * being down (408, 5xx, timeout), or the capability itself failing — an
+ * answer that came back but did not meet the contract.
+ */
 function verdictLabel(row: Row): string {
-  return row.pass ? "PASS" : row.rateLimited ? "RATE-LIMITED" : "FAIL";
+  if (row.pass) return "PASS";
+  if (row.rateLimited) return "RATE-LIMITED";
+  if (/^http_(401|403)$/.test(row.checks)) return "AUTHENTICATION-FAILED";
+  if (/^(http_(408|5\d\d)|timeout)$/.test(row.checks)) return "PROVIDER-UNAVAILABLE";
+  return "CAPABILITY-FAILED";
 }
 
 /** Read an OpenAI-compatible SSE stream to the end: the text, and how it finished. */
@@ -513,6 +523,16 @@ for (const line of groqFailures) console.log(`  ${line}`);
     }
   }
 
+  // A scanned PDF (no text layer), through production's own document reader:
+  // extractPdfText finds no text, and OpenAI reads the pages from the `file` part.
+  await run("scanned pdf (whatsapp document)", T.mini, async () => {
+    const read = await understandDocument({
+      bytes: scannedPdfFromPng(PNG), mimeType: "application/pdf", filename: "scan.pdf",
+      question: "What number is written in this document?", languageName: "English",
+    });
+    return { read: read.ok, digits: read.ok && /42/.test(read.value.answer) };
+  });
+
   // Speech out, then back in: what the WhatsApp voice reply and the site voices
   // send, transcribed by both STT providers — each language a round trip.
   const spoken: Record<string, Uint8Array | null> = { en: null, ar: null };
@@ -591,6 +611,29 @@ for (const line of groqFailures) console.log(`  ${line}`);
   await run("embeddings", { provider: "openai", model: "text-embedding-3-small" }, async () => {
     const [vector] = await createEmbedding(["Visionex accessible library search"]);
     return { dims: vector?.length === EMBEDDING_DIM };
+  });
+
+  // Video: does OpenAI's Videos API exist on this key at all? Two reads, no
+  // generation, nothing billed. A 404 on both is the answer "no OpenAI video";
+  // only a 200 would justify one paid clip to prove generation.
+  for (const [route, path] of [["video api list", "/v1/videos?limit=1"], ["video model sora-2", "/v1/models/sora-2"]] as const) {
+    await run(route, { provider: "openai", model: "sora-2" }, async () => {
+      const res = await fetch(`https://api.openai.com${path}`, { headers: { Authorization: `Bearer ${key}` } });
+      await res.body?.cancel();
+      console.log(`  ${route}: HTTP ${res.status}`);
+      if (!res.ok) throw { status: res.status };
+      return { exists: true };
+    });
+  }
+  // The creation endpoint, asked with no prompt: a live API refuses it as a bad
+  // request (400) and generates nothing; a removed one answers 404.
+  await run("video api create (empty request)", { provider: "openai", model: "sora-2" }, async () => {
+    const res = await fetch("https://api.openai.com/v1/videos", {
+      method: "POST", headers: { Authorization: `Bearer ${key}` }, body: new FormData(),
+    });
+    await res.body?.cancel();
+    console.log(`  video api create (empty request): HTTP ${res.status}`);
+    return { endpoint: res.status !== 404 };
   });
 
   await run("realtime session", { provider: "openai", model: "gpt-realtime-2" }, async () => {
