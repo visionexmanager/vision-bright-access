@@ -85,8 +85,9 @@ describe("the usage screen", () => {
     for (const status of ["settled", "reserved", "refunded", "failed", "expired"]) {
       expect(usage, status).toMatch(new RegExp(`${status}:\\s*\\{\\s*label:`));
     }
-    expect(usage).toContain("VX returned");
-    expect(usage).toContain("Timed out");
+    // Outcomes that charged nothing say so in words (20261058: no hold or refund amount is shown).
+    expect(usage).toContain("Failed — not charged");
+    expect(usage).toContain("Timed out — not charged");
   });
 
   it("marks time as time, so it can be read in the viewer's locale", () => {

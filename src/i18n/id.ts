@@ -13236,7 +13236,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Bagian yang dibuka",
   "plans.currentPlan": "Paket Anda",
   "plans.freeWeekTitle": "Setiap akun dimulai dengan satu minggu gratis",
-  "plans.freeWeekBody": "Tujuh hari dengan semua bagian terbuka, di situs dan di WhatsApp — tanpa kartu, dan kami memberi tahu sehari sebelum berakhir. Setelah itu pilih Perunggu, Perak, atau Emas. Berita, komunitas, dan produk bantu tetap terbuka bagaimanapun juga.",
+  "plans.freeWeekBody": "Tujuh hari dengan semua bagian terbuka, di situs dan di WhatsApp — tanpa kartu, dan kami memberi tahu sehari sebelum berakhir. Setelah itu pilih Anak, Dasar, Pro, atau Bisnis. Berita, komunitas, dan produk bantu tetap terbuka bagaimanapun juga.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Selesaikan langganan Anda",

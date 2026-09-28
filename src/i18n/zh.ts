@@ -13236,7 +13236,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "可使用的板块",
   "plans.currentPlan": "您的方案",
   "plans.freeWeekTitle": "每个账户都从免费一周开始",
-  "plans.freeWeekBody": "七天内所有板块全部开放，网站和 WhatsApp 都一样——无需银行卡，结束前一天我们会提醒您。之后请选择青铜、白银或黄金方案。新闻、社区和辅助产品始终保持开放。",
+  "plans.freeWeekBody": "七天内所有板块全部开放，网站和 WhatsApp 都一样——无需银行卡，结束前一天我们会提醒您。之后请选择儿童、基础版、专业版或商务版方案。新闻、社区和辅助产品始终保持开放。",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "完成订阅",

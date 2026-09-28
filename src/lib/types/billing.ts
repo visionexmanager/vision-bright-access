@@ -194,9 +194,11 @@ export const TRIAL_WARNING_HOURS = 24;
 // ── The unified VX usage ledger ───────────────────────────────────────────────
 //
 // What `my_vx_usage()` returns, which is deliberately narrower than the row it
-// reads. `vx_usage_ledger` also carries `provider` and `actual_cost_usd`; the
-// function is the column list that keeps both on the admin side of the wall,
-// which is why the page calls it rather than the table.
+// reads. `vx_usage_ledger` also carries `provider`, `actual_cost_usd`, and the
+// hold and refund of every request; the function is the column list that keeps
+// all of them on the admin side of the wall, which is why the page calls it
+// rather than the table. A customer sees what a request cost, never what was
+// held for it (20261058).
 
 /** Where the request came from. Shown only when an account has used more than one. */
 export type VxUsageSource = "website" | "whatsapp" | "api" | "system";
@@ -204,8 +206,8 @@ export type VxUsageSource = "website" | "whatsapp" | "api" | "system";
 /**
  * How a reservation ended.
  *
- * `reserved` is a job still in flight. `settled` consumed some or all of the
- * hold. `refunded`, `failed` and `expired` all returned it — they are told
+ * `reserved` is a job still in flight. `settled` is a finished job, charged
+ * `consumed_vx`. `refunded`, `failed` and `expired` charged nothing — they are told
  * apart because "we could not do it", "you cancelled" and "nobody ever
  * finished it" are different things to read on your own statement.
  */
@@ -216,9 +218,7 @@ export interface VxUsageRow {
   service_id:   string;
   display_name: string;
   units:        number;
-  reserved_vx:  number;
   consumed_vx:  number;
-  refunded_vx:  number;
   status:       VxUsageStatus;
   source:       VxUsageSource;
   created_at:   string;
@@ -244,6 +244,6 @@ export interface VxSummary {
     is_trial: boolean;
     trial_ends_at: string | null;
   };
-  today: { consumed_vx: number; refunded_vx: number; requests: number };
-  month: { consumed_vx: number; refunded_vx: number; requests: number };
+  today: { consumed_vx: number; requests: number };
+  month: { consumed_vx: number; requests: number };
 }
