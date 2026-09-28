@@ -13243,7 +13243,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Wat dit pakket opent",
   "plans.currentPlan": "Jouw pakket",
   "plans.freeWeekTitle": "Elk account begint met een gratis week",
-  "plans.freeWeekBody": "Zeven dagen met alle onderdelen open, op de site en op WhatsApp — zonder kaart, en we laten het je een dag van tevoren weten. Daarna kies je Brons, Zilver of Goud. Nieuws, community en hulpmiddelen blijven hoe dan ook open.",
+  "plans.freeWeekBody": "Zeven dagen met alle onderdelen open, op de site en op WhatsApp — zonder kaart, en we laten het je een dag van tevoren weten. Daarna kies je Kinderen, Basis, Pro of Zakelijk. Nieuws, community en hulpmiddelen blijven hoe dan ook open.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Rond je abonnement af",

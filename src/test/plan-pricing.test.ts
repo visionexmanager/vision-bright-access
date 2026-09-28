@@ -194,6 +194,34 @@ describe("the trial emails and notifications name the current plans", () => {
   });
 });
 
+describe("the free-week card names the current plans, in every language", () => {
+  const locales = readdirSync("src/i18n").filter((n) => /^[a-z]{2}\.ts$/.test(n));
+  /** One string key's value, read from a dictionary's source. */
+  const value = (source: string, key: string) =>
+    new RegExp(`"${key.replace(/\./g, "\\.")}":\\s*"((?:[^"\\\\]|\\\\.)*)"`).exec(source)?.[1];
+
+  it("covers all twenty locales", () => {
+    expect(locales).toHaveLength(20);
+  });
+
+  for (const file of locales) {
+    it(`${file}: names Kids, Basic, Pro and Business as the plan names do, and no retired tier`, () => {
+      const source = readFileSync(`src/i18n/${file}`, "utf8");
+      const body = value(source, "plans.freeWeekBody");
+      expect(body, "plans.freeWeekBody missing").toBeTruthy();
+      for (const tier of ["kids", "basic", "pro", "business"]) {
+        const name = value(source, `plans.tier.${tier}`);
+        expect(name, `plans.tier.${tier} missing`).toBeTruthy();
+        expect(body, `${tier} is not named`).toContain(name);
+      }
+    });
+  }
+
+  it("English no longer offers Bronze, Silver or Gold", () => {
+    expect(value(readFileSync("src/i18n/en.ts", "utf8"), "plans.freeWeekBody")).not.toMatch(/Bronze|Silver|Gold/);
+  });
+});
+
 describe("what a customer sees", () => {
   const walk = (dir: string): string[] => readdirSync(dir).flatMap((n) => {
     const p = `${dir}/${n}`;

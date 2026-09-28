@@ -13243,7 +13243,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Was dieser Tarif öffnet",
   "plans.currentPlan": "Ihr Tarif",
   "plans.freeWeekTitle": "Jedes Konto beginnt mit einer kostenlosen Woche",
-  "plans.freeWeekBody": "Sieben Tage mit allen Bereichen offen, auf der Website und bei WhatsApp — ohne Karte, und wir sagen Ihnen einen Tag vorher Bescheid. Danach wählen Sie Bronze, Silber oder Gold. Nachrichten, Community und Hilfsmittel bleiben in jedem Fall offen.",
+  "plans.freeWeekBody": "Sieben Tage mit allen Bereichen offen, auf der Website und bei WhatsApp — ohne Karte, und wir sagen Ihnen einen Tag vorher Bescheid. Danach wählen Sie Kinder, Basis, Pro oder Business. Nachrichten, Community und Hilfsmittel bleiben in jedem Fall offen.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Abonnement abschließen",

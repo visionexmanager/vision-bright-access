@@ -13236,7 +13236,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Những phần được mở",
   "plans.currentPlan": "Gói của bạn",
   "plans.freeWeekTitle": "Mỗi tài khoản bắt đầu với một tuần miễn phí",
-  "plans.freeWeekBody": "Bảy ngày mở toàn bộ các phần, trên trang web và trên WhatsApp — không cần thẻ, và chúng tôi báo trước một ngày khi sắp hết. Sau đó hãy chọn gói Đồng, Bạc hoặc Vàng. Tin tức, cộng đồng và sản phẩm hỗ trợ vẫn luôn mở.",
+  "plans.freeWeekBody": "Bảy ngày mở toàn bộ các phần, trên trang web và trên WhatsApp — không cần thẻ, và chúng tôi báo trước một ngày khi sắp hết. Sau đó hãy chọn gói Trẻ em, Cơ bản, Pro hoặc Doanh nghiệp. Tin tức, cộng đồng và sản phẩm hỗ trợ vẫn luôn mở.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Hoàn tất đăng ký",
