@@ -89,12 +89,14 @@ describe("the free week", () => {
 });
 
 describe("the three tiers", () => {
-  it("prices at five, seven and ten dollars", () => {
-    expect(TIER_ORDER.map((tier) => TIERS[tier].price)).toEqual([5, 7, 10]);
+  it("prices at five, ten and twenty dollars, as the final pricing migration sets them", () => {
+    // The seed above set the first prices; 20261057000000 sets the agreed ones
+    // (plan-pricing.test.ts covers them in full).
+    const pricing = readFileSync("supabase/migrations/20261057000000_final_plan_pricing.sql", "utf8");
+    expect(TIER_ORDER.map((tier) => TIERS[tier].price)).toEqual([5, 10, 20]);
     for (const tier of TIER_ORDER) {
-      const row = planStatement(tier);
-      expect(row.slice(0, 400), `${tier} price or monthly VX drifted from the seed`)
-        .toContain(`\n    ${TIERS[tier].price}, ${TIERS[tier].vxMonthly},`);
+      expect(pricing, `${tier} price or monthly VX drifted from the pricing migration`)
+        .toMatch(new RegExp(`\\('${tier}',\\s+${TIERS[tier].price},\\s+${TIERS[tier].vxMonthly}\\)`));
     }
   });
 
