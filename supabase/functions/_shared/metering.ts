@@ -194,6 +194,17 @@ export function embeddingUsage(json: unknown): NormalizedUsage | undefined {
   return hasUsage(out) ? out : undefined;
 }
 
+/**
+ * A token count estimated from UTF-8 bytes, for a call whose provider sent no
+ * usage. Four bytes per token: English runs about four characters per token at
+ * one byte each; Arabic about two characters per token at two bytes each — so
+ * one divisor serves both scripts to within the error an estimate can promise.
+ * Only ever reported with usage_source "estimated".
+ */
+export function estimateTokensFromBytes(bytes: number): number {
+  return bytes > 0 ? Math.ceil(bytes / 4) : 0;
+}
+
 /** A model id a provider returned, if it is one. Never anything else. */
 export function modelIdOf(v: unknown): string | undefined {
   return typeof v === "string" && /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(v) ? v : undefined;

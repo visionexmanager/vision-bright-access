@@ -18,6 +18,7 @@ import {
   pausedReason,
   type ProviderTarget,
   setProviderAttemptRecorder,
+  setUsageSink,
   streamChatCompletion,
   streamChatCompletionWithFallback,
   structuredCompletion,
@@ -271,6 +272,27 @@ for (const line of groqFailures) console.log(`  ${line}`);
     };
   });
   setProviderAttemptRecorder(null);
+}
+
+// ── I. Every live provider reports a stream's usage (metering) ──
+// OpenAI and Groq only when asked (stream_options.include_usage), Mistral and
+// our Gemini transform unprompted. "reported" is the provider's own count; an
+// "estimated" here means the provider stopped sending it.
+{
+  for (const target of [T.mini, T.luna, T.groq120, T.mistral14, T.lite]) {
+    await run("stream usage reported", target, async () => {
+      let seen: { usage_source: string; usage?: { input_tokens?: number; output_tokens?: number } } | undefined;
+      setUsageSink((e) => { if (e.operation === "stream") seen = e; });
+      const raw = await streamChatCompletion({ ...target, system: "Answer in one short sentence.", messages: [{ role: "user", content: "Name a colour." }], maxTokens: 200 });
+      const bytes = await new Response(raw).text();
+      setUsageSink(null);
+      return {
+        reported: seen?.usage_source === "reported",
+        tokens: (seen?.usage?.input_tokens ?? 0) > 0 && (seen?.usage?.output_tokens ?? 0) > 0,
+        "no-usage-chunk": !bytes.includes("\"choices\":[]"),
+      };
+    });
+  }
 }
 
 // ── Report ──────────────────────────────────────────────────────────────────
