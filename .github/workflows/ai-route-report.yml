@@ -1,0 +1,88 @@
+name: AI route report
+
+# Which model answered production AI requests, and how often a request had to
+# fall back — read from the Edge Functions' own log lines:
+#
+#   [ai-route] chat/stream answered=openai/gpt-4.1 attempt=2 fallback=true ms=812
+#   [ai-provider] groq/openai/gpt-oss-20b unavailable; trying fallback
+#   (or: answered in the wrong language / answered without a required field /
+#    structured request failed; trying fallback)
+#
+# (supabase/functions/_shared/aiProvider.ts). The repository is public, so a
+# line is published only as counts, and only after it matches one of those two
+# shapes exactly: provider and model ids, an attempt number, milliseconds. A
+# line that does not match is counted as withheld and never shown.
+# Every statement is a SELECT; nothing here changes anything.
+
+on:
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "How far back to look (1–24)"
+        required: false
+        default: "6"
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: AI route report
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Count answers and fallbacks
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+          HOURS_IN: ${{ inputs.hours }}
+        run: |
+          set -uo pipefail
+          if [[ -z "$SUPABASE_ACCESS_TOKEN" || -z "$SUPABASE_PROJECT_REF" ]]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF are required."
+            exit 1
+          fi
+          HOURS=$(echo "${HOURS_IN:-6}" | tr -cd '0-9')
+          [[ -z "$HOURS" || "$HOURS" -lt 1 ]] && HOURS=6
+          [[ "$HOURS" -gt 24 ]] && HOURS=24
+          say() { echo "$1" | tee -a "$GITHUB_STEP_SUMMARY"; }
+
+          curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs" \
+               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+               --data-urlencode "sql=select event_message from logs where source = 'function_logs' and regexp_contains(event_message, r'^\[ai-(route|provider)\] ') order by timestamp desc limit 1000" \
+               --data-urlencode "iso_timestamp_start=$(date -u -d "${HOURS} hours ago" +%Y-%m-%dT%H:%M:%SZ)" \
+               --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /tmp/route-logs.json
+          jq -r 'select(.error) | "Log query failed: \(.error | tostring | .[0:200] | gsub("[^A-Za-z0-9 _.:/-]"; ""))"' /tmp/route-logs.json
+
+          # The two shapes, anchored at both ends. Ids are [a-z0-9._/:-] only.
+          ROUTE='^\[ai-route\] (chat|vision)/(stream|structured) answered=([a-z0-9]+/[A-Za-z0-9._/:-]+) attempt=([0-9]+) fallback=(true|false) ms=([0-9]+)$'
+          FALLBACK='^\[ai-provider\] ([a-z0-9]+/[A-Za-z0-9._/:-]+) (unavailable|answered in the wrong language|answered without a required field|structured request failed); trying fallback$'
+
+          say "## Production AI routing, last ${HOURS} h"
+          say ""
+          say "### Answered by"
+          say "| model | kind | answers | after a fallback | median ms |"
+          say "| --- | --- | --- | --- | --- |"
+          jq -r --arg re "$ROUTE" '
+            [ .result[]? | .event_message | select(type == "string") | select(test($re))
+              | { model: (capture("answered=(?<m>[^ ]+)").m), kind: ((capture("^\\[ai-route\\] (?<k>[a-z]+/[a-z]+)").k)),
+                  fallback: (test("fallback=true")), ms: (capture("ms=(?<n>[0-9]+)$").n | tonumber) } ]
+            | group_by([.model, .kind])
+            | map({ model: .[0].model, kind: .[0].kind, n: length, fb: (map(select(.fallback)) | length),
+                    med: (map(.ms) | sort | .[(length / 2 | floor)]) })
+            | sort_by(-.n) | .[] | "| `\(.model)` | \(.kind) | \(.n) | \(.fb) | \(.med) |"' /tmp/route-logs.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+          say ""
+          say "### Attempts that failed over to the next model"
+          say "| model | failed over | why |"
+          say "| --- | --- | --- |"
+          jq -r --arg re "$FALLBACK" '
+            [ .result[]? | .event_message | select(type == "string") | select(test($re))
+              | { model: (capture("^\\[ai-provider\\] (?<m>[^ ]+) ").m), why: (if test("wrong language") then "wrong language" elif test("required field") then "missing field" elif test("structured request failed") then "structured failure" else "unavailable" end) } ]
+            | group_by([.model, .why]) | map({ model: .[0].model, why: .[0].why, n: length }) | sort_by(-.n)
+            | .[] | "| `\(.model)` | \(.n) | \(.why) |"' /tmp/route-logs.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+          TOTAL=$(jq '[.result[]?] | length' /tmp/route-logs.json)
+          SHOWN=$(jq --arg a "$ROUTE" --arg b "$FALLBACK" '[.result[]? | .event_message | select(type == "string") | select(test($a) or test($b))] | length' /tmp/route-logs.json)
+          say ""
+          say "Counted ${SHOWN:-0} of ${TOTAL:-0} matching log lines; any line not in one of the two exact shapes is withheld."
