@@ -35,6 +35,7 @@ import { meteredFetch } from "../../supabase/functions/_shared/meteredFetch.ts";
 import { synthesize } from "../../supabase/functions/_shared/voice/tts.ts";
 import { transcribe } from "../../supabase/functions/_shared/voice/stt.ts";
 import { defaultSpokenVoice } from "../../supabase/functions/_shared/whatsappVoiceReply.ts";
+import { editWithOpenAI } from "../../supabase/functions/_shared/providers/openaiImageEdit.ts";
 import type { UsageEvent } from "../../supabase/functions/_shared/metering.ts";
 
 const T = {
@@ -559,6 +560,16 @@ for (const line of groqFailures) console.log(`  ${line}`);
     const bytes = Uint8Array.from(atob(b64.slice(0, 64)), (c) => c.charCodeAt(0));
     return { image: b64.length > 1000, alpha: bytes[25] === 6 };
   });
+
+  // The Image Studio tools' own edit, as image-tools-generate calls it (only
+  // the quality is lowered): the modes it serves while Replicate is parked.
+  for (const mode of ["bg-remove", "restore"] as const) {
+    await run(`image tool ${mode}`, { provider: "openai", model: "gpt-image-1" }, async () => {
+      const out = await editWithOpenAI(mode, new Blob([(generated ?? PNG).slice()], { type: "image/png" }), undefined, { quality: "low" });
+      if (!out.ok) throw { status: /d{3}/.test(out.error) ? Number(out.error.match(/d{3}/)![0]) : "error" };
+      return { image: out.bytes.byteLength > 1000, png: out.bytes[1] === 0x50, ...(mode === "bg-remove" ? { alpha: out.bytes[25] === 6 } : {}) };
+    });
+  }
 
   await run("embeddings", { provider: "openai", model: "text-embedding-3-small" }, async () => {
     const [vector] = await createEmbedding(["Visionex accessible library search"]);
