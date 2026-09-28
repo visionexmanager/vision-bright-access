@@ -44,7 +44,7 @@ const TIER_RENT: Record<string, number> = {
 const PRICING_URL  = "https://visionex.app/pricing";
 
 /** The three tiers, in one line, for a notification that has no room for more. */
-const TIER_SUMMARY = "Kids $3, Bronze $5, Silver $7 or Gold $10 a month";
+const TIER_SUMMARY = "Kids $3, Basic $5, Pro $10 or Business $20 a month";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const BILLING_FROM   = "Visionex Billing <billing@visionex.app>";
@@ -217,10 +217,10 @@ Deno.serve(async (req) => {
 <p>Your free week of Visionex ends on <strong>${expiresDate}</strong>. Until then every section is open, on the site and on WhatsApp.</p>
 <h3>Choose a plan to keep them open</h3>
 <ul>
-  <li><strong>Kids — $3/month:</strong> VisionKids only — its lessons, stories and learning games, made for children.</li>
-  <li><strong>Bronze — $5/month:</strong> the Visionex assistant, Academy, Library, Arcade and VXBazaar.</li>
-  <li><strong>Silver — $7/month:</strong> everything in Bronze, plus VisionKids, Career Hub, TV, Radio, messages and simulations.</li>
-  <li><strong>Gold — $10/month:</strong> everything in Silver, plus the AI Media Studio, Library Studio, professional tools and the Finance Hub — with no daily limit on the assistant.</li>
+  <li><strong>Kids — $3/month, 3,000 VX:</strong> VisionKids only — its lessons, stories and learning games, made for children.</li>
+  <li><strong>Basic — $5/month, 5,000 VX:</strong> the Visionex assistant, Academy, Library, Arcade and VXBazaar.</li>
+  <li><strong>Pro — $10/month, 11,000 VX:</strong> everything in Basic, plus VisionKids, Career Hub, TV, Radio, messages and simulations.</li>
+  <li><strong>Business — $20/month, 24,000 VX:</strong> everything in Pro, plus the AI Media Studio, Library Studio, professional tools and the Finance Hub — with no daily limit on the assistant.</li>
 </ul>
 <p>Without a plan your account stays open: the news, the community and the assistive-product catalogue never need one, and the assistant keeps a small free daily allowance on WhatsApp.</p>
 <p><a href="${PRICING_URL}" style="display:inline-block;padding:10px 18px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;">See the plans</a></p>
@@ -323,7 +323,7 @@ Deno.serve(async (req) => {
 <h2 style="color:#10b981;">Your free week has ended</h2>
 <p>Hi ${profile.display_name ?? "there"},</p>
 <p>Your free week on Visionex has ended. The news, the community and the assistive-product catalogue stay open, and the assistant keeps a small free daily allowance on WhatsApp.</p>
-<p>To reopen every section, choose <strong>Kids $3</strong> (VisionKids only), <strong>Bronze $5</strong>, <strong>Silver $7</strong> or <strong>Gold $10</strong> a month — <a href="${PRICING_URL}">see what each one opens</a>.</p>
+<p>To reopen every section, choose <strong>Kids $3</strong> (VisionKids only), <strong>Basic $5</strong>, <strong>Pro $10</strong> or <strong>Business $20</strong> a month — <a href="${PRICING_URL}">see what each one opens</a>.</p>
 ${shopRows}
 <p>Visit <a href="https://visionex.app/dashboard">your dashboard</a> to manage your account.</p>
 <p style="color:#6b7280;font-size:0.85em;">Questions? Contact us at <a href="mailto:hello@visionex.app">hello@visionex.app</a></p>
