@@ -13236,7 +13236,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "利用できるセクション",
   "plans.currentPlan": "現在のプラン",
   "plans.freeWeekTitle": "すべてのアカウントは無料の1週間から始まります",
-  "plans.freeWeekBody": "7日間、すべてのセクションが使えます。ウェブでも WhatsApp でも同じで、カードは不要。終了の前日にお知らせします。その後はブロンズ・シルバー・ゴールドからお選びください。ニュース、コミュニティ、支援製品はいずれの場合も利用できます。",
+  "plans.freeWeekBody": "7日間、すべてのセクションが使えます。ウェブでも WhatsApp でも同じで、カードは不要。終了の前日にお知らせします。その後はキッズ・ベーシック・プロ・ビジネスからお選びください。ニュース、コミュニティ、支援製品はいずれの場合も利用できます。",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "サブスクリプションの手続き",

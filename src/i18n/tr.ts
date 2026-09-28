@@ -13243,7 +13243,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Neleri açar",
   "plans.currentPlan": "Mevcut paketiniz",
   "plans.freeWeekTitle": "Her hesap ücretsiz bir haftayla başlar",
-  "plans.freeWeekBody": "Yedi gün boyunca tüm bölümler açık — hem sitede hem WhatsApp'ta, kart gerekmez ve bitmeden bir gün önce size haber veririz. Sonrasında Bronz, Gümüş veya Altın paketi seçin. Haberler, topluluk ve yardımcı ürünler her hâlükârda açık kalır.",
+  "plans.freeWeekBody": "Yedi gün boyunca tüm bölümler açık — hem sitede hem WhatsApp'ta, kart gerekmez ve bitmeden bir gün önce size haber veririz. Sonrasında Çocuk, Temel, Pro veya Kurumsal paketi seçin. Haberler, topluluk ve yardımcı ürünler her hâlükârda açık kalır.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Aboneliğinizi tamamlayın",
