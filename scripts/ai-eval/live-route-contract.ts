@@ -308,7 +308,7 @@ for (const line of groqFailures) console.log(`  ${line}`);
   const last = () => events[events.length - 1];
   setUsageSink((e) => events.push(e));
   const target = { provider: "openai", model: "gpt-4o-mini" } as const;
-  let speech: Uint8Array | null = null;
+  let speech: ArrayBuffer | null = null;
 
   await run("metered chat", target, async () => {
     const res = await meteredFetch("https://api.openai.com/v1/chat/completions", {
@@ -337,15 +337,15 @@ for (const line of groqFailures) console.log(`  ${line}`);
     const res = await meteredFetch("https://api.openai.com/v1/audio/speech", {
       method: "POST", headers: auth, body: JSON.stringify({ model: "tts-1", voice: "alloy", input: "Hello, forty two.", response_format: "mp3" }),
     });
-    speech = new Uint8Array(await res.arrayBuffer());
+    speech = await res.arrayBuffer();
     await settle();
-    return { audio: speech.length > 1000, characters: last()?.operation === "tts" && last()?.usage?.characters === 17 };
+    return { audio: speech.byteLength > 1000, characters: last()?.operation === "tts" && last()?.usage?.characters === 17 };
   });
   await run("metered transcription", { provider: "openai", model: "whisper-1" }, async () => {
     const form = new FormData();
     form.append("model", "whisper-1");
     form.append("response_format", "verbose_json");
-    form.append("file", new Blob([speech ?? new Uint8Array()], { type: "audio/mpeg" }), "probe.mp3");
+    form.append("file", new Blob([speech ?? new ArrayBuffer(0)], { type: "audio/mpeg" }), "probe.mp3");
     const res = await meteredFetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form });
     const body = await res.json();
     await settle();
