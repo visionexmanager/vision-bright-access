@@ -261,8 +261,20 @@ describe("the live probe that writes the checks", () => {
   const verdictBlock = probe.slice(probe.indexOf("const checksOut = Deno.env.get(\"MODEL_CHECKS_OUT\")"));
 
   it("never counts a rate-limited row against a model", () => {
-    expect(probe).toContain('if (error === "http_429") row.rateLimited = true;');
+    expect(probe).toContain('if (error === "http_429" || (!pass && runAttempts.length > 0 && runAttempts.every((c) => c === "http_429"))) row.rateLimited = true;');
     expect(verdictBlock).toContain("if (r.rateLimited) continue;");
+  });
+
+  it("sees a 429 that a helper swallowed: one global recorder, each run's attempts reset", () => {
+    // understandImage/understandDocument answer "not readable" instead of
+    // throwing, so the row's own error is empty; its attempts say 429.
+    expect(probe.match(/setProviderAttemptRecorder\(/g)).toHaveLength(1);
+    expect(probe).toMatch(/async function run\(route: string, target: ProviderTarget, fn: \(\) => Promise<Record<string, boolean>>\) \{\s+await pace\(target\.provider\);\s+runAttempts = \[\];/);
+    expect(probe).not.toContain("setProviderAttemptRecorder(null)");
+  });
+
+  it("judges the vision analyst by the keys the page renders, not by non-empty lists", () => {
+    expect(probe).toContain("VISION_SCHEMA.required.every((k) => r[k] !== undefined && r[k] !== null)");
   });
 
   it("never certifies a model from a row that proved a chain or the router", () => {
