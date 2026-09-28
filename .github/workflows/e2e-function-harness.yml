@@ -35,6 +35,10 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      # The WhatsApp video case builds a real MP4 (a test pattern with speech);
+      # the runner image does not ship ffmpeg.
+      - name: Install ffmpeg
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg
 
       - name: Run the functions
         env:

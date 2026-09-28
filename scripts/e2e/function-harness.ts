@@ -22,6 +22,7 @@ import { answerIsInScript } from "../../supabase/functions/_shared/answerLanguag
 
 // ── Environment ───────────────────────────────────────────────────────────────
 const STUB = "http://127.0.0.1:54321";
+const STUB_HTTPS = "https://stub.supabase.test";
 Deno.env.set("SUPABASE_URL", STUB);
 Deno.env.set("SUPABASE_ANON_KEY", "stub-anon");
 Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "stub-service");
@@ -103,6 +104,11 @@ originalServe({ port: 54321, hostname: "127.0.0.1", onListen() {} }, stub);
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+  // The same stub on an https origin, for the functions that insist a URL is
+  // an https upload on their own Supabase origin (isOwnStorageUpload).
+  if (url.startsWith(STUB_HTTPS)) {
+    return stub(new Request(`${STUB}${url.slice(STUB_HTTPS.length)}`, init));
+  }
   if (url.startsWith("https://lookaside.fbsbx.com/e2e/")) {
     const item = mediaStore.get(url.slice("https://lookaside.fbsbx.com/e2e/".length));
     return item ? new Response(item.bytes as BodyInit, { headers: { "content-type": item.mime } }) : json({}, 404);
@@ -316,7 +322,10 @@ const pngBytes = (dataUrl: string) => Uint8Array.from(atob(dataUrl.split(",")[1]
 storage.set(`image-tool-inputs/${USER_ID}/grey.png`, pngBytes(IMAGE));
 const generated = [...storage.entries()].find(([k]) => k.startsWith("image-outputs/"))?.[1];
 if (generated) storage.set(`image-tool-inputs/${USER_ID}/colour.png`, generated);
-const toolSource = (name: string) => `${STUB}/storage/v1/object/public/image-tool-inputs/${USER_ID}/${name}`;
+// The ownership check wants an https upload on the function's own Supabase
+// origin, so these cases run with SUPABASE_URL on the https stub origin.
+const toolSource = (name: string) => `${STUB_HTTPS}/storage/v1/object/public/image-tool-inputs/${USER_ID}/${name}`;
+Deno.env.set("SUPABASE_URL", STUB_HTTPS);
 const toolDone = (alpha: boolean) => ({ http, body }: { http: number; body: Awaited<ReturnType<typeof readBody>> }) => {
   const out = [...storage.entries()].filter(([k]) => k.startsWith(`image-outputs/${USER_ID}/tools-`)).map(([, v]) => v).at(-1);
   const png = !!out && out[1] === 0x50;
@@ -332,6 +341,9 @@ for (const [mode, source, alpha] of [["bg-remove", "colour.png", true], ["restor
 }
 // Upscale has no OpenAI capability (the edit redraws at most 1536 px): still refused.
 await run("image-tools-generate", "upscale: no provider", { action: "generate", mode: "upscale", image_url: toolSource("grey.png") }, expectStatus(503));
+// And the ownership check still refuses someone else's upload.
+await run("image-tools-generate", "another user's upload is refused", { action: "generate", mode: "restore", image_url: `${STUB_HTTPS}/storage/v1/object/public/image-tool-inputs/00000000-0000-4000-8000-000000000bad/x.png` }, expectStatus(400));
+Deno.env.set("SUPABASE_URL", STUB);
 await run("video-studio", "parked: Luma", { action: "generate", prompt: "A calm sea at sunset.", duration_sec: 5 }, expectStatus(503));
 // Admin tools.
 await run("enrich-product", "admin: enrich product", { name: "White cane", description: "Folding cane" }, ({ http, body }) => ({ ok: http === 200, detail: `keys=${keysOf(body.json)}${body.json?.error ? ` error=${String(body.json.error).slice(0, 70)}` : ""}` }), { admin: true });
