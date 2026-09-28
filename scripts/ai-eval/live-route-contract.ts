@@ -413,3 +413,22 @@ function crc32(bytes: Uint8Array): number {
   }
   return ~c >>> 0;
 }
+
+// ── Model checks for the readiness gate (ai_model_readiness) ──
+// One verdict per model: it passed only if every route it served here passed.
+// Strict on purpose — a model that failed anything is not ready to be billed.
+// Written only when the workflow asks (main, never a pull request).
+const checksOut = Deno.env.get("MODEL_CHECKS_OUT");
+if (checksOut) {
+  const verdicts = new Map<string, boolean>();
+  for (const r of rows) {
+    const [provider, ...rest] = r.target.split("/");
+    const key = `${provider}\t${rest.join("/")}`;
+    verdicts.set(key, (verdicts.get(key) ?? true) && r.pass);
+  }
+  const checks = [...verdicts].map(([key, passed]) => {
+    const [provider, model_id] = key.split("\t");
+    return { provider, model_id, check_name: "live_route_contract", passed };
+  });
+  await Deno.writeTextFile(checksOut, JSON.stringify(checks));
+}

@@ -11,6 +11,9 @@ name: Live route contracts
 
 on:
   workflow_dispatch:
+  # Weekly on main: the verdicts feed ai_model_readiness (see the last step).
+  schedule:
+    - cron: "41 5 * * 1"   # Mondays 05:41 UTC
   pull_request:
     paths:
       - scripts/ai-eval/live-route-contract.ts
@@ -33,7 +36,7 @@ permissions:
 jobs:
   contracts:
     name: Live route contracts
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -49,5 +52,17 @@ jobs:
           GROQ_API_KEY:    ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEY }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-        # Write access to the step summary file only, nothing else on the runner.
-        run: deno run --no-lock --node-modules-dir=none --allow-env --allow-net --allow-read --allow-sys --allow-write="$GITHUB_STEP_SUMMARY" scripts/ai-eval/live-route-contract.ts
+          MODEL_CHECKS_OUT: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'model-checks.json' || '' }}
+        # Write access to the step summary and the verdict file only.
+        run: deno run --no-lock --node-modules-dir=none --allow-env --allow-net --allow-read --allow-sys --allow-write="$GITHUB_STEP_SUMMARY,model-checks.json" scripts/ai-eval/live-route-contract.ts
+
+      # The verdicts become ai_model_checks rows, which ai_model_readiness reads.
+      # Main only, never a pull request: a branch cannot certify a model for
+      # production. The probe step above never sees these credentials.
+      - name: Record model checks
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/ai-eval/record-model-checks.mjs model-checks.json

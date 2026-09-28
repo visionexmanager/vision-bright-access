@@ -23,6 +23,7 @@ export const SERVICE_IDS = [
   "translation",
   "whatsapp_ai",
   "document_ai",
+  "ai_chat",
 ] as const;
 
 export type ServiceId = (typeof SERVICE_IDS)[number];
@@ -103,7 +104,9 @@ export type ReserveRefusal =
   | "over_reserve_cap"
   | "idempotency_key_required"
   | "idempotency_key_conflict"
-  | "max_cost_required";
+  | "max_cost_required"
+  /** The reservation call itself failed. A refusal, never an allowance. */
+  | "reserve_failed";
 
 /** What `vx_settle` and `vx_release` answer. */
 export interface SettleResult {

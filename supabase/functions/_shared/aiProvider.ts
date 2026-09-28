@@ -107,6 +107,12 @@ export interface ProviderChatParams {
   reservationId?: string;
 }
 
+/**
+ * The output budget a stream gets when its caller sets none — every provider.
+ * A metered request is bounded by it (vx/billing.ts), so it lives in one place.
+ */
+export const STREAM_DEFAULT_MAX_TOKENS = 2048;
+
 export interface ProviderTarget {
   provider: AIProvider;
   model: string;
@@ -272,7 +278,7 @@ function openStream(params: ProviderChatParams): Promise<ReadableStream<Uint8Arr
       model: params.model,
       system: params.system,
       messages: params.messages,
-      maxTokens: params.maxTokens,
+      maxTokens: params.maxTokens ?? STREAM_DEFAULT_MAX_TOKENS,
     }).catch(asProviderError);
   }
   return streamOpenAICompatible(params);
@@ -799,7 +805,7 @@ async function streamOpenAICompatible(
     body: JSON.stringify({
       model: p.model,
       messages: [{ role: "system", content: p.system }, ...p.messages],
-      ...completionBudget(p.provider, p.model, p.maxTokens ?? 2048),
+      ...completionBudget(p.provider, p.model, p.maxTokens ?? STREAM_DEFAULT_MAX_TOKENS),
       stream: true,
       ...(STREAM_USAGE_ON_REQUEST.has(p.provider) ? { stream_options: { include_usage: true } } : {}),
     }),
@@ -830,7 +836,7 @@ async function streamAnthropic(p: ProviderChatParams): Promise<ReadableStream<Ui
     },
     body: JSON.stringify({
       model: p.model,
-      max_tokens: p.maxTokens ?? 2048,
+      max_tokens: p.maxTokens ?? STREAM_DEFAULT_MAX_TOKENS,
       // Anthropic takes the system prompt as a top-level field, not a message.
       system: p.system,
       messages: p.messages,
