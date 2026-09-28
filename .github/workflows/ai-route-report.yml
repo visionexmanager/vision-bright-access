@@ -49,7 +49,7 @@ jobs:
 
           curl -s -G "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/analytics/endpoints/logs" \
                -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
-               --data-urlencode "sql=select event_message from function_logs where regexp_contains(event_message, r'^\[ai-(route|provider)\] ') order by timestamp desc limit 1000" \
+               --data-urlencode "sql=select event_message from logs where source = 'function_logs' and regexp_contains(event_message, r'^\[ai-(route|provider)\] ') order by timestamp desc limit 1000" \
                --data-urlencode "iso_timestamp_start=$(date -u -d "${HOURS} hours ago" +%Y-%m-%dT%H:%M:%SZ)" \
                --data-urlencode "iso_timestamp_end=$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /tmp/route-logs.json
           jq -r 'select(.error) | "Log query failed: \(.error | tostring | .[0:200] | gsub("[^A-Za-z0-9 _.:/-]"; ""))"' /tmp/route-logs.json
