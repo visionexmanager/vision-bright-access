@@ -228,10 +228,16 @@ export function streamWithEnd(src: ReadableStream<Uint8Array>): { stream: Readab
  * The idempotency key for a website request: the client's `Idempotency-Key`
  * header when it sends a well-formed one (a retry of the same action then
  * reuses its hold), otherwise a fresh key per HTTP request.
+ *
+ * A client key is scoped to the caller. `vx_usage_ledger.idempotency_key` is
+ * unique across all users, and the fixed-mode `vx_reserve` replays a matching
+ * key without comparing users — so an unscoped key sent by one account would
+ * be answered with another account's reservation. `userId` is null for a
+ * guest, who is never billed.
  */
-export function requestIdempotencyKey(req: Request, functionName: string): string {
+export function requestIdempotencyKey(req: Request, functionName: string, userId: string | null): string {
   const sent = req.headers.get("Idempotency-Key") ?? "";
-  if (/^[A-Za-z0-9_-]{8,120}$/.test(sent)) return `${functionName}:${sent}`;
+  if (/^[A-Za-z0-9_-]{8,120}$/.test(sent)) return `${functionName}:${userId ?? "guest"}:${sent}`;
   return `${functionName}:${crypto.randomUUID()}`;
 }
 
