@@ -971,6 +971,13 @@ export interface StructuredParams {
   userText: string;
   /** Optional image: a `data:<mime>;base64,…` URL or an https URL. */
   image?: string;
+  /**
+   * Optional PDF, as `data:application/pdf;base64,…`. OpenAI reads it as a
+   * `file` part — the text and an image of every page, so a scan with no text
+   * layer is read like a photograph. Gemini takes it as inline data. Any other
+   * provider refuses it, and a chain moves on to one that can.
+   */
+  pdf?: string;
   /** JSON Schema for the result object. */
   schema: Record<string, unknown>;
   /** Tool/function name the model must call. */
@@ -994,7 +1001,7 @@ type StructuredOutcome = { result: unknown; usage?: AttemptUsage; metered?: Norm
  * sink here, once: what it used, or that it failed.
  */
 async function structuredCompletionDetailed(p: StructuredParams): Promise<StructuredOutcome> {
-  refuseUnroutable(p, p.image ? "vision" : "chat");
+  refuseUnroutable(p, p.image || p.pdf ? "vision" : "chat");
   const base = {
     operation: "structured", provider: p.provider, model: p.model, ...(p.meter ?? {}),
     ...(p.reservationId ? { reservation_id: p.reservationId } : {}),
@@ -1017,13 +1024,17 @@ async function structuredCompletionDetailed(p: StructuredParams): Promise<Struct
 }
 
 async function structuredCompletionOnce(p: StructuredParams): Promise<StructuredOutcome> {
+  if (p.pdf && p.provider !== "openai" && p.provider !== "gemini") {
+    throw new ProviderError(400, `${p.provider} does not read PDF files here`);
+  }
   if (p.provider === "anthropic") return { result: await structuredAnthropic(p) };
   if (p.provider === "gemini") {
     const { data, usageMetadata, modelVersion } = await geminiStructuredCompletion({
       model: p.model,
       system: p.system,
       userText: p.userText,
-      image: p.image,
+      // Gemini takes a PDF as inline data, exactly as it takes an image.
+      image: p.pdf ?? p.image,
       schema: p.schema,
       maxTokens: p.maxTokens,
     }).catch(asProviderError);
@@ -1038,7 +1049,7 @@ export async function structuredCompletionWithFallback(
 ): Promise<ProviderResult<unknown>> {
   if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
 
-  const kind: AttemptKind = params.image ? "vision" : "chat";
+  const kind: AttemptKind = params.image || params.pdf ? "vision" : "chat";
   const chainId = crypto.randomUUID();
   let lastError: unknown;
   await registryReady();
@@ -1095,6 +1106,12 @@ async function structuredOpenAICompatible(p: StructuredParams): Promise<Structur
   const content: Array<Record<string, unknown>> = [{ type: "text", text: p.userText }];
   if (p.image) {
     content.push({ type: "image_url", image_url: { url: p.image, detail: "high" } });
+  }
+  if (p.pdf) {
+    // OpenAI's own file part: it extracts the text and renders every page, so
+    // a scan with no text layer still reads. Groq and Mistral have no such part.
+    if (p.provider !== "openai") throw new ProviderError(400, `${cfg.label} does not read PDF files here`);
+    content.push({ type: "file", file: { filename: "document.pdf", file_data: p.pdf } });
   }
 
   const res = await fetch(cfg.chatUrl, {

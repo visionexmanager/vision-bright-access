@@ -104,6 +104,11 @@ Deno.serve(async (req) => {
     // A PDF's text is in the file: read it locally, with no provider call.
     // The page's "PDF Scan" package used to send it to the vision model, which
     // cannot read a PDF, so every PDF scan failed.
+    //
+    // A scan has no text layer. It goes to the same OCR call as a photograph,
+    // as an OpenAI `file` part — OpenAI renders every page for the model — so
+    // it is read rather than refused with "upload photos of its pages".
+    let scannedPdf = false;
     if (isPdfDataUrl(image)) {
       const upload = decodePdfDataUrl(image);
       if (upload.outcome === "refused") {
@@ -113,27 +118,36 @@ Deno.serve(async (req) => {
         );
       }
       const pdf = await extractPdfText(upload.bytes);
-      if (!pdf.ok) {
+      if (!pdf.ok && pdf.reason !== "scanned") {
         console.error(`[ocr-scan] pdf: ${pdf.reason}`);
         return new Response(
           JSON.stringify({ error: PDF_NO_TEXT_MESSAGE, code: PDF_NO_TEXT_CODE }),
           { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const result = pdfScanResult(pdf.text, detectLanguage(pdf.text)?.language ?? null);
-      return new Response(JSON.stringify({ result }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (pdf.ok) {
+        const result = pdfScanResult(pdf.text, detectLanguage(pdf.text)?.language ?? null);
+        return new Response(JSON.stringify({ result }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      scannedPdf = true;
     }
 
-    // Inline images only, bounded — never a URL for the provider to fetch (Phase 2F-3).
-    const checked = checkImageDataUrl(image);
-    if (checked.outcome === "refused") {
-      return new Response(
-        JSON.stringify({ error: checked.error }),
-        { status: checked.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Inline images only, bounded — never a URL for the provider to fetch
+    // (Phase 2F-3). A scanned PDF was bounded by decodePdfDataUrl above.
+    if (!scannedPdf) {
+      const checked = checkImageDataUrl(image);
+      if (checked.outcome === "refused") {
+        return new Response(
+          JSON.stringify({ error: checked.error }),
+          { status: checked.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
+    const attachment = scannedPdf
+      ? { type: "file", file: { filename: "scan.pdf", file_data: image } }
+      : { type: "image_url", image_url: { url: image, detail: "high" } };
 
     const systemPrompt = lang === "ar" ? SYSTEM_PROMPT_AR : SYSTEM_PROMPT_EN;
     const userText = hint
@@ -158,7 +172,7 @@ Deno.serve(async (req) => {
             role: "user",
             content: [
               { type: "text", text: userText },
-              { type: "image_url", image_url: { url: image, detail: "high" } },
+              attachment,
             ],
           },
         ],
