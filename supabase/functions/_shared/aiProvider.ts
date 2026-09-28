@@ -529,8 +529,22 @@ export interface RegistryView {
    * policy chain; empty until such a row exists.
    */
   extras(kind: AttemptKind, mode: "stream" | "structured"): ProviderTarget[];
+  /**
+   * Resolves once the view holds its first snapshot (or its bounded first read
+   * gave up). A fresh function instance used to route its first request in
+   * bare policy order because the read ran in the background — at low
+   * traffic, most requests. Resolved at once after that.
+   */
+  ready?(): Promise<void>;
 }
 let registryView: RegistryView | null = null;
+
+/** Waits for the view's first snapshot, when it has one to wait for. Never throws. */
+async function registryReady(): Promise<void> {
+  const view = registryView;
+  if (!view?.ready) return;
+  try { await view.ready(); } catch { /* a view that cannot load leaves policy order */ }
+}
 
 /** Installed once per function, beside the recorder; null removes it. */
 export function setProviderRegistryView(view: RegistryView | null): void {
@@ -635,6 +649,7 @@ export async function streamChatCompletionWithFallback(
 
   const chainId = crypto.randomUUID();
   let lastError: unknown;
+  await registryReady();
   for (const [index, target] of orderTargets(params.targets, "chat", "stream").entries()) {
     const start = Date.now();
     const base = { kind: "chat", mode: "stream", provider: target.provider, model: target.model, attempt: index + 1 } as const;
@@ -1026,6 +1041,7 @@ export async function structuredCompletionWithFallback(
   const kind: AttemptKind = params.image ? "vision" : "chat";
   const chainId = crypto.randomUUID();
   let lastError: unknown;
+  await registryReady();
   for (const [index, target] of orderTargets(params.targets, kind, "structured").entries()) {
     const start = Date.now();
     const base = { kind, mode: "structured", provider: target.provider, model: target.model, attempt: index + 1 } as const;

@@ -376,6 +376,7 @@ export function registryViewFrom(
     random?: () => number;
   } = {},
 ): {
+  ready(): Promise<void>;
   verdict(target: { provider: AIProvider; model: string }, kind: "chat" | "vision"): RegistryVerdict;
   extras(kind: "chat" | "vision", mode: "stream" | "structured"): Array<{ provider: AIProvider; model: string }>;
 } {
@@ -437,10 +438,13 @@ export function registryViewFrom(
     }
   };
 
+  // The first read, for a request that should not be routed before it lands.
+  let first: Promise<void> | null = null;
   const touch = () => {
     if (!inFlight && now() - fetchedAt > REGISTRY_SNAPSHOT_TTL_MS) {
       inFlight = true;
       const work = refresh();
+      first ??= work.then(() => undefined, () => undefined);
       try { opts.background?.(work); } catch { /* the refresh runs regardless */ }
     }
   };
@@ -450,6 +454,12 @@ export function registryViewFrom(
   };
 
   return {
+    // Bounded by the reads' own REGISTRY_READ_TIMEOUT_MS; after the first
+    // snapshot it resolves at once and later refreshes stay in the background.
+    ready() {
+      touch();
+      return fetchedAt === -Infinity && first ? first : Promise.resolve();
+    },
     verdict(target, kind) {
       touch();
       const verdict = registryVerdict(rowFor(target.provider, kind), ACTIVATION_GATED.has(target.provider), opts.random);
