@@ -42,7 +42,8 @@ type ProviderState =
   | "missing_credentials"
   | "funding_limitation"
   | "model_failure"
-  | "unverified";
+  | "unverified"
+  | "verified";
 
 interface ComponentStatus {
   ok:     boolean;
@@ -65,6 +66,23 @@ async function checkEnvVar(name: string): Promise<ComponentStatus> {
 
 /** Postgres `undefined_table` and the PostgREST schema-cache equivalent. */
 const MISSING_TABLE_CODES = new Set(["42P01", "PGRST205"]);
+
+/** A model's latest live route contract verdict (ai_model_checks), or null. Never throws. */
+async function latestLiveCheck(
+  db: ReturnType<typeof createClient>,
+  provider: string,
+  model: string,
+): Promise<{ passed: boolean; at: string } | null> {
+  try {
+    const { data } = await db.from("ai_model_checks").select("passed, checked_at")
+      .eq("provider", provider).eq("model_id", model)
+      .order("checked_at", { ascending: false }).limit(1);
+    const row = Array.isArray(data) ? data[0] as { passed?: unknown; checked_at?: unknown } | undefined : undefined;
+    return row && typeof row.passed === "boolean" && typeof row.checked_at === "string" ? { passed: row.passed, at: row.checked_at } : null;
+  } catch {
+    return null;
+  }
+}
 
 async function checkTable(db: ReturnType<typeof createClient>, tableName: string): Promise<ComponentStatus> {
   try {
@@ -453,11 +471,13 @@ async function checkOpenAI(): Promise<ComponentStatus> {
     }
     const data = await res.json();
     const hasTts  = (data.data ?? []).some((m: Record<string, string>) => m.id?.startsWith("tts"));
-    const hasDalle = (data.data ?? []).some((m: Record<string, string>) => m.id?.startsWith("dall-e"));
+    // gpt-image-1 is what image generation and the image tools use; DALL·E is
+    // retired on this key, and reporting it as missing read like a fault.
+    const hasImage = (data.data ?? []).some((m: Record<string, string>) => m.id === "gpt-image-1");
     return {
       ok:     true,
       status: "ok",
-      detail: `OpenAI key valid and API reachable (generation not verified here). TTS models: ${hasTts ? "✓" : "✗"}, DALL·E: ${hasDalle ? "✓" : "✗"}`,
+      detail: `OpenAI key valid and API reachable (generation not verified here). TTS models: ${hasTts ? "✓" : "✗"}, gpt-image-1: ${hasImage ? "✓" : "✗"}`,
     };
   } catch (e) {
     return { ok: false, status: "error", detail: `Cannot reach api.openai.com: ${e}` };
@@ -908,14 +928,26 @@ Deno.serve(async (req: Request) => {
       };
     }
 
-    // Live routes with no recent real generation. Reported as such rather than
-    // probed from here: each would spend money on every diagnostics view.
-    for (const [key, detail] of [
-      ["openai_image", "gpt-image-1 (image generation) has not had a real generation since the 2026-09-26 audit."],
-      ["openai_realtime", "gpt-realtime-2 (live voice) has never had an automated real-session test."],
-      ["mistral_tts", "Mistral Voxtral speech has never had a real generation test; it speaks only Mistral-cloned voices."],
+    // Live routes that are not probed from here: each would spend money on
+    // every diagnostics view. The daily live route contract generates with
+    // them instead, and records a verdict in ai_model_checks — read here, so
+    // "verified" means a real generation passed, not a model listing.
+    const checks = supabaseUrl && serviceKey ? createClient(supabaseUrl, serviceKey) as ReturnType<typeof createClient> : null;
+    for (const [key, provider, model, what, fallback] of [
+      ["openai_image", "openai", "gpt-image-1", "image generation and editing", "gpt-image-1 has no live check recorded."],
+      ["openai_realtime", "openai", "gpt-realtime-2", "live voice session", "gpt-realtime-2 has no live check recorded."],
+      ["mistral_tts", "mistral", "voxtral-mini-tts-2603", "speech", "Mistral Voxtral speech has never had a real generation test; it speaks only Mistral-cloned voices."],
     ] as const) {
-      results[`unverified_${key}`] = { ok: true, status: "warning", state: "unverified", detail };
+      const check = checks ? await latestLiveCheck(checks, provider, model) : null;
+      const fresh = !!check && Date.now() - Date.parse(check.at) < 14 * 24 * 60 * 60 * 1000;
+      results[`unverified_${key}`] = check && fresh && check.passed
+        ? { ok: true, status: "ok", state: "verified", detail: `${model} (${what}) passed the live route contract on ${check.at.slice(0, 10)}.` }
+        : {
+          ok: true, status: "warning", state: "unverified",
+          detail: check
+            ? `${model} (${what}): latest live check ${check.passed ? "passed" : "failed"} on ${check.at.slice(0, 10)}${fresh ? "" : ", more than 14 days ago"}.`
+            : fallback,
+        };
     }
 
     // Parked models: never probed, never routed (aiProvider.ts PAUSED_MODELS).
