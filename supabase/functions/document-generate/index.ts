@@ -16,6 +16,11 @@ import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { billedRequest, billingRefusalResponse, requestIdempotencyKey } from "../_shared/vx/billing.ts";
+import { chatUsageBound, utf8Bytes } from "../_shared/metering.ts";
+
+/** The model document analysis runs on (and is bounded by, when metered). */
+const DOCUMENT_TARGET = { provider: "openai", model: "gpt-4o-mini" } as const;
 
 installUsageMetering("document-generate");
 
@@ -135,15 +140,35 @@ Deno.serve(async (req: Request) => {
       ? `You are a precise document summarizer for the VisionEx platform, used by blind and low-vision users, so be clear and unambiguous. Summarize the document faithfully without adding information that isn't present. Respond entirely in ${language}.`
       : `You are a document analyst for the VisionEx platform. Extract key points, action items, and entities from the document precisely and faithfully — do not invent information not present in the text. Respond entirely in ${language}.`;
 
-    const result = await structuredCompletion({
-      provider: "openai",
-      model:    "gpt-4o-mini",
-      system,
-      userText: text,
-      schema:   RESULT_SCHEMA as unknown as Record<string, unknown>,
-      toolName: "document_analysis",
-      maxTokens: 1500,
-    });
+    // Billed through the service registry: shadow while "document_ai" is
+    // disabled (today), its fixed price or metered cost once enabled. A
+    // thrown provider error releases any hold.
+    const billed = await billedRequest(serviceClient, {
+      serviceId: "document_ai",
+      userId: user.id,
+      source: "website",
+      idempotencyKey: requestIdempotencyKey(req, "document-generate", user.id),
+      targets: [DOCUMENT_TARGET],
+      bound: chatUsageBound(utf8Bytes(system) + utf8Bytes(text), 1500),
+    }, async ({ reservationId, targets }) => ({
+      value: await structuredCompletion({
+        ...(targets?.[0] ?? DOCUMENT_TARGET),
+        system,
+        userText: text,
+        schema:   RESULT_SCHEMA as unknown as Record<string, unknown>,
+        toolName: "document_analysis",
+        maxTokens: 1500,
+        ...(reservationId ? { reservationId } : {}),
+      }),
+    }));
+    if (billed.status === "refused" || billed.status === "duplicate") {
+      await serviceClient.from("ams_document_jobs").update({
+        status: "failed", error_message: `billing: ${billed.status === "refused" ? billed.reason : "duplicate"}`,
+        completed_at: new Date().toISOString(),
+      }).eq("id", jobId);
+      return billingRefusalResponse(billed, cors);
+    }
+    const result = billed.value;
 
     await serviceClient.from("ams_document_jobs").update({
       status:       "completed",

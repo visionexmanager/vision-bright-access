@@ -3,6 +3,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import {
   streamChatCompletionWithFallback,
+  STREAM_DEFAULT_MAX_TOKENS,
   structuredCompletionWithFallback,
   ProviderError,
   type ProviderTarget,
@@ -13,6 +14,8 @@ import { sanitizeContext, UNTRUSTED_CONTEXT_RULES, untrustedContextBlock } from 
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
 import { expectedScriptForMessage } from "../_shared/answerLanguage.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { billedRequest, billingRefusalResponse, requestIdempotencyKey, streamWithEnd } from "../_shared/vx/billing.ts";
+import { chatUsageBound, utf8Bytes } from "../_shared/metering.ts";
 
 installUsageMetering("ai-chat");
 
@@ -633,14 +636,33 @@ Help the user learn real-world business skills through the simulation named in t
       });
 
     try {
-      const { result: stream, provider, model } = await streamChatCompletionWithFallback({
+      // Billed through the service registry: shadow while "ai_chat" is
+      // disabled (today) and always for a guest; once enabled, metered — the
+      // chain narrowed to production-ready models, held at its worst case,
+      // settled when the stream ends.
+      const promptBytes = utf8Bytes(systemPrompt) + cleanMessages.reduce((n, m) => n + utf8Bytes(m.content), 0);
+      const billed = await billedRequest(serviceClient, {
+        serviceId: "ai_chat",
+        userId: user?.id ?? null,
+        source: "website",
+        idempotencyKey: requestIdempotencyKey(req, "ai-chat", user?.id ?? null),
         targets,
-        system: systemPrompt,
-        messages: cleanMessages,
-        // Asked in Arabic (or any non-Latin script), answered in it: an English
-        // reply is a failed attempt and the next model answers instead.
-        expectScript: expectedScriptForMessage(lastQuestion),
+        bound: chatUsageBound(promptBytes, STREAM_DEFAULT_MAX_TOKENS),
+      }, async ({ reservationId, targets: ready }) => {
+        const answered = await streamChatCompletionWithFallback({
+          targets: ready ?? targets,
+          system: systemPrompt,
+          messages: cleanMessages,
+          // Asked in Arabic (or any non-Latin script), answered in it: an English
+          // reply is a failed attempt and the next model answers instead.
+          expectScript: expectedScriptForMessage(lastQuestion),
+          ...(reservationId ? { reservationId } : {}),
+        });
+        const { stream: body, done } = streamWithEnd(answered.result);
+        return { value: { ...answered, result: body }, done };
       });
+      if (billed.status === "refused" || billed.status === "duplicate") return billingRefusalResponse(billed, corsHeaders);
+      const { result: stream, provider, model } = billed.value;
       if (provider !== targets[0].provider || model !== targets[0].model) {
         void signal("fallback", targets[0].provider, targets[0].model);
       }

@@ -1,3 +1,4 @@
+import { meteredFetch } from "../meteredFetch.ts";
 // Text to speech, in one place.
 //
 // Four call sites synthesised speech independently — the WhatsApp voice reply,
@@ -337,7 +338,7 @@ async function callProvider(
 
   const { url, init } = ttsRequestFor(request, key);
   try {
-    const response = await (request.fetchImpl ?? fetch)(url, init);
+    const response = await (request.fetchImpl ?? meteredFetch)(url, init);
     if (!response.ok) {
       return {
         outcome: "failed",
