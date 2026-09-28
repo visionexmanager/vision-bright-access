@@ -28634,8 +28634,6 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
-          refunded_vx: number
-          reserved_vx: number
           service_id: string
           settled_at: string
           source: string

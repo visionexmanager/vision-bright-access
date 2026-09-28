@@ -16,7 +16,9 @@ const serviceCode = service.split("\n").filter((l) => !l.trimStart().startsWith(
 const hook = readFileSync("src/hooks/useCredits.ts", "utf8");
 const billing = readFileSync("supabase/functions/billing-engine/index.ts", "utf8");
 const types = readFileSync("src/lib/types/billing.ts", "utf8");
-const ledger = readFileSync("supabase/migrations/20261023000000_vx_central_pricing_and_ledger.sql", "utf8");
+// my_vx_usage() as it is now: 20261058 took the hold and the refund off the
+// customer's side of the wall.
+const ledger = readFileSync("supabase/migrations/20261058000000_vx_hide_reservations.sql", "utf8");
 const ledgerSummary = readFileSync("supabase/migrations/20261033000000_my_vx_summary.sql", "utf8");
 
 describe("the Usage view reads the ledger, not the empty table", () => {
@@ -36,11 +38,17 @@ describe("the Usage view reads the ledger, not the empty table", () => {
   });
 
   it("shows the amounts a customer is owed an account of", () => {
-    for (const shown of ["VX spent", "VX returned", "Currently held", "Requests"]) {
+    for (const shown of ["VX spent", "In progress", "Requests"]) {
       expect(chart, shown).toContain(shown);
     }
-    for (const field of ["consumed_vx", "refunded_vx", "reserved_vx", "display_name", "created_at", "status"]) {
+    for (const field of ["consumed_vx", "display_name", "created_at", "status"]) {
       expect(chart, field).toContain(field);
+    }
+  });
+
+  it("never shows what was held for a request, or what came back", () => {
+    for (const hidden of ["reserved_vx", "refunded_vx", "VX returned", "Currently held", "returned"]) {
+      expect(chartCode, hidden).not.toContain(hidden);
     }
   });
 
@@ -74,18 +82,21 @@ describe("every state the screen can be in", () => {
     expect(chart).toContain("rows.length === 0");
   });
 
-  it("tells the five outcomes apart, including the three that return VX", () => {
+  it("tells the five outcomes apart, including the three that charge nothing", () => {
     // "we could not do it", "you cancelled" and "nobody finished it" are
     // different things to read on your own statement.
     for (const status of ["settled", "reserved", "refunded", "failed", "expired"]) {
       expect(chart, status).toContain(`${status}:`);
     }
-    expect(chart).toContain("VX returned");
-    expect(chart).toContain("Timed out");
+    expect(chart).toContain("Failed — not charged");
+    expect(chart).toContain("Timed out — not charged");
   });
 
-  it("calls a zero-cost request free rather than showing 0 VX", () => {
-    expect(chart).toContain(`: "Free"`);
+  it("says in words what a request that cost nothing was, rather than 0 VX", () => {
+    // Free: it finished and cost nothing. Not charged: it failed or timed out.
+    // Pending: still running, and what is held for it is not shown.
+    expect(chart).toContain(`? "Free" : "Not charged"`);
+    expect(chart).toContain(`if (row.status === "reserved") return "Pending";`);
   });
 });
 
@@ -159,12 +170,12 @@ describe("the client type matches the RPC, not the table", () => {
     // and a negative assertion that reads a comment is not a check.
     const tail = types.slice(types.indexOf("export interface VxUsageRow"));
     const shape = tail.slice(0, tail.indexOf("\n}"));
-    for (const column of ["service_id", "display_name", "units", "reserved_vx",
-                          "consumed_vx", "refunded_vx", "status", "source"]) {
+    for (const column of ["service_id", "display_name", "units", "consumed_vx", "status", "source"]) {
       expect(shape, column).toContain(column);
     }
-    expect(shape).not.toContain("actual_cost_usd");
-    expect(shape).not.toContain("provider");
+    for (const hidden of ["actual_cost_usd", "provider", "reserved_vx", "refunded_vx"]) {
+      expect(shape, hidden).not.toContain(hidden);
+    }
   });
 
   it("matches what the SQL function actually selects", () => {
@@ -172,9 +183,11 @@ describe("the client type matches the RPC, not the table", () => {
       ledger.indexOf("FUNCTION public.my_vx_usage("),
       ledger.indexOf("COMMENT ON FUNCTION public.my_vx_usage("),
     );
-    for (const column of ["service_id", "display_name", "units", "reserved_vx",
-                          "consumed_vx", "refunded_vx", "status", "source"]) {
+    for (const column of ["service_id", "display_name", "units", "consumed_vx", "status", "source"]) {
       expect(fn, column).toContain(column);
+    }
+    for (const hidden of ["reserved_vx", "refunded_vx", "provider", "actual_cost_usd"]) {
+      expect(fn, hidden).not.toContain(hidden);
     }
   });
 

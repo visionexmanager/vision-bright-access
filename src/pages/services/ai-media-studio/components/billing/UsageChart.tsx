@@ -5,12 +5,12 @@
 // never called — so the screen showed everyone the same empty chart, and the
 // price map was a second copy of numbers that now live in
 // `central_pricing_registry`. Both are gone: the amounts come from
-// `my_vx_usage()`, which reports what was actually reserved, consumed and
-// returned.
+// `my_vx_usage()`, which reports what each request actually cost.
 //
 // `my_vx_usage()` rather than the table, because `vx_usage_ledger` also carries
-// `provider` and `actual_cost_usd`. Which vendor served a request, and what it
-// cost Visionex, is not on a customer's statement.
+// `provider`, `actual_cost_usd` and the hold behind every request. Which vendor
+// served a request, what it cost Visionex, and how much was held while it ran
+// are not on a customer's statement (20261058).
 
 import { useMemo } from "react";
 
@@ -22,9 +22,16 @@ const STATUS: Record<VxUsageStatus, { label: string; tone: string }> = {
   settled:  { label: "Completed", tone: "text-emerald-500" },
   reserved: { label: "In progress", tone: "text-amber-500" },
   refunded: { label: "Refunded", tone: "text-blue-500" },
-  failed:   { label: "Failed — VX returned", tone: "text-muted-foreground" },
-  expired:  { label: "Timed out — VX returned", tone: "text-muted-foreground" },
+  failed:   { label: "Failed — not charged", tone: "text-muted-foreground" },
+  expired:  { label: "Timed out — not charged", tone: "text-muted-foreground" },
 };
+
+/** What a row cost, in words when it cost nothing. */
+function rowAmount(row: VxUsageRow): string {
+  if (row.consumed_vx > 0) return `${row.consumed_vx.toLocaleString()} VX`;
+  if (row.status === "reserved") return "Pending";
+  return row.status === "settled" ? "Free" : "Not charged";
+}
 
 const SOURCE: Record<string, string> = {
   website: "Website",
@@ -148,11 +155,8 @@ export function UsageChart() {
 
   const summary = useMemo(() => {
     const spent = rows.reduce((total, row) => total + row.consumed_vx, 0);
-    const returned = rows.reduce((total, row) => total + row.refunded_vx, 0);
-    // Only an open reservation is still holding anything — a settled row's
-    // hold has already been split into consumed and refunded.
-    const held = rows.filter((r) => r.status === "reserved")
-      .reduce((total, row) => total + row.reserved_vx, 0);
+    // A count, not an amount: what is held for work in progress is not shown.
+    const inProgress = rows.filter((r) => r.status === "reserved").length;
 
     const byService = new Map<string, { name: string; vx: number; requests: number }>();
     for (const row of rows) {
@@ -164,8 +168,7 @@ export function UsageChart() {
 
     return {
       spent,
-      returned,
-      held,
+      inProgress,
       requests: rows.length,
       services: [...byService.values()].sort((a, b) => b.vx - a.vx),
       // Shown only when there is more than one, because "Website" on every row
@@ -178,8 +181,8 @@ export function UsageChart() {
     return (
       <div className="space-y-5" aria-busy="true">
         <p className="sr-only">Loading your usage…</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-xl bg-muted" />)}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {[0, 1, 2].map((i) => <div key={i} className="h-[92px] animate-pulse rounded-xl bg-muted" />)}
         </div>
         <div className="h-48 animate-pulse rounded-xl bg-muted" />
       </div>
@@ -204,8 +207,8 @@ export function UsageChart() {
         <div className="rounded-xl border border-border bg-card p-10 text-center">
           <p className="font-medium">No VX spent yet</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-            When you use a service that costs VX, it appears here — what it was, when, what it
-            cost, and anything that came back.
+            When you use a service that costs VX, it appears here — what it was, when, and what
+            it cost.
           </p>
         </div>
       </div>
@@ -215,13 +218,11 @@ export function UsageChart() {
   return (
     <div className="space-y-5">
       {planSummary?.ok && <PlanSummary summary={planSummary} />}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard label="VX spent" value={summary.spent.toLocaleString()} sub="across all requests" tone="text-amber-500" />
-        <StatCard label="VX returned" value={summary.returned.toLocaleString()}
-          sub="from unused or failed work" tone={summary.returned > 0 ? "text-blue-500" : undefined} />
         <StatCard label="Requests" value={summary.requests.toLocaleString()} sub="most recent 200" />
-        <StatCard label="Currently held" value={summary.held.toLocaleString()}
-          sub={summary.held > 0 ? "for work in progress" : "nothing in progress"} />
+        <StatCard label="In progress" value={summary.inProgress.toLocaleString()}
+          sub={summary.inProgress > 0 ? "charged when they finish" : "nothing in progress"} />
       </div>
 
       {summary.services.length > 0 && (
@@ -259,12 +260,7 @@ export function UsageChart() {
                   </p>
                 </div>
                 <div className="text-end">
-                  <p className="tabular-nums" dir="ltr">
-                    {row.consumed_vx > 0 ? `${row.consumed_vx.toLocaleString()} VX` : "Free"}
-                    {row.refunded_vx > 0 && (
-                      <span className="text-blue-500"> · {row.refunded_vx.toLocaleString()} returned</span>
-                    )}
-                  </p>
+                  <p className="tabular-nums" dir="ltr">{rowAmount(row)}</p>
                   <p className={cn("text-xs", status.tone)}>{status.label}</p>
                 </div>
               </li>
