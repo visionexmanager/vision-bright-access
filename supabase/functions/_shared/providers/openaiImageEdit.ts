@@ -24,6 +24,18 @@ export const MAX_SOURCE_BYTES = 20 * 1024 * 1024;
 /** The source types the endpoint takes, with the extension its decoder keys on. */
 export const SOURCE_TYPES: Readonly<Record<string, string>> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
+/**
+ * The image type, from the file's own first bytes rather than from whatever
+ * storage recorded: an upload made without a content type is still a PNG.
+ * Null for anything that is not a PNG, JPEG or WebP.
+ */
+export function sniffImageType(bytes: Uint8Array): "image/png" | "image/jpeg" | "image/webp" | null {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.length >= 12 && String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" && String.fromCharCode(...bytes.slice(8, 12)) === "WEBP") return "image/webp";
+  return null;
+}
+
 /** The instruction for one mode; the caller's own prompt leads where the mode takes one. */
 export function openaiEditPrompt(mode: ImageToolMode, prompt: string | undefined): string {
   switch (mode) {
@@ -43,6 +55,23 @@ export function openaiEditPrompt(mode: ImageToolMode, prompt: string | undefined
 }
 
 export type ImageEditResult = { ok: true; bytes: Uint8Array } | { ok: false; error: string };
+
+export type FailureClass = "RATE-LIMITED" | "AUTHENTICATION-FAILED" | "PROVIDER-UNAVAILABLE" | "CAPABILITY-FAILED" | "CONTENT-POLICY";
+
+/**
+ * What kind of failure a provider answer was, for logs and reports:
+ * 429 is busy, not broken; 401/403 is the key; 408, 5xx, a timeout or a network
+ * fault is the provider being unavailable; anything else — a 4xx for the
+ * request, an empty or malformed answer — is the capability failing.
+ */
+export function failureClass(code: string): FailureClass {
+  if (/content policy/.test(code)) return "CONTENT-POLICY";
+  const status = Number(code.match(/\b(\d{3})\b/)?.[1] ?? NaN);
+  if (status === 429) return "RATE-LIMITED";
+  if (status === 401 || status === 403 || /not configured/i.test(code)) return "AUTHENTICATION-FAILED";
+  if (status === 408 || (status >= 500 && status < 600) || /timeout|network/.test(code)) return "PROVIDER-UNAVAILABLE";
+  return "CAPABILITY-FAILED";
+}
 
 /**
  * One edit. Resolves with the PNG bytes, or a short reason for

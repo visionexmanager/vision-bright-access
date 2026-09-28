@@ -145,6 +145,37 @@ describe("the handler", () => {
   });
 
   it("logs the mode, provider, model, outcome and time — no prompt, no key", () => {
-    expect(handler).toContain("console.info(`[image-tools-generate] mode=${mode} provider=openai model=${OPENAI_EDIT_MODEL} ok=${edited.ok} ms=${Date.now() - started}`);");
+    expect(handler).toContain("console.info(`[image-tools-generate] mode=${mode} provider=openai model=${OPENAI_EDIT_MODEL} ok=${edited.ok}");
+    expect(handler).toContain("ms=${Date.now() - started}`);");
+  });
+});
+
+describe("failures are named by kind", () => {
+  it("busy, the key, the provider down, or the capability failing", () => {
+    expect(edit.failureClass("openai edit 429")).toBe("RATE-LIMITED");
+    expect(edit.failureClass("openai edit 401")).toBe("AUTHENTICATION-FAILED");
+    expect(edit.failureClass("openai edit 403")).toBe("AUTHENTICATION-FAILED");
+    expect(edit.failureClass("OPENAI_API_KEY is not configured")).toBe("AUTHENTICATION-FAILED");
+    expect(edit.failureClass("openai edit 500")).toBe("PROVIDER-UNAVAILABLE");
+    expect(edit.failureClass("openai edit 503")).toBe("PROVIDER-UNAVAILABLE");
+    expect(edit.failureClass("openai edit 408")).toBe("PROVIDER-UNAVAILABLE");
+    expect(edit.failureClass("openai edit timeout")).toBe("PROVIDER-UNAVAILABLE");
+    expect(edit.failureClass("openai edit network")).toBe("PROVIDER-UNAVAILABLE");
+    expect(edit.failureClass("openai edit empty")).toBe("CAPABILITY-FAILED");
+    expect(edit.failureClass("openai edit 400")).toBe("CAPABILITY-FAILED");
+    expect(edit.failureClass("content policy")).toBe("CONTENT-POLICY");
+  });
+
+  it("the source type comes from the file's bytes, not from storage's label", () => {
+    expect(edit.sniffImageType(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))).toBe("image/png");
+    expect(edit.sniffImageType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe("image/jpeg");
+    expect(edit.sniffImageType(new TextEncoder().encode("RIFF\0\0\0\0WEBPVP8 "))).toBe("image/webp");
+    expect(edit.sniffImageType(new TextEncoder().encode("GIF89a......"))).toBeNull();
+    expect(edit.sniffImageType(new TextEncoder().encode("<svg xmlns"))).toBeNull();
+  });
+
+  it("the handler logs the class of a failure, never OpenAI's words", () => {
+    expect(handler).toContain('ok=${edited.ok}${edited.ok ? "" : ` class=${failureClass(edited.error)}`}');
+    expect(handler).toContain("const sourceType = sniffImageType(sourceBytes);");
   });
 });

@@ -22,11 +22,13 @@ import { boundedText, isOwnStorageUpload, publicMediaFailure } from "../_shared/
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import {
   editWithOpenAI,
+  failureClass,
   type ImageToolMode,
   MAX_SOURCE_BYTES,
   OPENAI_EDIT_MODEL,
   OPENAI_MODES,
   SOURCE_TYPES,
+  sniffImageType,
 } from "../_shared/providers/openaiImageEdit.ts";
 
 // Shadow metering only: every OpenAI edit is recorded with its usage. No VX is
@@ -314,9 +316,13 @@ Deno.serve(async (req: Request) => {
     };
 
     const sourcePath = decodeURIComponent(new URL(image_url).pathname.slice("/storage/v1/object/public/image-tool-inputs/".length));
-    const { data: source, error: readErr } = await serviceClient.storage.from("image-tool-inputs").download(sourcePath);
-    if (readErr || !source) return await fail("source unreadable", 502);
-    if (!SOURCE_TYPES[source.type] || source.size > MAX_SOURCE_BYTES) {
+    const { data: stored, error: readErr } = await serviceClient.storage.from("image-tool-inputs").download(sourcePath);
+    if (readErr || !stored) return await fail("source unreadable", 502);
+    // The type comes from the file's own bytes, not from what storage recorded.
+    const sourceBytes = new Uint8Array(await stored.arrayBuffer());
+    const sourceType = sniffImageType(sourceBytes);
+    const source = new Blob([sourceBytes], { type: sourceType ?? "application/octet-stream" });
+    if (!sourceType || !SOURCE_TYPES[sourceType] || source.size > MAX_SOURCE_BYTES) {
       await serviceClient.from("ams_image_jobs").update({
         status: "failed", error_message: "Use a PNG, JPEG or WebP image under 20 MB.", completed_at: new Date().toISOString(),
       }).eq("id", id);
@@ -325,7 +331,7 @@ Deno.serve(async (req: Request) => {
 
     const started = Date.now();
     const edited = await editWithOpenAI(mode, source, prompt);
-    console.info(`[image-tools-generate] mode=${mode} provider=openai model=${OPENAI_EDIT_MODEL} ok=${edited.ok} ms=${Date.now() - started}`);
+    console.info(`[image-tools-generate] mode=${mode} provider=openai model=${OPENAI_EDIT_MODEL} ok=${edited.ok}${edited.ok ? "" : ` class=${failureClass(edited.error)}`} ms=${Date.now() - started}`);
     if (!edited.ok) return await fail(edited.error, 502);
 
     const objectPath = `${user!.id}/tools-${id}.png`;
