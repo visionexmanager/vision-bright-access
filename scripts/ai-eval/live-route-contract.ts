@@ -605,6 +605,16 @@ for (const line of groqFailures) console.log(`  ${line}`);
       return { exists: true };
     });
   }
+  // The creation endpoint, asked with no prompt: a live API refuses it as a bad
+  // request (400) and generates nothing; a removed one answers 404.
+  await run("video api create (empty request)", { provider: "openai", model: "sora-2" }, async () => {
+    const res = await fetch("https://api.openai.com/v1/videos", {
+      method: "POST", headers: { Authorization: `Bearer ${key}` }, body: new FormData(),
+    });
+    await res.body?.cancel();
+    console.log(`  video api create (empty request): HTTP ${res.status}`);
+    return { endpoint: res.status !== 404 };
+  });
 
   await run("realtime session", { provider: "openai", model: "gpt-realtime-2" }, async () => {
     // What realtime-session asks for, minus the user and the voice config: an
