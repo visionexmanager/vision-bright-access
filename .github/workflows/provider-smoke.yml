@@ -16,6 +16,11 @@ on:
         description: "Also generate one low-quality image (about one US cent)"
         type: boolean
         default: false
+      scope:
+        description: "live: only what production routes to. all: also parked and account-blocked providers, and the Diagnose step"
+        type: choice
+        options: [live, all]
+        default: live
   pull_request:
     # "labeled" so adding the provider-media-probe label runs the paid media
     # probes once, deliberately; they never run on an ordinary push.
@@ -50,25 +55,34 @@ jobs:
         run: |
           ARGS=(--out smoke.json)
           if [[ "${{ inputs.media }}" == "true" ]]; then ARGS+=(--media); fi
+          # A pull request calls only what production routes to; parked and
+          # account-blocked providers are never called from one, and their
+          # keys are not even given to this step. The full sweep is a
+          # deliberate dispatch with scope "all".
+          if [[ "$SCOPE" != "all" ]]; then ARGS+=(--live-only); fi
           node scripts/ai-eval/provider-smoke.mjs "${ARGS[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
         env:
+          SCOPE:              ${{ inputs.scope }}
           OPENAI_API_KEY:     ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
           MISTRAL_API_KEY:    ${{ secrets.MISTRAL_API_KEY }}
-          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          BYTEZ_API_KEY:      ${{ secrets.BYTEZ_API_KEY }}
-          RUNPOD_API_KEY:     ${{ secrets.RUNPOD_API_KEY }}
-          LUMA_API_KEY:       ${{ secrets.LUMA_API_KEY }}
-          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ANTHROPIC_API_KEY:  ${{ inputs.scope == 'all' && secrets.ANTHROPIC_API_KEY || '' }}
+          NVIDIA_NIM_API_KEY: ${{ inputs.scope == 'all' && secrets.NVIDIA_NIM_API_KEY || '' }}
+          OPENROUTER_API_KEY: ${{ inputs.scope == 'all' && secrets.OPENROUTER_API_KEY || '' }}
+          BYTEZ_API_KEY:      ${{ inputs.scope == 'all' && secrets.BYTEZ_API_KEY || '' }}
+          RUNPOD_API_KEY:     ${{ inputs.scope == 'all' && secrets.RUNPOD_API_KEY || '' }}
+          LUMA_API_KEY:       ${{ inputs.scope == 'all' && secrets.LUMA_API_KEY || '' }}
+          ELEVENLABS_API_KEY: ${{ inputs.scope == 'all' && secrets.ELEVENLABS_API_KEY || '' }}
 
       # Why the failing providers fail: the provider's own reason, sanitised
-      # (see the script header). Media generation only on dispatch with
-      # media=true, or on the one run triggered by *adding* the
-      # provider-media-probe label — never on a later push to a labelled PR.
+      # (see the script header). It calls parked and account-blocked providers,
+      # so it runs only on a dispatch with scope "all", or on the one run
+      # triggered by *adding* the provider-media-probe label — never on an
+      # ordinary pull-request push. Media generation only with media=true or
+      # that label.
       - name: Diagnose Bytez, OpenRouter, NVIDIA NIM and FAL
+        if: inputs.scope == 'all' || (github.event.action == 'labeled' && github.event.label.name == 'provider-media-probe')
         shell: bash
         run: |
           ARGS=()
