@@ -12,6 +12,9 @@ import { overpassViaProcessor, processorAvailable } from "../_shared/whatsappPro
 import { PAUSED_MODELS } from "../_shared/aiProvider.ts";
 import { PARKED_PROVIDERS } from "../_shared/providerState.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("health-check");
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

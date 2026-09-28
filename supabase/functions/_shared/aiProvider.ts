@@ -20,6 +20,7 @@ import {
 import { providerErrorSummary } from "./providerInput.ts";
 import { parkedProviderReason } from "./providerState.ts";
 import { answerIsInScript, type Script, textOf } from "./answerLanguage.ts";
+import { embeddingUsage, geminiUsage, hasUsage, modelIdOf, type NormalizedUsage, type UsageEvent } from "./metering.ts";
 
 export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral" | "openrouter";
 
@@ -345,6 +346,39 @@ let attemptRecorder: AttemptRecorder | null = null;
 /** Installed once per function by `installChatAttemptRecording()`; null removes it. */
 export function setProviderAttemptRecorder(recorder: AttemptRecorder | null): void {
   attemptRecorder = recorder;
+}
+
+// ── Usage metering ───────────────────────────────────────────────────────────
+//
+// Separate from the attempt recorder above, on purpose: that one feeds provider
+// health (ph_logs, 30-day retention) and is installed where its read-back is
+// wanted; this one reports what every provider call USED, for cost, and is
+// installed in every function that reaches a model (`installUsageMetering`).
+// It is emitted once per provider call, at the lowest layer, so a direct call
+// and each attempt of a fallback chain are each reported exactly once.
+
+export type UsageSink = (event: UsageEvent) => void;
+let usageSink: UsageSink | null = null;
+
+/** Installed once per function by `installUsageMetering()`; null removes it. */
+export function setUsageSink(sink: UsageSink | null): void {
+  usageSink = sink;
+}
+
+function emitUsage(event: UsageEvent): void {
+  const sink = usageSink;
+  if (!sink) return;
+  try {
+    sink(event);
+  } catch {
+    // Metering never reaches the request.
+  }
+}
+
+/** Which chain, and which attempt of it, a structured call belongs to. Internal. */
+export interface MeterContext {
+  chain_id: string;
+  attempt: number;
 }
 
 const SPECIFIC_4XX = new Set([400, 401, 403, 404, 408, 413, 422, 429]);
@@ -874,18 +908,45 @@ export interface StructuredParams {
   /** Tool/function name the model must call. */
   toolName: string;
   maxTokens?: number;
+  /** Set by the fallback loop so metering can group a chain's attempts. Callers leave it out. */
+  meter?: MeterContext;
 }
 
 export async function structuredCompletion(p: StructuredParams): Promise<unknown> {
   return (await structuredCompletionDetailed(p)).result;
 }
 
-/** The structured result, plus the provider's token usage where it reports one. */
-async function structuredCompletionDetailed(p: StructuredParams): Promise<{ result: unknown; usage?: AttemptUsage }> {
+type StructuredOutcome = { result: unknown; usage?: AttemptUsage; metered?: NormalizedUsage; resolvedModel?: string };
+
+/**
+ * The structured result, plus the provider's token usage where it reports one.
+ * Every call — direct or one attempt of a chain — is reported to the usage
+ * sink here, once: what it used, or that it failed.
+ */
+async function structuredCompletionDetailed(p: StructuredParams): Promise<StructuredOutcome> {
   refuseUnroutable(p, p.image ? "vision" : "chat");
+  const base = { operation: "structured", provider: p.provider, model: p.model, ...(p.meter ?? {}) } as const;
+  try {
+    const out = await structuredCompletionOnce(p);
+    const usage = out.metered ?? out.usage;
+    emitUsage({
+      ...base,
+      outcome: "ok",
+      ...(out.resolvedModel ? { resolved_model: out.resolvedModel } : {}),
+      ...(hasUsage(usage) ? { usage, usage_source: "reported" } : { usage_source: "missing" }),
+    });
+    return out;
+  } catch (error) {
+    // A refused or failed request: the provider billed nothing we can see.
+    emitUsage({ ...base, outcome: "error", error_code: attemptErrorCode(error), usage_source: "missing" });
+    throw error;
+  }
+}
+
+async function structuredCompletionOnce(p: StructuredParams): Promise<StructuredOutcome> {
   if (p.provider === "anthropic") return { result: await structuredAnthropic(p) };
   if (p.provider === "gemini") {
-    const { data } = await geminiStructuredCompletion({
+    const { data, usageMetadata, modelVersion } = await geminiStructuredCompletion({
       model: p.model,
       system: p.system,
       userText: p.userText,
@@ -893,7 +954,7 @@ async function structuredCompletionDetailed(p: StructuredParams): Promise<{ resu
       schema: p.schema,
       maxTokens: p.maxTokens,
     }).catch(asProviderError);
-    return { result: data };
+    return { result: data, metered: geminiUsage(usageMetadata), resolvedModel: modelIdOf(modelVersion) };
   }
   return structuredOpenAICompatible(p);
 }
@@ -905,13 +966,14 @@ export async function structuredCompletionWithFallback(
   if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
 
   const kind: AttemptKind = params.image ? "vision" : "chat";
+  const chainId = crypto.randomUUID();
   let lastError: unknown;
   for (const [index, target] of orderTargets(params.targets, kind, "structured").entries()) {
     const start = Date.now();
     const base = { kind, mode: "structured", provider: target.provider, model: target.model, attempt: index + 1 } as const;
     try {
       const { result, usage } = await withAttemptTimeout(
-        structuredCompletionDetailed({ ...params, ...target }),
+        structuredCompletionDetailed({ ...params, ...target, meter: { chain_id: chainId, attempt: index + 1 } }),
         params.attemptTimeoutMs ?? STRUCTURED_ATTEMPT_TIMEOUT_MS,
       );
       // A result missing a field the schema requires is not a result: the
@@ -950,7 +1012,7 @@ export async function structuredCompletionWithFallback(
   throw new ProviderError(500, "All AI providers failed");
 }
 
-async function structuredOpenAICompatible(p: StructuredParams): Promise<{ result: unknown; usage?: AttemptUsage }> {
+async function structuredOpenAICompatible(p: StructuredParams): Promise<StructuredOutcome> {
   const cfg = openAICompatibleConfig(p.provider);
   const key = requireKey(cfg);
 
@@ -986,7 +1048,7 @@ async function structuredOpenAICompatible(p: StructuredParams): Promise<{ result
   const data = await res.json();
   const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!args) throw new ProviderError(500, "No structured response from AI");
-  return { result: JSON.parse(args), usage: usageOf(data) };
+  return { result: JSON.parse(args), usage: usageOf(data), resolvedModel: modelIdOf(data?.model) };
 }
 
 async function structuredAnthropic(p: StructuredParams): Promise<unknown> {
@@ -1054,18 +1116,32 @@ export async function createEmbedding(input: string[]): Promise<number[][]> {
   if (!key) throw new ProviderError(500, "OPENAI_API_KEY is not configured");
   if (input.length === 0) return [];
 
+  const base = { operation: "embedding", provider: "openai", model: EMBEDDING_MODEL } as const;
   const res = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: EMBEDDING_MODEL, input }),
+  }).catch((error) => {
+    emitUsage({ ...base, outcome: "error", error_code: attemptErrorCode(error), usage_source: "missing" });
+    throw error;
   });
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
     console.error("OpenAI embeddings error:", res.status, providerErrorSummary(errText));
-    throw new ProviderError(res.status || 500, "Embedding request failed");
+    const error = new ProviderError(res.status || 500, "Embedding request failed");
+    emitUsage({ ...base, outcome: "error", error_code: attemptErrorCode(error), usage_source: "missing" });
+    throw error;
   }
 
   const data = await res.json();
+  const usage = embeddingUsage(data);
+  const resolved = modelIdOf(data?.model);
+  emitUsage({
+    ...base,
+    outcome: "ok",
+    ...(resolved ? { resolved_model: resolved } : {}),
+    ...(usage ? { usage, usage_source: "reported" } : { usage_source: "missing" }),
+  });
   return (data.data as Array<{ embedding: number[] }>).map((d) => d.embedding);
 }

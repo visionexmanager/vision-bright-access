@@ -22,6 +22,9 @@ import { handleStructuredCareerAiRequest, json } from "../_shared/careerAiHandle
 import { handleCareerAiChat } from "../_shared/careerAiChat.ts";
 import { handleCareerAiMatch } from "../_shared/careerAiMatch.ts";
 import type { CareerAiService } from "../_shared/careerPrompts.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("career-ai");
 
 /**
  * The eight structured services, as an explicit action -> service map.

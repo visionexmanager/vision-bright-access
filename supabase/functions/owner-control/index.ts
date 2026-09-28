@@ -15,6 +15,9 @@ import { proposeContent } from "../_shared/contentEngine.ts";
 import { decideUnlessContentApproval } from "../_shared/content/proposalRules.ts";
 import { normalizePhone } from "../_shared/ownerControl.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("owner-control");
 
 // Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
 installChatAttemptRecording();

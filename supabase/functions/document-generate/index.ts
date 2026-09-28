@@ -15,6 +15,9 @@ import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("document-generate");
 
 const MAX_CHARS = 60_000; // roughly the safe input budget for a single completion
 

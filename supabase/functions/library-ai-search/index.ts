@@ -21,6 +21,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createEmbedding, structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { allowCaller } from "../_shared/securityGuard.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("library-ai-search");
 
 function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });

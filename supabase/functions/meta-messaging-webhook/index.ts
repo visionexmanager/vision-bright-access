@@ -79,6 +79,9 @@ import {
   type NormalizedMessage,
 } from "../_shared/messaging/types.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("meta-messaging-webhook");
 
 // Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
 installChatAttemptRecording();

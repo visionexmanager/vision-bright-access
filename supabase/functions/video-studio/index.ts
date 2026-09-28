@@ -18,6 +18,9 @@ import {
   falVideoInput, falVideoUrl, isFalMediaUrl,
 } from "../_shared/providers/fal.ts";
 import { observeShadow, shadowEnabled } from "../_shared/providerSelection.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("video-studio");
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

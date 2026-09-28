@@ -28,6 +28,9 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, createEmbedding, ProviderError } from "../_shared/aiProvider.ts";
 import { ensureBookIndexed, retrieveChunks, formatChunksAsContext } from "../_shared/libraryRag.ts";
 import { searchOpenSources } from "../_shared/openResearchSources.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("library-research-assistant");
 
 function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });

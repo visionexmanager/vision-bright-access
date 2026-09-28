@@ -4,6 +4,9 @@ import { createEmbedding, ProviderError } from "../_shared/aiProvider.ts";
 import { handleSourceProducts } from "../_shared/sourcing/handler.ts";
 import { allowCaller } from "../_shared/securityGuard.ts";
 import { catalogServicesByStoredId } from "../_shared/contentIndex.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("ai-search");
 import servicesCatalog from "../_shared/data/servicesCatalog.json" with { type: "json" };
 
 // Columns returned for each source table.

@@ -516,6 +516,9 @@ import {
   findProposal,
   runContentCommand,
 } from "../_shared/ownerContentActions.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("whatsapp-webhook");
 
 /** How much prior conversation the model sees. Enough for context, bounded. */
 const HISTORY_LIMIT = 12;

@@ -4,6 +4,9 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { getVisionAnalyst, VISION_SCHEMA } from "../_shared/visionAnalysts.ts";
 import { structuredCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("analyze-image");
 
 // Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
 installChatAttemptRecording();

@@ -8,6 +8,9 @@ import {
   type ProviderTarget,
 } from "../_shared/aiProvider.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("ai-voice-chat");
 
 // Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
 installChatAttemptRecording();

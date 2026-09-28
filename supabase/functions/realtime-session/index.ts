@@ -2,6 +2,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getAssistant } from "../_shared/assistants.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { providerErrorSummary } from "../_shared/providerInput.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("realtime-session");
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 

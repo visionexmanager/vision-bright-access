@@ -52,6 +52,9 @@ import { recordTtsInBackground } from "../_shared/ttsRecorder.ts";
 import type { RecordingDb } from "../_shared/providerRecording.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { boundedText } from "../_shared/providerInput.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("library-generate-narration");
 
 const MAX_CHAPTER_CHARS = 48000;
 const CHUNK_TARGET_CHARS = 3900;

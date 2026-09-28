@@ -22,6 +22,9 @@ import {
   type TtsFormat,
   type TtsProvider,
 } from "../_shared/voice/tts.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("speech-generate");
 
 // ─── Providers ───────────────────────────────────────────────────────────────
 //
