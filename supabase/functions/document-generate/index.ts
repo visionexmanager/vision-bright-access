@@ -147,7 +147,7 @@ Deno.serve(async (req: Request) => {
       serviceId: "document_ai",
       userId: user.id,
       source: "website",
-      idempotencyKey: requestIdempotencyKey(req, "document-generate"),
+      idempotencyKey: requestIdempotencyKey(req, "document-generate", user.id),
       targets: [DOCUMENT_TARGET],
       bound: chatUsageBound(utf8Bytes(system) + utf8Bytes(text), 1500),
     }, async ({ reservationId, targets }) => ({

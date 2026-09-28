@@ -60,7 +60,7 @@ async function recordImageResult(params: { slug?: "openai-image" | "fal-image"; 
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, idempotency-key",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -368,7 +368,7 @@ Deno.serve(async (req: Request) => {
         serviceId: "image",
         userId: user.id,
         source: "website",
-        idempotencyKey: requestIdempotencyKey(req, "image-generate"),
+        idempotencyKey: requestIdempotencyKey(req, "image-generate", user.id),
         targets: IMAGE_MODELS.map((m) => ({ provider: "openai", model: m })),
         bound: chatUsageBound(utf8Bytes(prompt.trim()), IMAGE_MAX_OUTPUT_TOKENS),
       }, async () => {
