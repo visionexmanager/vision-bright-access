@@ -18,6 +18,7 @@ import {
   pausedReason,
   type ProviderTarget,
   setProviderAttemptRecorder,
+  setUsageSink,
   streamChatCompletion,
   streamChatCompletionWithFallback,
   structuredCompletion,
@@ -28,6 +29,8 @@ import { answerIsInScript, expectedScriptForMessage, scriptOfLanguage, textOf } 
 import { GENERATION_SCHEMA, generatorTargets, getGenerator } from "../../supabase/functions/_shared/generators.ts";
 import { getVisionAnalyst, VISION_SCHEMA } from "../../supabase/functions/_shared/visionAnalysts.ts";
 import { understandDocument, understandImage } from "../../supabase/functions/_shared/whatsappUnderstand.ts";
+import { meteredFetch } from "../../supabase/functions/_shared/meteredFetch.ts";
+import type { UsageEvent } from "../../supabase/functions/_shared/metering.ts";
 
 const T = {
   gpt41: { provider: "openai", model: "gpt-4.1" },
@@ -321,6 +324,84 @@ for (const line of groqFailures) console.log(`  ${line}`);
   setProviderAttemptRecorder(null);
 }
 
+// ── I. Every live provider reports a stream's usage (metering) ──
+// OpenAI and Groq only when asked (stream_options.include_usage), Mistral and
+// our Gemini transform unprompted. "reported" is the provider's own count; an
+// "estimated" here means the provider stopped sending it.
+{
+  for (const target of [T.mini, T.luna, T.groq120, T.mistral14, T.lite]) {
+    await run("stream usage reported", target, async () => {
+      let seen: { usage_source: string; usage?: { input_tokens?: number; output_tokens?: number } } | undefined;
+      setUsageSink((e) => { if (e.operation === "stream") seen = e; });
+      const raw = await streamChatCompletion({ ...target, system: "Answer in one short sentence.", messages: [{ role: "user", content: "Name a colour." }], maxTokens: 200 });
+      const bytes = await new Response(raw).text();
+      setUsageSink(null);
+      return {
+        reported: seen?.usage_source === "reported",
+        tokens: (seen?.usage?.input_tokens ?? 0) > 0 && (seen?.usage?.output_tokens ?? 0) > 0,
+        "no-usage-chunk": !bytes.includes("\"choices\":[]"),
+      };
+    });
+  }
+}
+
+// ── J. meteredFetch against the real API: each call reports what it used ──
+// The paths outside aiProvider (direct callers, speech, transcription,
+// moderation). Image generation is left out: it costs money on every run.
+{
+  const key = Deno.env.get("OPENAI_API_KEY") ?? "";
+  const auth = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+  const events: UsageEvent[] = [];
+  const settle = () => new Promise((r) => setTimeout(r, 300));
+  const last = () => events[events.length - 1];
+  setUsageSink((e) => events.push(e));
+  const target = { provider: "openai", model: "gpt-4o-mini" } as const;
+  let speech: ArrayBuffer | null = null;
+
+  await run("metered chat", target, async () => {
+    const res = await meteredFetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST", headers: auth, body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: "Say OK." }], max_tokens: 5 }),
+    });
+    const body = await res.json();
+    await settle();
+    return { answer: typeof body?.choices?.[0]?.message?.content === "string", reported: last()?.operation === "chat" && last()?.usage_source === "reported" };
+  });
+  await run("metered stream", target, async () => {
+    const res = await meteredFetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST", headers: auth, body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: "Say OK." }], max_tokens: 5, stream: true }),
+    });
+    const text = await res.text();
+    return { "no-usage-chunk": !text.includes("\"choices\":[]"), reported: last()?.operation === "stream" && last()?.usage_source === "reported" };
+  });
+  await run("metered moderation", { provider: "openai", model: "omni-moderation-latest" }, async () => {
+    const res = await meteredFetch("https://api.openai.com/v1/moderations", {
+      method: "POST", headers: auth, body: JSON.stringify({ model: "omni-moderation-latest", input: "hello" }),
+    });
+    await res.json();
+    await settle();
+    return { reported: last()?.operation === "moderation" && last()?.outcome === "ok" };
+  });
+  await run("metered speech", { provider: "openai", model: "tts-1" }, async () => {
+    const res = await meteredFetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST", headers: auth, body: JSON.stringify({ model: "tts-1", voice: "alloy", input: "Hello, forty two.", response_format: "mp3" }),
+    });
+    speech = await res.arrayBuffer();
+    await settle();
+    return { audio: speech.byteLength > 1000, characters: last()?.operation === "tts" && last()?.usage?.characters === 17 };
+  });
+  await run("metered transcription", { provider: "openai", model: "whisper-1" }, async () => {
+    const form = new FormData();
+    form.append("model", "whisper-1");
+    form.append("response_format", "verbose_json");
+    form.append("file", new Blob([speech ?? new ArrayBuffer(0)], { type: "audio/mpeg" }), "probe.mp3");
+    const res = await meteredFetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form });
+    const body = await res.json();
+    await settle();
+    return { text: /hello/i.test(body?.text ?? ""), seconds: last()?.operation === "stt" && (last()?.usage?.seconds ?? 0) > 0 };
+  });
+  setUsageSink(null);
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 const lines = [
   "| route | target | verdict | ms | checks |",
@@ -379,4 +460,23 @@ function crc32(bytes: Uint8Array): number {
     for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
   }
   return ~c >>> 0;
+}
+
+// ── Model checks for the readiness gate (ai_model_readiness) ──
+// One verdict per model: it passed only if every route it served here passed.
+// Strict on purpose — a model that failed anything is not ready to be billed.
+// Written only when the workflow asks (main, never a pull request).
+const checksOut = Deno.env.get("MODEL_CHECKS_OUT");
+if (checksOut) {
+  const verdicts = new Map<string, boolean>();
+  for (const r of rows) {
+    const [provider, ...rest] = r.target.split("/");
+    const key = `${provider}\t${rest.join("/")}`;
+    verdicts.set(key, (verdicts.get(key) ?? true) && r.pass);
+  }
+  const checks = [...verdicts].map(([key, passed]) => {
+    const [provider, model_id] = key.split("\t");
+    return { provider, model_id, check_name: "live_route_contract", passed };
+  });
+  await Deno.writeTextFile(checksOut, JSON.stringify(checks));
 }

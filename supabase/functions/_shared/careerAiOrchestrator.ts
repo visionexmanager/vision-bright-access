@@ -16,7 +16,7 @@ import {
   streamChatCompletion,
 } from "./aiProvider.ts";
 import { parkedProviderReason } from "./providerState.ts";
-import { geminiStreamChatCompletion, geminiStructuredCompletion } from "./geminiProvider.ts";
+import { geminiStructuredCompletion } from "./geminiProvider.ts";
 import {
   CareerAIStructuredResponse,
   coerceToStructuredResponse,
@@ -348,9 +348,9 @@ export async function runCareerAIChatStream(
     const model = MODEL_MATRIX[provider][tier];
     if (!careerTargetLive(provider, model)) continue;
     try {
-      const stream = provider === "gemini"
-        ? await geminiStreamChatCompletion({ model, system: p.system, messages: p.messages, maxTokens: p.maxTokens })
-        : await streamChatCompletion({ provider, model, system: p.system, messages: p.messages, maxTokens: p.maxTokens });
+      // Gemini goes through the same entry as every other provider, so its
+      // stream is metered and its usage chunk removed (streamUsage.ts).
+      const stream = await streamChatCompletion({ provider, model, system: p.system, messages: p.messages, maxTokens: p.maxTokens });
       return { stream, provider, model };
     } catch (err) {
       lastError = err;

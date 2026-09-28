@@ -16,7 +16,7 @@
 // directly must not pull in — the same split as chatRecorder.ts.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { setUsageSink } from "./aiProvider.ts";
+import { setUsageSink, trackReservationWrite } from "./usageSink.ts";
 import { recordUsageEventIn, type UsageDb } from "./usageRecording.ts";
 
 type WaitUntil = (p: Promise<unknown>) => void;
@@ -32,7 +32,10 @@ export function installUsageMetering(functionName: string): void {
     );
   setUsageSink((event) => {
     try {
-      waitUntil(recordUsageEventIn(db(), functionName, event).catch(() => undefined));
+      const write = recordUsageEventIn(db(), functionName, event).catch(() => undefined);
+      // A metered request settles only after its own events are stored.
+      if (event.reservation_id) trackReservationWrite(event.reservation_id, write);
+      waitUntil(write);
     } catch {
       // Metering never reaches the request.
     }

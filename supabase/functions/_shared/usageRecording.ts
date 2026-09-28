@@ -40,7 +40,7 @@ function validRow(r: unknown): r is PriceRow {
  * every ten minutes is cheaper than one per call. A failed read keeps the last
  * good copy, or none — and an event with no price is recorded "unpriced".
  */
-async function priceBook(db: UsageDb, now: number): Promise<PriceRow[]> {
+export async function priceBook(db: UsageDb, now: number = Date.now()): Promise<PriceRow[]> {
   if (cache && now - cache.at < PRICE_BOOK_TTL_MS) return cache.rows;
   loading ??= (async () => {
     try {
@@ -79,6 +79,7 @@ export async function recordUsageEventIn(
       model: event.model,
       resolved_model: event.resolved_model ?? null,
       chain_id: event.chain_id ?? null,
+      reservation_id: event.reservation_id ?? null,
       attempt: event.attempt ?? null,
       outcome: event.outcome,
       error_code: event.error_code ?? null,

@@ -173,6 +173,27 @@ function transformGeminiToOpenAI(
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   let buffer = "";
+  // Gemini repeats a running usageMetadata on its chunks; the last one is the
+  // total. It is handed on as one OpenAI-shaped usage-only chunk before
+  // [DONE], which aiProvider's stream meter reads and removes.
+  let lastUsage: Record<string, unknown> | undefined;
+  let modelVersion: string | undefined;
+  const usageChunk = (): string | null => {
+    if (!lastUsage) return null;
+    const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined);
+    const prompt = n(lastUsage.promptTokenCount);
+    const candidates = n(lastUsage.candidatesTokenCount);
+    const thoughts = n(lastUsage.thoughtsTokenCount);
+    const cached = n(lastUsage.cachedContentTokenCount);
+    const usage: Record<string, unknown> = {};
+    if (prompt !== undefined) usage.prompt_tokens = prompt;
+    // Thinking is billed as output.
+    if (candidates !== undefined || thoughts !== undefined) usage.completion_tokens = (candidates ?? 0) + (thoughts ?? 0);
+    if (cached !== undefined) usage.prompt_tokens_details = { cached_tokens: cached };
+    if (thoughts !== undefined) usage.completion_tokens_details = { reasoning_tokens: thoughts };
+    if (Object.keys(usage).length === 0) return null;
+    return `data: ${JSON.stringify({ choices: [], ...(modelVersion ? { model: modelVersion } : {}), usage })}\n\n`;
+  };
 
   return new ReadableStream<Uint8Array>({
     // Reads until it has something to hand on. A pull that returns having
@@ -184,6 +205,8 @@ function transformGeminiToOpenAI(
       for (;;) {
         const { done, value } = await reader.read();
         if (done) {
+          const usage = usageChunk();
+          if (usage) controller.enqueue(encoder.encode(usage));
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
           return;
@@ -204,6 +227,8 @@ function transformGeminiToOpenAI(
 
           try {
             const evt = JSON.parse(payload);
+            if (evt?.usageMetadata && typeof evt.usageMetadata === "object") lastUsage = evt.usageMetadata;
+            if (typeof evt?.modelVersion === "string") modelVersion = evt.modelVersion;
             const text = evt?.candidates?.[0]?.content?.parts?.[0]?.text;
             if (typeof text === "string" && text.length > 0) {
               const chunk = { choices: [{ delta: { content: text } }] };

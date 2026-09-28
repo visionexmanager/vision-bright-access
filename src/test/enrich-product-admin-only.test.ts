@@ -69,13 +69,13 @@ describe("authorization happens before any OpenAI call, and only there", () => {
 
   it("orders the admin check before the actual provider fetch", () => {
     const roleAt = fn.indexOf('supabase.rpc("has_role"');
-    const fetchAt = fn.indexOf('fetch("https://api.openai.com');
+    const fetchAt = fn.indexOf('meteredFetch("https://api.openai.com');
     expect(fetchAt).toBeGreaterThan(-1);
     expect(roleAt).toBeLessThan(fetchAt);
   });
 
   it("returns before reaching the fetch call at all when the check fails — a rejection is a return, not a flag checked later", () => {
-    const roleBlock = fn.slice(fn.indexOf("if (isAdmin !== true) {"), fn.indexOf('fetch("https://api.openai.com'));
+    const roleBlock = fn.slice(fn.indexOf("if (isAdmin !== true) {"), fn.indexOf('meteredFetch("https://api.openai.com'));
     expect(roleBlock).toContain("return new Response");
   });
 });

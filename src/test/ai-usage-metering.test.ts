@@ -255,7 +255,7 @@ describe("recordUsageEventIn", () => {
     await rec.recordUsageEventIn(db, "ai-chat", event({ chain_id: "c1", attempt: 2 }), NOW);
     expect(inserted).toEqual([{
       occurred_at: "2026-09-29T00:00:00.000Z", function_name: "ai-chat", operation: "structured", provider: "openai",
-      model: "gpt-4.1", resolved_model: null, chain_id: "c1", attempt: 2, outcome: "ok", error_code: null,
+      model: "gpt-4.1", resolved_model: null, chain_id: "c1", reservation_id: null, attempt: 2, outcome: "ok", error_code: null,
       usage: { input_tokens: 1000, output_tokens: 500 }, usage_source: "reported",
       price_id: 1, provider_cost_usd: 0.006, cost_status: "priced", cost_note: null,
     }]);
@@ -297,9 +297,9 @@ describe("recordUsageEventIn", () => {
 
 // ── Wiring: every function that can reach a model is metered ───────────────
 
-describe("every Edge Function whose imports reach aiProvider installs metering under its own name", () => {
+describe("every Edge Function whose imports reach the usage sink installs metering under its own name", () => {
   const ROOT = "supabase/functions";
-  const TARGET = normalize(`${ROOT}/_shared/aiProvider.ts`);
+  const TARGET = normalize(`${ROOT}/_shared/usageSink.ts`);
   const importsOf = (file: string) => [...readFileSync(file, "utf8")
     .matchAll(/(?:import|export)[^"']*?from\s*["'](\.{1,2}\/[^"']+\.ts)["']|import\(\s*["'](\.{1,2}\/[^"']+\.ts)["']\s*\)/g)]
     .map((x) => normalize(join(dirname(file), x[1] || x[2]))).filter((p) => existsSync(p));
@@ -319,8 +319,8 @@ describe("every Edge Function whose imports reach aiProvider installs metering u
   const metered = functions.filter((d) => reaches(normalize(`${ROOT}/${d}/index.ts`)));
 
   it("finds the AI functions (the walk is not vacuous)", () => {
-    expect(metered.length).toBeGreaterThanOrEqual(45);
-    for (const known of ["ai-chat", "whatsapp-webhook", "library-semantic-search", "kids-story-generate"]) expect(metered).toContain(known);
+    expect(metered.length).toBeGreaterThanOrEqual(55);
+    for (const known of ["ai-chat", "whatsapp-webhook", "library-semantic-search", "kids-story-generate", "ocr-scan", "moderate-content", "academy-chat"]) expect(metered).toContain(known);
   });
 
   for (const fn of metered) {

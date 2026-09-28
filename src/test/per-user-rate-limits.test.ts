@@ -248,10 +248,11 @@ describe("the wiring in each function", () => {
 
   // function → the first thing in its handler that spends provider money.
   const PROVIDER_MARKER: Record<string, string> = {
-    "academy-chat": "fetch(",
-    "analyze-meal": "fetch(",
-    "generate-diet-plan": "fetch(",
-    "radar-ai": "fetch(",
+    // meteredFetch: fetch, with the call metered (metering PR 3).
+    "academy-chat": "meteredFetch(",
+    "analyze-meal": "meteredFetch(",
+    "generate-diet-plan": "meteredFetch(",
+    "radar-ai": "meteredFetch(",
     "realtime-session": "fetch(",
     "ai-generate": "structuredCompletionWithFallback(",
     "analyze-image": "structuredCompletionWithFallback(",

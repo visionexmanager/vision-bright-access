@@ -71,7 +71,7 @@ describe("recording never gates or breaks the generation response", () => {
     // failure response and the storage upload all run.
     const recordAt = fn.indexOf("await recordImageResult({ ms: elapsedMs, success: result.ok");
     const fallbackAt = fn.indexOf('await providerRoutableIn(serviceClient, "fal-image")');
-    const failReturnAt = fn.indexOf("return json({ ok: false, error: publicMediaFailure(result.error");
+    const failReturnAt = fn.indexOf("error: publicMediaFailure(result.error");
     const uploadAt = fn.indexOf('.from("image-outputs")');
     expect(recordAt).toBeGreaterThan(-1);
     expect(recordAt).toBeLessThan(fallbackAt);

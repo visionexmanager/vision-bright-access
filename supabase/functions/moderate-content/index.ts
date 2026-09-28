@@ -1,6 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { providerErrorSummary } from "../_shared/providerInput.ts";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("moderate-content");
 
 // Flags user-generated text using OpenAI's moderation model.
 // Call this at content-creation points (messages, listings, posts, reviews).
@@ -40,7 +44,7 @@ Deno.serve(async (req) => {
     const key = Deno.env.get("OPENAI_API_KEY");
     if (!key) throw new Error("OPENAI_API_KEY is not configured");
 
-    const res = await fetch("https://api.openai.com/v1/moderations", {
+    const res = await meteredFetch("https://api.openai.com/v1/moderations", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "omni-moderation-latest", input: text.slice(0, 8000) }),
