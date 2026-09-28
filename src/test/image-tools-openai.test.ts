@@ -137,6 +137,13 @@ describe("the handler", () => {
     expect(handler.match(/chargeDailyLimit\(/g)).toHaveLength(1);
   });
 
+  it("the live probe calls this exact edit, and runs again whenever it changes", () => {
+    const probe = readFileSync("scripts/ai-eval/live-route-contract.ts", "utf8");
+    expect(probe).toContain('import { editWithOpenAI } from "../../supabase/functions/_shared/providers/openaiImageEdit.ts";');
+    expect(probe).toContain("await run(`image tool ${mode}`");
+    expect(readFileSync(".github/workflows/live-route-contract.yml", "utf8")).toContain("supabase/functions/_shared/providers/openaiImageEdit.ts");
+  });
+
   it("logs the mode, provider, model, outcome and time — no prompt, no key", () => {
     expect(handler).toContain("console.info(`[image-tools-generate] mode=${mode} provider=openai model=${OPENAI_EDIT_MODEL} ok=${edited.ok} ms=${Date.now() - started}`);");
   });

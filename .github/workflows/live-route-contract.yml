@@ -30,6 +30,7 @@ on:
       - supabase/functions/_shared/providerRecording.ts
       - supabase/functions/_shared/voice/tts.ts
       - supabase/functions/_shared/voice/stt.ts
+      - supabase/functions/_shared/providers/openaiImageEdit.ts
 
 concurrency:
   group: live-route-contract-${{ github.ref }}
