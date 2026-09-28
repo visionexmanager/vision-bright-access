@@ -29,6 +29,8 @@ import { answerIsInScript, expectedScriptForMessage, scriptOfLanguage, textOf } 
 import { GENERATION_SCHEMA, generatorTargets, getGenerator } from "../../supabase/functions/_shared/generators.ts";
 import { getVisionAnalyst, VISION_SCHEMA } from "../../supabase/functions/_shared/visionAnalysts.ts";
 import { understandDocument, understandImage } from "../../supabase/functions/_shared/whatsappUnderstand.ts";
+import { meteredFetch } from "../../supabase/functions/_shared/meteredFetch.ts";
+import type { UsageEvent } from "../../supabase/functions/_shared/metering.ts";
 
 const T = {
   gpt41: { provider: "openai", model: "gpt-4.1" },
@@ -293,6 +295,63 @@ for (const line of groqFailures) console.log(`  ${line}`);
       };
     });
   }
+}
+
+// ── J. meteredFetch against the real API: each call reports what it used ──
+// The paths outside aiProvider (direct callers, speech, transcription,
+// moderation). Image generation is left out: it costs money on every run.
+{
+  const key = Deno.env.get("OPENAI_API_KEY") ?? "";
+  const auth = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+  const events: UsageEvent[] = [];
+  const settle = () => new Promise((r) => setTimeout(r, 300));
+  const last = () => events[events.length - 1];
+  setUsageSink((e) => events.push(e));
+  const target = { provider: "openai", model: "gpt-4o-mini" } as const;
+  let speech: Uint8Array | null = null;
+
+  await run("metered chat", target, async () => {
+    const res = await meteredFetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST", headers: auth, body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: "Say OK." }], max_tokens: 5 }),
+    });
+    const body = await res.json();
+    await settle();
+    return { answer: typeof body?.choices?.[0]?.message?.content === "string", reported: last()?.operation === "chat" && last()?.usage_source === "reported" };
+  });
+  await run("metered stream", target, async () => {
+    const res = await meteredFetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST", headers: auth, body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: "Say OK." }], max_tokens: 5, stream: true }),
+    });
+    const text = await res.text();
+    return { "no-usage-chunk": !text.includes("\"choices\":[]"), reported: last()?.operation === "stream" && last()?.usage_source === "reported" };
+  });
+  await run("metered moderation", { provider: "openai", model: "omni-moderation-latest" }, async () => {
+    const res = await meteredFetch("https://api.openai.com/v1/moderations", {
+      method: "POST", headers: auth, body: JSON.stringify({ model: "omni-moderation-latest", input: "hello" }),
+    });
+    await res.json();
+    await settle();
+    return { reported: last()?.operation === "moderation" && last()?.outcome === "ok" };
+  });
+  await run("metered speech", { provider: "openai", model: "tts-1" }, async () => {
+    const res = await meteredFetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST", headers: auth, body: JSON.stringify({ model: "tts-1", voice: "alloy", input: "Hello, forty two.", response_format: "mp3" }),
+    });
+    speech = new Uint8Array(await res.arrayBuffer());
+    await settle();
+    return { audio: speech.length > 1000, characters: last()?.operation === "tts" && last()?.usage?.characters === 17 };
+  });
+  await run("metered transcription", { provider: "openai", model: "whisper-1" }, async () => {
+    const form = new FormData();
+    form.append("model", "whisper-1");
+    form.append("response_format", "verbose_json");
+    form.append("file", new Blob([speech ?? new Uint8Array()], { type: "audio/mpeg" }), "probe.mp3");
+    const res = await meteredFetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form });
+    const body = await res.json();
+    await settle();
+    return { text: /hello/i.test(body?.text ?? ""), seconds: last()?.operation === "stt" && (last()?.usage?.seconds ?? 0) > 0 };
+  });
+  setUsageSink(null);
 }
 
 // ── Report ──────────────────────────────────────────────────────────────────

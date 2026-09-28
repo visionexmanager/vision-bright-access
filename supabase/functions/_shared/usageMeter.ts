@@ -16,7 +16,7 @@
 // directly must not pull in — the same split as chatRecorder.ts.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { setUsageSink } from "./aiProvider.ts";
+import { setUsageSink } from "./usageSink.ts";
 import { recordUsageEventIn, type UsageDb } from "./usageRecording.ts";
 
 type WaitUntil = (p: Promise<unknown>) => void;

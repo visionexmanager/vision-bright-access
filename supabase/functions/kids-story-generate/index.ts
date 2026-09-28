@@ -28,6 +28,7 @@ import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { generateImage } from "../_shared/contentMedia.ts";
 import { recordMediaOutcome, type RecordingDb } from "../_shared/providerRecording.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
 
 installUsageMetering("kids-story-generate");
 
@@ -118,7 +119,7 @@ async function generateCoverImage(prompt: string, db: RecordingDb): Promise<stri
     const result = await generateImage(
       {
         apiKey,
-        fetchImpl: fetch,
+        fetchImpl: meteredFetch,
         async upload(_path, bytes, contentType) {
           return `data:${contentType};base64,${encodeBase64(bytes)}`;
         },

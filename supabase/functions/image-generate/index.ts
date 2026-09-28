@@ -15,6 +15,7 @@ import { providerRoutableIn } from "../_shared/providerRecording.ts";
 import { publicMediaFailure } from "../_shared/providerInput.ts";
 import { FalError, falGenerateImage } from "../_shared/providers/fal.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
 
 installUsageMetering("image-generate");
 
@@ -137,7 +138,7 @@ async function generateImage(params: {
   let lastError = "Image generation failed.";
 
   for (const model of IMAGE_MODELS) {
-    const res = await fetch("https://api.openai.com/v1/images/generations", {
+    const res = await meteredFetch("https://api.openai.com/v1/images/generations", {
       method:  "POST",
       headers: {
         Authorization:  `Bearer ${apiKey}`,

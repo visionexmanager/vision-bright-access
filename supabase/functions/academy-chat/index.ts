@@ -1,6 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { boundedChatMessages, boundedText, providerErrorSummary } from "../_shared/providerInput.ts";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("academy-chat");
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -116,7 +120,7 @@ Deno.serve(async (req) => {
 ## CRITICAL — Language Rule
 ALWAYS respond exclusively in ${responseLang}. Every single response must be in ${responseLang}, regardless of which language the student uses. Do NOT mix languages.`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await meteredFetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,

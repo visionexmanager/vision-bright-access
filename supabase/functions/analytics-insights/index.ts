@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("analytics-insights");
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -118,7 +122,7 @@ Focus on:
 
 Keep insights concise and actionable. Use bullet points.`;
 
-    const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    const aiResponse = await meteredFetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
