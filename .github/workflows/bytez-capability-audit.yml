@@ -1,0 +1,38 @@
+name: Bytez capability audit
+
+# Real calls to Bytez on the key we already hold: can it run video generation,
+# true image upscaling, voice cloning, and what else? Every output is
+# downloaded and validated by its bytes. See scripts/ai-eval/bytez-capability-audit.mjs.
+#
+# Trial only: nothing here changes production, and no Edge Function calls
+# Bytez. The repository is public, so the script prints statuses, model ids,
+# sizes and sanitised provider sentences, never a key or a body.
+# OPENAI_API_KEY makes one 4-second TTS clip, the reference voice for the
+# cloning test.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/ai-eval/bytez-capability-audit.mjs
+      - .github/workflows/bytez-capability-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Bytez capability audit
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Audit
+        env:
+          BYTEZ_API_KEY:  ${{ secrets.BYTEZ_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/ai-eval/bytez-capability-audit.mjs
