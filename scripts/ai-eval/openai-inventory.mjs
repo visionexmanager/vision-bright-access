@@ -153,7 +153,9 @@ function verdict(r, ok, extra = {}) {
 // ── Probes per family ────────────────────────────────────────────────────────
 
 const OK = "Reply with exactly the word OK.";
-const IMAGE_URL = `data:image/png;base64,${textPng("HELLO 42").toString("base64")}`;
+// Only the number: "HELLO 42" asked for digits invites a letters-to-digits
+// answer, and a loose /42/ check passed 411042 (see provider-smoke.mjs).
+const IMAGE_URL = `data:image/png;base64,${textPng("42").toString("base64")}`;
 const TOOL = { type: "function", function: { name: "answer", description: "Return the answer.", parameters: { type: "object", properties: { word: { type: "string" } }, required: ["word"] } } };
 
 // The models this report must say something definite about: tools and vision
@@ -193,7 +195,7 @@ async function probeText(id) {
       { type: "text", text: "What number is written in this image? Reply with the digits only." },
       { type: "image_url", image_url: { url: IMAGE_URL } },
     ] }], ...tune });
-    probes.vision = verdict(v, v.status === 200 && /42/.test(v.json?.choices?.[0]?.message?.content ?? ""));
+    probes.vision = verdict(v, v.status === 200 && /^\s*42\s*\.?\s*$/.test(v.json?.choices?.[0]?.message?.content ?? ""));
   }
   return probes;
 }
