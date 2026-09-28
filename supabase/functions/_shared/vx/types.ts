@@ -93,7 +93,17 @@ export type ReserveRefusal =
    * channel and it is not a fault — the caller takes the legacy count-based
    * quota, which is what an unlinked number has always had.
    */
-  | "not_linked";
+  | "not_linked"
+  // Only from `vx_reserve_metered` (per-model metering).
+  /** The service bills a fixed price per unit; use vx_reserve. */
+  | "service_not_metered"
+  /** No vx_conversion_policy row: a metered service cannot price anything yet. */
+  | "conversion_not_configured"
+  /** The request's worst case is above the service's max_reserve_vx. */
+  | "over_reserve_cap"
+  | "idempotency_key_required"
+  | "idempotency_key_conflict"
+  | "max_cost_required";
 
 /** What `vx_settle` and `vx_release` answer. */
 export interface SettleResult {
