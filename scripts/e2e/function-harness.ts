@@ -17,6 +17,7 @@
 //
 // Run (CI): deno run --no-lock --node-modules-dir=none -A scripts/e2e/function-harness.ts
 
+import { scannedPdfFromPng } from "../ai-eval/scanned-pdf-fixture.ts";
 import { answerIsInScript } from "../../supabase/functions/_shared/answerLanguage.ts";
 
 // ── Environment ───────────────────────────────────────────────────────────────
@@ -34,6 +35,17 @@ let tableWrites: string[] = [];
 let graphCalls: string[] = [];
 let isAdmin = false;
 const storage = new Map<string, Uint8Array>();
+// WhatsApp media the harness "received", served as Meta would serve it; and the
+// text of each reply, judged but never printed.
+const mediaStore = new Map<string, { bytes: Uint8Array; mime: string }>();
+let replyTexts: string[] = [];
+// The video reader's one telemetry line (codes and sizes only), for the judge.
+let videoLines: string[] = [];
+const originalInfo = console.info;
+console.info = (...args: unknown[]) => {
+  if (typeof args[0] === "string" && args[0].startsWith("[whatsapp-video]")) videoLines.push(args[0]);
+  originalInfo(...args);
+};
 
 // ── Supabase stub ─────────────────────────────────────────────────────────────
 const ALLOW = new Set([
@@ -91,16 +103,27 @@ originalServe({ port: 54321, hostname: "127.0.0.1", onListen() {} }, stub);
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+  if (url.startsWith("https://lookaside.fbsbx.com/e2e/")) {
+    const item = mediaStore.get(url.slice("https://lookaside.fbsbx.com/e2e/".length));
+    return item ? new Response(item.bytes as BodyInit, { headers: { "content-type": item.mime } }) : json({}, 404);
+  }
   if (url.includes("graph.facebook.com")) {
     const u = new URL(url);
     let kind = "";
     if (typeof init?.body === "string") {
-      try { kind = (JSON.parse(init.body) as { type?: string }).type ?? ""; } catch { /* not JSON */ }
+      try {
+        const sent = JSON.parse(init.body) as { type?: string; text?: { body?: string } };
+        kind = sent.type ?? "";
+        if (typeof sent.text?.body === "string") replyTexts.push(sent.text.body);
+      } catch { /* not JSON */ }
     } else if (init?.body instanceof FormData) {
       kind = `upload:${String(init.body.get("type") ?? "")}`;
     }
-    const last = u.pathname.split("/").pop();
-    graphCalls.push(`${init?.method ?? "GET"} ${last}${kind ? ` ${kind}` : ""}`);
+    const last = u.pathname.split("/").pop() ?? "";
+    graphCalls.push(`${init?.method ?? "GET"} ${last.startsWith("e2e-media-") ? "media-descriptor" : last}${kind ? ` ${kind}` : ""}`);
+    // A received attachment's descriptor, pointing at the bytes above.
+    const item = mediaStore.get(last);
+    if (item) return json({ url: `https://lookaside.fbsbx.com/e2e/${last}`, mime_type: item.mime, file_size: item.bytes.length });
     if (last === "media") return json({ id: "stub-media-id" });
     if (last === "messages") return json({ messages: [{ id: "wamid.stub" }] });
     return json({});
@@ -193,7 +216,7 @@ async function run(
   judge: (r: { http: number; body: Awaited<ReturnType<typeof readBody>> }) => { ok: boolean; detail: string },
   opts: { admin?: boolean; headers?: Record<string, string>; raw?: string } = {},
 ) {
-  rpcCalls = []; tableWrites = []; graphCalls = []; isAdmin = !!opts.admin; pending.length = 0;
+  rpcCalls = []; tableWrites = []; graphCalls = []; replyTexts = []; videoLines = []; isAdmin = !!opts.admin; pending.length = 0;
   const started = Date.now();
   let http = 0, verdict = "ERROR", detail = "";
   try {
@@ -254,6 +277,10 @@ await run("radar-ai", "scene description", { image: IMAGE, lang: "en" }, ({ http
 await run("analyze-meal", "meal photo", { image: IMAGE, lang: "en" }, ({ http, body }) => ({ ok: http === 200, detail: `keys=${keysOf(body.json)}${body.json?.error ? ` error=${String(body.json.error).slice(0, 70)}` : ""}` }));
 await run("generate-diet-plan", "diet plan", { name: "Test", weight: "70", height: "175", goal: "maintain", lang: "ar" }, ({ http, body }) => ({ ok: http === 200, detail: `keys=${keysOf(body.json)}${body.json?.error ? ` error=${String(body.json.error).slice(0, 70)}` : ""}` }));
 await run("ocr-scan", "read digits", { image: IMAGE, lang: "en" }, ({ http, body }) => ({ ok: http === 200 && JSON.stringify(body.json ?? {}).includes("42"), detail: `keys=${keysOf(body.json)} has_42=${JSON.stringify(body.json ?? {}).includes("42")}` }));
+// A scanned PDF (only a picture, no text layer): read on OpenAI as a file.
+const SCANNED_PDF = scannedPdfFromPng(Uint8Array.from(atob(IMAGE.split(",")[1] ?? ""), (c) => c.charCodeAt(0)));
+const SCANNED_PDF_URL = `data:application/pdf;base64,${btoa(String.fromCharCode(...SCANNED_PDF))}`;
+await run("ocr-scan", "scanned PDF", { image: SCANNED_PDF_URL, lang: "en" }, ({ http, body }) => ({ ok: http === 200 && JSON.stringify(body.json ?? {}).includes("42"), detail: `keys=${keysOf(body.json)} has_42=${JSON.stringify(body.json ?? {}).includes("42")}${body.json?.code ? ` code=${body.json.code}` : ""}` }));
 await run("analyze-image", "skin analyst", { analystId: "skin-care", image: IMAGE, lang: "en" }, ({ http, body }) => ({ ok: http === 200, detail: `keys=${keysOf(body.json)}` }));
 await run("ai-generate", "travel plan, Arabic", { generatorId: "travel-itinerary", params: { destination: "Amman", days: "2", budget: "moderate", interests: "food", accessibility: "blind traveller" }, lang: "ar" }, okJson(["result"]));
 await run("ai-search", "semantic search", { query: "white cane", limit: 3 }, ({ http, body }) => ({ ok: http === 200, detail: `keys=${keysOf(body.json)}${body.json?.error ? ` error=${String(body.json.error).slice(0, 70)}` : ""}` }));
@@ -282,7 +309,29 @@ await run("file-convert", "mp3 → m4a", { file: SPOKEN ?? "", target: "m4a" }, 
 await run("library-translate-comment", "translate", { text: "This book is wonderful.", target_language: "ar" }, ({ http, body }) => ({ ok: http === 200, detail: `keys=${keysOf(body.json)}${body.json?.error ? ` error=${String(body.json.error).slice(0, 70)}` : ""}` }));
 await run("moderate-content", "moderation", { text: "Have a nice day." }, ({ http, body }) => ({ ok: http === 200, detail: `keys=${keysOf(body.json)}` }));
 // Parked providers: a controlled refusal is the correct result.
-await run("image-tools-generate", "parked: Replicate", { action: "generate", mode: "upscale", image_url: `${STUB}/storage/v1/object/public/image-tool-inputs/${USER_ID}/a.png` }, expectStatus(503));
+// Image tools on OpenAI's edit while Replicate is parked. The sources are the
+// user's own uploads: the digits (8-bit greyscale PNG) and, when the image case
+// above produced one, a colour picture (RGB), as a phone photo would be.
+const pngBytes = (dataUrl: string) => Uint8Array.from(atob(dataUrl.split(",")[1] ?? ""), (c) => c.charCodeAt(0));
+storage.set(`image-tool-inputs/${USER_ID}/grey.png`, pngBytes(IMAGE));
+const generated = [...storage.entries()].find(([k]) => k.startsWith("image-outputs/"))?.[1];
+if (generated) storage.set(`image-tool-inputs/${USER_ID}/colour.png`, generated);
+const toolSource = (name: string) => `${STUB}/storage/v1/object/public/image-tool-inputs/${USER_ID}/${name}`;
+const toolDone = (alpha: boolean) => ({ http, body }: { http: number; body: Awaited<ReturnType<typeof readBody>> }) => {
+  const out = [...storage.entries()].filter(([k]) => k.startsWith(`image-outputs/${USER_ID}/tools-`)).map(([, v]) => v).at(-1);
+  const png = !!out && out[1] === 0x50;
+  const hasAlpha = !!out && out[25] === 6;
+  return {
+    ok: http === 200 && body.json?.status === "completed" && !!body.json?.image_url && png && (!alpha || hasAlpha),
+    detail: `status=${body.json?.status ?? "-"} stored_png=${png} bytes=${out?.length ?? 0}${alpha ? ` alpha=${hasAlpha}` : ""}${body.json?.error ? ` error=${String(body.json.error).slice(0, 70)}` : ""}`,
+  };
+};
+for (const [mode, source, alpha] of [["bg-remove", "colour.png", true], ["restore", "colour.png", false], ["img2img", "colour.png", false], ["avatar", "colour.png", false], ["bg-remove", "grey.png", true]] as const) {
+  if (source === "colour.png" && !generated) continue;
+  await run("image-tools-generate", `OpenAI edit: ${mode} (${source})`, { action: "generate", mode, image_url: toolSource(source) }, toolDone(alpha));
+}
+// Upscale has no OpenAI capability (the edit redraws at most 1536 px): still refused.
+await run("image-tools-generate", "upscale: no provider", { action: "generate", mode: "upscale", image_url: toolSource("grey.png") }, expectStatus(503));
 await run("video-studio", "parked: Luma", { action: "generate", prompt: "A calm sea at sunset.", duration_sec: 5 }, expectStatus(503));
 // Admin tools.
 await run("enrich-product", "admin: enrich product", { name: "White cane", description: "Folding cane" }, ({ http, body }) => ({ ok: http === 200, detail: `keys=${keysOf(body.json)}${body.json?.error ? ` error=${String(body.json.error).slice(0, 70)}` : ""}` }), { admin: true });
@@ -311,6 +360,77 @@ async function whatsapp(label: string, text: string) {
 }
 await whatsapp("text question, Arabic", "ما هي عاصمة الأردن؟");
 await whatsapp("menu", "القائمة");
+
+// Media: an inbound attachment is served from lookaside.fbsbx.com (intercepted),
+// exactly as Meta hands one over. Replies are judged by content, never printed.
+async function whatsappMedia(
+  label: string,
+  kind: "image" | "audio" | "video" | "document",
+  bytes: Uint8Array,
+  mime: string,
+  judge: () => { ok: boolean; detail: string },
+  extra: Record<string, unknown> = {},
+) {
+  const mediaId = `e2e-media-${crypto.randomUUID()}`;
+  mediaStore.set(mediaId, { bytes, mime });
+  const payload = JSON.stringify({
+    object: "whatsapp_business_account",
+    entry: [{ id: "e2e", changes: [{ field: "messages", value: {
+      messaging_product: "whatsapp",
+      metadata: { display_phone_number: "10000000000", phone_number_id: Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") ?? "0" },
+      contacts: [{ profile: { name: "E2E" }, wa_id: "10000000001" }],
+      messages: [{ from: "10000000001", id: `wamid.e2e.${crypto.randomUUID()}`, timestamp: String(Math.floor(Date.now() / 1000)), type: kind, [kind]: { id: mediaId, mime_type: mime, ...extra } }],
+    } }] }],
+  });
+  await run("whatsapp-webhook", label, null, ({ http }) => {
+    const judged = judge();
+    return { ok: http === 200 && judged.ok, detail: `replies=${graphCalls.filter((c) => c.includes("messages")).length} uploads=${graphCalls.filter((c) => c.includes("upload")).length} ${judged.detail}` };
+  }, { raw: payload, headers: { "x-hub-signature-256": await signed(payload) } });
+}
+const said = (re: RegExp) => replyTexts.some((t) => re.test(t));
+
+await whatsappMedia("image: what number is this?", "image", pngBytes(IMAGE), "image/png", () => {
+  const read = said(/42|٤٢/);
+  return { ok: read, detail: `read_42=${read}` };
+}, { caption: "What number is in this picture?" });
+
+await whatsappMedia("scanned PDF: what number is written?", "document", SCANNED_PDF, "application/pdf", () => {
+  const read = said(/42|٤٢/);
+  return { ok: read, detail: `read_42=${read}` };
+}, { filename: "scan.pdf", caption: "What number is written in this document?" });
+
+const speech = SPOKEN ? Uint8Array.from(atob(SPOKEN), (c) => c.charCodeAt(0)) : null;
+if (speech) {
+  await whatsappMedia("voice note in, answer out", "audio", speech, "audio/mpeg", () => {
+    const answered = replyTexts.some((t) => t.trim().length > 10) || graphCalls.some((c) => c.includes("upload"));
+    return { ok: answered, detail: `answered=${answered}` };
+  }, { voice: true });
+}
+
+// A real MP4: a test pattern with the TTS speech from above as its sound track,
+// made by the runner's ffmpeg. Read on OpenAI as a frame sheet plus transcript.
+let clip: Uint8Array | null = null;
+if (speech) {
+  try {
+    const dir = await Deno.makeTempDir();
+    await Deno.writeFile(`${dir}/speech.mp3`, speech);
+    const made = await new Deno.Command("ffmpeg", {
+      args: ["-nostdin", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=10", "-i", `${dir}/speech.mp3`,
+        "-shortest", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", `${dir}/clip.mp4`],
+    }).output();
+    if (made.success) clip = await Deno.readFile(`${dir}/clip.mp4`);
+  } catch { /* no ffmpeg on this runner: the case is reported as skipped */ }
+}
+if (clip) {
+  await whatsappMedia("video: frames and speech on OpenAI", "video", clip, "video/mp4", () => {
+    const frames = videoLines.some((l) => /frames=yes/.test(l));
+    const speechHeard = videoLines.some((l) => /speech=\d+ch/.test(l));
+    const answered = said(/visionex|vision ex|forty|42|٤٢|فيجن/i);
+    return { ok: frames && speechHeard && answered, detail: `frames=${frames} speech=${speechHeard} answer_mentions_clip=${answered}` };
+  }, { caption: "What is said in this video?" });
+} else {
+  console.log("SKIP whatsapp-webhook [video] no ffmpeg or no speech fixture on this runner");
+}
 
 // ── Report ────────────────────────────────────────────────────────────────────
 const table = [
