@@ -22,70 +22,44 @@
 // Exit status is 0 even when a provider fails: a failed probe is a finding to
 // report, not a broken build.
 
-import { deflateSync } from "node:zlib";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { textPng } from "./fixtures.mjs";
 
 const args = process.argv.slice(2);
 const MEDIA = args.includes("--media");
 const OUT = args.includes("--out") ? args[args.indexOf("--out") + 1] : null;
 const TIMEOUT_MS = 45_000;
 
-// ── A deterministic test image: "HELLO 42" in a 5×7 bitmap font ─────────────
-
-const GLYPHS = {
-  H: ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
-  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
-  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
-  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
-  4: ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
-  2: ["01110", "10001", "00001", "00010", "00100", "01000", "11111"],
-  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
-};
-
-function crc32(buf) {
-  let c, crc = 0xffffffff;
-  for (let n = 0; n < buf.length; n++) {
-    c = (crc ^ buf[n]) & 0xff;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    crc = (crc >>> 8) ^ c;
-  }
-  return (crc ^ 0xffffffff) >>> 0;
+// --live-only: call only what production routes to today. The providers are
+// the four whose keys live-route-contract.yml is given; the models parked in
+// aiProvider.ts PAUSED_MODELS are read from that file, so the two lists cannot
+// drift. Parked and account-blocked providers (Anthropic, NIM, OpenRouter,
+// Bytez, FAL, RunPod, Luma, ElevenLabs) are never called in this mode — a pull
+// request runs it; the full sweep is a deliberate dispatch with scope "all".
+const LIVE_ONLY = args.includes("--live-only");
+const LIVE_PROVIDERS = new Set(["openai", "gemini", "groq", "mistral"]);
+const PAUSED = (() => {
+  const src = readFileSync(new URL("../../supabase/functions/_shared/aiProvider.ts", import.meta.url), "utf8");
+  const block = src.slice(src.indexOf("export const PAUSED_MODELS"), src.indexOf("]);", src.indexOf("export const PAUSED_MODELS")));
+  return new Set([...block.matchAll(/\["([\w-]+\/[\w./-]+)",/g)].map((m) => m[1]));
+})();
+// An unreadable list would silently call every parked model: refuse instead.
+if (LIVE_ONLY && PAUSED.size === 0) {
+  console.log("live-only: could not read PAUSED_MODELS from aiProvider.ts; refusing to guess.");
+  process.exit(1);
 }
 
-function chunk(type, data) {
-  const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
-  const td = Buffer.concat([Buffer.from(type), data]);
-  const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(td));
-  return Buffer.concat([len, td, crc]);
-}
-
-function textPng(text, scale = 12, pad = 24) {
-  const w = text.length * 6 * scale + pad * 2, h = 7 * scale + pad * 2;
-  const raw = Buffer.alloc((w + 1) * h, 0xff);
-  for (let y = 0; y < h; y++) raw[y * (w + 1)] = 0; // filter byte
-  [...text].forEach((ch, i) => {
-    GLYPHS[ch].forEach((row, gy) => [...row].forEach((bit, gx) => {
-      if (bit !== "1") return;
-      for (let dy = 0; dy < scale; dy++) for (let dx = 0; dx < scale; dx++) {
-        const x = pad + (i * 6 + gx) * scale + dx, y = pad + gy * scale + dy;
-        raw[y * (w + 1) + 1 + x] = 0;
-      }
-    }));
-  });
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4);
-  ihdr[8] = 8; ihdr[9] = 0; // 8-bit greyscale
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0)),
-  ]);
-}
-
+// OCR reads the text image; the vision question gets an image holding only the
+// number. "HELLO 42" asked for "the digits only" invites a model to turn the
+// letters into digits — gpt-5.6-luna answered 411042 or 12304 five times in
+// five (2026-09-28), and the old /42/ check passed most of those.
 const IMAGE_URL = `data:image/png;base64,${textPng("HELLO 42").toString("base64")}`;
+const DIGITS_URL = `data:image/png;base64,${textPng("42").toString("base64")}`;
+const exactly42 = (text) => /^\s*42\s*\.?\s*$/.test(text);
 const ASK_OK = [{ role: "user", content: "Reply with exactly the word OK." }];
 const ASK_IMAGE = [{ role: "user", content: [
   { type: "text", text: "What number is written in this image? Reply with the digits only." },
-  { type: "image_url", image_url: { url: IMAGE_URL } },
+  { type: "image_url", image_url: { url: DIGITS_URL } },
 ] }];
 const TOOL = {
   type: "function",
@@ -145,6 +119,10 @@ async function call(url, init) {
 const results = [];
 
 async function probe(provider, capability, model, run) {
+  if (LIVE_ONLY && PAUSED.has(`${provider}/${model}`)) {
+    skipped.push(`${provider}/${model}`);
+    return { ok: false, skipped: true };
+  }
   const r = await run();
   let ok = false, note;
   try { ok = r.status >= 200 && r.status < 300 && Boolean(r.check?.(r.body)); } catch { ok = false; }
@@ -157,7 +135,7 @@ const bearer = (key, extra = {}) => ({ Authorization: `Bearer ${key}`, "Content-
 const post = (url, headers, body) => call(url, { method: "POST", headers, body: JSON.stringify(body) });
 const textOf = (j) => j?.choices?.[0]?.message?.content ?? "";
 const saysOk = (j) => /\bok\b/i.test(textOf(j));
-const says42 = (j) => /42/.test(textOf(j));
+const says42 = (j) => exactly42(textOf(j));
 const toolOk = (j) => {
   const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   return typeof args === "string" && /ok/i.test(JSON.parse(args).word ?? "");
@@ -261,9 +239,9 @@ async function gemini(key) {
     await probe("gemini", "vision", model, async () => ({
       ...(await post(`${base}/models/${model}:generateContent`, headers, { contents: [{ role: "user", parts: [
         { text: "What number is written in this image? Reply with the digits only." },
-        { inline_data: { mime_type: "image/png", data: IMAGE_URL.split(",")[1] } },
+        { inline_data: { mime_type: "image/png", data: DIGITS_URL.split(",")[1] } },
       ] }], generationConfig: { maxOutputTokens: 512 } })),
-      check: (j) => /42/.test(geminiText(j)),
+      check: (j) => exactly42(geminiText(j)),
     }));
     // Structured output the way geminiProvider.ts asks for it: JSON mode with a schema.
     await probe("gemini", "structured_output", model, async () => ({
@@ -406,7 +384,9 @@ const PROVIDERS = [
 ];
 
 const keys = {};
+const skipped = [];
 for (const [name, envName, run] of PROVIDERS) {
+  if (LIVE_ONLY && !LIVE_PROVIDERS.has(name)) { keys[name] = "not called (live-only)"; continue; }
   const key = env(envName);
   keys[name] = key ? "present" : "absent";
   if (!key || !run) continue;
@@ -418,6 +398,7 @@ for (const [name, envName, run] of PROVIDERS) {
 const lines = ["## Provider smoke test", "", "| provider | key in runner |", "| --- | --- |", ...Object.entries(keys).map(([p, k]) => `| ${p} | ${k} |`), "",
   "| provider | capability | model | result | HTTP | ms | note |", "| --- | --- | --- | --- | --- | --- | --- |",
   ...results.map((r) => `| ${r.provider} | ${r.capability} | \`${r.model}\` | ${r.ok ? "PASS" : "FAIL"} | ${r.status} | ${r.ms} | ${r.note ?? ""}${r.rate ? ` ${Object.entries(r.rate).map(([h, v]) => `${h.replace("x-ratelimit-", "")}=${v}`).join(" ")}` : ""} |`),
+  ...(LIVE_ONLY ? ["", `live-only: ${PAUSED.size} parked models read from PAUSED_MODELS, not called: ${[...new Set(skipped)].join(", ") || "none probed"}`] : []),
   "", "### Inventory", "", "```json", JSON.stringify(inventory, null, 2), "```"];
 console.log(lines.join("\n"));
 if (OUT) writeFileSync(OUT, JSON.stringify({ keys, results, inventory }, null, 2));
