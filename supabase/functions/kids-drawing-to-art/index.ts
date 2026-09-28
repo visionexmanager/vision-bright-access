@@ -22,6 +22,7 @@ import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { generateImage } from "../_shared/contentMedia.ts";
 import { recordMediaOutcome, type RecordingDb } from "../_shared/providerRecording.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
 
 installUsageMetering("kids-drawing-to-art");
 
@@ -55,7 +56,7 @@ async function generateStylizedImage(description: string, db: RecordingDb): Prom
     const result = await generateImage(
       {
         apiKey,
-        fetchImpl: fetch,
+        fetchImpl: meteredFetch,
         async upload(_path, bytes, contentType) {
           return `data:${contentType};base64,${encodeBase64(bytes)}`;
         },

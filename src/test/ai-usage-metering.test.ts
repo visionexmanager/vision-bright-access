@@ -297,9 +297,9 @@ describe("recordUsageEventIn", () => {
 
 // ── Wiring: every function that can reach a model is metered ───────────────
 
-describe("every Edge Function whose imports reach aiProvider installs metering under its own name", () => {
+describe("every Edge Function whose imports reach the usage sink installs metering under its own name", () => {
   const ROOT = "supabase/functions";
-  const TARGET = normalize(`${ROOT}/_shared/aiProvider.ts`);
+  const TARGET = normalize(`${ROOT}/_shared/usageSink.ts`);
   const importsOf = (file: string) => [...readFileSync(file, "utf8")
     .matchAll(/(?:import|export)[^"']*?from\s*["'](\.{1,2}\/[^"']+\.ts)["']|import\(\s*["'](\.{1,2}\/[^"']+\.ts)["']\s*\)/g)]
     .map((x) => normalize(join(dirname(file), x[1] || x[2]))).filter((p) => existsSync(p));
@@ -319,8 +319,8 @@ describe("every Edge Function whose imports reach aiProvider installs metering u
   const metered = functions.filter((d) => reaches(normalize(`${ROOT}/${d}/index.ts`)));
 
   it("finds the AI functions (the walk is not vacuous)", () => {
-    expect(metered.length).toBeGreaterThanOrEqual(45);
-    for (const known of ["ai-chat", "whatsapp-webhook", "library-semantic-search", "kids-story-generate"]) expect(metered).toContain(known);
+    expect(metered.length).toBeGreaterThanOrEqual(55);
+    for (const known of ["ai-chat", "whatsapp-webhook", "library-semantic-search", "kids-story-generate", "ocr-scan", "moderate-content", "academy-chat"]) expect(metered).toContain(known);
   });
 
   for (const fn of metered) {

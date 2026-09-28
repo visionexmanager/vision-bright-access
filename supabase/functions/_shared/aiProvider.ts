@@ -21,15 +21,18 @@ import { providerErrorSummary } from "./providerInput.ts";
 import { parkedProviderReason } from "./providerState.ts";
 import { answerIsInScript, type Script, textOf } from "./answerLanguage.ts";
 import {
+  chatUsage,
   embeddingUsage,
-  estimateTokensFromBytes,
   geminiUsage,
   hasUsage,
   modelIdOf,
   type NormalizedUsage,
+  streamUsageFrom,
   type UsageEvent,
+  utf8Bytes,
 } from "./metering.ts";
 import { meterSseStream, type StreamUsageSeen } from "./streamUsage.ts";
+import { emitUsage } from "./usageSink.ts";
 
 export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral" | "openrouter";
 
@@ -228,23 +231,7 @@ export function completionBudget(provider: AIProvider, model: string, limit: num
  * recorded as a zero.
  */
 function usageOf(data: unknown): AttemptUsage | undefined {
-  const usage = (data as { usage?: Record<string, unknown> } | null)?.usage;
-  if (!usage || typeof usage !== "object") return undefined;
-  const count = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined);
-  const prompt = usage.prompt_tokens_details as Record<string, unknown> | undefined;
-  const completion = usage.completion_tokens_details as Record<string, unknown> | undefined;
-  const out: AttemptUsage = {};
-  const input = count(usage.prompt_tokens);
-  const cached = count(prompt?.cached_tokens);
-  const output = count(usage.completion_tokens);
-  const reasoning = count(completion?.reasoning_tokens);
-  const total = count(usage.total_tokens);
-  if (input !== undefined) out.input_tokens = input;
-  if (cached !== undefined) out.cached_input_tokens = cached;
-  if (output !== undefined) out.output_tokens = output;
-  if (reasoning !== undefined) out.reasoning_tokens = reasoning;
-  if (total !== undefined) out.total_tokens = total;
-  return Object.keys(out).length > 0 ? out : undefined;
+  return chatUsage(data);
 }
 
 function openAICompatibleConfig(provider: AIProvider): OpenAICompatibleConfig {
@@ -303,36 +290,14 @@ function openStream(params: ProviderChatParams): Promise<ReadableStream<Uint8Arr
   return streamOpenAICompatible(params);
 }
 
-/**
- * What an ended stream used. The provider's own counts when its last event
- * carried them. Otherwise an estimate, marked "estimated", from the bytes of
- * the prompt and of the answer that went through — so the cost of a stream
- * cut short never disappears. The estimate cannot see reasoning tokens, which
- * a reasoning model bills as output; it is a floor, not a price.
- */
+/** What an ended stream used (metering.ts streamUsageFrom), given this request's prompt. */
 function streamUsageEvent(
   params: ProviderChatParams,
   seen: StreamUsageSeen,
 ): Omit<UsageEvent, "operation" | "provider" | "model"> {
-  const resolved = modelIdOf(seen.model);
-  const outcome = seen.end === "done"
-    ? { outcome: "ok" as const }
-    : { outcome: "error" as const, error_code: seen.end === "cancelled" ? "stream_cancelled" : "stream_interrupted" };
-  const reported = seen.usage ? usageOf({ usage: seen.usage }) : undefined;
-  if (hasUsage(reported)) {
-    return { ...outcome, ...(resolved ? { resolved_model: resolved } : {}), usage: reported, usage_source: "reported" };
-  }
   const promptBytes = utf8Bytes(params.system) + params.messages.reduce((n, m) => n + utf8Bytes(m.content), 0);
-  return {
-    ...outcome,
-    ...(resolved ? { resolved_model: resolved } : {}),
-    usage: { input_tokens: estimateTokensFromBytes(promptBytes), output_tokens: estimateTokensFromBytes(seen.outputBytes) },
-    usage_source: "estimated",
-  };
+  return streamUsageFrom(seen, promptBytes);
 }
-
-const utf8 = new TextEncoder();
-const utf8Bytes = (s: string) => utf8.encode(s).length;
 
 // ── Attempt recording (Phase 2K-4) ──────────────────────────────────────────
 //
@@ -414,23 +379,9 @@ export function setProviderAttemptRecorder(recorder: AttemptRecorder | null): vo
 // It is emitted once per provider call, at the lowest layer, so a direct call
 // and each attempt of a fallback chain are each reported exactly once.
 
-export type UsageSink = (event: UsageEvent) => void;
-let usageSink: UsageSink | null = null;
-
-/** Installed once per function by `installUsageMetering()`; null removes it. */
-export function setUsageSink(sink: UsageSink | null): void {
-  usageSink = sink;
-}
-
-function emitUsage(event: UsageEvent): void {
-  const sink = usageSink;
-  if (!sink) return;
-  try {
-    sink(event);
-  } catch {
-    // Metering never reaches the request.
-  }
-}
+// The sink itself lives in usageSink.ts, shared with meteredFetch.ts; it is
+// re-exported here for the callers that install it through this module.
+export { setUsageSink, type UsageSink } from "./usageSink.ts";
 
 /** Which chain, and which attempt of it, a structured call belongs to. Internal. */
 export interface MeterContext {

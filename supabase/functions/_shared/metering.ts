@@ -19,9 +19,12 @@
 //
 // Pure: the database and the clock are the caller's (usageMeter.ts).
 
+import type { StreamUsageSeen } from "./streamUsage.ts";
+
 export type UsageSource = "reported" | "estimated" | "missing";
 
-export type MeteredOperation = "structured" | "stream" | "embedding" | "image" | "tts" | "stt" | "realtime" | "moderation";
+export type MeteredOperation =
+  | "chat" | "structured" | "stream" | "embedding" | "image" | "tts" | "stt" | "realtime" | "moderation";
 
 /**
  * What one provider call used. Token fields match `AttemptUsage` in
@@ -35,6 +38,8 @@ export interface NormalizedUsage {
   output_tokens?: number;
   reasoning_tokens?: number;
   total_tokens?: number;
+  /** The part of input_tokens that is image, for models that price it apart (gpt-image). */
+  image_input_tokens?: number;
   /** Characters of text sent, for per-character pricing (TTS). */
   characters?: number;
   /** Seconds of audio, for per-minute and per-hour pricing (transcription). */
@@ -131,7 +136,11 @@ export function costOf(usage: NormalizedUsage | undefined, row: PriceRow | null)
 
   if (row.unit === "usd_per_1m_tokens") {
     const input = count(usage.input_tokens) ?? 0;
-    const cached = Math.min(count(usage.cached_input_tokens) ?? 0, input);
+    // Image input tokens are part of input_tokens and, where a model prices
+    // them apart (gpt-image), billed at their own rate; the rest is text.
+    const imageIn = Math.min(count(usage.image_input_tokens) ?? 0, input);
+    const textIn = input - imageIn;
+    const cached = Math.min(count(usage.cached_input_tokens) ?? 0, textIn);
     const output = count(usage.output_tokens) ?? 0;
     if (usage.input_tokens === undefined && usage.output_tokens === undefined) {
       return { status: "unpriced", reason: "usage has no token counts", price_id: row.id };
@@ -139,9 +148,12 @@ export function costOf(usage: NormalizedUsage | undefined, row: PriceRow | null)
     const inRate = rate(r.input);
     const outRate = rate(r.output);
     const cachedRate = rate(r.cached_input) ?? inRate;
-    if (input > 0 && inRate === undefined) return { status: "unpriced", reason: "no input rate", price_id: row.id };
+    const imageRate = rate(r.image_input);
+    if (textIn > 0 && inRate === undefined) return { status: "unpriced", reason: "no input rate", price_id: row.id };
+    if (imageIn > 0 && imageRate === undefined) return { status: "unpriced", reason: "no image input rate", price_id: row.id };
     if (output > 0 && outRate === undefined) return { status: "unpriced", reason: "no output rate", price_id: row.id };
-    const cost = ((input - cached) * (inRate ?? 0) + cached * (cachedRate ?? 0) + output * (outRate ?? 0)) / 1e6;
+    const cost = ((textIn - cached) * (inRate ?? 0) + cached * (cachedRate ?? 0) + imageIn * (imageRate ?? 0) +
+      output * (outRate ?? 0)) / 1e6;
     return { status: "priced", cost_usd: usd(cost), price_id: row.id };
   }
 
@@ -180,6 +192,111 @@ export function geminiUsage(meta: unknown): NormalizedUsage | undefined {
   if (thoughts !== undefined) out.reasoning_tokens = thoughts;
   if (total !== undefined) out.total_tokens = total;
   return hasUsage(out) ? out : undefined;
+}
+
+/**
+ * An OpenAI-compatible chat completion's `usage` (OpenAI, Groq, Mistral,
+ * OpenRouter), whole or from a stream's last event. Groq's `x_groq.usage` has
+ * the same shape.
+ */
+export function chatUsage(data: unknown): NormalizedUsage | undefined {
+  const usage = (data as { usage?: Record<string, unknown> } | null)?.usage;
+  if (!usage || typeof usage !== "object") return undefined;
+  const prompt = usage.prompt_tokens_details as Record<string, unknown> | undefined;
+  const completion = usage.completion_tokens_details as Record<string, unknown> | undefined;
+  const out: NormalizedUsage = {};
+  const input = count(usage.prompt_tokens);
+  const cached = count(prompt?.cached_tokens);
+  const output = count(usage.completion_tokens);
+  const reasoning = count(completion?.reasoning_tokens);
+  const total = count(usage.total_tokens);
+  if (input !== undefined) out.input_tokens = input;
+  if (cached !== undefined) out.cached_input_tokens = cached;
+  if (output !== undefined) out.output_tokens = output;
+  if (reasoning !== undefined) out.reasoning_tokens = reasoning;
+  if (total !== undefined) out.total_tokens = total;
+  return hasUsage(out) ? out : undefined;
+}
+
+/**
+ * An /images/generations or /images/edits response (gpt-image): its token
+ * usage, the image share of the input, and how many images came back.
+ */
+export function imageUsage(json: unknown): NormalizedUsage | undefined {
+  const j = json as { usage?: Record<string, unknown>; data?: unknown } | null;
+  const u = j?.usage;
+  const out: NormalizedUsage = {};
+  if (u && typeof u === "object") {
+    const details = u.input_tokens_details as Record<string, unknown> | undefined;
+    const input = count(u.input_tokens);
+    const imageIn = count(details?.image_tokens);
+    const cached = count(details?.cached_tokens);
+    const output = count(u.output_tokens);
+    const total = count(u.total_tokens);
+    if (input !== undefined) out.input_tokens = input;
+    if (imageIn !== undefined) out.image_input_tokens = imageIn;
+    if (cached !== undefined) out.cached_input_tokens = cached;
+    if (output !== undefined) out.output_tokens = output;
+    if (total !== undefined) out.total_tokens = total;
+  }
+  if (Array.isArray(j?.data)) out.images = j.data.length;
+  return hasUsage(out) ? out : undefined;
+}
+
+/**
+ * An /audio/transcriptions response: the provider's own `usage` — seconds
+ * (`type: "duration"`) or tokens (the gpt-4o transcribe family) — or, for
+ * whisper's verbose_json, the audio `duration`.
+ */
+export function transcriptionUsage(json: unknown): NormalizedUsage | undefined {
+  const j = json as { usage?: Record<string, unknown>; duration?: unknown } | null;
+  const u = j?.usage;
+  const out: NormalizedUsage = {};
+  if (u && typeof u === "object") {
+    if (u.type === "duration") {
+      const seconds = count(u.seconds);
+      if (seconds !== undefined) out.seconds = seconds;
+    } else {
+      const input = count(u.input_tokens);
+      const output = count(u.output_tokens);
+      const total = count(u.total_tokens);
+      if (input !== undefined) out.input_tokens = input;
+      if (output !== undefined) out.output_tokens = output;
+      if (total !== undefined) out.total_tokens = total;
+    }
+  }
+  const duration = count(j?.duration);
+  if (out.seconds === undefined && duration !== undefined) out.seconds = duration;
+  return hasUsage(out) ? out : undefined;
+}
+
+const utf8 = new TextEncoder();
+export const utf8Bytes = (s: string): number => utf8.encode(s).length;
+
+/**
+ * What an ended stream used. The provider's own counts when its last event
+ * carried them. Otherwise an estimate, marked "estimated", from the bytes of
+ * the prompt and of the answer that went through — so the cost of a stream
+ * cut short never disappears. The estimate cannot see reasoning tokens, which
+ * a reasoning model bills as output; it is a floor, not a price.
+ */
+export function streamUsageFrom(
+  seen: StreamUsageSeen,
+  promptBytes: number,
+): Omit<UsageEvent, "operation" | "provider" | "model"> {
+  const resolved = modelIdOf(seen.model);
+  const outcome = seen.end === "done"
+    ? { outcome: "ok" as const }
+    : { outcome: "error" as const, error_code: seen.end === "cancelled" ? "stream_cancelled" : "stream_interrupted" };
+  const model = resolved ? { resolved_model: resolved } : {};
+  const reported = seen.usage ? chatUsage({ usage: seen.usage }) : undefined;
+  if (reported) return { ...outcome, ...model, usage: reported, usage_source: "reported" };
+  return {
+    ...outcome,
+    ...model,
+    usage: { input_tokens: estimateTokensFromBytes(promptBytes), output_tokens: estimateTokensFromBytes(seen.outputBytes) },
+    usage_source: "estimated",
+  };
 }
 
 /** An OpenAI-compatible /embeddings response's `usage`. */

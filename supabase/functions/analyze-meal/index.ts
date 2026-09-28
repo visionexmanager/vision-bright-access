@@ -1,6 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { checkImageDataUrl, providerErrorSummary } from "../_shared/providerInput.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("analyze-meal");
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -76,7 +80,7 @@ Deno.serve(async (req) => {
 4. A short health tip
 Reply in JSON only with fields: name, calories, ingredients (array), tip, rating (1-10 health score)`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await meteredFetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,

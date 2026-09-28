@@ -3,6 +3,10 @@ import { boundedText, checkImageDataUrl, providerErrorSummary } from "../_shared
 import { decodePdfDataUrl, isPdfDataUrl, PDF_NO_TEXT_CODE, PDF_NO_TEXT_MESSAGE, pdfScanResult } from "../_shared/ocrDocument.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { detectLanguage } from "../_shared/whatsappLanguageDetect.ts";
+import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("ocr-scan");
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -140,7 +144,7 @@ Deno.serve(async (req) => {
           ? "استخرج جميع النصوص من هذه الصورة بدقة تامة."
           : "Extract all text from this image with maximum accuracy.");
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await meteredFetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,

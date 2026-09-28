@@ -10,6 +10,7 @@ import type { SttAdapter, SttInput, SttOutcome } from "./types.ts";
 import { denoEnv } from "./types.ts";
 import type { SttProviderName } from "../capabilities.ts";
 import { toBlob } from "../../whatsappAttachments.ts";
+import { meteredFetch } from "../../meteredFetch.ts";
 
 export interface WhisperConfig {
   provider: SttProviderName;
@@ -56,7 +57,7 @@ export function whisperAdapter(config: WhisperConfig): SttAdapter {
       if (input.language) form.append("language", input.language);
 
       try {
-        const response = await (input.fetchImpl ?? fetch)(config.endpoint, {
+        const response = await (input.fetchImpl ?? meteredFetch)(config.endpoint, {
           method: "POST",
           headers: { Authorization: `Bearer ${key}` },
           body: form,
