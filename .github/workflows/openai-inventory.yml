@@ -1,0 +1,76 @@
+name: OpenAI model inventory
+
+# Every model the OPENAI_API_KEY lists, each probed on its own endpoint
+# (scripts/ai-eval/openai-inventory.mjs). The repository is public and so are
+# these logs: the job prints counts only. The per-model report is encrypted to
+# the requester's RSA public key (the recipient input, base64 PEM) and uploaded
+# as an artifact that only the holder of the private key can read. With no
+# recipient, nothing is uploaded.
+#
+#   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out inv.key
+#   gh workflow run openai-inventory.yml -f recipient="$(openssl pkey -in inv.key -pubout | base64 -w0)"
+#   gh run download <run> -n openai-inventory
+#   openssl pkeyutl -decrypt -inkey inv.key -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -in key.enc -out key.txt
+#   openssl enc -d -aes-256-cbc -pbkdf2 -pass file:key.txt -in inventory.json.enc -out inventory.json
+
+on:
+  workflow_dispatch:
+    inputs:
+      recipient:
+        description: "Base64 of an RSA public key PEM; the report is encrypted to it"
+        required: false
+        type: string
+      media:
+        description: "Also generate one low-quality image per current image model (a few US cents)"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - scripts/ai-eval/openai-inventory.mjs
+      - .github/workflows/openai-inventory.yml
+
+concurrency:
+  group: openai-inventory-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: List and probe every model
+        run: |
+          ARGS=(--out inventory.json)
+          if [[ "${{ inputs.media }}" == "true" ]]; then ARGS+=(--media); fi
+          node scripts/ai-eval/openai-inventory.mjs "${ARGS[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Encrypt the report to the recipient
+        id: seal
+        env:
+          RECIPIENT: ${{ inputs.recipient }}
+        run: |
+          if [ -z "$RECIPIENT" ] || [ ! -s inventory.json ]; then echo "No recipient: the report stays on the runner."; exit 0; fi
+          mkdir sealed
+          echo "$RECIPIENT" | base64 -d > recipient.pem
+          openssl rand -hex 32 > key.txt
+          openssl pkeyutl -encrypt -pubin -inkey recipient.pem -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -in key.txt -out sealed/key.enc
+          openssl enc -aes-256-cbc -pbkdf2 -salt -pass file:key.txt -in inventory.json -out sealed/inventory.json.enc
+          shred -u key.txt inventory.json
+          echo "sealed=true" >> "$GITHUB_OUTPUT"
+
+      - if: steps.seal.outputs.sealed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: openai-inventory
+          path: sealed/
+          retention-days: 3

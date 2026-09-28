@@ -119,12 +119,43 @@ export interface TierDef {
   id: PaidPlanId;
   /** US dollars per month. */
   price: number;
-  /** VX credits granted each month, for the operations that cost money. */
+  /** VX the price buys at 1,000 VX per dollar, before any bonus. Internal. */
+  vxBase: number;
+  /** Bonus on top of `vxBase`, in percent. Internal: customers see `vxMonthly` only. */
+  vxBonusPercent: number;
+  /**
+   * VX granted each month — the one number a customer sees, and the one
+   * `billing_plans.vx_credits_monthly` holds. Always `includedVx(vxBase,
+   * vxBonusPercent)`: the bonus is inside it, never added again.
+   */
   vxMonthly: number;
   /** Paid WhatsApp operations per day. 0 means no daily ceiling. */
   whatsappDaily: number;
   /** Sections this tier opens, on top of the free ones. */
   sections: readonly SectionKey[];
+}
+
+/** VX per US dollar — the conversion every plan and price uses. */
+export const VX_PER_USD = 1_000;
+
+/**
+ * The VX a plan includes: its base plus the bonus, once. The bonus is part of
+ * the advertised figure — 10,000 + 10% is 11,000, and 11,000 never gets
+ * another 10% (that would be 12,100).
+ */
+export function includedVx(vxBase: number, vxBonusPercent: number): number {
+  return Math.round(vxBase * (1 + vxBonusPercent / 100));
+}
+
+function tier(
+  id: PaidPlanId,
+  price: number,
+  vxBonusPercent: number,
+  whatsappDaily: number,
+  sections: readonly SectionKey[],
+): TierDef {
+  const vxBase = price * VX_PER_USD;
+  return { id, price, vxBase, vxBonusPercent, vxMonthly: includedVx(vxBase, vxBonusPercent), whatsappDaily, sections };
 }
 
 const BASIC_SECTIONS: readonly SectionKey[] = [
@@ -164,13 +195,15 @@ const BUSINESS_SECTIONS: readonly SectionKey[] = [
  * generation, publishing, the file studio, the finance hub — which is also why
  * it carries the most VX and the uncapped WhatsApp allowance.
  *
- * The prices and monthly VX are the ones already live in `billing_plans`; this
- * rename moved the names, not the economics.
+ * Prices and monthly VX as agreed on 2026-09-28 and set in `billing_plans` by
+ * 20261057000000: each dollar buys 1,000 VX, and Pro and Business add a bonus
+ * that is already inside the VX they advertise (Pro 10,000 + 10% = 11,000;
+ * Business 20,000 + 20% = 24,000).
  */
 export const TIERS: Readonly<Record<TierId, TierDef>> = {
-  basic:    { id: "basic",    price: 5,  vxMonthly: 5_000,  whatsappDaily: 150, sections: BASIC_SECTIONS },
-  pro:      { id: "pro",      price: 7,  vxMonthly: 12_000, whatsappDaily: 400, sections: PRO_SECTIONS },
-  business: { id: "business", price: 10, vxMonthly: 30_000, whatsappDaily: 0,   sections: BUSINESS_SECTIONS },
+  basic:    tier("basic",    5,  0,  150, BASIC_SECTIONS),
+  pro:      tier("pro",      10, 10, 400, PRO_SECTIONS),
+  business: tier("business", 20, 20, 0,   BUSINESS_SECTIONS),
 };
 
 /** Cheapest first — the nested tiers. */
@@ -184,13 +217,7 @@ export const TIER_ORDER: readonly TierId[] = ["basic", "pro", "business"] as con
  * and Kids does not open those, so it cannot undercut Basic. Pro and Business
  * still include VisionKids, so nobody upgrading from Kids loses it.
  */
-export const KIDS_PLAN: TierDef = {
-  id: "kids",
-  price: 3,
-  vxMonthly: 0,
-  whatsappDaily: 50,
-  sections: [...FREE_SECTIONS, "kids"],
-};
+export const KIDS_PLAN: TierDef = tier("kids", 3, 0, 50, [...FREE_SECTIONS, "kids"]);
 
 /** Every paid plan by id. */
 export const PAID_PLANS: Readonly<Record<PaidPlanId, TierDef>> = { kids: KIDS_PLAN, ...TIERS };
