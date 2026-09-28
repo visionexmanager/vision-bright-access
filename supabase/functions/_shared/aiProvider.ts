@@ -20,7 +20,16 @@ import {
 import { providerErrorSummary } from "./providerInput.ts";
 import { parkedProviderReason } from "./providerState.ts";
 import { answerIsInScript, type Script, textOf } from "./answerLanguage.ts";
-import { embeddingUsage, geminiUsage, hasUsage, modelIdOf, type NormalizedUsage, type UsageEvent } from "./metering.ts";
+import {
+  embeddingUsage,
+  estimateTokensFromBytes,
+  geminiUsage,
+  hasUsage,
+  modelIdOf,
+  type NormalizedUsage,
+  type UsageEvent,
+} from "./metering.ts";
+import { meterSseStream, type StreamUsageSeen } from "./streamUsage.ts";
 
 export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral" | "openrouter";
 
@@ -89,6 +98,8 @@ export interface ProviderChatParams {
   system: string;
   messages: Array<{ role: "user" | "assistant"; content: string }>;
   maxTokens?: number;
+  /** Set by the fallback loop so metering can group a chain's attempts. Callers leave it out. */
+  meter?: MeterContext;
 }
 
 export interface ProviderTarget {
@@ -265,6 +276,21 @@ export async function streamChatCompletion(
   params: ProviderChatParams,
 ): Promise<ReadableStream<Uint8Array>> {
   refuseUnroutable(params, "chat");
+  const base = { operation: "stream", provider: params.provider, model: params.model, ...(params.meter ?? {}) } as const;
+  let opened: ReadableStream<Uint8Array>;
+  try {
+    opened = await openStream(params);
+  } catch (error) {
+    emitUsage({ ...base, outcome: "error", error_code: attemptErrorCode(error), usage_source: "missing" });
+    throw error;
+  }
+  // Every stream — direct or one attempt of a chain — is metered as it passes,
+  // and reported once when it ends (streamUsage.ts). Its usage-only chunk is
+  // removed here, so no caller downstream ever sees one.
+  return meterSseStream(opened, (seen) => emitUsage({ ...base, ...streamUsageEvent(params, seen) }));
+}
+
+function openStream(params: ProviderChatParams): Promise<ReadableStream<Uint8Array>> {
   if (params.provider === "anthropic") return streamAnthropic(params);
   if (params.provider === "gemini") {
     return geminiStreamChatCompletion({
@@ -276,6 +302,37 @@ export async function streamChatCompletion(
   }
   return streamOpenAICompatible(params);
 }
+
+/**
+ * What an ended stream used. The provider's own counts when its last event
+ * carried them. Otherwise an estimate, marked "estimated", from the bytes of
+ * the prompt and of the answer that went through — so the cost of a stream
+ * cut short never disappears. The estimate cannot see reasoning tokens, which
+ * a reasoning model bills as output; it is a floor, not a price.
+ */
+function streamUsageEvent(
+  params: ProviderChatParams,
+  seen: StreamUsageSeen,
+): Omit<UsageEvent, "operation" | "provider" | "model"> {
+  const resolved = modelIdOf(seen.model);
+  const outcome = seen.end === "done"
+    ? { outcome: "ok" as const }
+    : { outcome: "error" as const, error_code: seen.end === "cancelled" ? "stream_cancelled" : "stream_interrupted" };
+  const reported = seen.usage ? usageOf({ usage: seen.usage }) : undefined;
+  if (hasUsage(reported)) {
+    return { ...outcome, ...(resolved ? { resolved_model: resolved } : {}), usage: reported, usage_source: "reported" };
+  }
+  const promptBytes = utf8Bytes(params.system) + params.messages.reduce((n, m) => n + utf8Bytes(m.content), 0);
+  return {
+    ...outcome,
+    ...(resolved ? { resolved_model: resolved } : {}),
+    usage: { input_tokens: estimateTokensFromBytes(promptBytes), output_tokens: estimateTokensFromBytes(seen.outputBytes) },
+    usage_source: "estimated",
+  };
+}
+
+const utf8 = new TextEncoder();
+const utf8Bytes = (s: string) => utf8.encode(s).length;
 
 // ── Attempt recording (Phase 2K-4) ──────────────────────────────────────────
 //
@@ -602,6 +659,7 @@ export async function streamChatCompletionWithFallback(
 ): Promise<ProviderResult<ReadableStream<Uint8Array>>> {
   if (params.targets.length === 0) throw new ProviderError(500, "No AI providers configured");
 
+  const chainId = crypto.randomUUID();
   let lastError: unknown;
   for (const [index, target] of orderTargets(params.targets, "chat", "stream").entries()) {
     const start = Date.now();
@@ -613,7 +671,10 @@ export async function streamChatCompletionWithFallback(
       // user. After the first text, bytes are the user's and nothing is retried.
       const limit = params.attemptTimeoutMs ?? STREAM_FIRST_TEXT_TIMEOUT_MS;
       const deadline = start + limit;
-      const opened = await withAttemptTimeout(streamChatCompletion({ ...params, ...target }), limit);
+      const opened = await withAttemptTimeout(
+        streamChatCompletion({ ...params, ...target, meter: { chain_id: chainId, attempt: index + 1 } }),
+        limit,
+      );
       const gated = await gateStream(opened, params.expectScript ?? null, deadline);
       if (!gated.ok) {
         noteOutcome(target, "wrong_language");
@@ -774,6 +835,15 @@ export function observeStream(
   });
 }
 
+/**
+ * Providers that send a stream's token counts only when asked
+ * (stream_options.include_usage → a final `"choices": []` chunk, which
+ * streamUsage.ts removes). Mistral is not asked: it puts usage in its last
+ * chunk unprompted, and an option it does not document is a 422 risk on the
+ * streaming path of every chain it is in.
+ */
+const STREAM_USAGE_ON_REQUEST: ReadonlySet<AIProvider> = new Set(["openai", "groq", "openrouter"]);
+
 async function streamOpenAICompatible(
   p: ProviderChatParams,
 ): Promise<ReadableStream<Uint8Array>> {
@@ -792,6 +862,7 @@ async function streamOpenAICompatible(
       messages: [{ role: "system", content: p.system }, ...p.messages],
       ...completionBudget(p.provider, p.model, p.maxTokens ?? 2048),
       stream: true,
+      ...(STREAM_USAGE_ON_REQUEST.has(p.provider) ? { stream_options: { include_usage: true } } : {}),
     }),
   });
 
