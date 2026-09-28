@@ -444,6 +444,33 @@ if (clip) {
   console.log("SKIP whatsapp-webhook [video] no ffmpeg or no speech fixture on this runner");
 }
 
+// The processor's contact sheet, asked directly: six 320 px frames tiled 3×2
+// is a 960 px-wide JPEG. A processor without `sheet` ignores it and returns
+// the 640 px first frame — which is what this tells apart.
+if (clip && Deno.env.get("MEDIA_PROCESSOR_URL") && Deno.env.get("MEDIA_PROCESSOR_TOKEN")) {
+  const started = Date.now();
+  let verdict = "FAIL", detail = "";
+  try {
+    const res = await realFetch(`${Deno.env.get("MEDIA_PROCESSOR_URL")}/convert?to=jpg&sheet=0.5&quality=balanced`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${Deno.env.get("MEDIA_PROCESSOR_TOKEN")}`, "content-type": "application/octet-stream" },
+      body: clip.slice().buffer,
+    });
+    const jpeg = new Uint8Array(await res.arrayBuffer());
+    // Width from the first SOF0/SOF2 marker.
+    let width = 0;
+    for (let i = 2; i + 9 < jpeg.length; i++) {
+      if (jpeg[i] === 0xff && (jpeg[i + 1] === 0xc0 || jpeg[i + 1] === 0xc2)) { width = (jpeg[i + 7] << 8) | jpeg[i + 8]; break; }
+    }
+    verdict = res.ok && width === 960 ? "PASS" : "FAIL";
+    detail = `http=${res.status} jpeg_width=${width} (960 = a 3×2 sheet, 640 = the first frame only)`;
+  } catch (e) {
+    detail = e instanceof Error ? e.name : "threw";
+  }
+  results.push({ fn: "media-processor", label: "video frame sheet", http: 0, ms: Date.now() - started, verdict, detail, rpcs: "", graph: "" });
+  console.log(`${verdict} media-processor [video frame sheet] ${Date.now() - started}ms :: ${detail}`);
+}
+
 // ── Report ────────────────────────────────────────────────────────────────────
 const table = [
   "| function | case | verdict | http | ms | detail | rpc | graph |",
