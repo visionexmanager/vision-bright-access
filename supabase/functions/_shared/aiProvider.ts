@@ -103,6 +103,8 @@ export interface ProviderChatParams {
   maxTokens?: number;
   /** Set by the fallback loop so metering can group a chain's attempts. Callers leave it out. */
   meter?: MeterContext;
+  /** The VX hold this call bills against (vx/meteredRequest.ts). Absent: shadow metering only. */
+  reservationId?: string;
 }
 
 export interface ProviderTarget {
@@ -246,7 +248,10 @@ export async function streamChatCompletion(
   params: ProviderChatParams,
 ): Promise<ReadableStream<Uint8Array>> {
   refuseUnroutable(params, "chat");
-  const base = { operation: "stream", provider: params.provider, model: params.model, ...(params.meter ?? {}) } as const;
+  const base = {
+    operation: "stream", provider: params.provider, model: params.model, ...(params.meter ?? {}),
+    ...(params.reservationId ? { reservation_id: params.reservationId } : {}),
+  } as const;
   let opened: ReadableStream<Uint8Array>;
   try {
     opened = await openStream(params);
@@ -915,6 +920,8 @@ export interface StructuredParams {
   maxTokens?: number;
   /** Set by the fallback loop so metering can group a chain's attempts. Callers leave it out. */
   meter?: MeterContext;
+  /** The VX hold this call bills against (vx/meteredRequest.ts). Absent: shadow metering only. */
+  reservationId?: string;
 }
 
 export async function structuredCompletion(p: StructuredParams): Promise<unknown> {
@@ -930,7 +937,10 @@ type StructuredOutcome = { result: unknown; usage?: AttemptUsage; metered?: Norm
  */
 async function structuredCompletionDetailed(p: StructuredParams): Promise<StructuredOutcome> {
   refuseUnroutable(p, p.image ? "vision" : "chat");
-  const base = { operation: "structured", provider: p.provider, model: p.model, ...(p.meter ?? {}) } as const;
+  const base = {
+    operation: "structured", provider: p.provider, model: p.model, ...(p.meter ?? {}),
+    ...(p.reservationId ? { reservation_id: p.reservationId } : {}),
+  } as const;
   try {
     const out = await structuredCompletionOnce(p);
     const usage = out.metered ?? out.usage;
@@ -1116,12 +1126,15 @@ export const EMBEDDING_MODEL = "text-embedding-3-small";
 export const EMBEDDING_DIM = 1536;
 
 /** Create embeddings for one or more input strings. Returns one vector each. */
-export async function createEmbedding(input: string[]): Promise<number[][]> {
+export async function createEmbedding(input: string[], options: { reservationId?: string } = {}): Promise<number[][]> {
   const key = Deno.env.get("OPENAI_API_KEY");
   if (!key) throw new ProviderError(500, "OPENAI_API_KEY is not configured");
   if (input.length === 0) return [];
 
-  const base = { operation: "embedding", provider: "openai", model: EMBEDDING_MODEL } as const;
+  const base = {
+    operation: "embedding", provider: "openai", model: EMBEDDING_MODEL,
+    ...(options.reservationId ? { reservation_id: options.reservationId } : {}),
+  } as const;
   const res = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },

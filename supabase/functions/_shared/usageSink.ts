@@ -29,6 +29,35 @@ export function emitUsage(event: UsageEvent): void {
   }
 }
 
+// ── Waiting for a reservation's events ──────────────────────────────────────
+//
+// A metered request settles from the ai_usage_events rows that carry its
+// reservation id, and those rows are written in the background. The sink
+// registers each write here, so settlement can wait for exactly its own.
+
+const pendingWrites = new Map<string, Set<Promise<unknown>>>();
+
+/** Called by the installed sink for each write that belongs to a reservation. */
+export function trackReservationWrite(reservationId: string, write: Promise<unknown>): void {
+  const set = pendingWrites.get(reservationId) ?? new Set<Promise<unknown>>();
+  pendingWrites.set(reservationId, set);
+  const settled = write.catch(() => undefined);
+  set.add(settled);
+  settled.finally(() => {
+    set.delete(settled);
+    if (set.size === 0) pendingWrites.delete(reservationId);
+  });
+}
+
+/** Resolves once every event write registered for this reservation has finished. */
+export async function reservationWritesSettled(reservationId: string): Promise<void> {
+  for (;;) {
+    const set = pendingWrites.get(reservationId);
+    if (!set || set.size === 0) return;
+    await Promise.all([...set]);
+  }
+}
+
 type WaitUntil = (p: Promise<unknown>) => void;
 
 /**

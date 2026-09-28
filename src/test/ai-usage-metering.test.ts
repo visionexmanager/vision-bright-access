@@ -255,7 +255,7 @@ describe("recordUsageEventIn", () => {
     await rec.recordUsageEventIn(db, "ai-chat", event({ chain_id: "c1", attempt: 2 }), NOW);
     expect(inserted).toEqual([{
       occurred_at: "2026-09-29T00:00:00.000Z", function_name: "ai-chat", operation: "structured", provider: "openai",
-      model: "gpt-4.1", resolved_model: null, chain_id: "c1", attempt: 2, outcome: "ok", error_code: null,
+      model: "gpt-4.1", resolved_model: null, chain_id: "c1", reservation_id: null, attempt: 2, outcome: "ok", error_code: null,
       usage: { input_tokens: 1000, output_tokens: 500 }, usage_source: "reported",
       price_id: 1, provider_cost_usd: 0.006, cost_status: "priced", cost_note: null,
     }]);

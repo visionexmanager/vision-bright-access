@@ -58,6 +58,8 @@ export interface UsageEvent {
   resolved_model?: string;
   /** Groups the attempts of one fallback chain. */
   chain_id?: string;
+  /** The VX hold this call is billed against (vx_reserve_metered), when the request is metered. */
+  reservation_id?: string;
   /** 1 for a chain's first target, 2 for the first fallback, … */
   attempt?: number;
   outcome: "ok" | "error";
@@ -309,6 +311,38 @@ export function embeddingUsage(json: unknown): NormalizedUsage | undefined {
   if (input !== undefined) out.input_tokens = input;
   if (total !== undefined) out.total_tokens = total;
   return hasUsage(out) ? out : undefined;
+}
+
+/**
+ * The most a chat request can use: every prompt byte as its own half-token
+ * (two bytes per token, a deliberate overestimate against the four used for
+ * after-the-fact estimates) and the whole output budget. For a reasoning
+ * model the budget (max_completion_tokens) already includes its reasoning.
+ */
+export function chatUsageBound(promptBytes: number, maxOutputTokens: number): NormalizedUsage {
+  return { input_tokens: Math.ceil(Math.max(0, promptBytes) / 2), output_tokens: Math.max(0, Math.ceil(maxOutputTokens)) };
+}
+
+/**
+ * The worst-case provider cost of a request that may be answered by any of
+ * `targets` (a fallback chain can end on its most expensive model), for a
+ * usage bound. Null when any target cannot be priced: a request whose cost
+ * cannot be bounded is never reserved for.
+ */
+export function worstCaseCostUsd(
+  rows: readonly PriceRow[],
+  targets: ReadonlyArray<{ provider: string; model: string }>,
+  bound: NormalizedUsage,
+  at: string,
+): number | null {
+  if (targets.length === 0) return null;
+  let worst = 0;
+  for (const t of targets) {
+    const cost = costOf(bound, priceFor(rows, t.provider, t.model, undefined, at));
+    if (cost.status === "priced" || cost.status === "free") worst = Math.max(worst, cost.cost_usd);
+    else return null;
+  }
+  return worst;
 }
 
 /**

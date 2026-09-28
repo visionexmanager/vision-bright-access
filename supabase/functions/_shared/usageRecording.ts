@@ -79,6 +79,7 @@ export async function recordUsageEventIn(
       model: event.model,
       resolved_model: event.resolved_model ?? null,
       chain_id: event.chain_id ?? null,
+      reservation_id: event.reservation_id ?? null,
       attempt: event.attempt ?? null,
       outcome: event.outcome,
       error_code: event.error_code ?? null,

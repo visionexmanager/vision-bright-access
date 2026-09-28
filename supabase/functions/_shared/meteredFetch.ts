@@ -32,7 +32,7 @@ import {
   utf8Bytes,
 } from "./metering.ts";
 import { meterSseStream } from "./streamUsage.ts";
-import { emitUsage, inBackground } from "./usageSink.ts";
+import { emitUsage, inBackground, trackReservationWrite } from "./usageSink.ts";
 
 const PROVIDER_HOSTS: Readonly<Record<string, string>> = {
   "api.openai.com": "openai",
@@ -115,7 +115,15 @@ async function usageFromResponse(
   return { usage, resolved };
 }
 
-export async function meteredFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
+/**
+ * `ctx.reservationId` bills the call against a VX hold (vx/meteredRequest.ts).
+ * A caller that passes this as a plain `fetch` never sets it: shadow metering.
+ */
+export async function meteredFetch(
+  input: string | URL | Request,
+  init?: RequestInit,
+  ctx: { reservationId?: string } = {},
+): Promise<Response> {
   let url: URL;
   try {
     url = new URL(input instanceof Request ? input.url : String(input));
@@ -134,7 +142,10 @@ export async function meteredFetch(input: string | URL | Request, init?: Request
     sendInit = { ...init, body: JSON.stringify({ ...body.json, stream_options: { include_usage: true } }) };
   }
 
-  const base = { operation: op, provider, model } as const;
+  const base = {
+    operation: op, provider, model,
+    ...(ctx.reservationId ? { reservation_id: ctx.reservationId } : {}),
+  } as const;
   let res: Response;
   try {
     res = await fetch(input, sendInit);
@@ -159,7 +170,7 @@ export async function meteredFetch(input: string | URL | Request, init?: Request
   // caller's Response is never touched. Speech is binary and moderation
   // carries no usage, so neither is copied.
   const copy = op === "tts" || op === "moderation" ? null : res.clone();
-  inBackground((async () => {
+  const reading = (async () => {
     const { usage, resolved } = await usageFromResponse(op, copy, body);
     const event: UsageEvent = {
       ...base,
@@ -168,6 +179,10 @@ export async function meteredFetch(input: string | URL | Request, init?: Request
       ...(hasUsage(usage) ? { usage, usage_source: "reported" } : { usage_source: "missing" }),
     };
     emitUsage(event);
-  })());
+  })();
+  // A metered request must not settle before this call's usage is read and
+  // its event emitted; the event's own write is registered by the sink.
+  if (ctx.reservationId) trackReservationWrite(ctx.reservationId, reading);
+  inBackground(reading);
   return res;
 }
