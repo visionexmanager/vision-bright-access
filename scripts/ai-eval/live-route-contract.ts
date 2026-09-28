@@ -593,6 +593,19 @@ for (const line of groqFailures) console.log(`  ${line}`);
     return { dims: vector?.length === EMBEDDING_DIM };
   });
 
+  // Video: does OpenAI's Videos API exist on this key at all? Two reads, no
+  // generation, nothing billed. A 404 on both is the answer "no OpenAI video";
+  // only a 200 would justify one paid clip to prove generation.
+  for (const [route, path] of [["video api list", "/v1/videos?limit=1"], ["video model sora-2", "/v1/models/sora-2"]] as const) {
+    await run(route, { provider: "openai", model: "sora-2" }, async () => {
+      const res = await fetch(`https://api.openai.com${path}`, { headers: { Authorization: `Bearer ${key}` } });
+      await res.body?.cancel();
+      console.log(`  ${route}: HTTP ${res.status}`);
+      if (!res.ok) throw { status: res.status };
+      return { exists: true };
+    });
+  }
+
   await run("realtime session", { provider: "openai", model: "gpt-realtime-2" }, async () => {
     // What realtime-session asks for, minus the user and the voice config: an
     // ephemeral secret for a session. Nothing is spoken, so nothing is billed.
