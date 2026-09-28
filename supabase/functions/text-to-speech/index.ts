@@ -2,6 +2,15 @@ import { synthesizeResponse } from "../_shared/voice/tts.ts";
 import { recordTtsInBackground } from "../_shared/ttsRecorder.ts";
 import { guardVoiceRequest, refusalResponse } from "../_shared/voice/guard.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { billedRequest, billingRefusalResponse, requestIdempotencyKey } from "../_shared/vx/billing.ts";
+
+/** A synthesis the provider refused: thrown so a billing hold is returned, then answered as before. */
+class SynthesisFailed extends Error {
+  constructor(readonly call: Awaited<ReturnType<typeof synthesizeResponse>>) {
+    super("synthesis failed");
+  }
+}
 
 installUsageMetering("text-to-speech");
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
@@ -83,16 +92,40 @@ Deno.serve(async (req) => {
   // body straight to the browser, and buffering it here would delay the first
   // word a listener hears. The seam builds the request and classifies a
   // failure; the stream stays untouched.
-  const call = await synthesizeResponse({
-    text: trimmed,
-    provider: "openai",
-    model: "gpt-4o-mini-tts",
-    voice,
-    instructions,
-    format: "mp3",
-    // Provider registry, after success and off the response path (Phase 2K-1).
-    record: (execution) => recordTtsInBackground(execution),
-  });
+  //
+  // Billed through the service registry: shadow while "tts" is disabled
+  // (today); once enabled, charged only when the provider accepted the
+  // request — a refused synthesis throws, and meter() returns the hold.
+  const serviceClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+  let call: Awaited<ReturnType<typeof synthesizeResponse>>;
+  try {
+    const billed = await billedRequest(serviceClient, {
+      serviceId: "tts",
+      userId: guard.userId,
+      source: "website",
+      idempotencyKey: requestIdempotencyKey(req, "text-to-speech"),
+      targets: [{ provider: "openai", model: "gpt-4o-mini-tts" }],
+      bound: { characters: [...trimmed].length },
+    }, async () => {
+      const synthesized = await synthesizeResponse({
+        text: trimmed,
+        provider: "openai",
+        model: "gpt-4o-mini-tts",
+        voice,
+        instructions,
+        format: "mp3",
+        // Provider registry, after success and off the response path (Phase 2K-1).
+        record: (execution) => recordTtsInBackground(execution),
+      });
+      if (synthesized.outcome === "failed") throw new SynthesisFailed(synthesized);
+      return { value: synthesized };
+    });
+    if (billed.status === "refused" || billed.status === "duplicate") return billingRefusalResponse(billed, corsHeaders);
+    call = billed.value;
+  } catch (error) {
+    if (!(error instanceof SynthesisFailed)) throw error;
+    call = error.call;
+  }
 
   if (call.outcome === "failed") {
     const status = call.failure.reason === "rejected" ? call.failure.status : 0;
