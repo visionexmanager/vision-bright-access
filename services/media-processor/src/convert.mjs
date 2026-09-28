@@ -154,6 +154,19 @@ export function imageArgs(input, output, options) {
   const args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", input];
 
   const filters = [];
+  if (options.sheet) {
+    // One frame every `sheet` seconds, each 320 px wide, tiled 3×2. The tile
+    // filter flushes a part-filled grid at the end of a short clip, so a
+    // four-second video still yields a sheet. ffmpeg applies the stored
+    // rotation while decoding, so frames are upright without a transpose.
+    filters.push(`fps=1/${options.sheet}`, "scale=320:-2", "tile=3x2");
+    args.push("-vf", filters.join(","), "-frames:v", "1", ...target.args);
+    const quality = options.quality ?? "balanced";
+    if (options.to === "jpg") args.push("-q:v", JPEG_Q[quality]);
+    else if (options.to === "webp") args.push("-quality", WEBP_Q[quality]);
+    args.push("-map_metadata", "-1", output);
+    return args;
+  }
   // Rotation before scaling: a width means the width of the picture as the
   // viewer will see it, not of the file as it happened to be stored.
   if (options.rotate === "90") filters.push("transpose=1");
@@ -496,7 +509,20 @@ export function readOptions(params) {
     rotate: null,
     normalize: params.get("normalize") === "1",
     mute: params.get("mute") === "1",
+    sheet: null,
   };
+
+  // A contact sheet: six frames of a video, one every `sheet` seconds, in one
+  // picture — so a vision model can be shown a whole clip at once. An image
+  // target only, and refused rather than ignored anywhere else.
+  const sheet = params.get("sheet");
+  if (sheet !== null) {
+    const seconds = parseSeconds(sheet);
+    if (kind !== "image" || seconds === null || Number(seconds) <= 0 || Number(seconds) > 600) {
+      return { ok: false, reason: "bad_sheet" };
+    }
+    options.sheet = seconds;
+  }
 
   // Each is optional, and each is refused rather than ignored when it is
   // present and wrong. Silently dropping an unrecognised bitrate would hand
