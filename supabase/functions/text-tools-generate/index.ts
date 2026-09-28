@@ -13,6 +13,9 @@ import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("text-tools-generate");
 
 type Tool = "code" | "writing" | "resume" | "presentation";
 

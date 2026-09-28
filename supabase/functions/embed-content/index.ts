@@ -1,6 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { INDEX_SOURCES, indexSources, SOURCES, SERVICES_SOURCE } from "../_shared/contentIndex.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("embed-content");
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);

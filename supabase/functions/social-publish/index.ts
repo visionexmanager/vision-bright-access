@@ -39,6 +39,9 @@ import type {
   RpcResult,
 } from "../_shared/publishing/types.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("social-publish");
 
 // Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
 installChatAttemptRecording();

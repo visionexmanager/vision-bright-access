@@ -21,6 +21,9 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { generateImage } from "../_shared/contentMedia.ts";
 import { recordMediaOutcome, type RecordingDb } from "../_shared/providerRecording.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("kids-drawing-to-art");
 
 function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });

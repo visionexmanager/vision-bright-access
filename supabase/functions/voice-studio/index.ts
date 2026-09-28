@@ -36,6 +36,9 @@ import {
   type ExpiredSampleBatchRow,
   type StorageRemoval,
 } from "../_shared/voice/retention.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("voice-studio");
 
 /**
  * A Supabase client, as this file actually uses one.

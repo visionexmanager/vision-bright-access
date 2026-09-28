@@ -1,6 +1,9 @@
 import { synthesizeResponse } from "../_shared/voice/tts.ts";
 import { recordTtsInBackground } from "../_shared/ttsRecorder.ts";
 import { guardVoiceRequest, refusalResponse } from "../_shared/voice/guard.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("text-to-speech");
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
 function getCorsHeaders(req: Request): Record<string, string> {

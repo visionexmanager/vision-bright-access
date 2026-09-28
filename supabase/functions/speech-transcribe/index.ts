@@ -17,6 +17,9 @@ import { transcribe } from "../_shared/voice/stt.ts";
 import type { VoiceFailure } from "../_shared/voice/providers/types.ts";
 import { recordSttAttempts, type RecordingDb } from "../_shared/providerRecording.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("speech-transcribe");
 
 // ── Provider Registry recording (Phase 2D) ─────────────────────────────────
 //

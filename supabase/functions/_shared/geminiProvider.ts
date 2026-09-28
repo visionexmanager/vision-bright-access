@@ -68,7 +68,7 @@ function parseDataUrl(image: string): { mimeType: string; data: string } {
 
 export async function geminiStructuredCompletion(
   p: GeminiStructuredParams,
-): Promise<{ data: unknown; usage: GeminiUsage }> {
+): Promise<{ data: unknown; usage: GeminiUsage; usageMetadata?: unknown; modelVersion?: unknown }> {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) throw new GeminiProviderError(500, "GEMINI_API_KEY is not configured");
 
@@ -119,7 +119,10 @@ export async function geminiStructuredCompletion(
     completionTokens: json?.usageMetadata?.candidatesTokenCount ?? 0,
   };
 
-  return { data, usage };
+  // `usage` above is Career AI's shape, zeros included. Metering reads the raw
+  // counts instead (metering.ts geminiUsage), where a missing count stays
+  // missing and thinking tokens are billed as output.
+  return { data, usage, usageMetadata: json?.usageMetadata, modelVersion: json?.modelVersion };
 }
 
 export interface GeminiChatParams {

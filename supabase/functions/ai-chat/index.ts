@@ -12,6 +12,9 @@ import { boundMessages, callerAddress, callerHash, type ChatTurn } from "./limit
 import { sanitizeContext, UNTRUSTED_CONTEXT_RULES, untrustedContextBlock } from "./context.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
 import { expectedScriptForMessage } from "../_shared/answerLanguage.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("ai-chat");
 
 // Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
 installChatAttemptRecording();

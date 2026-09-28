@@ -5,6 +5,9 @@ import { getGenerator, GENERATION_SCHEMA } from "../_shared/generators.ts";
 import { structuredCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
 import { scriptOfLanguage } from "../_shared/answerLanguage.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("ai-generate");
 
 // Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
 installChatAttemptRecording();

@@ -14,6 +14,9 @@ import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
 import { providerRoutableIn } from "../_shared/providerRecording.ts";
 import { publicMediaFailure } from "../_shared/providerInput.ts";
 import { FalError, falGenerateImage } from "../_shared/providers/fal.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("image-generate");
 
 // ── Provider Registry recording (Phase 2D) ─────────────────────────────────
 //

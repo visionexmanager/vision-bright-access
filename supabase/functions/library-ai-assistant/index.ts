@@ -36,6 +36,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { ensureBookIndexed, retrieveChunks, formatChunksAsContext, citationsFromChunks, DIRECT_READ_CHAR_THRESHOLD } from "../_shared/libraryRag.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("library-ai-assistant");
 
 const MAX_DIRECT_CHARS = DIRECT_READ_CHAR_THRESHOLD;
 

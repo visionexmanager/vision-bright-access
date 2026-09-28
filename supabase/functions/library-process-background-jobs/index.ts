@@ -38,6 +38,9 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, createEmbedding, ProviderError } from "../_shared/aiProvider.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("library-process-background-jobs");
 
 function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });

@@ -25,6 +25,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { streamChatCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { ensureBookIndexed, retrieveChunks, formatChunksAsContext, citationsFromChunks } from "../_shared/libraryRag.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("library-ai-chat");
 
 const HISTORY_LIMIT = 10;
 
