@@ -23072,6 +23072,66 @@ export type Database = {
         }
         Relationships: []
       }
+      ph_provider_models: {
+        Row: {
+          available: boolean
+          capabilities: string[]
+          capability_source: string
+          display_name: string | null
+          first_seen_at: string | null
+          last_seen_at: string | null
+          model_id: string
+          notes: string | null
+          owned_by: string | null
+          pricing: Json | null
+          pricing_source: string | null
+          pricing_verified_on: string | null
+          provider: string
+          routing_enabled: boolean
+          unavailable_since: string | null
+          updated_at: string
+          upstream_created_at: string | null
+        }
+        Insert: {
+          available?: boolean
+          capabilities?: string[]
+          capability_source?: string
+          display_name?: string | null
+          first_seen_at?: string | null
+          last_seen_at?: string | null
+          model_id: string
+          notes?: string | null
+          owned_by?: string | null
+          pricing?: Json | null
+          pricing_source?: string | null
+          pricing_verified_on?: string | null
+          provider: string
+          routing_enabled?: boolean
+          unavailable_since?: string | null
+          updated_at?: string
+          upstream_created_at?: string | null
+        }
+        Update: {
+          available?: boolean
+          capabilities?: string[]
+          capability_source?: string
+          display_name?: string | null
+          first_seen_at?: string | null
+          last_seen_at?: string | null
+          model_id?: string
+          notes?: string | null
+          owned_by?: string | null
+          pricing?: Json | null
+          pricing_source?: string | null
+          pricing_verified_on?: string | null
+          provider?: string
+          routing_enabled?: boolean
+          unavailable_since?: string | null
+          updated_at?: string
+          upstream_created_at?: string | null
+        }
+        Relationships: []
+      }
       ph_providers: {
         Row: {
           api_key_ref: string | null
@@ -23657,10 +23717,27 @@ export type Database = {
         }
         Relationships: []
       }
+      service_package_prices: {
+        Row: {
+          package_name: string
+          service_type: string
+          vx: number
+        }
+        Insert: {
+          package_name: string
+          service_type: string
+          vx: number
+        }
+        Update: {
+          package_name?: string
+          service_type?: string
+          vx?: number
+        }
+        Relationships: []
+      }
       service_requests: {
         Row: {
           attachment_url: string | null
-          vx_paid: number | null
           created_at: string
           department: string
           email: string
@@ -23672,10 +23749,10 @@ export type Database = {
           service_type: string
           status: string
           user_id: string | null
+          vx_paid: number | null
         }
         Insert: {
           attachment_url?: string | null
-          vx_paid?: number | null
           created_at?: string
           department?: string
           email: string
@@ -23687,10 +23764,10 @@ export type Database = {
           service_type: string
           status?: string
           user_id?: string | null
+          vx_paid?: number | null
         }
         Update: {
           attachment_url?: string | null
-          vx_paid?: number | null
           created_at?: string
           department?: string
           email?: string
@@ -23702,6 +23779,7 @@ export type Database = {
           service_type?: string
           status?: string
           user_id?: string | null
+          vx_paid?: number | null
         }
         Relationships: []
       }
@@ -25649,6 +25727,24 @@ export type Database = {
         }
         Relationships: []
       }
+      vx_self_award_daily: {
+        Row: {
+          awarded: number
+          day: string
+          user_id: string
+        }
+        Insert: {
+          awarded?: number
+          day: string
+          user_id: string
+        }
+        Update: {
+          awarded?: number
+          day?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       vx_usage_ledger: {
         Row: {
           actual_cost_usd: number | null
@@ -26658,6 +26754,24 @@ export type Database = {
         }
         Relationships: []
       }
+      ph_provider_models_routable: {
+        Row: {
+          capabilities: string[] | null
+          model_id: string | null
+          provider: string | null
+        }
+        Insert: {
+          capabilities?: string[] | null
+          model_id?: string | null
+          provider?: string | null
+        }
+        Update: {
+          capabilities?: string[] | null
+          model_id?: string | null
+          provider?: string | null
+        }
+        Relationships: []
+      }
       radio_stations_public: {
         Row: {
           bitrate: string | null
@@ -27465,6 +27579,7 @@ export type Database = {
         }[]
       }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
+      free_sections: { Args: never; Returns: string[] }
       fuzzy_search_library_books: {
         Args: { _match_count?: number; _query: string }
         Returns: {
@@ -28627,6 +28742,7 @@ export type Database = {
       }
       my_plan_access: { Args: never; Returns: Json }
       my_section_access: { Args: { _section: string }; Returns: boolean }
+      my_vx_summary: { Args: never; Returns: Json }
       my_vx_usage: {
         Args: { _limit?: number; _offset?: number }
         Returns: {
@@ -28659,6 +28775,7 @@ export type Database = {
         Args: { p_hours?: number; p_provider_id: string }
         Returns: Json
       }
+      ph_prune_registry_logs: { Args: never; Returns: Json }
       ph_record_metric: {
         Args: {
           p_cost_usd?: number
@@ -28692,6 +28809,7 @@ export type Database = {
           wa_phone: string
         }[]
       }
+      plan_for_user: { Args: { _user_id: string }; Returns: string }
       publish_scheduled_library_books: { Args: never; Returns: undefined }
       purchase_kids_product: { Args: { _product_id: string }; Returns: Json }
       question_fingerprint: { Args: { _text: string }; Returns: string }
@@ -29218,18 +29336,6 @@ export type Database = {
         }
         Returns: Json
       }
-      submit_paid_service_request: {
-        Args: {
-          _email: string
-          _full_name: string
-          _message: string
-          _package_name: string
-          _phone: string
-          _service_type: string
-          _vx: number
-        }
-        Returns: string
-      }
       submit_kids_innovation: {
         Args: {
           _challenge_id: string
@@ -29260,6 +29366,18 @@ export type Database = {
           question_id: string
           score_percent: number
         }[]
+      }
+      submit_paid_service_request: {
+        Args: {
+          _email: string
+          _full_name: string
+          _message: string
+          _package_name: string
+          _phone: string
+          _service_type: string
+          _vx: number
+        }
+        Returns: string
       }
       subscribe_kids_plan: {
         Args: { _org_id?: string; _plan_slug: string }
@@ -29349,6 +29467,11 @@ export type Database = {
         Args: { _reliability: number; _source_id: string }
         Returns: undefined
       }
+      user_has_section: {
+        Args: { _section: string; _user_id: string }
+        Returns: boolean
+      }
+      user_sections: { Args: { _user_id: string }; Returns: string[] }
       verify_kids_certificate: {
         Args: { _certificate_number: string }
         Returns: {
@@ -29459,6 +29582,10 @@ export type Database = {
       vx_revert_wallet_migration: {
         Args: { _dry_run?: boolean }
         Returns: Json
+      }
+      vx_self_award_take: {
+        Args: { _amount: number; _user_id: string }
+        Returns: number
       }
       vx_settle: {
         Args: {
