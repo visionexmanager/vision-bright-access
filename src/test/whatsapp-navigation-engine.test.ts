@@ -34,6 +34,7 @@ const geo = await import("../../supabase/functions/_shared/whatsappLocation.ts")
 const convertIntent = await import("../../supabase/functions/_shared/whatsappConvertIntent.ts");
 const entitlements = await import("../../supabase/functions/_shared/whatsappEntitlements.ts");
 const ivx = await import("../../supabase/functions/_shared/whatsappIvx.ts");
+const wordDocument = await import("../../supabase/functions/_shared/whatsappWordDocument.ts");
 const bazaar = await import("../../supabase/functions/_shared/whatsappBazaar.ts");
 const radio = await import("../../supabase/functions/_shared/whatsappRadio.ts");
 const helpers = await import("../../supabase/functions/_shared/whatsapp.ts");
@@ -440,6 +441,9 @@ describe("the catalog", () => {
       // The file is the input and arrives separately, so the phrase asks for
       // one rather than converting anything by itself.
       "services.convert": (p) => convertIntent.asksToConvert(p),
+      // The phrase is what a request ends with; the assistant's answer then
+      // travels as a .docx.
+      "ocr.word": (p) => wordDocument.wantsWordDocument(p),
       "services.plan": (p) => entitlements.asksAboutPlan(p),
       "academy": (p) => ivx.parseIvxIntent(p) === "start",
       // The menu phrase names a real place, so the parser must come back with

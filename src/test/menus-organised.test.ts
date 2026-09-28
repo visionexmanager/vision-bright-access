@@ -36,6 +36,8 @@ describe("the WhatsApp menu", () => {
   it("puts everything that reads what you hand over in one place", () => {
     expect(ids("ocr")).toEqual([
       "ocr.read", "ocr.describe", "ocr.find", "ocr.product", "ocr.translate", "ocr.document", "services.convert",
+      // Writing a Word file belongs with reading one.
+      "ocr.word",
     ]);
     // The old group is gone. Somebody whose saved session still stands in it,
     // or inside a group a row has since left, is read back at the main menu —
