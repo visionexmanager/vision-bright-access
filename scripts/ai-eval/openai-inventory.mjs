@@ -78,7 +78,9 @@ const SNAPSHOT = /-(\d{4}-\d{2}-\d{2}|\d{4})$/;
 
 export function deprecationOf(id) {
   for (const [base, [shutdown, replacement]] of Object.entries(DEPRECATIONS)) {
-    const snapshot = id.startsWith(`${base}-`) && SNAPSHOT.test(id.slice(base.length));
+    // The rest of the id must be the date and nothing else: o3-mini-2025-01-31
+    // is not a snapshot of o3.
+    const snapshot = id.startsWith(base) && /^-(\d{4}-\d{2}-\d{2}|\d{4})$/.test(id.slice(base.length));
     const preview = id.startsWith(`${base}-preview`);
     if (id === base || snapshot || preview) return { shutdown, replacement };
   }
