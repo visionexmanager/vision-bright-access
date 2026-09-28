@@ -645,7 +645,7 @@ Help the user learn real-world business skills through the simulation named in t
         serviceId: "ai_chat",
         userId: user?.id ?? null,
         source: "website",
-        idempotencyKey: requestIdempotencyKey(req, "ai-chat"),
+        idempotencyKey: requestIdempotencyKey(req, "ai-chat", user?.id ?? null),
         targets,
         bound: chatUsageBound(promptBytes, STREAM_DEFAULT_MAX_TOKENS),
       }, async ({ reservationId, targets: ready }) => {

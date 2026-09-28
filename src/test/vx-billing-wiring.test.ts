@@ -181,11 +181,34 @@ describe("helpers", () => {
 
   it("the idempotency key: the client's header when well formed, a fresh one otherwise", () => {
     const withKey = new Request("https://x", { headers: { "Idempotency-Key": "abc_12345-XYZ" } });
-    expect(billing.requestIdempotencyKey(withKey, "ai-chat")).toBe("ai-chat:abc_12345-XYZ");
+    expect(billing.requestIdempotencyKey(withKey, "ai-chat", "user-a")).toBe("ai-chat:user-a:abc_12345-XYZ");
     const bad = new Request("https://x", { headers: { "Idempotency-Key": "'; drop" } });
-    const a = billing.requestIdempotencyKey(bad, "ai-chat");
+    const a = billing.requestIdempotencyKey(bad, "ai-chat", "user-a");
     expect(a).toMatch(/^ai-chat:[0-9a-f-]{36}$/);
-    expect(billing.requestIdempotencyKey(bad, "ai-chat")).not.toBe(a);
+    expect(billing.requestIdempotencyKey(bad, "ai-chat", "user-a")).not.toBe(a);
+  });
+
+  it("one client key sent by two accounts is two keys — never another account's reservation", () => {
+    // vx_usage_ledger.idempotency_key is unique across users, and the fixed-mode
+    // vx_reserve replays a match without comparing users.
+    const req = () => new Request("https://x", { headers: { "Idempotency-Key": "same-key-123" } });
+    const a = billing.requestIdempotencyKey(req(), "image-generate", "user-a");
+    const b = billing.requestIdempotencyKey(req(), "image-generate", "user-b");
+    expect(a).not.toBe(b);
+    expect(billing.requestIdempotencyKey(req(), "image-generate", "user-a")).toBe(a);
+    expect(billing.requestIdempotencyKey(req(), "ai-chat", null)).toBe("ai-chat:guest:same-key-123");
+  });
+
+  it("the browser is allowed to send the header, on every wired function", () => {
+    // Without it in Access-Control-Allow-Headers the preflight fails and the
+    // call never reaches the function.
+    for (const file of ["_shared/cors.ts", "image-generate/index.ts", "text-to-speech/index.ts"]) {
+      const s = readFileSync(`supabase/functions/${file}`, "utf8");
+      expect(s, file).toMatch(/Access-Control-Allow-Headers":\s*"[^"]*\bidempotency-key\b/);
+    }
+    for (const fn of ["ai-chat", "document-generate"]) {
+      expect(readFileSync(`supabase/functions/${fn}/index.ts`, "utf8"), fn).toContain("_shared/cors");
+    }
   });
 
   it("refusals answer with a status the client can act on, and a code — never internals", async () => {
@@ -205,7 +228,7 @@ describe("the wired functions", () => {
     it(`${fn} bills through the registry as "${service}", with a per-request key, and answers refusals`, () => {
       const s = src(fn);
       expect(s).toContain(`serviceId: "${service}"`);
-      expect(s).toContain(`requestIdempotencyKey(req, "${fn}")`);
+      expect(s).toMatch(new RegExp(`requestIdempotencyKey\\(req, "${fn}", [^)]*\\)`));
       expect(s).toMatch(/billingRefusalResponse\(billed, /);
     });
   }
