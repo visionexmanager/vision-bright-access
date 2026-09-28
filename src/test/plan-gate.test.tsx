@@ -17,7 +17,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import en from "@/i18n/en";
-import type { SectionKey } from "@/lib/billing/plans";
+import { PAID_PLANS, type SectionKey } from "@/lib/billing/plans";
 
 vi.mock("@/contexts/LanguageContext", () => ({
   useLanguage: () => ({
@@ -79,7 +79,8 @@ describe("PlanGate", () => {
 
     expect(screen.getByText(/AI Media Studio/)).toBeTruthy();
     expect(screen.getByText(/Business/)).toBeTruthy();
-    expect(screen.getByText(/\$?10/)).toBeTruthy();
+    // The price comes from the plan table, not from this test (Business is $20 since 20261057).
+    expect(screen.getByText(new RegExp(`\\$${PAID_PLANS.business.price} a month`))).toBeTruthy();
   });
 
   it("says what stays open without a plan, so the refusal is not a dead end", () => {
