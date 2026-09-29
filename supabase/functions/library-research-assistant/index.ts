@@ -16,6 +16,10 @@
  *   suggest_references    — topic -> real catalog matches via semantic search (never hallucinated)
  *   external_sources      — topic -> real records from OpenAlex, Open Library and Wikipedia (never hallucinated)
  *   knowledge_gaps        — book_ids[] and/or topic -> gaps not covered by the given sources
+ *   content_providers     — the external content provider registry and each provider's state
+ *   content_search        — query -> normalised items from every ready provider (images, audio, video, books, data…)
+ *   content_item          — item_id -> one item resolved to playable files (NASA video, podcast episodes)
+ *   content_health        — admin only: live check of every provider, saved for the admin panel
  *
  * Auth: user-jwt required. Access to every book_id is checked via
  * can_access_library_book_content() (same paywall rule as reading it).
@@ -28,6 +32,9 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, createEmbedding, ProviderError } from "../_shared/aiProvider.ts";
 import { ensureBookIndexed, retrieveChunks, formatChunksAsContext } from "../_shared/libraryRag.ts";
 import { searchOpenSources } from "../_shared/openResearchSources.ts";
+import {
+  checkAllProviders, normalizeSearchInput, resolveExternalItem, searchExternalContent, summarizeProviders, UNSUPPORTED_PROVIDERS,
+} from "../_shared/externalContent/index.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 
 installUsageMetering("library-research-assistant");
@@ -36,7 +43,8 @@ function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
 }
 
-type Mode = "summarize_multiple" | "compare_books" | "compare_authors" | "literature_review" | "research_outline" | "suggest_references" | "external_sources" | "knowledge_gaps";
+type ContentMode = "content_providers" | "content_search" | "content_item" | "content_health";
+type Mode = "summarize_multiple" | "compare_books" | "compare_authors" | "literature_review" | "research_outline" | "suggest_references" | "external_sources" | "knowledge_gaps" | ContentMode;
 
 interface RequestBody {
   mode?: Mode;
@@ -44,8 +52,79 @@ interface RequestBody {
   author_ids?: string[];
   topic?: string;
   title?: string;
-  /** external_sources: the reader's language, for Wikipedia. */
+  /** external_sources and content_search: the reader's language. */
   language?: string;
+  /** content_search */
+  query?: string;
+  categories?: string[];
+  providers?: string[];
+  page?: number;
+  limit?: number;
+  /** content_item: "<provider>:<providerItemId>" */
+  item_id?: string;
+}
+
+const CONTENT_MODES: ReadonlySet<string> = new Set<ContentMode>(["content_providers", "content_search", "content_item", "content_health"]);
+const readEnv = (name: string) => Deno.env.get(name);
+
+/**
+ * External content: open catalogues, museums, archives and media APIs (see
+ * _shared/externalContent/registry.ts). These modes run no model, so they
+ * count against their own daily ceiling ('library-content-search') instead of
+ * the research assistant's AI allowance. Provider keys stay in this process;
+ * responses carry env var *names* to admins only, never values.
+ */
+async function handleContentMode(
+  body: RequestBody,
+  userId: string,
+  // deno-lint-ignore no-explicit-any
+  serviceClient: any,
+  cors: Record<string, string>,
+): Promise<Response> {
+  const isAdmin = async () => {
+    const { data } = await serviceClient.rpc("has_role", { _user_id: userId, _role: "admin" });
+    return data === true;
+  };
+
+  if (body.mode === "content_providers") {
+    const admin = await isAdmin();
+    const providers = summarizeProviders(readEnv).map((p) => admin ? p : { ...p, missingEnv: [] });
+    return json({ ok: true, providers, unsupported: UNSUPPORTED_PROVIDERS }, 200, cors);
+  }
+
+  if (body.mode === "content_health") {
+    if (!(await isAdmin())) return json({ error: "Forbidden" }, 403, cors);
+    const health = await checkAllProviders({ fetch, env: readEnv });
+    const { error } = await serviceClient.from("library_external_provider_health").upsert(
+      health.map((h) => ({
+        provider_id: h.provider, state: h.state, latency_ms: h.latencyMs, result_count: h.resultCount,
+        error_code: h.errorCode, checked_at: h.checkedAt,
+      })),
+      { onConflict: "provider_id" },
+    );
+    if (error) console.error("[content_health] could not save:", error.code);
+    return json({ ok: true, health, saved: !error }, 200, cors);
+  }
+
+  const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: userId, _function_name: "library-content-search" });
+  if (allowed === false) return json({ error: "Daily limit reached. Try again tomorrow." }, 429, cors);
+
+  if (body.mode === "content_item") {
+    const item = await resolveExternalItem(String(body.item_id ?? ""), { fetch, env: readEnv });
+    return item ? json({ ok: true, item }, 200, cors) : json({ error: "Item not found" }, 404, cors);
+  }
+
+  // content_search
+  const input = normalizeSearchInput({
+    query: String(body.query ?? ""), categories: body.categories, providers: body.providers,
+    language: body.language, page: body.page, limit: body.limit,
+  });
+  if (!input) return json({ error: "query is required" }, 400, cors);
+  const result = await searchExternalContent(input, { fetch, env: readEnv }, {
+    // Provider id and error code only: the query is the reader's, and URLs can carry keys.
+    onProviderError: (provider, code) => console.warn(`[content_search] ${provider} ${code}`),
+  });
+  return json({ ok: true, ...result, page: input.page }, 200, cors);
 }
 
 const SCHEMAS: Record<string, { toolName: string; system: string; schema: Record<string, unknown> }> = {
@@ -155,6 +234,16 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Invalid JSON body" }, 400, cors);
   }
   if (!body.mode) return json({ error: "mode is required" }, 400, cors);
+
+  if (CONTENT_MODES.has(body.mode)) {
+    try {
+      return await handleContentMode(body, user.id, serviceClient, cors);
+    } catch (err) {
+      // Provider errors are already codes; anything else is logged by type only.
+      console.error(`[${body.mode}] failed:`, err instanceof Error ? err.name : typeof err);
+      return json({ error: "External sources are unavailable right now." }, 502, cors);
+    }
+  }
 
   const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "library-research-assistant" });
   if (allowed === false) return json({ error: "Daily limit reached. Try again tomorrow." }, 429, cors);
