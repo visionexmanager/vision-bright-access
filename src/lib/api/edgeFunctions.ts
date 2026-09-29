@@ -37,6 +37,7 @@ import type {
   StudentProfile,
 } from "@/lib/types";
 import type { BillingConsumeResult, OperationType } from "@/lib/types/billing";
+import { BILLED_FUNCTIONS, IDEMPOTENCY_HEADER, newIdempotencyKey } from "@/lib/api/idempotency";
 
 // ── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -76,6 +77,12 @@ interface CallOptions {
   auth: AuthMode;
   stream?: boolean;
   signal?: AbortSignal;
+  /**
+   * For a function that bills VX: the key of this attempt. Omitted, a fresh
+   * one is made per call. Pass the same key only to re-send an attempt whose
+   * outcome is unknown (see lib/api/idempotency.ts).
+   */
+  idempotencyKey?: string;
 }
 
 /**
@@ -85,9 +92,10 @@ interface CallOptions {
 export async function callEdge(options: CallOptions & { stream: true }): Promise<Response>;
 export async function callEdge(options: CallOptions & { stream?: false }): Promise<unknown>;
 export async function callEdge(options: CallOptions): Promise<unknown> {
-  const { fn, body, auth, stream = false, signal } = options;
+  const { fn, body, auth, stream = false, signal, idempotencyKey } = options;
 
   const headers = await getAuthHeaders(auth);
+  if (BILLED_FUNCTIONS.has(fn)) headers[IDEMPOTENCY_HEADER] = idempotencyKey ?? newIdempotencyKey();
   const response = await fetch(edgeUrl(fn), {
     method: "POST",
     headers,

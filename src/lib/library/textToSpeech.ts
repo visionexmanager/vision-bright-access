@@ -24,6 +24,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { IDEMPOTENCY_HEADER, newIdempotencyKey } from "@/lib/api/idempotency";
 
 /** Thrown when there is no session to charge the synthesis to. */
 export const NOT_SIGNED_IN = "NOT_SIGNED_IN";
@@ -54,7 +55,13 @@ async function buildRequest(
     url: `${url}/functions/v1/text-to-speech`,
     init: {
       method: "POST",
-      headers: { "Content-Type": "application/json", apikey: key, Authorization: `Bearer ${token}` },
+      headers: {
+        "Content-Type": "application/json",
+        apikey: key,
+        Authorization: `Bearer ${token}`,
+        // One key per synthesis: text-to-speech bills VX (lib/api/idempotency.ts).
+        [IDEMPOTENCY_HEADER]: newIdempotencyKey(),
+      },
       body: JSON.stringify({ text, voice: opts?.voice }),
     },
   };

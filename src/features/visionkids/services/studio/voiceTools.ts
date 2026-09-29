@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { IDEMPOTENCY_HEADER, newIdempotencyKey } from "@/lib/api/idempotency";
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -12,7 +13,11 @@ function blobToBase64(blob: Blob): Promise<string> {
 /** Reuses the site's existing text-to-speech function (gpt-4o-mini-tts) —
  *  no bespoke kids TTS endpoint. Returns a Blob URL ready for an <audio>. */
 export async function textToSpeech(text: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke("text-to-speech", { body: { text, assistant: "visionex" } });
+  const { data, error } = await supabase.functions.invoke("text-to-speech", {
+    body: { text, assistant: "visionex" },
+    // One key per synthesis: text-to-speech bills VX (lib/api/idempotency.ts).
+    headers: { [IDEMPOTENCY_HEADER]: newIdempotencyKey() },
+  });
   if (error) throw error;
   const blob = data instanceof Blob ? data : new Blob([data], { type: "audio/mpeg" });
   return URL.createObjectURL(blob);
