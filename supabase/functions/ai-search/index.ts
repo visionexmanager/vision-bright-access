@@ -3,6 +3,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { createEmbedding, ProviderError } from "../_shared/aiProvider.ts";
 import { handleSourceProducts } from "../_shared/sourcing/handler.ts";
 import { allowCaller } from "../_shared/securityGuard.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { catalogServicesByStoredId } from "../_shared/contentIndex.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 
@@ -56,6 +57,29 @@ Deno.serve(async (req) => {
     // An absent action means "search", so every existing caller — which sends
     // { query, source, limit } and no action — behaves exactly as before.
     const action = typeof body.action === "string" ? body.action : "search";
+
+    const service = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // The JWT is optional here. When one is sent, only a verified one names the caller.
+    const authHeader = req.headers.get("Authorization");
+    let userId: string | null = null;
+    if (authHeader) {
+      const { data: { user } } = await createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } },
+      ).auth.getUser();
+      userId = user?.id ?? null;
+    }
+
+    // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+    // Covers both actions: source_products and the embedding search.
+    const refused = await subscriptionGate(service, req, userId, corsHeaders);
+    if (refused) return refused;
+
     if (action === "source_products") {
       // Same auth posture (anon-callable), same embedding index, same
       // permitted-source gating. Only the entry point moved.
@@ -75,11 +99,6 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const service = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
 
     // Every search is a paid embedding call, and this endpoint needs no account.
     if (!(await allowCaller(service, req, "ai-search"))) {

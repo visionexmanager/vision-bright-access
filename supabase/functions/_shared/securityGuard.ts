@@ -47,6 +47,15 @@ function hashKey(): string {
 }
 
 /**
+ * The stable, non-reversible identity of an anonymous caller — the same keyed
+ * hash of the client address the anonymous rate limits already use. Used by
+ * the subscription gate so an anonymous visitor is told once, not every time.
+ */
+export function anonymousCaller(headers: Headers): Promise<string> {
+  return callerHash(callerAddress(headers), hashKey());
+}
+
+/**
  * Whether this caller may make one more call to `functionName` today, and
  * records it. `identity` is a user id when there is one; otherwise the
  * address is used.

@@ -21,6 +21,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { createEmbedding } from "../_shared/aiProvider.ts";
 import { allowCaller } from "../_shared/securityGuard.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 
 installUsageMetering("library-semantic-search");
 
@@ -58,6 +59,17 @@ Deno.serve(async (req: Request) => {
 
   // Every search is a paid embedding call, and this endpoint needs no account.
   const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  // A signed-in caller is identified only from a verified JWT; anyone else is anonymous.
+  const authHeader = req.headers.get("Authorization");
+  let userId: string | null = null;
+  if (authHeader) {
+    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+    const { data: { user } } = await userClient.auth.getUser();
+    userId = user?.id ?? null;
+  }
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(service, req, userId, cors);
+  if (refused) return refused;
   if (!(await allowCaller(service, req, "library-semantic-search"))) {
     return json({ error: "Too many searches from this connection today. Please try again later." }, 429, cors);
   }

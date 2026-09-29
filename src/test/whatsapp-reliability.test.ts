@@ -491,9 +491,11 @@ describe("a delivery that fails still answers", () => {
     // claim, the rate limiter, the transcription or the answer.
     const stages = [...webhook.matchAll(/stage = "([a-z_]+)"/g)].map((m) => m[1]);
     expect(new Set(stages)).toEqual(
-      new Set(["start", "received", "claimed", "rate_limit", "onboarding", "media", "transcribe", "route"]),
+      new Set(["start", "received", "claimed", "subscription_gate", "rate_limit", "onboarding", "media", "transcribe", "route"]),
     );
     // Assigned before the work each one names, never after it.
+    expect(webhook.indexOf('stage = "claimed"')).toBeLessThan(webhook.indexOf('stage = "subscription_gate"'));
+    expect(webhook.indexOf('stage = "subscription_gate"')).toBeLessThan(webhook.indexOf('stage = "rate_limit"'));
     expect(webhook.indexOf('stage = "media"')).toBeLessThan(webhook.indexOf('stage = "transcribe"'));
     expect(webhook.indexOf('stage = "transcribe"')).toBeLessThan(webhook.indexOf('stage = "route"'));
   });

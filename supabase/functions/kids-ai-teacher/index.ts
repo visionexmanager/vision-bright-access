@@ -23,6 +23,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 
 installUsageMetering("kids-ai-teacher");
 
@@ -83,6 +84,9 @@ Deno.serve(async (req: Request) => {
   if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
 
   const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(serviceClient, req, user.id, cors);
+  if (refused) return refused;
   const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "kids-ai-teacher" });
   if (allowed === false) return json({ error: "Daily limit reached. Try again tomorrow." }, 429, cors);
 

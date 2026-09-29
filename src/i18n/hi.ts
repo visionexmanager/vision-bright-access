@@ -3,6 +3,8 @@ import { translationsPart } from "./chunks/hi";
 export const translations: Record<string, string> = {
   ...translationsPart,
   "services.signInToUse": "इस सेवा का उपयोग करने के लिए साइन इन करें।",
+  "subscriptionGate.message": "VisionEX की AI सेवाएँ केवल सब्सक्राइबर्स के लिए हैं। जारी रखने के लिए प्लान सब्सक्राइब करें।",
+  "subscriptionGate.viewPlans": "प्लान देखें",
   "careersPage.dashboard.user.title": "आपका करियर डैशबोर्ड",
   "careersPage.dashboard.user.subtitle": "लॉग-इन उम्मीदवार को क्या दिखता है—एक नज़र में।",
   "careersPage.dashboard.user.savedJobs": "सेव किए गए जॉब्स",

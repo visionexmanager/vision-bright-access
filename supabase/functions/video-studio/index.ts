@@ -10,6 +10,7 @@ import type { ComputeAdapter } from "../_shared/providers/compute.ts";
 import { runpodAdapter, runpodReadiness } from "../_shared/providers/runpod.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { publicMediaFailure } from "../_shared/providerInput.ts";
 import { providerRoutableIn, recordProviderOutcome, VIDEO_PROVIDER_SLUG } from "../_shared/providerRecording.ts";
@@ -931,6 +932,10 @@ serve(async (req) => {
 
   const { data: { user }, error: authErr } = await db.auth.getUser();
   if (authErr || !user) return jsonError("Unauthorized", 401);
+
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(dbService, req, user.id, CORS);
+  if (refused) return refused;
 
   // Signed in is not entitled. The AI Media Studio is a Business section,
   // and a valid session on any plan reached this generator until now. Asked

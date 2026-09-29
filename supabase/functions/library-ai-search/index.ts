@@ -22,6 +22,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { createEmbedding, structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { allowCaller } from "../_shared/securityGuard.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 
 installUsageMetering("library-ai-search");
 
@@ -64,20 +65,23 @@ Deno.serve(async (req: Request) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const client = createClient(supabaseUrl, anonKey);
 
-  // Signed-out visitors reach this with the site's publishable key, so every
-  // call can cost a paid embedding: the same per-connection limit
-  // library-semantic-search applies, before any provider is asked.
-  const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  if (!(await allowCaller(service, req, "library-ai-search"))) {
-    return json({ error: "Too many searches from this connection today. Please try again later." }, 429, cors);
-  }
-
   const authHeader = req.headers.get("Authorization");
   let userId: string | null = null;
   if (authHeader) {
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: { user } } = await userClient.auth.getUser();
     userId = user?.id ?? null;
+  }
+
+  // Signed-out visitors reach this with the site's publishable key, so every
+  // call can cost a paid embedding: the same per-connection limit
+  // library-semantic-search applies, before any provider is asked.
+  const service = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(service, req, userId, cors);
+  if (refused) return refused;
+  if (!(await allowCaller(service, req, "library-ai-search"))) {
+    return json({ error: "Too many searches from this connection today. Please try again later." }, 429, cors);
   }
 
   try {

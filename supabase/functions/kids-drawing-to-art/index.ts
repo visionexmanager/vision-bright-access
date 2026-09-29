@@ -23,6 +23,7 @@ import { generateImage } from "../_shared/contentMedia.ts";
 import { recordMediaOutcome, type RecordingDb } from "../_shared/providerRecording.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 
 installUsageMetering("kids-drawing-to-art");
 
@@ -89,6 +90,9 @@ Deno.serve(async (req: Request) => {
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
 
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(serviceClient, req, user.id, cors);
+  if (refused) return refused;
   const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "kids-drawing-to-art" });
   if (allowed === false) return json({ error: "Daily limit reached. Try again tomorrow." }, 429, cors);
 

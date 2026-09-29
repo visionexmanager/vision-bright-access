@@ -1,5 +1,7 @@
 export const translations: Record<string, string> = {
   "services.signInToUse": "Đăng nhập để sử dụng dịch vụ này.",
+  "subscriptionGate.message": "Dịch vụ AI của VisionEX chỉ dành cho người đăng ký. Đăng ký một gói để tiếp tục.",
+  "subscriptionGate.viewPlans": "Xem các gói",
   "common.dismiss": "Đóng",
   "footer.legal": "Pháp lý",
   "footer.marketplace": "Thị trường",

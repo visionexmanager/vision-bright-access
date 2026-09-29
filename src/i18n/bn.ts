@@ -3,6 +3,8 @@ import { translationsPart } from "./chunks/bn";
 export const translations: Record<string, string> = {
   ...translationsPart,
   "services.signInToUse": "এই পরিষেবা ব্যবহার করতে সাইন ইন করুন।",
+  "subscriptionGate.message": "VisionEX-এর AI পরিষেবা শুধু সাবস্ক্রাইবারদের জন্য। চালিয়ে যেতে একটি প্ল্যানে সাবস্ক্রাইব করুন।",
+  "subscriptionGate.viewPlans": "প্ল্যান দেখুন",
   "careersPage.dashboard.user.title": "আপনার ক্যারিয়ার ড্যাশবোর্ড",
   "careersPage.dashboard.user.subtitle": "সাইন-ইন করা প্রার্থী কী দেখে—তার দ্রুত এক ঝলক।",
   "careersPage.dashboard.user.savedJobs": "সেভ করা চাকরি",

@@ -19,6 +19,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 
 installUsageMetering("organization-ai-admin");
@@ -89,6 +90,11 @@ Deno.serve(async (req: Request) => {
       const duplicates = [...groups.values()].filter((g) => g.length > 1);
       return json({ ok: true, result: { duplicate_groups: duplicates } }, 200, cors);
     }
+
+    // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+    // duplicate_detection above is a plain database grouping with no provider call, so it is not gated.
+    const refused = await subscriptionGate(serviceClient, req, user.id, cors);
+    if (refused) return refused;
 
     const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "organization-ai-admin" });
     if (allowed === false) return json({ error: "Daily limit reached. Try again tomorrow." }, 429, cors);
