@@ -9,6 +9,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
 import { providerRoutableIn } from "../_shared/providerRecording.ts";
@@ -279,6 +280,10 @@ Deno.serve(async (req: Request) => {
 
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return jsonError("Unauthorized: Invalid or expired session. Please sign in again.", 401);
+
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(serviceClient, req, user.id, CORS);
+  if (refused) return refused;
 
   // Signed in is not the same as entitled. The AI Media Studio is a Business
   // section, and until this check existed a valid session on any plan reached

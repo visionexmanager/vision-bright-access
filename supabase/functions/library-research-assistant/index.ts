@@ -29,6 +29,7 @@ import { structuredCompletion, createEmbedding, ProviderError } from "../_shared
 import { ensureBookIndexed, retrieveChunks, formatChunksAsContext } from "../_shared/libraryRag.ts";
 import { searchOpenSources } from "../_shared/openResearchSources.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 
 installUsageMetering("library-research-assistant");
 
@@ -147,6 +148,10 @@ Deno.serve(async (req: Request) => {
 
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
+
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(serviceClient, req, user.id, cors);
+  if (refused) return refused;
 
   let body: RequestBody;
   try {

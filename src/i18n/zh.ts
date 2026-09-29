@@ -1,5 +1,7 @@
 export const translations: Record<string, string> = {
   "services.signInToUse": "请登录后使用此服务。",
+  "subscriptionGate.message": "VisionEX 的 AI 服务仅限订阅用户使用。订阅套餐即可继续。",
+  "subscriptionGate.viewPlans": "查看套餐",
   "common.dismiss": "关闭",
   "footer.legal": "法律",
   "footer.marketplace": "市场",

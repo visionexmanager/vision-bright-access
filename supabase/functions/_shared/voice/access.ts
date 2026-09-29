@@ -42,7 +42,9 @@
 export type VoiceAccessRefusal =
   | { status: 401; error: "Unauthorized" }
   | { status: 429; error: "Rate limit reached. Please try again later." }
-  | { status: 500; error: "Server not configured" };
+  | { status: 500; error: "Server not configured" }
+  /** No active paid subscription — the subscription gate's own body. */
+  | { status: 403 | 503; error: string; body: Record<string, unknown> };
 
 /**
  * Allowed, or refused with a reason.
@@ -86,6 +88,13 @@ export interface VoiceAccessPorts {
    * are refused for different reasons and only one of them is the user's fault.
    */
   checkLimit(userId: string, functionName: string): Promise<boolean | "error">;
+  /**
+   * The subscription gate (`_shared/subscriptionGate.ts`). Asked after the
+   * caller is proved and before the quota is charged, so a caller without a
+   * paid plan spends nothing — not even a unit of the daily voice quota.
+   * `null` means authorized; anything else is the refusal to send.
+   */
+  authorize(userId: string): Promise<{ status: 403 | 503; body: Record<string, unknown> } | null>;
 }
 
 /**
@@ -109,6 +118,20 @@ export async function decideVoiceAccess(input: {
   const user = await input.ports.identify(input.authHeader);
   if (!user?.id) return UNAUTHORIZED;
 
+  // Fail closed, like the quota below: a gate that throws refuses.
+  let gated: { status: 403 | 503; body: Record<string, unknown> } | null;
+  try {
+    gated = await input.ports.authorize(user.id);
+  } catch {
+    gated = { status: 503, body: { ok: false, error: "entitlement_unavailable" } };
+  }
+  if (gated) {
+    return {
+      outcome: "refused",
+      refusal: { status: gated.status, error: String(gated.body.error ?? "subscription_required"), body: gated.body },
+    };
+  }
+
   const allowed = await input.ports.checkLimit(user.id, input.functionName);
 
   // Fail closed. An accounting system that cannot answer is not a reason to
@@ -124,7 +147,8 @@ export function refusalResponse(
   refusal: VoiceAccessRefusal,
   cors: Record<string, string>,
 ): Response {
-  return new Response(JSON.stringify({ error: refusal.error }), {
+  const body = "body" in refusal ? refusal.body : { error: refusal.error };
+  return new Response(JSON.stringify(body), {
     status: refusal.status,
     headers: { ...cors, "Content-Type": "application/json" },
   });

@@ -1,5 +1,7 @@
 export const translations: Record<string, string> = {
   "services.signInToUse": "برای استفاده از این سرویس وارد شوید.",
+  "subscriptionGate.message": "خدمات هوش مصنوعی VisionEX فقط برای مشترکان است. برای ادامه، مشترک یک طرح شوید.",
+  "subscriptionGate.viewPlans": "مشاهده طرح‌ها",
   "common.dismiss": "رد کردن",
   "footer.legal": "قوانین",
   "footer.marketplace": "مارکت‌پلیس",

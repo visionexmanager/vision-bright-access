@@ -807,6 +807,20 @@ const BASE_STRINGS = {
     ar: "استهلكت رصيد اليوم ({limit} طلباً). يتجدد تلقائياً غداً، أو اشترك الآن لرصيد أكبر: {url}",
     en: "You've used today's allowance ({limit} requests). It renews tomorrow, or subscribe now for more: {url}",
   },
+  /**
+   * The subscription gate's one notice (`_shared/subscriptionGate.ts`). Sent
+   * once per sender while unsubscribed; every later message gets no reply.
+   * Carries `{url}`. The link phrase stays in a form the account parser reads.
+   */
+  subscriptionRequired: {
+    ar: "خدمات VisionEX الذكية متاحة للمشتركين فقط. اشترك في إحدى باقات VisionEX للبدء: {url}\nمشترك بالفعل؟ أرسل «اربط حسابي» لربط هذا الرقم.",
+    en: "VisionEX AI services are for subscribers only. Subscribe to a VisionEX plan to start: {url}\nAlready subscribed? Send «link account» to connect this number.",
+  },
+  /** The same notice for channels with no account link (Messenger, Instagram). Carries `{url}`. */
+  subscriptionRequiredShort: {
+    ar: "خدمات VisionEX الذكية متاحة للمشتركين فقط. اشترك في إحدى باقات VisionEX للبدء: {url}",
+    en: "VisionEX AI services are for subscribers only. Subscribe to a VisionEX plan to start: {url}",
+  },
   /** Carries `{remaining}` and `{url}`. Said once, not on every message. */
   planAlmostSpent: {
     ar: "تبقّى لك {remaining} من رصيد اليوم. للمزيد: {url}",

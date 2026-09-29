@@ -157,3 +157,43 @@ export function planStatusNotice(language: Language, entitlement: Entitlement): 
     .replace("{limit}", String(entitlement.dailyLimit))
     .replace("{url}", PLANS_URL);
 }
+
+// ── The subscription gate on WhatsApp ───────────────────────────────────────
+//
+// `ai_subscription_gate_whatsapp` decides; these two decide nothing about
+// entitlement. One is the words of the single notice, the other the one kind
+// of message an unsubscribed sender may still send: linking this number to the
+// account that holds the subscription. That flow calls no model and no paid
+// provider — a database function and an email — and without it a subscriber
+// whose number is not linked yet could never get past the gate.
+
+/** The one notice an unsubscribed sender receives. Carries the plans link. */
+export function subscriptionRequiredNotice(language: Language): string {
+  return say("subscriptionRequired", language).replace("{url}", PLANS_URL);
+}
+
+/** The same notice where there is no account link to offer (Messenger, Instagram). */
+export function subscriptionRequiredShortNotice(language: Language): string {
+  return say("subscriptionRequiredShort", language).replace("{url}", PLANS_URL);
+}
+
+/**
+ * May this message from a sender the gate refused still reach the account-link
+ * flow? Typed text only — a voice note would need a paid transcription and a
+ * picture a paid model — and only a message that is part of linking.
+ */
+export function gateAllowsAccountTurn(input: {
+  text: string | null | undefined;
+  hasMedia: boolean;
+  hasLocation: boolean;
+  /** A tap on a list or button: never typed, and never part of linking. */
+  hasSelection?: boolean;
+  /** The text asked to be answered out loud — synthesis is a paid provider. */
+  wantsVoice?: boolean;
+  inAccountStep: boolean;
+  accountIntent: string | null;
+}): boolean {
+  if (input.hasMedia || input.hasLocation || input.hasSelection || input.wantsVoice) return false;
+  if (!(input.text ?? "").trim()) return false;
+  return input.inAccountStep || input.accountIntent === "link" || input.accountIntent === "unlink";
+}

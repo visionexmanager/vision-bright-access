@@ -1,5 +1,7 @@
 export const translations: Record<string, string> = {
   "services.signInToUse": "このサービスを利用するにはサインインしてください。",
+  "subscriptionGate.message": "VisionEX の AI サービスはご契約者専用です。続けるにはプランにご登録ください。",
+  "subscriptionGate.viewPlans": "プランを見る",
   "common.dismiss": "閉じる",
   "footer.legal": "法務",
   "footer.marketplace": "マーケットプレイス",

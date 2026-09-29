@@ -17,6 +17,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { boundedText, isOwnStorageUpload, publicMediaFailure } from "../_shared/providerInput.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
@@ -165,6 +166,10 @@ Deno.serve(async (req: Request) => {
 
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return json({ error: "Unauthorized" }, 401);
+
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(serviceClient, req, user.id, cors);
+  if (refused) return refused;
 
   // Signed in is not entitled. The AI Media Studio is a Business section,
   // and a valid session on any plan reached this generator until now. Asked

@@ -1,4 +1,6 @@
 export const translations: Record<string, string> = {
+  "subscriptionGate.message": "VisionEX AI services are available to subscribers only. Subscribe to a plan to continue.",
+  "subscriptionGate.viewPlans": "View plans",
   "services.signInToUse": "Sign in to use this service.",
   "common.dismiss": "Dismiss",
   "footer.legal": "Legal",

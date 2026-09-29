@@ -17,6 +17,7 @@ import { transcribe } from "../_shared/voice/stt.ts";
 import type { VoiceFailure } from "../_shared/voice/providers/types.ts";
 import { recordSttAttempts, type RecordingDb } from "../_shared/providerRecording.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 
 installUsageMetering("speech-transcribe");
@@ -134,6 +135,10 @@ Deno.serve(async (req: Request) => {
 
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
+
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(serviceClient, req, user.id, cors);
+  if (refused) return refused;
 
   // Per-user daily ceiling, before the body is read or a provider called (Phase 2F-2).
   const limited = await chargeDailyLimit(serviceClient, user.id, "speech-transcribe", cors);

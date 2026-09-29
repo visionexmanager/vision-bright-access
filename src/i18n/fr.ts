@@ -1,5 +1,7 @@
 export const translations: Record<string, string> = {
   "services.signInToUse": "Connectez-vous pour utiliser ce service.",
+  "subscriptionGate.message": "Les services d'IA de VisionEX sont réservés aux abonnés. Abonnez-vous à une offre pour continuer.",
+  "subscriptionGate.viewPlans": "Voir les offres",
   "common.dismiss": "Ignorer",
   "footer.legal": "Juridique",
   "footer.marketplace": "Marché",

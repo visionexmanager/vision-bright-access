@@ -53,6 +53,7 @@ import type { RecordingDb } from "../_shared/providerRecording.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { boundedText } from "../_shared/providerInput.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 
 installUsageMetering("library-generate-narration");
 
@@ -174,6 +175,12 @@ Deno.serve(async (req: Request) => {
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
 
+  const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(serviceClient, req, user.id, cors);
+  if (refused) return refused;
+
   let body: RequestBody;
   try {
     body = await req.json();
@@ -190,8 +197,6 @@ Deno.serve(async (req: Request) => {
       userClient.rpc("has_role", { _user_id: user.id, _role: "admin" }),
     ]);
     if (!isOwner && !isAdmin) return json({ error: "You may only generate narration for your own books" }, 403, cors);
-
-    const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // Fails closed: a limiter that cannot answer is not a free narration.
     const limited = await chargeDailyLimit(serviceClient, user.id, "library-generate-narration", cors);

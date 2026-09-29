@@ -1,3 +1,5 @@
+// First: supabase-js captures fetch when its client is created.
+import "./lib/billing/subscriptionGateObserver";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";

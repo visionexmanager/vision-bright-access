@@ -29,6 +29,9 @@ function ports(overrides: Partial<VoiceAccessPorts> = {}) {
       charged.push({ userId, functionName });
       return true;
     },
+    async authorize() {
+      return null;
+    },
     ...overrides,
   };
   return { port, charged, identified };

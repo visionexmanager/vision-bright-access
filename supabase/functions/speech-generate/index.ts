@@ -14,6 +14,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { providerBySlug, recordResult, resolveProvider } from "../_shared/providerRouter.ts";
 import {
   describeTtsFailure,
@@ -169,6 +170,10 @@ Deno.serve(async (req: Request) => {
 
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
+
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(serviceClient, req, user.id, cors);
+  if (refused) return refused;
 
   // Signed in is not entitled. The Speech Studio is part of the AI Media
   // Studio, which only Business opens, and a valid session on any plan reached
