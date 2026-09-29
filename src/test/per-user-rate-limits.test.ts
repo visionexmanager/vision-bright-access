@@ -20,7 +20,9 @@ import {
   type DailyLimitClient,
 } from "../../supabase/functions/_shared/aiDailyLimit.ts";
 
-const MIGRATION = "supabase/migrations/20261038000000_ai_rate_limit_serialised_and_media.sql";
+// The latest migration to redefine check_ai_rate_limit: it adds
+// library-content-search and keeps every earlier ceiling and the lock.
+const MIGRATION = "supabase/migrations/20261061000000_library_external_content.sql";
 const migration = readFileSync(MIGRATION, "utf8");
 const CORS = { "Access-Control-Allow-Origin": "https://visionex.app" };
 
@@ -223,6 +225,8 @@ describe("check_ai_rate_limit — the migration", () => {
       "voice-studio-clone": 5, "speech-generate": 20, "file-convert": 10,
       "ai-generate": 30, "analyze-image": 20, "speech-transcribe": 30,
       "image-generate": 20, "image-tools-generate": 20, "video-studio": 5,
+      // Library external content search: no model call, a ceiling on shared provider quotas.
+      "library-content-search": 300,
     });
     expect(fallback).toBe(30);
   });

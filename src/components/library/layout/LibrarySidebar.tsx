@@ -4,7 +4,7 @@ import {
   Home, LayoutGrid, Compass, Headphones, Users2, Library as LibraryIcon, ListChecks,
   Heart, BookOpenCheck, Download, Star, MessagesSquare, LayoutDashboard,
   ShieldCheck, ChevronLeft, ChevronRight, PenLine, Gift, Network, Inbox, Layers, UserCircle, Trophy, Calendar, Award,
-  Route, Brain, Gauge, GraduationCap, Clock, Sparkles, Microscope, FolderKanban, Lightbulb, Bot, Building2,
+  Route, Brain, Gauge, GraduationCap, Clock, Sparkles, Microscope, FolderKanban, Lightbulb, Bot, Building2, Globe2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -54,6 +54,7 @@ function useNavItems(userId: string | undefined): NavItem[] {
     { to: "/library/timelines", label: t("library.timelines.title"), icon: Clock },
     { to: "/library/ai-search", label: t("library.aiSearch.title"), icon: Sparkles },
     { to: "/library/research-assistant", label: t("library.researchAssistant.title"), icon: Microscope, requiresAuth: true },
+    { to: "/library/open-sources", label: t("library.openSources.title"), icon: Globe2, requiresAuth: true },
     { to: "/library/research-projects", label: t("library.researchProjects.title"), icon: FolderKanban, requiresAuth: true },
     { to: "/library/ai-insights", label: t("library.aiInsights.title"), icon: Lightbulb },
     { to: "/library/organizations", label: t("library.enterprise.title"), icon: Building2, requiresAuth: true },

@@ -227,6 +227,46 @@ const OVERPASS_RELAY_TIMEOUT_MS = 14_000;
  * relay is not configured or did not answer; the caller then asks Overpass
  * directly and Photon in parallel, exactly as before.
  */
+/** How long a probe may take: ffprobe reads a header, not the whole file. */
+export const PROBE_TIMEOUT_MS = 20_000;
+
+/**
+ * What a media file is, according to the VPS's ffprobe: its length in seconds
+ * and whether it is a video. A code on failure, never the service's message.
+ */
+export async function probeMediaLocally(params: {
+  bytes: Uint8Array;
+  config?: ProcessorConfig | null;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+}): Promise<{ ok: true; durationSeconds: number | null; kind: "video" | "audio" | null } | { ok: false; code: string }> {
+  const config = params.config === undefined ? processorConfig() : params.config;
+  if (!config) return { ok: false, code: "not_configured" };
+  if (params.bytes.byteLength > MAX_CONVERT_UPLOAD_BYTES) return { ok: false, code: "too_large" };
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), params.timeoutMs ?? PROBE_TIMEOUT_MS);
+  try {
+    const response = await (params.fetchImpl ?? fetch)(`${config.url}/probe`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { authorization: `Bearer ${config.token}`, "content-type": "application/octet-stream" },
+      body: imageBody(params.bytes),
+    });
+    if (!response.ok) return { ok: false, code: response.status === 422 ? "unreadable_media" : "upstream" };
+    const body = await response.json() as { durationSeconds?: unknown; kind?: unknown };
+    const seconds = typeof body.durationSeconds === "number" && Number.isFinite(body.durationSeconds) && body.durationSeconds > 0
+      ? body.durationSeconds
+      : null;
+    const kind = body.kind === "video" || body.kind === "audio" ? body.kind : null;
+    return { ok: true, durationSeconds: seconds, kind };
+  } catch (e) {
+    const aborted = e instanceof Error && e.name === "AbortError";
+    return { ok: false, code: aborted ? "timeout" : "network" };
+  } finally {
+    clearTimeout(deadline);
+  }
+}
+
 export async function overpassViaProcessor(
   query: string,
   options: { read?: EnvReader; fetchImpl?: typeof fetch } = {},

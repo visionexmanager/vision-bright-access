@@ -280,17 +280,22 @@ describe("the wiring", () => {
     expect(handler).not.toMatch(/error:\s*(result|poll)\.error/);
     expect(handler).not.toMatch(/error_message:\s*(result|poll)\.error/);
     expect(handler).not.toContain("Failed to create image job: ${detail}");
-    // Three: the parked-provider refusal, a failed start and a failed poll.
-    expect(handler.match(/publicMediaFailure\(/g)).toHaveLength(3);
+    // Four: the no-provider refusal, a failed OpenAI job, a failed Replicate start and a failed poll.
+    expect(handler.match(/publicMediaFailure\(/g)).toHaveLength(4);
+    expect(handler).not.toMatch(/error:\s*edited\.error/);
   });
 
-  it("image-tools-generate refuses while Replicate is parked, before charging a daily unit or writing a job", () => {
+  it("image-tools-generate refuses a mode no provider can serve, before charging a daily unit or writing a job", () => {
     const handler = src("image-tools-generate").slice(src("image-tools-generate").indexOf("Deno.serve("));
-    const parked = handler.indexOf('if (parkedProviderReason("replicate") || !Deno.env.get("REPLICATE_API_TOKEN")?.trim())');
-    expect(parked).toBeGreaterThan(0);
-    expect(parked).toBeLessThan(handler.indexOf("chargeDailyLimit("));
-    expect(parked).toBeLessThan(handler.indexOf('provider: "replicate", status: "processing"'));
-    expect(handler.slice(parked, parked + 400)).toContain('code: "provider_unavailable"');
+    // Replicate only when it is switched on (parked list AND its token); otherwise
+    // OpenAI's edit, only for the modes it genuinely performs.
+    expect(handler).toContain('const replicateUnavailable = parkedProviderReason("replicate") || !Deno.env.get("REPLICATE_API_TOKEN")?.trim();');
+    expect(handler).toMatch(/!replicateUnavailable\s*\?\s*"replicate"\s*:\s*OPENAI_MODES\.has\(mode\) && Deno\.env\.get\("OPENAI_API_KEY"\)\?\.trim\(\) \? "openai" : null;/);
+    const refused = handler.indexOf("if (!provider) {");
+    expect(refused).toBeGreaterThan(0);
+    expect(refused).toBeLessThan(handler.indexOf("chargeDailyLimit("));
+    expect(refused).toBeLessThan(handler.indexOf('provider, status: "processing"'));
+    expect(handler.slice(refused, refused + 400)).toContain('code: "provider_unavailable"');
   });
 
   it("video-studio returns and stores only the public failure sentence", () => {

@@ -262,3 +262,35 @@ describe("what a job is allowed to cost", () => {
     expect(convert.PROBE_TIMEOUT_MS).toBeLessThan(convert.AUDIO_TIMEOUT_MS);
   });
 });
+
+describe("a contact sheet: six frames of a video in one picture", () => {
+  it("accepts a positive interval of seconds on an image target", () => {
+    const parsed = convert.readOptions(params("to=jpg&sheet=2.5"));
+    expect(parsed.ok).toBe(true);
+    expect(parsed.options.sheet).toBe("2.5");
+    expect(parsed.options.kind).toBe("image");
+  });
+
+  it("refuses a sheet anywhere else, and any interval that is not a sane number of seconds", () => {
+    for (const query of ["to=mp3&sheet=2", "to=mp4&sheet=2", "to=jpg&sheet=0", "to=jpg&sheet=-1", "to=jpg&sheet=abc", "to=jpg&sheet=601", "to=jpg&sheet=2;rm"]) {
+      const parsed = convert.readOptions(params(query));
+      expect(parsed.ok, query).toBe(false);
+      expect(parsed.reason, query).toBe("bad_sheet");
+    }
+  });
+
+  it("samples, scales and tiles in one filter, writes one frame and strips metadata", () => {
+    const parsed = convert.readOptions(params("to=jpg&sheet=2"));
+    const args = convert.imageArgs("in.mp4", "out.jpg", parsed.options);
+    expect(args).toContain("fps=1/2,scale=320:-2,tile=3x2");
+    expect(args.join(" ")).toContain("-frames:v 1");
+    expect(args.join(" ")).toContain("-map_metadata -1 out.jpg");
+    expect(args.filter((a: string) => a === "-vf")).toHaveLength(1);
+  });
+
+  it("a still image without a sheet is built exactly as before", () => {
+    const parsed = convert.readOptions(params("to=jpg&width=640"));
+    expect(parsed.options.sheet).toBeNull();
+    expect(convert.imageArgs("in.png", "out.jpg", parsed.options)).toContain("scale=640:-2");
+  });
+});

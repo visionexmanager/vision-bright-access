@@ -18298,6 +18298,33 @@ export type Database = {
           },
         ]
       }
+      library_external_provider_health: {
+        Row: {
+          checked_at: string
+          error_code: string | null
+          latency_ms: number | null
+          provider_id: string
+          result_count: number
+          state: string
+        }
+        Insert: {
+          checked_at?: string
+          error_code?: string | null
+          latency_ms?: number | null
+          provider_id: string
+          result_count?: number
+          state: string
+        }
+        Update: {
+          checked_at?: string
+          error_code?: string | null
+          latency_ms?: number | null
+          provider_id?: string
+          result_count?: number
+          state?: string
+        }
+        Relationships: []
+      }
       library_favorite_topics: {
         Row: {
           created_at: string

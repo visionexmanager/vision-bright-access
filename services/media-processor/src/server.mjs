@@ -462,9 +462,11 @@ async function handleConvert(req, res, correlation) {
       prefix: "conv-",
       command: "ffmpeg",
       // A still image is one frame and should never hold a worker for a
-      // video-sized budget.
-      timeoutMs: options.kind === "image"
+      // video-sized budget. A contact sheet decodes a whole clip, so it has one.
+      timeoutMs: options.kind === "image" && !options.sheet
         ? IMAGE_TIMEOUT_MS
+        : options.sheet
+        ? VIDEO_TIMEOUT_MS
         : options.kind === "audio"
         ? AUDIO_TIMEOUT_MS
         : VIDEO_TIMEOUT_MS,

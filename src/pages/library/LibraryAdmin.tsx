@@ -20,6 +20,7 @@ import { resolveContentAuthor } from "@/services/library/moderation";
 import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { LibraryModerationAction } from "@/services/library/moderation";
+import { ExternalSourcesAdminPanel } from "@/components/library/external/ExternalSourcesAdminPanel";
 
 const JOB_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   pending: "outline",
@@ -61,6 +62,7 @@ export default function LibraryAdmin() {
             <TabsTrigger value="auditLog">{t("library.admin.tab.auditLog")}</TabsTrigger>
             <TabsTrigger value="backgroundJobs">{t("library.admin.tab.backgroundJobs")}</TabsTrigger>
             <TabsTrigger value="reports">{t("library.admin.tab.reports")}</TabsTrigger>
+            <TabsTrigger value="externalSources">{t("library.admin.tab.externalSources")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -202,6 +204,10 @@ export default function LibraryAdmin() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="externalSources">
+            <ExternalSourcesAdminPanel />
           </TabsContent>
         </Tabs>
       </LibraryLayout>

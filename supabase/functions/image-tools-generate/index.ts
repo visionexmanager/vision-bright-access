@@ -1,11 +1,15 @@
 /**
  * image-tools-generate — AI Media Studio Image Studio extension
  * Covers: Image-to-Image, AI Upscaler, Background Remover, Image Restoration, AI Avatar.
- * (Text-to-Image stays on image-generate/DALL·E; this function is Replicate-backed.)
+ * (Text-to-Image stays on image-generate.)
  *
- * Provider: Replicate (REPLICATE_API_TOKEN)
+ * Providers: Replicate (REPLICATE_API_TOKEN) for every mode when it is switched
+ * on; while it is parked, OpenAI's image edit (gpt-image-1) for img2img,
+ * avatar, bg-remove and restore — see _shared/providers/openaiImageEdit.ts.
+ * Upscale has no provider until Replicate returns, and is refused.
  * Auth: user-jwt required
- * Actions: generate | poll (predictions are async — mirrors the video-studio pattern)
+ * Actions: generate | poll. A Replicate job is async; an OpenAI job completes
+ * inside the generate request, and the client's first poll finds it done.
  */
 
 import { parkedProviderReason } from "../_shared/providerState.ts";
@@ -15,8 +19,23 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { boundedText, isOwnStorageUpload, publicMediaFailure } from "../_shared/providerInput.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+import {
+  editWithOpenAI,
+  failureClass,
+  type ImageToolMode,
+  MAX_SOURCE_BYTES,
+  OPENAI_EDIT_MODEL,
+  OPENAI_MODES,
+  SOURCE_TYPES,
+  sniffImageType,
+} from "../_shared/providers/openaiImageEdit.ts";
 
-type ImageMode = "img2img" | "upscale" | "bg-remove" | "restore" | "avatar";
+// Shadow metering only: every OpenAI edit is recorded with its usage. No VX is
+// reserved or charged here — the image tools draw only the daily request limit.
+installUsageMetering("image-tools-generate");
+
+type ImageMode = ImageToolMode;
 
 // Replicate's "official model" endpoint always runs that model's latest
 // version, so no version hash needs to be pinned/maintained here.
@@ -213,11 +232,22 @@ Deno.serve(async (req: Request) => {
   // ── Start a new job ────────────────────────────────────────────────────────
   // Only starting a job is charged against the daily ceiling; polling one is
   // free, so a client waiting on a prediction never exhausts it (Phase 2F-2).
-  //
-  // Replicate is parked (providerState.ts), and needs its token besides: the
-  // request is refused before it costs the caller a daily-limit unit or leaves
-  // a failed job behind. A token alone does not reactivate it.
-  if (parkedProviderReason("replicate") || !Deno.env.get("REPLICATE_API_TOKEN")?.trim()) {
+  const { mode, image_url, project_id } = body;
+  const VALID_MODES: ImageMode[] = ["img2img", "upscale", "bg-remove", "restore", "avatar"];
+  if (!VALID_MODES.includes(mode)) {
+    return json({ error: `Unsupported mode "${mode}". Use one of: ${VALID_MODES.join(", ")}` }, 400);
+  }
+
+  // Which provider serves this mode. Replicate, when it is switched on — it is
+  // parked (providerState.ts) and needs its token besides, and a token alone
+  // does not reactivate it. Otherwise OpenAI's image edit, for the modes it
+  // genuinely performs. A mode nobody can serve is refused before it costs the
+  // caller a daily-limit unit or leaves a failed job behind.
+  const replicateUnavailable = parkedProviderReason("replicate") || !Deno.env.get("REPLICATE_API_TOKEN")?.trim();
+  const provider: "replicate" | "openai" | null = !replicateUnavailable
+    ? "replicate"
+    : OPENAI_MODES.has(mode) && Deno.env.get("OPENAI_API_KEY")?.trim() ? "openai" : null;
+  if (!provider) {
     return json({
       ok: false,
       code: "provider_unavailable",
@@ -227,15 +257,11 @@ Deno.serve(async (req: Request) => {
   const limited = await chargeDailyLimit(serviceClient, user.id, "image-tools-generate", cors);
   if (limited) return limited;
 
-  const { mode, image_url, project_id } = body;
   const prompt = boundedText(body.prompt, 1000) || undefined;
-  const VALID_MODES: ImageMode[] = ["img2img", "upscale", "bg-remove", "restore", "avatar"];
-  if (!VALID_MODES.includes(mode)) {
-    return json({ error: `Unsupported mode "${mode}". Use one of: ${VALID_MODES.join(", ")}` }, 400);
-  }
   if (!image_url?.trim()) return json({ error: "image_url is required (upload the source image first)" }, 400);
-  // Replicate fetches this URL itself, on Visionex's account — so only the
-  // caller's own upload to the tool's bucket is accepted (Phase 2F-3).
+  // The source is read (by Replicate, or from storage here) on Visionex's
+  // account — so only the caller's own upload to the tool's bucket is accepted
+  // (Phase 2F-3).
   if (!isOwnStorageUpload(image_url, supabaseUrl, "image-tool-inputs", user.id)) {
     return json({ error: "Upload the source image first, then try again." }, 400);
   }
@@ -245,7 +271,7 @@ Deno.serve(async (req: Request) => {
     .insert({
       user_id: user.id, project_id: project_id ?? null,
       prompt: prompt ?? null, mode, source_image_url: image_url,
-      provider: "replicate", status: "processing", started_at: new Date().toISOString(),
+      provider, status: "processing", started_at: new Date().toISOString(),
     })
     .select("id")
     .single();
@@ -255,6 +281,8 @@ Deno.serve(async (req: Request) => {
     return json({ error: "The image job could not be started. Please try again later.", code: "DB_ERROR" }, 500);
   }
   const jobId: string = jobRow.id;
+
+  if (provider === "openai") return await runOpenAIJob(jobId);
 
   const result = await createPrediction(mode, image_url, prompt);
   if (!result.ok) {
@@ -270,4 +298,66 @@ Deno.serve(async (req: Request) => {
   }).eq("id", jobId);
 
   return json({ ok: true, job_id: jobId, status: "processing" });
+
+  /**
+   * The OpenAI job runs to completion inside this request: the edit answers in
+   * well under the function's limit, and a job completed here is what the
+   * client's first poll finds. The result is stored in the studio's own bucket
+   * under the owner's folder, as image-generate stores its pictures, and linked
+   * with a signed URL — never OpenAI's bytes or a provider link.
+   */
+  async function runOpenAIJob(id: string): Promise<Response> {
+    const fail = async (reason: string, status: number) => {
+      const failure = publicMediaFailure(reason, "image", "image-tools-generate");
+      await serviceClient.from("ams_image_jobs").update({
+        status: "failed", error_message: failure, completed_at: new Date().toISOString(),
+      }).eq("id", id);
+      return json({ ok: false, job_id: id, error: failure }, status);
+    };
+
+    const sourcePath = decodeURIComponent(new URL(image_url).pathname.slice("/storage/v1/object/public/image-tool-inputs/".length));
+    const { data: stored, error: readErr } = await serviceClient.storage.from("image-tool-inputs").download(sourcePath);
+    if (readErr || !stored) return await fail("source unreadable", 502);
+    // The type comes from the file's own bytes, not from what storage recorded.
+    const sourceBytes = new Uint8Array(await stored.arrayBuffer());
+    const sourceType = sniffImageType(sourceBytes);
+    const source = new Blob([sourceBytes], { type: sourceType ?? "application/octet-stream" });
+    if (!sourceType || !SOURCE_TYPES[sourceType] || source.size > MAX_SOURCE_BYTES) {
+      await serviceClient.from("ams_image_jobs").update({
+        status: "failed", error_message: "Use a PNG, JPEG or WebP image under 20 MB.", completed_at: new Date().toISOString(),
+      }).eq("id", id);
+      return json({ ok: false, job_id: id, error: "Use a PNG, JPEG or WebP image under 20 MB." }, 400);
+    }
+
+    const started = Date.now();
+    const edited = await editWithOpenAI(mode, source, prompt);
+    console.info(`[image-tools-generate] mode=${mode} provider=openai model=${OPENAI_EDIT_MODEL} ok=${edited.ok}${edited.ok ? "" : ` class=${failureClass(edited.error)}`} ms=${Date.now() - started}`);
+    if (!edited.ok) return await fail(edited.error, 502);
+
+    const objectPath = `${user!.id}/tools-${id}.png`;
+    const { error: uploadErr } = await serviceClient.storage
+      .from("image-outputs")
+      .upload(objectPath, edited.bytes, { contentType: "image/png", upsert: true });
+    if (uploadErr) return await fail("storage upload failed", 500);
+    const { data: signed } = await serviceClient.storage.from("image-outputs").createSignedUrl(objectPath, 60 * 60 * 24 * 7);
+    const imageUrl = signed?.signedUrl;
+    if (!imageUrl) return await fail("storage link failed", 500);
+
+    let assetId: string | null = null;
+    try {
+      const filename = `image_${id.slice(0, 8)}.png`;
+      const { data: assetRow } = await serviceClient.from("ams_assets").insert({
+        owner_id: user!.id, project_id: project_id ?? null,
+        filename, original_name: filename, asset_type: "image",
+        mime_type: "image/png", size_bytes: edited.bytes.byteLength, public_url: imageUrl, status: "ready",
+        metadata: { source: "image-studio", mode, job_id: id, provider: "openai" },
+      }).select("id").single();
+      assetId = assetRow?.id ?? null;
+    } catch { /* non-critical */ }
+
+    await serviceClient.from("ams_image_jobs").update({
+      status: "completed", image_url: imageUrl, asset_id: assetId, completed_at: new Date().toISOString(),
+    }).eq("id", id);
+    return json({ ok: true, job_id: id, status: "completed", image_url: imageUrl, asset_id: assetId });
+  }
 });

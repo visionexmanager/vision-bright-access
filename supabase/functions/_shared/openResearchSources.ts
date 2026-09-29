@@ -82,10 +82,11 @@ async function getJson(fetchFn: Fetch, url: string): Promise<unknown> {
   return res.json();
 }
 
-export async function searchOpenAlex(fetchFn: Fetch, topic: string, limit = 6): Promise<OpenReference[]> {
+export async function searchOpenAlex(fetchFn: Fetch, topic: string, limit = 6, page = 1): Promise<OpenReference[]> {
   const params = new URLSearchParams({
     search: topic,
     "per-page": String(limit),
+    page: String(page),
     select: "id,title,publication_year,doi,authorships,open_access,primary_location",
   });
   const data = await getJson(fetchFn, `https://api.openalex.org/works?${params}`) as { results?: Array<Record<string, unknown>> };

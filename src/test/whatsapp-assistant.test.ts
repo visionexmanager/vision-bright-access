@@ -847,8 +847,13 @@ describe("attachment understanding", () => {
     // dependency: what reaches the model is text, which every provider takes.
     const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
     expect(source).toContain("await extractPdfText(params.bytes)");
-    // And it must NOT go back to shipping megabytes of PDF as a data URL.
-    expect(source).not.toContain('toDataUrl(params.bytes, "application/pdf")');
+    // And a PDF with a text layer must NOT go back to shipping megabytes of PDF
+    // as a data URL. The one exception is a scan, which has no text to extract:
+    // readScannedPdf sends it to OpenAI as a file (openai-scanned-pdf.test.ts).
+    expect(source.split('toDataUrl(params.bytes, "application/pdf")').length - 1).toBe(1);
+    const scanned = source.slice(source.indexOf("export async function readScannedPdf"), source.indexOf("/** Read a customer's document."));
+    expect(scanned).toContain('toDataUrl(params.bytes, "application/pdf")');
+    expect(source).toContain('if (!extracted.ok && extracted.reason === "scanned") {');
 
     const reader = readFileSync("supabase/functions/_shared/whatsappPdfText.ts", "utf8");
     // Pinned to the version this repository already runs in the same Deno
@@ -1612,10 +1617,13 @@ describe("video", () => {
     expect(understand.unreadableNotice("ar", "video")).toMatch(/فيديو/);
   });
 
-  it("needs no ffmpeg or frame pipeline", () => {
+  it("reads a clip as a frame sheet plus a transcript when nothing takes video whole", () => {
+    // Gemini (inline_data) is unfunded, so VIDEO_TARGETS is empty; the clip is
+    // read on OpenAI instead — see whatsapp-video-openai.test.ts for the calls.
     const source = readFileSync("supabase/functions/_shared/whatsappUnderstand.ts", "utf8");
-    expect(source).toMatch(/no frame extraction, no ffmpeg/i);
-    expect(source).toContain("understandVideo");
+    expect(source).toContain("if (targets.length === 0) return await understandVideoFromFramesAndSpeech(params);");
+    expect(source).toContain("query: `to=jpg&sheet=${interval}&quality=balanced`");
+    expect(source).toContain("(params.transcribeImpl ?? transcribe)({ bytes: params.bytes, mimeType: params.mimeType })");
   });
 
   it("enforces the cap in the webhook before paying to watch", () => {
