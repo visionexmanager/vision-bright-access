@@ -396,6 +396,42 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
 
+      # Library external content providers (_shared/externalContent/registry.ts).
+      # All optional: a provider whose key is unset reports
+      # configuration_required and is never called. An unset GitHub secret is
+      # skipped, so a key set directly with `supabase secrets set` also works.
+      - name: Sync Library content provider keys to Supabase
+        shell: bash
+        run: |
+          for name in YOUTUBE_API_KEY VIMEO_ACCESS_TOKEN UNSPLASH_ACCESS_KEY PEXELS_API_KEY PIXABAY_API_KEY FLICKR_API_KEY FREESOUND_API_KEY JAMENDO_CLIENT_ID EUROPEANA_API_KEY DPLA_API_KEY SMITHSONIAN_API_KEY GOOGLE_BOOKS_API_KEY PODCASTINDEX_API_KEY PODCASTINDEX_API_SECRET CORE_API_KEY OPENVERSE_CLIENT_ID OPENVERSE_CLIENT_SECRET; do
+            value="${!name}"
+            if [[ -z "$value" ]]; then
+              continue
+            fi
+            supabase secrets set "$name=$value" --project-ref "$SUPABASE_PROJECT_REF"
+            echo "Synced $name."
+          done
+        env:
+          YOUTUBE_API_KEY:          ${{ secrets.YOUTUBE_API_KEY }}
+          VIMEO_ACCESS_TOKEN:       ${{ secrets.VIMEO_ACCESS_TOKEN }}
+          UNSPLASH_ACCESS_KEY:      ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          PEXELS_API_KEY:           ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY:          ${{ secrets.PIXABAY_API_KEY }}
+          FLICKR_API_KEY:           ${{ secrets.FLICKR_API_KEY }}
+          FREESOUND_API_KEY:        ${{ secrets.FREESOUND_API_KEY }}
+          JAMENDO_CLIENT_ID:        ${{ secrets.JAMENDO_CLIENT_ID }}
+          EUROPEANA_API_KEY:        ${{ secrets.EUROPEANA_API_KEY }}
+          DPLA_API_KEY:             ${{ secrets.DPLA_API_KEY }}
+          SMITHSONIAN_API_KEY:      ${{ secrets.SMITHSONIAN_API_KEY }}
+          GOOGLE_BOOKS_API_KEY:     ${{ secrets.GOOGLE_BOOKS_API_KEY }}
+          PODCASTINDEX_API_KEY:     ${{ secrets.PODCASTINDEX_API_KEY }}
+          PODCASTINDEX_API_SECRET:  ${{ secrets.PODCASTINDEX_API_SECRET }}
+          CORE_API_KEY:             ${{ secrets.CORE_API_KEY }}
+          OPENVERSE_CLIENT_ID:      ${{ secrets.OPENVERSE_CLIENT_ID }}
+          OPENVERSE_CLIENT_SECRET:  ${{ secrets.OPENVERSE_CLIENT_SECRET }}
+          SUPABASE_ACCESS_TOKEN:    ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:     ${{ secrets.SUPABASE_PROJECT_REF }}
+
       # A workflow_run event has no `before` field, and the commit's first
       # parent is only the right base when one commit was pushed. A rebase
       # merge pushes several, and every function changed before the last of

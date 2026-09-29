@@ -207,6 +207,7 @@ const LibraryTimelines = lazyWithRetry(() => import("./pages/library/LibraryTime
 const LibraryTimelineDetail = lazyWithRetry(() => import("./pages/library/LibraryTimelineDetail"));
 const LibraryAiSearch = lazyWithRetry(() => import("./pages/library/LibraryAiSearch"));
 const LibraryResearchAssistant = lazyWithRetry(() => import("./pages/library/LibraryResearchAssistant"));
+const LibraryOpenSources = lazyWithRetry(() => import("./pages/library/LibraryOpenSources"));
 const LibraryResearchAnalysisDetail = lazyWithRetry(() => import("./pages/library/LibraryResearchAnalysisDetail"));
 const LibraryResearchProjects = lazyWithRetry(() => import("./pages/library/LibraryResearchProjects"));
 const LibraryResearchProjectDetail = lazyWithRetry(() => import("./pages/library/LibraryResearchProjectDetail"));
@@ -877,6 +878,7 @@ function AppRoutes() {
                     <Route path="/library/timelines/:timelineId" element={<LibraryTimelineDetail />} />
                     <Route path="/library/ai-search" element={<LibraryAiSearch />} />
                     <Route path="/library/research-assistant" element={<AuthGuard><LibraryResearchAssistant /></AuthGuard>} />
+                    <Route path="/library/open-sources" element={<AuthGuard><LibraryOpenSources /></AuthGuard>} />
                     <Route path="/library/research-assistant/:analysisId" element={<AuthGuard><LibraryResearchAnalysisDetail /></AuthGuard>} />
                     <Route path="/library/research-projects" element={<AuthGuard><LibraryResearchProjects /></AuthGuard>} />
                     <Route path="/library/research-projects/:projectId" element={<AuthGuard><LibraryResearchProjectDetail /></AuthGuard>} />
