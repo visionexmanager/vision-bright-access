@@ -8,6 +8,15 @@ installUsageMetering("moderate-content");
 
 // Flags user-generated text using OpenAI's moderation model.
 // Call this at content-creation points (messages, listings, posts, reviews).
+//
+// Deliberately NOT behind the subscription gate (_shared/subscriptionGate.ts).
+// This is a safety control, not an AI service: it calls OpenAI's free
+// moderation endpoint (no VX, no charge) and guards children's chat and
+// library posts. Every caller (visionkids chat.ts and groups.ts, library
+// moderation.ts, aiService.ts) treats a refusal or error as "not flagged", so
+// gating it would let an unsubscribed account publish unmoderated content
+// rather than stop anything. Trusted callers: signed-in browser sessions only
+// (a JWT is required below); input is capped at 8000 characters.
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);

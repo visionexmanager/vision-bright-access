@@ -1,0 +1,179 @@
+name: Subscription gate — inspect production
+
+# Read-only look at how many accounts the subscription gate would let through,
+# and a rehearsal of the gate itself against real rows.
+#
+# Nothing is created, updated or deleted. Part 1 is SELECTs. Part 2 runs the gate
+# migration and its calls inside ONE DO block that ends in RAISE EXCEPTION, so
+# Postgres rolls the whole statement back — the new table and functions never
+# exist afterwards, and no notice row, balance or billing row is written.
+#
+# ── This repository is PUBLIC ───────────────────────────────────────────────
+#
+# So this prints counts, plan ids and verdicts — never a user id, email, phone
+# number or name. Which accounts are which is a question for the admin screen.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/subscription-gate-audit-f4e20b]
+    paths: [.github/workflows/subscription-gate-inspect.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    name: Read the subscription tables and rehearse the gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inspect
+        shell: bash
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          REF="${SUPABASE_PROJECT_REF:-nnyxtaftwispowolajpl}"
+          if [[ -z "$SUPABASE_ACCESS_TOKEN" ]]; then
+            say "::error::SUPABASE_ACCESS_TOKEN must be configured."
+            exit 1
+          fi
+
+          post() {
+            curl -s -X POST "https://api.supabase.com/v1/projects/$REF/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H "Content-Type: application/json" --data "$1"
+          }
+          ask() { post "$(jq -n --arg q "$1" '{query:$q}')"; }
+          block() { say ""; say "## $1"; say '```json'; ask "$2" | tee -a "$GITHUB_STEP_SUMMARY"; echo; say '```'; }
+
+          say "# Subscription gate — production, read-only"
+
+          block "0. Is the gate already deployed?" \
+            "select to_regclass('public.ai_subscription_gate_notices') is not null as notices_table,
+                    to_regproc('public.ai_subscription_gate') is not null as gate_fn,
+                    to_regproc('public.has_role') is not null as has_role,
+                    to_regproc('public.whatsapp_is_owner_number') is not null as owner_fn,
+                    to_regclass('public.whatsapp_identities') is not null as identities"
+
+          block "1. Subscriptions by plan and status" \
+            "select plan_id, status,
+                    count(*) as rows,
+                    count(*) filter (where ends_at is not null and ends_at <= now()) as ends_at_passed
+               from public.user_subscriptions group by 1,2 order by 1,2"
+
+          block "2. Plans" \
+            "select id, is_active, price_monthly_usd from public.billing_plans order by sort_order, id"
+
+          block "3. Orders" \
+            "select plan_id, status, count(*) as orders from public.subscription_orders group by 1,2 order by 1,2"
+
+          block "4. Accounts, admins, trials, linked WhatsApp numbers" \
+            "select (select count(*) from auth.users) as accounts,
+                    (select count(distinct user_id) from public.user_roles where role = 'admin') as admins,
+                    (select count(*) from public.profiles where trial_expires_at > now()) as in_trial,
+                    (select count(*) from public.whatsapp_identities where user_id is not null) as wa_linked,
+                    (select count(*) from public.whatsapp_identities) as wa_identities"
+
+          block "5. Entitled by the gate's own predicate (inline SELECT)" \
+            "select count(distinct s.user_id) as entitled_by_subscription
+               from public.user_subscriptions s
+               join public.billing_plans p on p.id = s.plan_id
+              where s.status = 'active' and (s.ends_at is null or s.ends_at > now())
+                and p.is_active and s.plan_id = any (array['kids','basic','pro','business'])"
+
+          say ""
+          say "## 6. Rehearsal of the real gate, rolled back"
+          say "The verdicts below are read from the error text of a statement that is always rolled back."
+
+          REHEARSAL=$(cat <<'PLPGSQL'
+          DO $do$
+          DECLARE
+            r text := '';
+            sub_user uuid; unsub_user uuid; wa_unsub text;
+            v1 text; v2 text; v3 text;
+            pts_before bigint; pts_after bigint; wal_before bigint; wal_after bigint;
+            use_before bigint; use_after bigint; ord_before bigint; ord_after bigint;
+            entitled bigint; lapsed_total bigint; lapsed_entitled bigint;
+          BEGIN
+            EXECUTE $mig$__MIGRATION__$mig$;
+            EXECUTE $mig$__MIGRATION__$mig$;  -- twice: idempotent
+
+            SELECT count(*) INTO entitled FROM (SELECT DISTINCT user_id FROM public.user_subscriptions) x
+             WHERE public.ai_user_entitled(x.user_id);
+            r := r || format('entitled_subscribers=%s; ', entitled);
+
+            SELECT user_id INTO sub_user FROM (SELECT DISTINCT user_id FROM public.user_subscriptions) x
+             WHERE public.ai_user_entitled(x.user_id)
+               AND NOT public.has_role(x.user_id, 'admin') LIMIT 1;
+            IF sub_user IS NULL THEN
+              r := r || 'real_paid_subscriber=NONE (positive authorization not verifiable); ';
+            ELSE
+              r := r || format('real_paid_subscriber_verdict=%s; ', public.ai_subscription_gate('web', sub_user::text, sub_user));
+            END IF;
+
+            SELECT count(*), count(*) FILTER (WHERE public.ai_user_entitled(user_id))
+              INTO lapsed_total, lapsed_entitled
+              FROM (SELECT DISTINCT user_id FROM public.user_subscriptions s
+                     WHERE s.status <> 'active' OR (s.ends_at IS NOT NULL AND s.ends_at <= now())) x;
+            r := r || format('accounts_with_lapsed_rows=%s, of_which_still_entitled_via_another_row=%s; ', lapsed_total, lapsed_entitled);
+
+            SELECT u.id INTO unsub_user FROM auth.users u
+             WHERE NOT EXISTS (SELECT 1 FROM public.user_subscriptions s WHERE s.user_id = u.id)
+               AND NOT public.has_role(u.id, 'admin')
+             ORDER BY u.created_at DESC LIMIT 1;
+            IF unsub_user IS NULL THEN
+              r := r || 'real_unsubscribed_account=NONE; ';
+            ELSE
+              SELECT coalesce(sum(points),0) INTO pts_before FROM public.user_points WHERE user_id = unsub_user;
+              SELECT coalesce(sum(balance_vx),0) INTO wal_before FROM public.credit_wallets WHERE user_id = unsub_user;
+              SELECT count(*) INTO use_before FROM public.usage_logs WHERE user_id = unsub_user;
+              SELECT count(*) INTO ord_before FROM public.credit_transactions WHERE user_id = unsub_user;
+              v1 := public.ai_subscription_gate('web', unsub_user::text, unsub_user);
+              v2 := public.ai_subscription_gate('web', unsub_user::text, unsub_user);
+              v3 := public.ai_subscription_gate('web', unsub_user::text, unsub_user);
+              SELECT coalesce(sum(points),0) INTO pts_after FROM public.user_points WHERE user_id = unsub_user;
+              SELECT coalesce(sum(balance_vx),0) INTO wal_after FROM public.credit_wallets WHERE user_id = unsub_user;
+              SELECT count(*) INTO use_after FROM public.usage_logs WHERE user_id = unsub_user;
+              SELECT count(*) INTO ord_after FROM public.credit_transactions WHERE user_id = unsub_user;
+              r := r || format('real_unsubscribed_verdicts=%s,%s,%s; points_unchanged=%s; wallet_unchanged=%s; usage_rows_unchanged=%s; ledger_rows_unchanged=%s; ',
+                               v1, v2, v3, pts_before = pts_after, wal_before = wal_after, use_before = use_after, ord_before = ord_after);
+            END IF;
+
+            v1 := public.ai_subscription_gate_whatsapp('+000000000001');
+            v2 := public.ai_subscription_gate_whatsapp('+000000000001');
+            r := r || format('whatsapp_unlinked_number_verdicts=%s,%s; ', v1, v2);
+
+            SELECT i.wa_phone INTO wa_unsub FROM public.whatsapp_identities i
+             WHERE i.user_id IS NOT NULL AND NOT public.ai_user_entitled(i.user_id)
+               AND NOT public.whatsapp_is_owner_number(i.wa_phone) LIMIT 1;
+            IF wa_unsub IS NULL THEN
+              r := r || 'whatsapp_linked_unsubscribed=NONE; ';
+            ELSE
+              r := r || format('whatsapp_linked_unsubscribed_verdicts=%s,%s; ',
+                               public.ai_subscription_gate_whatsapp(wa_unsub), public.ai_subscription_gate_whatsapp(wa_unsub));
+            END IF;
+
+            RAISE EXCEPTION 'GATE_REHEARSAL %', r;
+          END
+          $do$
+          PLPGSQL
+          )
+          MIGRATION=$(cat supabase/migrations/20261062000000_ai_subscription_gate.sql)
+          shopt -u patsub_replacement 2>/dev/null || true
+          REHEARSAL="${REHEARSAL//__MIGRATION__/$MIGRATION}"
+          say '```'
+          post "$(jq -n --arg q "$REHEARSAL" '{query:$q}')" | tee -a "$GITHUB_STEP_SUMMARY"; echo
+          say '```'
+
+          block "7. Nothing was left behind" \
+            "select to_regclass('public.ai_subscription_gate_notices') is not null as notices_table_exists,
+                    to_regproc('public.ai_subscription_gate') is not null as gate_fn_exists"
+          say ""
+          say "Every statement above was a SELECT or a rolled-back DO block."
