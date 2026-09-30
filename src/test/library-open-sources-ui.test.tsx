@@ -14,6 +14,12 @@ const state = vi.hoisted(() => ({
   providers: vi.fn(),
   health: vi.fn(),
   stored: vi.fn(),
+  saved: vi.fn(),
+  save: vi.fn(),
+  unsave: vi.fn(),
+  projects: [] as Array<{ id: string; title: string }>,
+  addProjectItem: vi.fn(),
+  toast: vi.fn(),
 }));
 
 vi.mock("@/contexts/LanguageContext", () => ({
@@ -23,6 +29,20 @@ vi.mock("@/contexts/LanguageContext", () => ({
   },
 }));
 vi.mock("@/hooks/useDocumentHead", () => ({ useDocumentHead: () => undefined }));
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { id: "user-1" } }) }));
+vi.mock("@/hooks/library/useResearchProjects", () => ({ useResearchProjects: () => ({ projects: state.projects }) }));
+vi.mock("@/services/library/researchProjects", () => ({ addProjectItem: state.addProjectItem }));
+vi.mock("@/hooks/use-toast", () => ({ toast: state.toast }));
+// Radix Select cannot be driven in jsdom; a native select carries the same value.
+vi.mock("@/components/ui/select", () => ({
+  Select: ({ children, value, onValueChange }: { children: ReactNode; value: string; onValueChange: (v: string) => void }) => (
+    <select aria-label="project" value={value} onChange={(e) => onValueChange(e.target.value)}><option value="" />{children}</select>
+  ),
+  SelectTrigger: () => null,
+  SelectValue: () => null,
+  SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SelectItem: ({ value, children }: { value: string; children: ReactNode }) => <option value={value}>{children}</option>,
+}));
 vi.mock("@/components/Layout", () => ({ Layout: ({ children }: { children: ReactNode }) => <>{children}</> }));
 vi.mock("@/components/library/layout/LibraryLayout", () => ({
   LibraryLayout: ({ title, children }: { title: string; children: ReactNode }) => <main><h1>{title}</h1>{children}</main>,
@@ -38,6 +58,13 @@ vi.mock("@/services/library/externalContent", async () => {
     fetchExternalProviders: state.providers,
     runExternalProviderHealthCheck: state.health,
     fetchStoredProviderHealth: state.stored,
+    citationFor: (await vi.importActual<typeof import("@/services/library/externalContent")>("@/services/library/externalContent")).citationFor,
+    fetchSavedExternalItems: state.saved,
+    saveExternalItem: state.save,
+    unsaveExternalItem: state.unsave,
+    SaveExternalItemError: class SaveExternalItemError extends Error {
+      constructor(readonly code: string) { super(code); }
+    },
   };
 });
 
@@ -75,6 +102,12 @@ beforeEach(() => {
   state.providers.mockReset().mockResolvedValue({ providers: PROVIDERS, unsupported: [{ id: "loc", name: "Library of Congress", homepage: "https://www.loc.gov", categories: ["images"], status: "unsupported", reason: "Cloudflare bot challenge (HTTP 403) measured on 2026-09-29." }] });
   state.health.mockReset();
   state.stored.mockReset().mockResolvedValue([]);
+  state.saved.mockReset().mockResolvedValue([]);
+  state.save.mockReset().mockResolvedValue(undefined);
+  state.unsave.mockReset().mockResolvedValue(true);
+  state.projects = [];
+  state.addProjectItem.mockReset().mockResolvedValue(undefined);
+  state.toast.mockReset();
 });
 
 describe("Open Sources page", () => {
@@ -94,7 +127,7 @@ describe("Open Sources page", () => {
 
     await screen.findByText("3 results from 3 sources");
     expect(state.search).toHaveBeenCalledWith({ query: "moon", categories: ["images"], language: "en", page: 1, limit: 6 });
-    expect(screen.getByRole("status")).toHaveTextContent("3 results from 3 sources");
+    expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain("3 results from 3 sources");
     expect(screen.getByText("Not answering right now: YouTube")).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Full Moon", "Moon film", "A paper"]);
   });
@@ -113,8 +146,9 @@ describe("Open Sources page", () => {
     const paper = screen.getByRole("article", { name: "A paper" });
     expect(within(paper).getByText("License not stated. Check the source before reusing it.")).toBeInTheDocument();
     expect(within(paper).queryByRole("link", { name: /Download/ })).toBeNull();
-    // Nothing to play inside the Library: only the link out.
-    expect(within(paper).queryByRole("button")).toBeNull();
+    // Nothing to play inside the Library: only the link out, and the Save toggle.
+    expect(within(paper).queryByRole("button", { name: /^(Play|Read|View):/ })).toBeNull();
+    expect(within(paper).getByRole("button", { name: "Save: A paper" })).toBeInTheDocument();
   });
 
   it("says so when nothing is found or the search fails", async () => {
@@ -247,5 +281,244 @@ describe("admin panel", () => {
     expect(within(commons).getByText("Healthy")).toBeInTheDocument();
     expect(within(commons).getByText(/812 ms/)).toBeInTheDocument();
     expect(within(screen.getByRole("row", { name: /YouTube/ })).getByText("Not configured")).toBeInTheDocument();
+  });
+});
+
+describe("My Library: saving an external result", () => {
+  const results = () => state.search.mockResolvedValue({ items: [COMMONS, PLAIN], providers: [], duplicates: 0, page: 1 });
+
+  it("Save is a toggle button, announced in words, and keeps the item on the shelf", async () => {
+    results();
+    renderPage("/library/open-sources?q=moon");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    const save = within(card).getByRole("button", { name: "Save: Full Moon" });
+    expect(save).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(save);
+    await waitFor(() => expect(state.save).toHaveBeenCalledTimes(1));
+    // Only the fields the shelf keeps are sent: no media, no captions, no provider extras.
+    expect(state.save).toHaveBeenCalledWith(expect.objectContaining({ id: "wikimedia_commons:1", title: "Full Moon" }));
+    const pressed = await within(card).findByRole("button", { name: "Saved: Full Moon" });
+    expect(pressed).toHaveAttribute("aria-pressed", "true");
+    expect(pressed).toHaveTextContent("Saved");
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain("Saved to My Library: Full Moon"));
+    expect(screen.getByRole("button", { name: "My saved items (1)" })).toBeInTheDocument();
+
+    fireEvent.click(pressed);
+    await waitFor(() => expect(state.unsave).toHaveBeenCalledWith("wikimedia_commons:1"));
+    await within(card).findByRole("button", { name: "Save: Full Moon" });
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain("Removed from My Library: Full Moon"));
+  });
+
+  it("marks what is already saved when the page opens", async () => {
+    results();
+    state.saved.mockResolvedValue([COMMONS]);
+    renderPage("/library/open-sources?q=moon");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    expect(await within(card).findByRole("button", { name: "Saved: Full Moon" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("the saved view lists the shelf, lets a reader remove from it, and says when it is empty", async () => {
+    state.saved.mockResolvedValue([COMMONS, PLAIN]);
+    renderPage("/library/open-sources?view=saved");
+    expect(await screen.findByRole("article", { name: "Full Moon" })).toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "A paper" })).toBeInTheDocument();
+    expect(screen.queryByRole("search")).toBeNull(); // the search form belongs to the search view
+    fireEvent.click(within(screen.getByRole("article", { name: "A paper" })).getByRole("button", { name: "Saved: A paper" }));
+    await waitFor(() => expect(screen.queryByRole("article", { name: "A paper" })).toBeNull());
+    fireEvent.click(within(screen.getByRole("article", { name: "Full Moon" })).getByRole("button", { name: "Saved: Full Moon" }));
+    expect(await screen.findByText("You have not saved anything yet. Use Save on a result to keep it here.")).toBeInTheDocument();
+  });
+
+  it("switches between search and saved without losing the results", async () => {
+    results();
+    renderPage("/library/open-sources?q=moon");
+    await screen.findByRole("article", { name: "Full Moon" });
+    fireEvent.click(screen.getByRole("button", { name: /My saved items/ }));
+    expect(screen.queryByRole("search")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Search open sources", pressed: false }));
+    expect(await screen.findByRole("article", { name: "Full Moon" })).toBeInTheDocument();
+  });
+
+  it("a reader without a plan that includes the Library is told why, and nothing changes", async () => {
+    results();
+    const { SaveExternalItemError } = await import("@/services/library/externalContent");
+    state.save.mockRejectedValue(new SaveExternalItemError("subscription_required"));
+    renderPage("/library/open-sources?q=moon");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    fireEvent.click(within(card).getByRole("button", { name: "Save: Full Moon" }));
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain("Saving to My Library needs a plan that includes the Library."));
+    expect(within(card).getByRole("button", { name: "Save: Full Moon" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("any other failure says so and leaves the button usable", async () => {
+    results();
+    state.save.mockRejectedValue(new Error("network"));
+    renderPage("/library/open-sources?q=moon");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    fireEvent.click(within(card).getByRole("button", { name: "Save: Full Moon" }));
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain("Could not update your saved items. Please try again."));
+    expect(within(card).getByRole("button", { name: "Save: Full Moon" })).not.toBeDisabled();
+  });
+
+  it("speaks Arabic: the buttons and announcements come from the Arabic dictionary", async () => {
+    state.lang = "ar";
+    results();
+    renderPage("/library/open-sources?q=moon");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    fireEvent.click(within(card).getByRole("button", { name: "حفظ: Full Moon" }));
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain("تم الحفظ في مكتبتي: Full Moon"));
+  });
+});
+
+describe("Add to a research project", () => {
+  const results = () => state.search.mockResolvedValue({ items: [COMMONS, PLAIN], providers: [], duplicates: 0, page: 1 });
+
+  it("says where to make a project when there are none, and offers no Add button", async () => {
+    results();
+    renderPage("/library/open-sources?q=moon");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    expect(within(card).queryByRole("button", { name: /Add to project/ })).toBeNull();
+    expect(screen.getByRole("link", { name: "Create a research project to save these references." })).toHaveAttribute("href", "/library/research-projects");
+  });
+
+  it("adds the result to the chosen project as a reference with its citation, and says so", async () => {
+    results();
+    state.projects = [{ id: "p1", title: "Moon study" }, { id: "p2", title: "Other" }];
+    renderPage("/library/open-sources?q=moon");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    const add = within(card).getByRole("button", { name: "Add to project: Full Moon" });
+    // No project chosen yet: focusable, announced as unavailable, and it says why.
+    expect(add).toHaveAttribute("aria-disabled", "true");
+    expect(add).not.toBeDisabled();
+    expect(add).toHaveAccessibleDescription("Choose a research project first.");
+    fireEvent.click(add);
+    expect(state.addProjectItem).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("project"), { target: { value: "p1" } });
+    expect(add).toHaveAttribute("aria-disabled", "false");
+    expect(add).not.toHaveAccessibleDescription("Choose a research project first.");
+    fireEvent.click(add);
+    await waitFor(() => expect(state.addProjectItem).toHaveBeenCalledTimes(1));
+    expect(state.addProjectItem).toHaveBeenCalledWith("p1", "user-1", {
+      itemType: "reference",
+      citationText: "Jane (n.d.). Full Moon. Wikimedia Commons. CC BY-SA 4.0. https://wikimedia_commons.example/1",
+    });
+    expect(state.toast).toHaveBeenCalledWith({ title: "Reference added to the project" });
+    // Announced in words as well as by the toast, and the button stays reachable.
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain("Reference added to the project"));
+    const added = await within(card).findByRole("button", { name: "Added: Full Moon" });
+    expect(added).toHaveAttribute("aria-disabled", "true");
+    expect(added).not.toBeDisabled();
+    fireEvent.click(added);
+    expect(state.addProjectItem).toHaveBeenCalledTimes(1);
+    // The other project is a different target: choosing it makes the item addable again.
+    fireEvent.change(screen.getByLabelText("project"), { target: { value: "p2" } });
+    expect(within(card).getByRole("button", { name: "Add to project: Full Moon" })).toHaveAttribute("aria-disabled", "false");
+  });
+
+  it("says when adding failed, and leaves the button usable", async () => {
+    results();
+    state.projects = [{ id: "p1", title: "Moon study" }];
+    state.addProjectItem.mockRejectedValue(new Error("not an editor"));
+    renderPage("/library/open-sources?q=moon");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    fireEvent.change(screen.getByLabelText("project"), { target: { value: "p1" } });
+    fireEvent.click(within(card).getByRole("button", { name: "Add to project: Full Moon" }));
+    await waitFor(() => expect(state.toast).toHaveBeenCalledWith({ title: "Couldn't add the reference", description: "not an editor", variant: "destructive" }));
+    expect(within(card).getByRole("button", { name: "Add to project: Full Moon" })).toHaveAttribute("aria-disabled", "false");
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain("Couldn't add the reference"));
+  });
+
+  it("the saved view offers it too", async () => {
+    state.projects = [{ id: "p1", title: "Moon study" }];
+    state.saved.mockResolvedValue([COMMONS]);
+    renderPage("/library/open-sources?view=saved");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    expect(within(card).getByRole("button", { name: "Add to project: Full Moon" })).toBeInTheDocument();
+  });
+});
+
+describe("My Library: keyboard and screen-reader behaviour", () => {
+  const results = () => state.search.mockResolvedValue({ items: [COMMONS, PLAIN], providers: [], duplicates: 0, page: 1 });
+
+  it("the saved button's name starts with its visible text, and aria-pressed carries the state", async () => {
+    results();
+    renderPage("/library/open-sources?q=moon");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    const button = within(card).getByRole("button", { name: "Save: Full Moon" });
+    expect(button).toHaveTextContent("Save");
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(button);
+    const pressed = await within(card).findByRole("button", { name: "Saved: Full Moon" });
+    expect(pressed).toHaveTextContent("Saved");
+    expect(pressed).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("removing a card in the saved view moves focus to its neighbour, never to the page", async () => {
+    const third = item("nasa", "NASA", "n1", { title: "Third item" });
+    state.saved.mockResolvedValue([COMMONS, PLAIN, third]);
+    renderPage("/library/open-sources?view=saved");
+    const middle = await screen.findByRole("article", { name: "A paper" });
+    const button = within(middle).getByRole("button", { name: "Saved: A paper" });
+    button.focus();
+    fireEvent.click(button);
+    await waitFor(() => expect(screen.queryByRole("article", { name: "A paper" })).toBeNull());
+    // The card that took its place: the third one.
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { level: 3, name: "Third item" })));
+    // Removing the last one moves back to the card before it.
+    fireEvent.click(within(screen.getByRole("article", { name: "Third item" })).getByRole("button", { name: "Saved: Third item" }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { level: 3, name: "Full Moon" })));
+  });
+
+  it("removing the last saved card moves focus to the empty-state message", async () => {
+    state.saved.mockResolvedValue([COMMONS]);
+    renderPage("/library/open-sources?view=saved");
+    fireEvent.click(within(await screen.findByRole("article", { name: "Full Moon" })).getByRole("button", { name: "Saved: Full Moon" }));
+    const empty = await screen.findByText("You have not saved anything yet. Use Save on a result to keep it here.");
+    await waitFor(() => expect(document.activeElement).toBe(empty));
+    expect(empty).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("the saved view has a heading, and the tab switch clears a stale announcement", async () => {
+    results();
+    renderPage("/library/open-sources?q=moon");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    fireEvent.click(within(card).getByRole("button", { name: "Save: Full Moon" }));
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain("Saved to My Library: Full Moon"));
+    fireEvent.click(screen.getByRole("button", { name: /My saved items/ }));
+    expect(screen.getByRole("heading", { level: 2, name: "My saved items" })).toBeInTheDocument();
+    expect(screen.getAllByRole("status").map((s) => s.textContent)).not.toContain("Saved to My Library: Full Moon");
+  });
+
+  it("the same outcome twice is announced twice: the region is emptied before it is filled again", async () => {
+    results();
+    state.save.mockRejectedValue(new Error("network"));
+    renderPage("/library/open-sources?q=moon");
+    const card = await screen.findByRole("article", { name: "Full Moon" });
+    const failure = "Could not update your saved items. Please try again.";
+    const region = () => screen.getAllByRole("status").find((s) => s.textContent === failure || s.textContent === "");
+    fireEvent.click(within(card).getByRole("button", { name: "Save: Full Moon" }));
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain(failure));
+    const seen: string[] = [];
+    const observer = new MutationObserver(() => seen.push(screen.getAllByRole("status").map((s) => s.textContent).join("|")));
+    observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+    fireEvent.click(within(card).getByRole("button", { name: "Save: Full Moon" }));
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain(failure));
+    observer.disconnect();
+    expect(region()).toBeDefined();
+    // Emptied, then filled: at least one mutation in between where the failure text was absent.
+    expect(seen.some((s) => !s.includes(failure))).toBe(true);
+  });
+
+  it("the project chooser has a real label and a placeholder", async () => {
+    results();
+    state.projects = [{ id: "p1", title: "Moon study" }];
+    const source = (await import("node:fs")).readFileSync("src/pages/library/LibraryOpenSources.tsx", "utf8");
+    expect(source).toMatch(/<label htmlFor=\{projectSelectId\}/);
+    expect(source).toMatch(/<SelectTrigger id=\{projectSelectId\}>/);
+    expect(source).toContain('placeholder={t("library.openSources.projectPlaceholder")}');
+    expect(source).not.toContain("aria-labelledby={projectLabelId}");
+    renderPage("/library/open-sources?q=moon");
+    expect(await screen.findByLabelText("project")).toBeInTheDocument();
   });
 });

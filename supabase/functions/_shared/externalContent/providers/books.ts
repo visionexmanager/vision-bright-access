@@ -1,6 +1,7 @@
 /**
- * Books and open textbooks, keyless: Open Library, Project Gutenberg (through
- * Gutendex), the Directory of Open Access Books and OpenStax.
+ * Books and open textbooks, keyless: Open Library, the Directory of Open Access
+ * Books and OpenStax. Project Gutenberg and Standard Ebooks are read from their
+ * OPDS feeds in opds.ts.
  */
 
 import { embeds } from "../embed.ts";
@@ -54,58 +55,6 @@ export const openLibrary: ContentProvider = {
       fields: "key,title,author_name,first_publish_year,cover_i,ebook_access,ia,language,subject",
     });
     return parseOpenLibrary(await getJson(ctx, `https://openlibrary.org/search.json?${q}`));
-  },
-};
-
-// ─── Project Gutenberg (Gutendex) ──────────────────────────────────────────
-
-const GUTENBERG_LICENSE = { name: "Public domain in the USA", url: "https://www.gutenberg.org/policy/permission.html" };
-
-export function parseGutendex(data: unknown): ExternalContentItem[] {
-  const results = ((data as { results?: Array<Record<string, unknown>> })?.results) ?? [];
-  return results.flatMap((book) => {
-    const title = clean(book.title, 200);
-    if (typeof book.id !== "number" || !title) return [];
-    const formats = (book.formats ?? {}) as Record<string, string>;
-    const publicDomain = book.copyright === false;
-    const authors = ((book.authors as Array<{ name?: string }>) ?? []).map((a) => clean(a.name, 80)).filter(Boolean);
-    const summary = Array.isArray(book.summaries) ? book.summaries[0] : null;
-    return [makeItem("Project Gutenberg", {
-      provider: "gutenberg",
-      providerItemId: String(book.id),
-      title,
-      description: cleanOrNull(summary, 500),
-      contentType: "book",
-      mimeType: "application/epub+zip",
-      thumbnailUrl: httpsUrl(formats["image/jpeg"]),
-      externalUrl: `https://www.gutenberg.org/ebooks/${book.id}`,
-      downloadUrl: publicDomain ? httpsUrl(formats["application/epub+zip"]) : null,
-      creator: authors.join("; ") || null,
-      language: Array.isArray(book.languages) && typeof book.languages[0] === "string" ? book.languages[0] : null,
-      license: publicDomain ? GUTENBERG_LICENSE : null,
-      attribution: publicDomain ? "Project Gutenberg" : null,
-      tags: tagList(book.bookshelves, 4).map((s) => s.replace(/^Category:\s*/, "")),
-    })];
-  });
-}
-
-export const gutenberg: ContentProvider = {
-  id: "gutenberg",
-  name: "Project Gutenberg",
-  homepage: "https://www.gutenberg.org",
-  docs: "https://gutendex.com/",
-  categories: ["books", "education"],
-  auth: { kind: "none" },
-  capabilities: { search: true, preview: false, embed: false, download: true },
-  licenseNote: "Over 70,000 books in the US public domain; searched through Gutendex, a community JSON index of the Gutenberg catalogue.",
-  rateLimit: "No published quota; Gutendex answered in 0.5 s on one probe and timed out on another.",
-  healthQuery: "frankenstein",
-  async search(params, ctx) {
-    // Gutendex pages hold 32 books; map this page's window onto one of them.
-    const start = (params.page - 1) * params.limit;
-    const q = new URLSearchParams({ search: params.query, page: String(Math.floor(start / 32) + 1) });
-    const offset = start % 32;
-    return parseGutendex(await getJson(ctx, `https://gutendex.com/books/?${q}`)).slice(offset, offset + params.limit);
   },
 };
 

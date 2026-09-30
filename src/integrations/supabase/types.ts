@@ -20775,6 +20775,72 @@ export type Database = {
           },
         ]
       }
+      library_saved_external_items: {
+        Row: {
+          attribution: string | null
+          content_type: string
+          creator: string | null
+          description: string | null
+          download_url: string | null
+          external_url: string
+          id: string
+          item_id: string
+          language: string | null
+          license_name: string | null
+          license_url: string | null
+          note: string | null
+          provider: string
+          provider_name: string
+          published_at: string | null
+          saved_at: string
+          thumbnail_url: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          attribution?: string | null
+          content_type: string
+          creator?: string | null
+          description?: string | null
+          download_url?: string | null
+          external_url: string
+          id?: string
+          item_id: string
+          language?: string | null
+          license_name?: string | null
+          license_url?: string | null
+          note?: string | null
+          provider: string
+          provider_name: string
+          published_at?: string | null
+          saved_at?: string
+          thumbnail_url?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          attribution?: string | null
+          content_type?: string
+          creator?: string | null
+          description?: string | null
+          download_url?: string | null
+          external_url?: string
+          id?: string
+          item_id?: string
+          language?: string | null
+          license_name?: string | null
+          license_url?: string | null
+          note?: string | null
+          provider?: string
+          provider_name?: string
+          published_at?: string | null
+          saved_at?: string
+          thumbnail_url?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       library_saved_quotes: {
         Row: {
           created_at: string
@@ -28490,6 +28556,11 @@ export type Database = {
         Returns: boolean
       }
       leave_library_club: { Args: { _club_id: string }; Returns: undefined }
+      library_save_external_item: {
+        Args: { _item: Json; _note?: string }
+        Returns: string
+      }
+      library_unsave_external_item: { Args: { _item_id: string }; Returns: boolean }
       library_immutable_array_to_string: {
         Args: { _arr: string[]; _sep: string }
         Returns: string

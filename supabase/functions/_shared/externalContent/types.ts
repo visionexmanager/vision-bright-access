@@ -22,9 +22,9 @@ export type ContentType =
   | "radio";
 
 /** What a reader filters by. A provider serves one or more of these. */
-export type ContentCategory = "images" | "audio" | "video" | "books" | "documents" | "education" | "data";
+export type ContentCategory = "images" | "audio" | "video" | "books" | "documents" | "education" | "data" | "news";
 
-export const CONTENT_CATEGORIES: readonly ContentCategory[] = ["images", "audio", "video", "books", "documents", "education", "data"];
+export const CONTENT_CATEGORIES: readonly ContentCategory[] = ["images", "audio", "video", "books", "documents", "education", "data", "news"];
 
 /**
  * ready                  — answers now: keyless, or its credentials are set.
