@@ -18,6 +18,10 @@
 export interface ImageRequest {
   /** What the picture should show: no verbs, no image word, no "please". */
   query: string;
+  /** How many pictures: 1, or the number asked for, or 3 for a plural ("صور", "photos"); at most 5. */
+  count: number;
+  /** The sender asked for the link: then the answer is the link and nothing is attached. */
+  wantsLink: boolean;
 }
 
 export const IMAGE_QUERY_MAX_CHARS = 80;
@@ -97,6 +101,7 @@ const CREATE_VERBS = [
 
 /** Words that carry no part of the subject, stripped from either end of what is left. */
 const EDGE_FILLERS = [
+  "with", "مع", "avec", "mit", "con", "com", "с", "ile", "dengan", "với", "के", "साथ", "সহ", "همراه", "ساتھ", "och",
   "them", "these", "those", "on", "حول", "بخصوص", "sobre", "acerca", "sur", "propos", "zum", "su", "sul", "sulla", "sull", "over", "na", "temat", "об", "پر", "بارے", "درباره", "সম্পর্কে", "về",
   "a", "an", "the", "of", "me", "to", "it", "for", "some", "about", "please", "and", "my", "us",
   "لي", "لى", "من", "عن", "على", "إلى", "الى", "و", "ل", "رجاء", "لو", "سمحت", "فضلك", "ال",
@@ -143,6 +148,44 @@ const WANT_VERBS = [
 ];
 const WANT = wordPattern(WANT_VERBS);
 const IMAGE = wordPattern(IMAGE_WORDS);
+
+/** Words for "link" — a message that has one is asking for the address, not for the file. */
+const LINK_WORDS = [
+  "link", "links", "url", "urls", "hyperlink", "web address",
+  "رابط", "روابط", "لينك", "لنك", "الرابط", "الروابط",
+  "lien", "liens", "enlace", "enlaces", "collegamento", "collegamenti", "ссылка", "ссылку", "ссылки", "链接", "連結", "リンク", "링크",
+  "bağlantı", "baglanti", "tautan", "liên kết", "लिंक", "লিংক", "لینک", "لنک", "verwijzing",
+];
+const LINK = wordPattern(LINK_WORDS);
+
+/** True when the message asks for the address ("with the link", "مع الرابط", "send me the link to ..."). */
+export function wantsLink(text: string | null | undefined): boolean {
+  const message = (text ?? "").normalize("NFC");
+  return !!message && LINK.test(message);
+}
+
+/** Plural nouns: "some pictures of ..." is a set, not one. */
+const PLURAL_WORDS = [
+  "images", "photos", "pictures", "pics", "photographs", "papers", "studies", "articles", "documents", "recordings", "videos", "clips",
+  "صور", "أبحاث", "دراسات", "مقالات", "ملفات", "مستندات", "فيديوهات", "تسجيلات",
+  "fotos", "bilder", "imágenes", "imagenes", "imagens", "immagini", "artículos", "articulos", "artigos", "articoli", "documentos", "dokumente", "artikelen", "afbeeldingen",
+  "zdjęcia", "zdjecia", "artykuły", "изображения", "картинки", "фотографии", "статьи", "исследования", "resimler", "makaleler", "études", "etudes", "articles",
+];
+const PLURAL = wordPattern(PLURAL_WORDS);
+const DIGIT = /(?<![\p{L}\p{N}])([1-9\u0661-\u0669])(?![\p{L}\p{N}])/u;
+const ARABIC_INDIC_ZERO = 0x0660;
+
+/** How many files: the number the sender wrote (at most 5), else 3 for a plural when sets are allowed, else 1. */
+function fileCount(message: string, pluralMeansMany: boolean): number {
+  const digit = DIGIT.exec(message)?.[1];
+  if (digit) {
+    const code = digit.charCodeAt(0);
+    const n = code >= 0x0661 ? code - ARABIC_INDIC_ZERO : Number(digit);
+    return Math.max(1, Math.min(5, n));
+  }
+  return pluralMeansMany && PLURAL.test(message) ? 3 : 1;
+}
+const DIGITS_GLOBAL = /(?<![\p{L}\p{N}])[1-9\u0661-\u0669](?![\p{L}\p{N}])/gu;
 /** The picture's name opens the message ("صورة أسد", "photo of Petra"): nothing else it could be, once making is ruled out. */
 const OPENS_WITH_IMAGE = new RegExp(String.raw`^[\s"'«(]*(?:${IMAGE.source})`, "iu");
 /** In a Latin script a bare noun is too common ("image generation models"); it must be followed by "of", "de", "von"... */
@@ -152,7 +195,7 @@ const LATIN_START = /^[\s"'«(]*\p{Script=Latin}/u;
 const opens = (re: RegExp, message: string): boolean => re.test(message) && (!LATIN_START.test(message) || LATIN_NOUN_THEN_CONNECTOR.test(message));
 const RETRIEVE = wordPattern(RETRIEVE_VERBS);
 const CREATE = wordPattern(CREATE_VERBS);
-const REMOVABLE = new RegExp(`${IMAGE.source}|${RETRIEVE.source}|${WANT.source}`, "giu");
+const REMOVABLE = new RegExp(`${IMAGE.source}|${RETRIEVE.source}|${WANT.source}|${LINK.source}`, "giu");
 const FILLER_SET = new Set(EDGE_FILLERS.map((w) => w.toLowerCase()));
 /** A sentence about a picture someone already has ("the picture you sent was nice"), not a request. */
 const ABOUT_A_PICTURE = /^(?:you|i|we|he|she|they|it|was|is|that|this|which|who|أرسلته|بعتلي|اللي|الذي|الي)(?:\s|$)/iu;
@@ -166,7 +209,7 @@ export function parseImageRequest(text: string | null | undefined): ImageRequest
   if (!IMAGE.test(message)) return null;
   if (!RETRIEVE.test(message) && !WANT.test(message) && !opens(OPENS_WITH_IMAGE, message)) return null;
 
-  const stripped = message.replace(REMOVABLE, " ").replace(/\s+/g, " ").replace(EDGE_PUNCT, "").trim();
+  const stripped = message.replace(DIGITS_GLOBAL, " ").replace(REMOVABLE, " ").replace(/\s+/g, " ").replace(EDGE_PUNCT, "").trim();
   const tokens = stripped.split(" ").filter(Boolean);
   const isFiller = (t: string) => FILLER_SET.has(t.toLowerCase().replace(EDGE_PUNCT, ""));
   while (tokens.length && isFiller(tokens[0])) tokens.shift();
@@ -178,7 +221,7 @@ export function parseImageRequest(text: string | null | undefined): ImageRequest
   query = query.replace(/^لل/u, "ال");
   if (query.length < 2 || query.length > IMAGE_QUERY_MAX_CHARS) return null;
   if (ABOUT_A_PICTURE.test(query)) return null;
-  return { query };
+  return { query, count: fileCount(message, true), wantsLink: LINK.test(message) };
 }
 
 // ─── Audio recordings, papers and documents ───────────────────────────────
@@ -193,6 +236,8 @@ export type AssetKind = "audio" | "document" | "video";
 export interface AssetRequest {
   kind: AssetKind;
   query: string;
+  count: number;
+  wantsLink: boolean;
 }
 
 const AUDIO_WORDS = [
@@ -285,7 +330,7 @@ const VIDEO = wordPattern(VIDEO_WORDS);
 const DOCUMENT = wordPattern(DOCUMENT_WORDS);
 const ANALYSE = wordPattern(ANALYSE_VERBS);
 const SEND = wordPattern(SEND_VERBS);
-const ASSET_REMOVABLE = new RegExp(`${AUDIO.source}|${VIDEO.source}|${DOCUMENT.source}|${RETRIEVE.source}|${WANT.source}`, "giu");
+const ASSET_REMOVABLE = new RegExp(`${AUDIO.source}|${VIDEO.source}|${DOCUMENT.source}|${RETRIEVE.source}|${WANT.source}|${LINK.source}`, "giu");
 const OPENS_WITH_ASSET = new RegExp(String.raw`^[\s"'«(]*(?:${AUDIO.source}|${VIDEO.source}|${DOCUMENT.source})`, "iu");
 /** An audiobook or a podcast has its own flow; "audio" inside those words must not start this one. */
 const OTHER_MEDIA = wordPattern([
@@ -319,8 +364,8 @@ export function parseAssetRequest(text: string | null | undefined): AssetRequest
   if (!RETRIEVE.test(message) && !WANT.test(message) && !opens(OPENS_WITH_ASSET, message)) return null;
   const kind: AssetKind | null = DOCUMENT.test(message) ? "document" : VIDEO.test(message) ? "video" : AUDIO.test(message) ? "audio" : null;
   if (!kind) return null;
-  const query = strip(message, ASSET_REMOVABLE);
-  return query ? { kind, query } : null;
+  const query = strip(message.replace(DIGITS_GLOBAL, " "), ASSET_REMOVABLE);
+  return query ? { kind, query, count: fileCount(message, kind === "document"), wantsLink: LINK.test(message) } : null;
 }
 
 /**

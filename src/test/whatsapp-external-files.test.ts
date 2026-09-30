@@ -212,7 +212,7 @@ function deps(over: Partial<AttachDeps> & { items?: ExternalContentItem[]; meta?
 }
 
 describe("attachExternalFile", () => {
-  it("delivers a Gutenberg book as text/plain from Gutenberg's host, then sends the credit once", async () => {
+  it("delivers a Gutenberg book as text/plain from Gutenberg's host, and sends nothing after it (a public-domain book needs no credit)", async () => {
     const { d, deliverFn, sendText } = deps({ items: [gutenbergItem("84")] });
     const out = await attachExternalFile({ kind: "book", query: "frankenstein pdf", language: "en" }, d);
     expect(out).toMatchObject({ outcome: "delivered", provider: "gutenberg", tried: 1 });
@@ -222,8 +222,7 @@ describe("attachExternalFile", () => {
     });
     // No fallback link inside the delivery: a failure must fall through to the list, not send a second message.
     expect(deliverFn.mock.calls[0][0]).not.toHaveProperty("fallbackUrl");
-    expect(sendText).toHaveBeenCalledTimes(1);
-    expect(sendText).toHaveBeenCalledWith(expect.stringContaining("Public domain in the USA"));
+    expect(sendText).not.toHaveBeenCalled();
   });
 
   it("delivers the first chapter of a licensed audiobook from the Archive, resolved through its metadata API", async () => {
@@ -250,7 +249,7 @@ describe("attachExternalFile", () => {
     const out = await attachExternalFile({ kind: "book", query: "frankenstein", language: "en" }, d);
     expect(out).toMatchObject({ outcome: "delivered", tried: 2 });
     expect(deliverFn).toHaveBeenCalledTimes(2);
-    expect(sendText).toHaveBeenCalledTimes(1);
+    expect(sendText).not.toHaveBeenCalled();
   });
 
   it("gives up after three attempts, sends nothing, and says why — so the caller's list of links follows", async () => {
@@ -357,7 +356,7 @@ describe("end to end through deliverAsset", () => {
     expect(calls.map((c) => c.url.split("/").slice(-1)[0])).toEqual(["media", "messages"]);
     const message = JSON.parse(String(calls[1].body));
     expect(message).toMatchObject({ type: "document", to: "9627", document: { id: "media-1" } });
-    expect(sendText).toHaveBeenCalledTimes(1);
+    expect(sendText).not.toHaveBeenCalled();
   });
 
   it("an Archive MP3 is followed through its redirect to an archive.org subdomain and sent as audio", async () => {
@@ -420,12 +419,12 @@ describe("the WhatsApp webhook", () => {
   });
 
   it("does not send an external copy of a book the Visionex library holds", () => {
-    expect(webhook).toMatch(/if \(library\.length === 0 && token && phoneNumberId && \(parseFileWish\(questionText\) \|\| wantsSend\(questionText\)\)\)/);
+    expect(webhook).toMatch(/library\.length === 0 && token && phoneNumberId && !wantsLink\(questionText\) && \(parseFileWish\(questionText\) \|\| wantsSend\(questionText\)\)/);
   });
 
   it("logs the outcome without a title, a query, an address or a number", () => {
     const logs = webhook.split("\n").filter((l) => l.includes('log("external_file"'));
-    expect(logs).toHaveLength(4); // book, media, image and recording/paper/document
+    expect(logs).toHaveLength(5); // book, media, image, recording/paper/document, and the link-only answer
     for (const line of logs) expect(line).not.toMatch(/query|title|url|incoming\.from/);
   });
 });
