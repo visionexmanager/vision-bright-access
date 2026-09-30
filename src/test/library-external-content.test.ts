@@ -8,7 +8,8 @@ import { embeds, isAllowedEmbed } from "../../supabase/functions/_shared/externa
 import { allowsRedistribution, clean, httpsUrl, licenseFromUrl, makeItem, ProviderError } from "../../supabase/functions/_shared/externalContent/http.ts";
 import { CONTENT_PROVIDERS, UNSUPPORTED_PROVIDERS, providerStatus, summarizeProviders } from "../../supabase/functions/_shared/externalContent/registry.ts";
 import { archiveQuery, parseArchive, parseNasaAsset, parseNasaSearch, nasa } from "../../supabase/functions/_shared/externalContent/providers/archives.ts";
-import { parseDoab, parseGutendex, parseOpenLibrary, matchOpenStax } from "../../supabase/functions/_shared/externalContent/providers/books.ts";
+import { parseDoab, parseOpenLibrary, matchOpenStax } from "../../supabase/functions/_shared/externalContent/providers/books.ts";
+import { parseGutenbergOpds } from "../../supabase/functions/_shared/externalContent/providers/opds.ts";
 import { parseCkan } from "../../supabase/functions/_shared/externalContent/providers/data.ts";
 import { parsePexelsPhotos, parseUnsplash, parseYouTube, podcastIndex, unsplash, youtube } from "../../supabase/functions/_shared/externalContent/providers/keyed.ts";
 import { parseDailymotion, parsePodcastLookup, parseRadioBrowser } from "../../supabase/functions/_shared/externalContent/providers/media.ts";
@@ -211,12 +212,15 @@ describe("normalisation", () => {
     expect(pub).toMatchObject({ embedUrl: "https://archive.org/embed/frankenstein00shel", thumbnailUrl: "https://covers.openlibrary.org/b/id/12-M.jpg", publishedAt: "1818" });
     expect(lend.embedUrl).toBeNull();
 
-    const [pg, copyrighted] = parseGutendex({ results: [
-      { id: 84, title: "Frankenstein", copyright: false, authors: [{ name: "Shelley, Mary" }], languages: ["en"], formats: { "application/epub+zip": "https://www.gutenberg.org/ebooks/84.epub3.images", "image/jpeg": "https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg" } },
-      { id: 99, title: "Later work", copyright: true, formats: { "application/epub+zip": "https://www.gutenberg.org/ebooks/99.epub3.images" } },
-    ] });
-    expect(pg).toMatchObject({ downloadUrl: "https://www.gutenberg.org/ebooks/84.epub3.images", license: { name: "Public domain in the USA" } });
-    expect(copyrighted).toMatchObject({ downloadUrl: null, license: null });
+    // Gutenberg is read from its own OPDS feed (Gutendex timed out on 2026-09-30); authors and subjects entries are skipped.
+    const [pg, ...rest] = parseGutenbergOpds(`<feed>
+      <entry><id>https://www.gutenberg.org/ebooks/authors/search.opds/?query=frankenstein</id><title>Authors</title></entry>
+      <entry><id>https://www.gutenberg.org/ebooks/84.opds</id><title>Frankenstein; Or, The Modern Prometheus</title><content type="text">Mary Wollstonecraft Shelley</content></entry>
+      <entry><id>https://www.gutenberg.org/ebooks/10748.opds</id><title>Anthology</title><content type="text">1217 downloads</content></entry>
+    </feed>`);
+    expect(pg).toMatchObject({ providerItemId: "84", creator: "Mary Wollstonecraft Shelley", downloadUrl: "https://www.gutenberg.org/ebooks/84.epub.noimages", license: { name: "Public domain in the USA" } });
+    expect(rest).toHaveLength(1);
+    expect(rest[0].creator).toBeNull();
 
     const [doab] = parseDoab([{ handle: "20.500.12854/95791", name: "Solar", metadata: [
       { key: "dc.title", value: "Challenge and Research Trends of Solar Concentrators" }, { key: "dc.contributor.editor", value: "Liang, Dawei" },

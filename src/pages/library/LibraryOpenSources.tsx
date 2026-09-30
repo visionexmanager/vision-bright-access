@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Loader2, Search } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { LibraryLayout } from "@/components/library/layout/LibraryLayout";
@@ -7,10 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ExternalContentCard } from "@/components/library/external/ExternalContentCard";
 import { ExternalContentPreviewDialog } from "@/components/library/external/ExternalContentPreviewDialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { toast } from "@/hooks/use-toast";
+import { useResearchProjects } from "@/hooks/library/useResearchProjects";
 import { useDocumentHead } from "@/hooks/useDocumentHead";
+import { addProjectItem } from "@/services/library/researchProjects";
 import {
-  CONTENT_CATEGORIES, fetchExternalProviders, searchExternalContent,
+  CONTENT_CATEGORIES, citationFor, SaveExternalItemError, fetchExternalProviders, fetchSavedExternalItems, saveExternalItem, searchExternalContent, unsaveExternalItem,
   type ContentCategory, type ExternalContentItem, type ProviderRun, type ProviderSummary,
 } from "@/services/library/externalContent";
 
@@ -24,6 +29,8 @@ const PER_PROVIDER = 6;
  */
 export default function LibraryOpenSources() {
   const { t, lang } = useLanguage();
+  const { user } = useAuth();
+  const { projects } = useResearchProjects();
   useDocumentHead({ title: t("library.openSources.title") });
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState(params.get("q") ?? "");
@@ -38,11 +45,26 @@ export default function LibraryOpenSources() {
   const [status, setStatus] = useState<"idle" | "loading" | "loadingMore" | "done" | "error">("idle");
   const [preview, setPreview] = useState<ExternalContentItem | null>(null);
   const [providers, setProviders] = useState<ProviderSummary[]>([]);
+  // My Library: what the reader has kept, and the one save/remove in flight.
+  const [view, setView] = useState<"search" | "saved">(() => (params.get("view") === "saved" ? "saved" : "search"));
+  const [saved, setSaved] = useState<ExternalContentItem[]>([]);
+  const [savedLoaded, setSavedLoaded] = useState(false);
+  const [pendingSave, setPendingSave] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState("");
+  // Research projects: the chosen one, what has gone into it this visit, and the one add in flight.
+  const [projectId, setProjectId] = useState("");
+  const [inProject, setInProject] = useState<ReadonlySet<string>>(new Set());
+  const [addingToProject, setAddingToProject] = useState<string | null>(null);
+  const projectLabelId = useId();
   const firstNewRef = useRef<HTMLHeadingElement | null>(null);
   const focusIndex = useRef<number | null>(null);
   const queryId = useId();
   const typeId = useId();
   const resultsHeadingId = useId();
+
+  useEffect(() => {
+    fetchSavedExternalItems().then((rows) => { setSaved(rows); setSavedLoaded(true); }).catch(() => setSavedLoaded(true));
+  }, []);
 
   useEffect(() => {
     fetchExternalProviders().then((r) => setProviders(r.providers)).catch(() => setProviders([]));
@@ -91,8 +113,58 @@ export default function LibraryOpenSources() {
     e.preventDefault();
     const q = query.trim();
     if (q.length < 2) return;
+    setView("search");
     setParams(category ? { q, type: category } : { q }, { replace: true });
     void run(1, q, category);
+  };
+
+  const savedIds = new Set(saved.map((i) => i.id));
+
+  /** One button for both directions; the outcome is announced in words, never by colour alone. */
+  const toggleSave = async (item: ExternalContentItem) => {
+    if (pendingSave) return;
+    setPendingSave(item.id);
+    try {
+      if (savedIds.has(item.id)) {
+        await unsaveExternalItem(item.id);
+        setSaved((rows) => rows.filter((r) => r.id !== item.id));
+        setSaveMessage(t("library.openSources.removedStatus").replace("{title}", item.title));
+      } else {
+        await saveExternalItem(item);
+        setSaved((rows) => [item, ...rows.filter((r) => r.id !== item.id)]);
+        setSaveMessage(t("library.openSources.savedStatus").replace("{title}", item.title));
+      }
+    } catch (err) {
+      setSaveMessage(t(err instanceof SaveExternalItemError && err.code === "subscription_required" ? "library.openSources.saveNeedsPlan" : "library.openSources.saveFailed"));
+    } finally {
+      setPendingSave(null);
+    }
+  };
+
+  /** The item goes into the chosen project as a reference with its citation, like the assistant's own references. */
+  const addToProject = async (item: ExternalContentItem) => {
+    if (!user || !projectId || addingToProject) return;
+    setAddingToProject(item.id);
+    try {
+      await addProjectItem(projectId, user.id, { itemType: "reference", citationText: citationFor(item) });
+      setInProject((prev) => new Set(prev).add(`${projectId}|${item.id}`));
+      toast({ title: t("library.researchAssistant.external.addedToast") });
+    } catch (err) {
+      toast({ title: t("library.researchAssistant.external.addFailed"), description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+    } finally {
+      setAddingToProject(null);
+    }
+  };
+
+  const projectActionFor = (item: ExternalContentItem) => (projects.length > 0
+    ? { added: inProject.has(`${projectId}|${item.id}`), pending: addingToProject === item.id, disabled: !projectId, onAdd: (i: ExternalContentItem) => void addToProject(i) }
+    : undefined);
+
+  const showView = (next: "search" | "saved") => {
+    setView(next);
+    const q = params.get("q");
+    const type = params.get("type");
+    setParams({ ...(q ? { q } : {}), ...(type ? { type } : {}), ...(next === "saved" ? { view: "saved" } : {}) }, { replace: true });
   };
 
   const nameOf = (id: string) => providers.find((p) => p.id === id)?.name ?? id;
@@ -116,6 +188,50 @@ export default function LibraryOpenSources() {
       <LibraryLayout title={t("library.openSources.title")} breadcrumb={[{ label: t("library.openSources.title") }]}>
         <p className="mb-4 max-w-3xl text-sm text-muted-foreground">{t("library.openSources.intro")}</p>
 
+        <div role="group" aria-label={t("library.openSources.title")} className="mb-4 flex gap-2">
+          <Button type="button" size="sm" variant={view === "search" ? "default" : "outline"} aria-pressed={view === "search"} onClick={() => showView("search")}>
+            {t("library.openSources.tab.search")}
+          </Button>
+          <Button type="button" size="sm" variant={view === "saved" ? "default" : "outline"} aria-pressed={view === "saved"} onClick={() => showView("saved")}>
+            {t("library.openSources.tab.saved")}{savedLoaded ? ` (${saved.length})` : ""}
+          </Button>
+        </div>
+        <p role="status" aria-live="polite" className="mb-2 min-h-5 text-sm">{saveMessage}</p>
+
+        {projects.length > 0 ? (
+          <div className="mb-4 max-w-sm">
+            <label id={projectLabelId} className="mb-1.5 block text-sm font-medium">{t("library.researchAssistant.external.chooseProject")}</label>
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger aria-labelledby={projectLabelId}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <p className="mb-4 text-sm text-muted-foreground">
+            <Link to="/library/research-projects" className="underline underline-offset-2">{t("library.researchAssistant.external.noProjects")}</Link>
+          </p>
+        )}
+
+        {view === "saved" && (
+          <section aria-label={t("library.openSources.tab.saved")} className="mb-8">
+            {savedLoaded && saved.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("library.openSources.savedEmpty")}</p>
+            ) : (
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {saved.map((item) => (
+                  <li key={item.id}>
+                    <ExternalContentCard item={item} onPreview={setPreview} saved savePending={pendingSave === item.id} onToggleSave={(i) => void toggleSave(i)} projectAction={projectActionFor(item)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
+
+        {view === "search" && (<>
         <form role="search" onSubmit={submit} className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
             <label htmlFor={queryId} className="mb-1.5 block text-sm font-medium">{t("library.openSources.searchLabel")}</label>
@@ -164,6 +280,10 @@ export default function LibraryOpenSources() {
                   <ExternalContentCard
                     item={item}
                     onPreview={setPreview}
+                    saved={savedIds.has(item.id)}
+                    savePending={pendingSave === item.id}
+                    onToggleSave={(i) => void toggleSave(i)}
+                    projectAction={projectActionFor(item)}
                     ref={focusIndex.current === i ? firstNewRef : undefined}
                   />
                 </li>
@@ -179,6 +299,8 @@ export default function LibraryOpenSources() {
             )}
           </section>
         )}
+
+        </>)}
 
         {ready.length > 0 && (
           <details className="mt-8 rounded-lg border p-4 text-sm">

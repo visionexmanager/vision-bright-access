@@ -1,5 +1,5 @@
 import { forwardRef, useId } from "react";
-import { Download, ExternalLink, Play, Eye, BookOpen } from "lucide-react";
+import { Bookmark, BookmarkCheck, Check, Download, ExternalLink, FolderPlus, Play, Eye, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -28,6 +28,12 @@ const ACTION_ICON = { play: Play, read: BookOpen, view: Eye } as const;
 interface Props {
   item: ExternalContentItem;
   onPreview: (item: ExternalContentItem) => void;
+  /** Present when the reader can save to My Library; the button is a toggle. */
+  saved?: boolean;
+  savePending?: boolean;
+  onToggleSave?: (item: ExternalContentItem) => void;
+  /** Present when the reader has research projects; adds the item to the chosen one as a reference. */
+  projectAction?: { added: boolean; pending: boolean; disabled: boolean; onAdd: (item: ExternalContentItem) => void };
 }
 
 /**
@@ -35,7 +41,7 @@ interface Props {
  * move result to result; the source, licence and credit are plain text in
  * reading order, and every link that leaves Visionex says so.
  */
-export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(function ExternalContentCard({ item, onPreview }, headingRef) {
+export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(function ExternalContentCard({ item, onPreview, saved = false, savePending = false, onToggleSave, projectAction }, headingRef) {
   const { t } = useLanguage();
   const titleId = useId();
   const action = previewAction(item);
@@ -111,6 +117,33 @@ export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(functio
               {newTab}
             </a>
           </Button>
+          {onToggleSave && (
+            <Button
+              size="sm"
+              variant={saved ? "secondary" : "outline"}
+              className="gap-1.5"
+              aria-pressed={saved}
+              disabled={savePending}
+              onClick={() => onToggleSave(item)}
+              aria-label={t(saved ? "library.openSources.unsaveAria" : "library.openSources.saveAria").replace("{title}", item.title)}
+            >
+              {saved ? <BookmarkCheck className="h-3.5 w-3.5" aria-hidden="true" /> : <Bookmark className="h-3.5 w-3.5" aria-hidden="true" />}
+              {t(saved ? "library.openSources.saved" : "library.openSources.save")}
+            </Button>
+          )}
+          {projectAction && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              disabled={projectAction.disabled || projectAction.added || projectAction.pending}
+              aria-label={`${t(projectAction.added ? "library.researchAssistant.external.added" : "library.researchAssistant.external.addToProject")}: ${item.title}`}
+              onClick={() => projectAction.onAdd(item)}
+            >
+              {projectAction.added ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <FolderPlus className="h-3.5 w-3.5" aria-hidden="true" />}
+              {t(projectAction.added ? "library.researchAssistant.external.added" : "library.researchAssistant.external.addToProject")}
+            </Button>
+          )}
           {item.downloadUrl && (
             <Button asChild size="sm" variant="ghost" className="gap-1.5">
               <a href={item.downloadUrl} target="_blank" rel="noopener noreferrer">

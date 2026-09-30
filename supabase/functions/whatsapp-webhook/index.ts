@@ -313,6 +313,7 @@ import {
   parseMediaRequest,
   searchMedia,
 } from "../_shared/whatsappFreeMedia.ts";
+import { attachExternalFile, parseFileWish } from "../_shared/whatsappExternalFiles.ts";
 import {
   type Capability,
   type CatalogNode,
@@ -5168,6 +5169,25 @@ Deno.serve(async (req) => {
       }
       if (mediaRequest?.query) {
         const request = { kind: mediaRequest.kind, query: mediaRequest.query };
+
+        // Asked for the file itself: a licensed one from a connected open source
+        // is delivered as an attachment. Podcasts stay links (a publisher's
+        // stream is not a licensed copy). When nothing is delivered the list of
+        // links below still follows, so the sender never gets less than before.
+        if (token && phoneNumberId && request.kind !== "podcast" && parseFileWish(questionText)) {
+          const attached = await attachExternalFile(
+            { kind: request.kind, query: request.query, language: answerLanguage },
+            {
+              fetch: (url, init) => fetch(url, init),
+              env: (name) => Deno.env.get(name),
+              deliver: (asset) => deliverAsset({ phoneNumberId, token, to: incoming.from, asset }),
+              sendText: (body) => reply(body, "reply"),
+            },
+          );
+          log("external_file", { flow: request.kind, outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.reason } : { provider: attached.provider }) });
+          if (attached.outcome === "delivered") continue;
+        }
+
         const found = await searchMedia(request);
         if (found.items.length > 0 || request.kind === "video") {
           log("media", { kind: request.kind, outcome: found.unreachable ? "unreachable" : "listed", count: found.items.length });
@@ -5232,6 +5252,24 @@ Deno.serve(async (req) => {
           }
         } catch (e) {
           console.error("[whatsapp] library lookup failed:", describeError(e));
+        }
+
+        // Asked for the file, and the Visionex library does not hold the book:
+        // a licensed copy from a connected open source (a Gutenberg text, an
+        // OpenStax or Internet Archive PDF) is delivered as an attachment. What
+        // cannot be delivered falls through to the list of links below.
+        if (library.length === 0 && token && phoneNumberId && parseFileWish(questionText)) {
+          const attached = await attachExternalFile(
+            { kind: "book", query, language: answerLanguage },
+            {
+              fetch: (url, init) => fetch(url, init),
+              env: (name) => Deno.env.get(name),
+              deliver: (asset) => deliverAsset({ phoneNumberId, token, to: incoming.from, asset }),
+              sendText: (body) => reply(body, "reply"),
+            },
+          );
+          log("external_file", { flow: "book", outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.reason } : { provider: attached.provider }) });
+          if (attached.outcome === "delivered") continue;
         }
 
         // Open Library for the catalogue, the Internet Archive for free full texts.
