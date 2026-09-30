@@ -417,9 +417,11 @@ import { documentFileName, documentFromAnswer, wantsWordDocument, WORD_DOCUMENT_
 import {
   deliverAsset,
   deliveryCaption,
+  deliveryFallbackText,
   deliveryLogFields,
   type DeliveryResult,
 } from "../_shared/whatsappAssetDelivery.ts";
+import { parseImageRequest } from "../_shared/whatsappImageRequest.ts";
 import { extractDocumentText } from "../_shared/whatsappDocumentText.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { readOfficeLocally } from "../_shared/whatsappOffice.ts";
@@ -5147,6 +5149,36 @@ Deno.serve(async (req) => {
         } catch (e) {
           console.error("[whatsapp] radio lookup failed:", describeError(e));
           await reply(radioUnavailableNotice(answerLanguage), "unsupported");
+          continue;
+        }
+      }
+
+      // ── A picture that already exists ────────────────────────────────────
+      //
+      // "Send me a photo of ...": a freely licensed picture from Wikimedia
+      // Commons or Openverse, delivered as the picture itself. Only an explicit
+      // find/send request with an image word matches (and any word that means
+      // MAKE rules it out), so asking for a picture to be created goes on exactly
+      // as before. When the picture cannot be attached, the sender gets the
+      // result's own page (with its licence); when nothing matches, the message
+      // carries on to whatever handled it before.
+      const imageRequest = aiFocused || humanOwnsThis || !featureOn("services.media")
+        ? null
+        : parseImageRequest(questionText);
+      if (imageRequest && token && phoneNumberId) {
+        const attached = await attachExternalFile(
+          { kind: "image", query: imageRequest.query, language: answerLanguage },
+          {
+            fetch: (url, init) => fetch(url, init),
+            env: (name) => Deno.env.get(name),
+            deliver: (asset) => deliverAsset({ phoneNumberId, token, to: incoming.from, asset }),
+            sendText: (body) => reply(body, "reply"),
+          },
+        );
+        log("external_file", { flow: "image", outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.reason } : { provider: attached.provider }) });
+        if (attached.outcome === "delivered") continue;
+        if (attached.link) {
+          await reply(deliveryFallbackText(answerLanguage).replace("{url}", attached.link.url), "reply");
           continue;
         }
       }
