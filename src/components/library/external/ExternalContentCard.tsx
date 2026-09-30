@@ -44,6 +44,7 @@ interface Props {
 export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(function ExternalContentCard({ item, onPreview, saved = false, savePending = false, onToggleSave, projectAction }, headingRef) {
   const { t } = useLanguage();
   const titleId = useId();
+  const hintId = useId();
   const action = previewAction(item);
   const newTab = <span className="sr-only"> ({t("library.researchAssistant.external.opensInNewTab")})</span>;
   const thumbAlt = item.contentType === "image" ? (item.altText ?? item.title) : "";
@@ -125,25 +126,35 @@ export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(functio
               aria-pressed={saved}
               disabled={savePending}
               onClick={() => onToggleSave(item)}
-              aria-label={t(saved ? "library.openSources.unsaveAria" : "library.openSources.saveAria").replace("{title}", item.title)}
+              aria-label={`${t(saved ? "library.openSources.saved" : "library.openSources.save")}: ${item.title}`}
             >
               {saved ? <BookmarkCheck className="h-3.5 w-3.5" aria-hidden="true" /> : <Bookmark className="h-3.5 w-3.5" aria-hidden="true" />}
               {t(saved ? "library.openSources.saved" : "library.openSources.save")}
             </Button>
           )}
-          {projectAction && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              disabled={projectAction.disabled || projectAction.added || projectAction.pending}
-              aria-label={`${t(projectAction.added ? "library.researchAssistant.external.added" : "library.researchAssistant.external.addToProject")}: ${item.title}`}
-              onClick={() => projectAction.onAdd(item)}
-            >
-              {projectAction.added ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <FolderPlus className="h-3.5 w-3.5" aria-hidden="true" />}
-              {t(projectAction.added ? "library.researchAssistant.external.added" : "library.researchAssistant.external.addToProject")}
-            </Button>
-          )}
+          {projectAction && (() => {
+            const needsProject = projectAction.disabled && !projectAction.added;
+            const unavailable = projectAction.disabled || projectAction.added || projectAction.pending;
+            const label = t(projectAction.added ? "library.researchAssistant.external.added" : "library.researchAssistant.external.addToProject");
+            return (
+              <>
+                {/* aria-disabled, not disabled: a disabled button leaves the Tab order, and this one has to explain itself. */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`gap-1.5 ${unavailable ? "opacity-60" : ""}`}
+                  aria-disabled={unavailable}
+                  aria-describedby={needsProject ? hintId : undefined}
+                  aria-label={`${label}: ${item.title}`}
+                  onClick={() => { if (!unavailable) projectAction.onAdd(item); }}
+                >
+                  {projectAction.added ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <FolderPlus className="h-3.5 w-3.5" aria-hidden="true" />}
+                  {label}
+                </Button>
+                {needsProject && <span id={hintId} className="sr-only">{t("library.openSources.chooseProjectFirst")}</span>}
+              </>
+            );
+          })()}
           {item.downloadUrl && (
             <Button asChild size="sm" variant="ghost" className="gap-1.5">
               <a href={item.downloadUrl} target="_blank" rel="noopener noreferrer">

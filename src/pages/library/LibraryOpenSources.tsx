@@ -55,7 +55,12 @@ export default function LibraryOpenSources() {
   const [projectId, setProjectId] = useState("");
   const [inProject, setInProject] = useState<ReadonlySet<string>>(new Set());
   const [addingToProject, setAddingToProject] = useState<string | null>(null);
-  const projectLabelId = useId();
+  const projectSelectId = useId();
+  const savedHeadingId = useId();
+  // Where focus goes when the card a reader just removed disappears from the saved list.
+  const savedHeadings = useRef<Array<HTMLHeadingElement | null>>([]);
+  const emptySavedRef = useRef<HTMLParagraphElement | null>(null);
+  const pendingFocus = useRef<number | null>(null);
   const firstNewRef = useRef<HTMLHeadingElement | null>(null);
   const focusIndex = useRef<number | null>(null);
   const queryId = useId();
@@ -103,6 +108,14 @@ export default function LibraryOpenSources() {
   }, [items]);
 
   useEffect(() => {
+    if (pendingFocus.current === null || view !== "saved") return;
+    const target = Math.min(pendingFocus.current, saved.length - 1);
+    pendingFocus.current = null;
+    if (target < 0) emptySavedRef.current?.focus();
+    else savedHeadings.current[target]?.focus();
+  }, [saved, view]);
+
+  useEffect(() => {
     const q = params.get("q");
     if (q && q.trim().length >= 2) void run(1, q.trim(), category);
     // Only the query in the URL on first load starts a search by itself.
@@ -114,11 +127,18 @@ export default function LibraryOpenSources() {
     const q = query.trim();
     if (q.length < 2) return;
     setView("search");
+    setSaveMessage("");
     setParams(category ? { q, type: category } : { q }, { replace: true });
     void run(1, q, category);
   };
 
   const savedIds = new Set(saved.map((i) => i.id));
+
+  /** Clears the live region and sets it a moment later, so an identical message is announced again. */
+  const announce = (text: string) => {
+    setSaveMessage("");
+    window.setTimeout(() => setSaveMessage(text), 60);
+  };
 
   /** One button for both directions; the outcome is announced in words, never by colour alone. */
   const toggleSave = async (item: ExternalContentItem) => {
@@ -127,15 +147,16 @@ export default function LibraryOpenSources() {
     try {
       if (savedIds.has(item.id)) {
         await unsaveExternalItem(item.id);
+        if (view === "saved") pendingFocus.current = saved.findIndex((r) => r.id === item.id);
         setSaved((rows) => rows.filter((r) => r.id !== item.id));
-        setSaveMessage(t("library.openSources.removedStatus").replace("{title}", item.title));
+        announce(t("library.openSources.removedStatus").replace("{title}", item.title));
       } else {
         await saveExternalItem(item);
         setSaved((rows) => [item, ...rows.filter((r) => r.id !== item.id)]);
-        setSaveMessage(t("library.openSources.savedStatus").replace("{title}", item.title));
+        announce(t("library.openSources.savedStatus").replace("{title}", item.title));
       }
     } catch (err) {
-      setSaveMessage(t(err instanceof SaveExternalItemError && err.code === "subscription_required" ? "library.openSources.saveNeedsPlan" : "library.openSources.saveFailed"));
+      announce(t(err instanceof SaveExternalItemError && err.code === "subscription_required" ? "library.openSources.saveNeedsPlan" : "library.openSources.saveFailed"));
     } finally {
       setPendingSave(null);
     }
@@ -149,8 +170,10 @@ export default function LibraryOpenSources() {
       await addProjectItem(projectId, user.id, { itemType: "reference", citationText: citationFor(item) });
       setInProject((prev) => new Set(prev).add(`${projectId}|${item.id}`));
       toast({ title: t("library.researchAssistant.external.addedToast") });
+      announce(t("library.researchAssistant.external.addedToast"));
     } catch (err) {
       toast({ title: t("library.researchAssistant.external.addFailed"), description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+      announce(t("library.researchAssistant.external.addFailed"));
     } finally {
       setAddingToProject(null);
     }
@@ -162,6 +185,7 @@ export default function LibraryOpenSources() {
 
   const showView = (next: "search" | "saved") => {
     setView(next);
+    setSaveMessage("");
     const q = params.get("q");
     const type = params.get("type");
     setParams({ ...(q ? { q } : {}), ...(type ? { type } : {}), ...(next === "saved" ? { view: "saved" } : {}) }, { replace: true });
@@ -200,9 +224,9 @@ export default function LibraryOpenSources() {
 
         {projects.length > 0 ? (
           <div className="mb-4 max-w-sm">
-            <label id={projectLabelId} className="mb-1.5 block text-sm font-medium">{t("library.researchAssistant.external.chooseProject")}</label>
+            <label htmlFor={projectSelectId} className="mb-1.5 block text-sm font-medium">{t("library.researchAssistant.external.chooseProject")}</label>
             <Select value={projectId} onValueChange={setProjectId}>
-              <SelectTrigger aria-labelledby={projectLabelId}><SelectValue /></SelectTrigger>
+              <SelectTrigger id={projectSelectId}><SelectValue placeholder={t("library.openSources.projectPlaceholder")} /></SelectTrigger>
               <SelectContent>
                 {projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>)}
               </SelectContent>
@@ -215,14 +239,15 @@ export default function LibraryOpenSources() {
         )}
 
         {view === "saved" && (
-          <section aria-label={t("library.openSources.tab.saved")} className="mb-8">
+          <section aria-labelledby={savedHeadingId} className="mb-8">
+            <h2 id={savedHeadingId} className="sr-only">{t("library.openSources.tab.saved")}</h2>
             {savedLoaded && saved.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("library.openSources.savedEmpty")}</p>
+              <p ref={emptySavedRef} tabIndex={-1} className="text-sm text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("library.openSources.savedEmpty")}</p>
             ) : (
               <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {saved.map((item) => (
+                {saved.map((item, index) => (
                   <li key={item.id}>
-                    <ExternalContentCard item={item} onPreview={setPreview} saved savePending={pendingSave === item.id} onToggleSave={(i) => void toggleSave(i)} projectAction={projectActionFor(item)} />
+                    <ExternalContentCard ref={(el) => { savedHeadings.current[index] = el; }} item={item} onPreview={setPreview} saved savePending={pendingSave === item.id} onToggleSave={(i) => void toggleSave(i)} projectAction={projectActionFor(item)} />
                   </li>
                 ))}
               </ul>
