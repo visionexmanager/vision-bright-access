@@ -9,9 +9,10 @@
 //
 // The model here is deliberately small:
 //
-//   • One free week from registration, with every section open — on the site
-//     and on WhatsApp. Long enough to see what Visionex is, short enough that
-//     it is a trial rather than a free product.
+//   • One free week from registration. It opens ONLY what `TRIAL_SECTIONS`
+//     names — today the free set, with no AI service and no paid section. It is
+//     never "every section": anything the trial does not name needs a plan, on
+//     the site and on WhatsApp alike.
 //   • Three tiers afterwards, nested: Basic ⊂ Pro ⊂ Business. Nesting is the
 //     whole point — nobody upgrading ever loses a section they had, and the
 //     pricing page can say "everything in Basic, plus…" truthfully.
@@ -26,7 +27,7 @@
 // migration that mirrors it into `billing_plans.limits`. Change a price or a
 // section here and that test tells you which SQL line disagrees.
 
-/** Days of full access every new account gets, counted from registration. */
+/** Days of the free week every new account gets, counted from registration. */
 export const TRIAL_DAYS = 7;
 
 /** How long before expiry somebody is told the week is ending. */
@@ -225,8 +226,26 @@ export const PAID_PLANS: Readonly<Record<PaidPlanId, TierDef>> = { kids: KIDS_PL
 /** Every paid plan, cheapest first — the order the upgrade notice picks from. */
 export const PAID_PLAN_ORDER: readonly PaidPlanId[] = ["kids", ...TIER_ORDER] as const;
 
-/** Paid WhatsApp operations a day during the free week. */
-export const TRIAL_WHATSAPP_DAILY = 200;
+/**
+ * What the free week opens, and the only place it is named.
+ *
+ * No trial capability list was ever defined — the old rule was "everything" —
+ * so nothing is invented: this is the free set that every account keeps, and the
+ * AI services, the WhatsApp assistant and every paid section are outside it.
+ * Adding a trial capability is one edit here and one to `trial_sections()` in
+ * 20261063; `subscription-tiers.test.ts` fails until the two agree and until
+ * the list stops being a strict subset of the sections.
+ */
+export const TRIAL_SECTIONS: readonly SectionKey[] = [...FREE_SECTIONS] as const;
+
+/**
+ * Does being inside the free week waive payment for anything the trial does not
+ * name? No. Client code that used to read "on the trial" as "free" reads this
+ * instead, so the answer is one constant rather than a dozen `isOnTrial`s, and
+ * a test pins it `false`. (The server never waived on the client's say-so; this
+ * only stops the browser promising what the server will not honour.)
+ */
+export const TRIAL_WAIVES_PAYMENT = false;
 
 function isPaidPlan(planId: string): planId is PaidPlanId {
   return planId === "kids" || planId === "basic" || planId === "pro" || planId === "business";
@@ -235,13 +254,12 @@ function isPaidPlan(planId: string): planId is PaidPlanId {
 /**
  * Which sections a plan opens.
  *
- * `free_trial` is every section — that is what the week is. Anything
- * unrecognised falls back to the free set rather than to nothing, for the same
- * reason the webhook's entitlement reader allows on a malformed row: a lookup
- * that fails should cost revenue, not lock somebody out.
+ * `free_trial` is `TRIAL_SECTIONS` — never every section. Anything
+ * unrecognised falls back to the free set rather than to nothing: a lookup that
+ * fails must never be read as a licence for more.
  */
 export function planSections(planId: string | null | undefined): readonly SectionKey[] {
-  if (planId === "free_trial") return SECTIONS.map((section) => section.key);
+  if (planId === "free_trial") return TRIAL_SECTIONS;
   if (planId && isPaidPlan(planId)) return PAID_PLANS[planId].sections;
   return FREE_SECTIONS;
 }

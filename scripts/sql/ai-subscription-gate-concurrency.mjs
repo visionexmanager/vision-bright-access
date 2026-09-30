@@ -3,20 +3,19 @@
 // the same moment. PGlite is one connection, so it cannot race; this can.
 //
 //   npm i --no-save embedded-postgres pg
-//   node scripts/sql/ai-subscription-gate-concurrency.mjs supabase/migrations/20261062000000_ai_subscription_gate.sql
+//   node scripts/sql/ai-subscription-gate-concurrency.mjs
 //
-// Uses the same table stubs as ai-subscription-gate-scenarios.mjs (read from
-// that file, so the two cannot drift). Exit status 1 on any failure.
+// Uses the shared table stubs in gate-stubs.mjs and runs both migrations.
+// Exit status 1 on any failure.
 import EmbeddedPostgres from "embedded-postgres";
 import pg from "pg";
 import { readFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const scenarios = readFileSync(new URL("./ai-subscription-gate-scenarios.mjs", import.meta.url), "utf8");
-const stubs = scenarios.match(/await db\.exec\(`([\s\S]*?)`\);/)?.[1];
-if (!stubs) throw new Error("could not read the table stubs from the scenarios script");
-const migration = readFileSync(process.argv[2], "utf8");
+import { STUBS, MIGRATIONS } from "./gate-stubs.mjs";
+const stubs = STUBS;
+const migration = (process.argv.length > 2 ? process.argv.slice(2) : MIGRATIONS).map((f) => readFileSync(f, "utf8")).join("\n");
 
 const dir = mkdtempSync(join(tmpdir(), "gate-pg-"));
 const server = new EmbeddedPostgres({ databaseDir: dir, user: "postgres", password: "pw", port: 54390, persistent: false, onLog: () => {}, onError: () => {}, initdbFlags: ["--encoding=UTF8", "--locale=C"] });
@@ -74,6 +73,20 @@ try {
   const wa = (await admin.query("select count(*)::int n from public.ai_subscription_gate_notices where channel = 'whatsapp'")).rows[0].n;
   expect("100 rounds x 10 simultaneous WhatsApp requests: each round exactly 1 notice", badWa === 0);
   expect("100 whatsapp notice rows, no duplicates", wa === 100);
+
+  // The free week under concurrency: ten simultaneous requests from accounts that
+  // are ON the trial can never win an "authorized", however they interleave.
+  let trialBad = 0;
+  for (let i = 0; i < 100; i++) {
+    const id = `00000000-0000-4000-8000-${String(5000 + i).padStart(12, "0")}`;
+    await admin.query("INSERT INTO public.profiles VALUES ($1, now() + interval '5 days')", [id]);
+    const vs = await race((c) => c.query("select public.ai_subscription_gate('web', $1::text, $1::uuid) as v", [id]));
+    const tt = tally(vs);
+    if (vs.includes("authorized") || tt.first !== 1 || tt.silent !== CONNS - 1) trialBad++;
+  }
+  expect("100 rounds x 10 simultaneous requests from trial-only accounts: never authorized, exactly 1 notice each", trialBad === 0);
+  const trialSecs = (await admin.query("select public.user_sections('00000000-0000-4000-8000-000000005000'::uuid) s")).rows[0].s;
+  expect("a trial account's sections are still exactly the three free ones", trialSecs.length === 3);
 
   // Subscribing mid-flight: a subscriber is never told and the re-arm never double-fires.
   const sub = "00000000-0000-4000-8000-0000000000ff";

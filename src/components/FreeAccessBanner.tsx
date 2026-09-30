@@ -1,4 +1,4 @@
-import { Shield, Sparkles } from "lucide-react";
+import { Shield } from "lucide-react";
 import { useFreeAccess } from "@/hooks/useFreeAccess";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -9,31 +9,17 @@ interface FreeAccessBannerProps {
 
 export function FreeAccessBanner({ serviceName = "this service", className }: FreeAccessBannerProps) {
   const { user } = useAuth();
-  const { isAdmin, isNewUser, hasFreeAccess, daysRemaining } = useFreeAccess();
+  const { isAdmin, hasFreeAccess } = useFreeAccess();
 
-  if (!user || !hasFreeAccess) return null;
+  if (!user || !hasFreeAccess || !isAdmin) return null;
 
+  // Admins only. The free week is not free access to anything — see useFreeAccess.
   return (
-    <div className={`flex items-center gap-2 px-4 py-2 text-xs border-b ${
-      isAdmin
-        ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
-        : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-    } ${className ?? ""}`}>
-      {isAdmin ? (
-        <>
-          <Shield className="size-3.5 shrink-0" />
-          <span>
-            <span className="font-semibold">Admin Access</span> — {serviceName} is free forever for admins.
-          </span>
-        </>
-      ) : (
-        <>
-          <Sparkles className="size-3.5 shrink-0" />
-          <span>
-            <span className="font-semibold">Free for {daysRemaining} more {daysRemaining === 1 ? "day" : "days"}</span> — enjoy full access during your free week.
-          </span>
-        </>
-      )}
+    <div className={`flex items-center gap-2 px-4 py-2 text-xs border-b bg-violet-500/10 border-violet-500/20 text-violet-400 ${className ?? ""}`}>
+      <Shield className="size-3.5 shrink-0" />
+      <span>
+        <span className="font-semibold">Admin Access</span> — {serviceName} is free forever for admins.
+      </span>
     </div>
   );
 }

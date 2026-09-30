@@ -101,9 +101,19 @@ jobs:
             pts_before bigint; pts_after bigint; wal_before bigint; wal_after bigint;
             use_before bigint; use_after bigint; ord_before bigint; ord_after bigint;
             entitled bigint; lapsed_total bigint; lapsed_entitled bigint;
+            r_plan record; trial_secs integer; trial_wa boolean;
           BEGIN
             EXECUTE $mig$__MIGRATION__$mig$;
             EXECUTE $mig$__MIGRATION__$mig$;  -- twice: idempotent
+
+            -- The plan every account resolves to under the ONE resolution, as counts.
+            FOR r_plan IN SELECT public.plan_for_user(u.id) AS p, count(*) AS n FROM auth.users u GROUP BY 1 ORDER BY 1 LOOP
+              r := r || format('plan[%s]=%s; ', r_plan.p, r_plan.n);
+            END LOOP;
+            SELECT jsonb_array_length(limits -> 'sections'), limits ? 'whatsapp_daily_messages' INTO trial_secs, trial_wa
+              FROM public.billing_plans WHERE id = 'free_trial';
+            r := r || format('free_trial_row_sections=%s; free_trial_row_has_whatsapp_allowance=%s; trial_sections_fn=%s; ',
+                             trial_secs, trial_wa, array_length(public.trial_sections(), 1));
 
             SELECT count(*) INTO entitled FROM (SELECT DISTINCT user_id FROM public.user_subscriptions) x
              WHERE public.ai_user_entitled(x.user_id);
@@ -165,7 +175,7 @@ jobs:
           $do$
           PLPGSQL
           )
-          MIGRATION=$(cat supabase/migrations/20261062000000_ai_subscription_gate.sql)
+          MIGRATION=$(cat supabase/migrations/20261062000000_ai_subscription_gate.sql supabase/migrations/20261063000000_trial_is_not_full_access.sql supabase/migrations/20261064000000_trial_stops_waiving_vx.sql)
           shopt -u patsub_replacement 2>/dev/null || true
           REHEARSAL="${REHEARSAL//__MIGRATION__/$MIGRATION}"
           say '```'

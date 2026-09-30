@@ -238,6 +238,25 @@ reset("blocked_silent");
   if (!ok) failures++;
 }
 
+console.log("## A free-week account calling a service the trial does not include (direct API)");
+// The SQL decides that a trial-only account is not entitled (trial-entitlement-scenarios.mjs, and the
+// real-PostgreSQL race in ai-subscription-gate-concurrency.mjs); here the handler is given exactly that
+// refusal and must stop before any provider, limit, VX charge or write - whatever the caller claims.
+for (const fn of ["ai-chat", "ai-generate", "academy-chat", "image-generate", "realtime-session", "text-to-speech", "video-studio", "library-ai-assistant"]) {
+  reset("blocked_silent");
+  let res: { status: number; code: string };
+  try {
+    res = await post(fn, {
+      headers: { "x-plan": "free_trial", "x-trial": "true", "x-subscription-status": "trialing" },
+      body: { action: "generate", prompt: "hello", text: "hello", messages: [{ role: "user", content: "hello" }], plan: "free_trial", is_trial: true, trial_active: true },
+    });
+  } catch { res = { status: -1, code: "threw" }; }
+  const extra = rpcCalls.filter((r) => !GATE_ONLY.has(r));
+  const ok = res.status === 403 && providerCalls.length === 0 && extra.length === 0 && tableWrites.length === 0;
+  console.log(`${ok ? "PASS" : "FAIL"} trial account -> ${fn}: http=${res.status}, provider calls=${providerCalls.length}, limit/VX RPCs=${extra.length}, writes=${tableWrites.length}`);
+  if (!ok) failures++;
+}
+
 async function signed(body: string): Promise<string> {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode("stub-app-secret"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)));

@@ -354,12 +354,12 @@ describe("the plan list and the migration", () => {
     expect([...ids].sort()).toEqual([...PAID_PLAN_ORDER].sort());
   });
 
-  it("never consults the trial, VX balance or orders when deciding", () => {
+  it("never consults the trial, VX balance or orders itself: it asks the one plan resolution", () => {
     const body = sql.slice(sql.indexOf("FUNCTION public.ai_user_entitled"), sql.indexOf("COMMENT ON FUNCTION public.ai_user_entitled"));
     expect(body).not.toMatch(/trial_expires_at|user_points|subscription_orders|vx/i);
-    expect(body).toMatch(/s\.status = 'active'/);
-    expect(body).toMatch(/s\.ends_at IS NULL OR s\.ends_at > now\(\)/);
-    expect(body).toMatch(/p\.is_active/);
+    expect(body).toMatch(/public\.plan_for_user\(_user_id\)/);
+    expect(body).toMatch(/ai_eligible_plans()/);
+    expect(body).not.toMatch(/user_subscriptions|billing_plans/);
   });
 
   it("takes the one notice atomically and is callable by the service role only", () => {

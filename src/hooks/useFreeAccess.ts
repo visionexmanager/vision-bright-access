@@ -1,20 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useTrial } from "@/hooks/useTrial";
 
 /**
- * Admins, and accounts still inside their free week.
+ * Admins only.
  *
- * This used to count thirty days from `profiles.created_at` itself, which made
- * it a second opinion on how long the trial is — and once the trial became a
- * week, the wrong one. It now asks `useTrial`, which reads
- * `profiles.trial_expires_at`: one column, one answer, and an admin extending
- * somebody's trial changes both.
+ * The free week used to count here too — "free access" for a week, to every
+ * section. It no longer does: the trial opens only `TRIAL_SECTIONS`, and the
+ * server charges and gates it like an account with no plan, so a client that
+ * still said "free" would say something the server will not honour.
+ * `isNewUser` and `daysRemaining` stay in the shape so callers keep compiling;
+ * they are always false and 0.
  */
 export function useFreeAccess() {
   const { user } = useAuth();
-  const { isOnTrial, trialDaysLeft } = useTrial();
 
   const { data: profile } = useQuery({
     queryKey: ["profile-role", user?.id],
@@ -32,8 +31,8 @@ export function useFreeAccess() {
   });
 
   const isAdmin = !!profile?.isAdmin;
-  const isNewUser = !isAdmin && !!user && isOnTrial;
-  const daysRemaining = isNewUser ? trialDaysLeft : 0;
+  const isNewUser = false;
+  const daysRemaining = 0;
 
-  return { isAdmin, isNewUser, hasFreeAccess: isAdmin || isNewUser, daysRemaining };
+  return { isAdmin, isNewUser, hasFreeAccess: isAdmin, daysRemaining };
 }

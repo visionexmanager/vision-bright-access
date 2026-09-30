@@ -1636,8 +1636,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <LanguageProvider>
-            <SubscriptionGateNotice />
             <AuthProvider>
+              <SubscriptionGateNotice />
               <CartProvider>
                 <CurrencyProvider>
                   <SoundProvider>

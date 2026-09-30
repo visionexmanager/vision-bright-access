@@ -5,6 +5,7 @@ import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { useTrial } from "@/hooks/useTrial";
+import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { saveSimulationProgress } from "@/utils/saveSimulationProgress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -634,6 +635,7 @@ export function VehicleDiagnosticsSimulation({ simulationId }: Props) {
   const { savedProgress }                 = useSimulationProgress(simulationId);
   const { balance, spendVX }             = useVXWallet();
   const { isOnTrial }                     = useTrial();
+  const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
   const { earnPoints }                    = useEarnPoints();
 
   // ── Vehicle selection ──────────────────────────────────────────────────────
@@ -714,9 +716,9 @@ export function VehicleDiagnosticsSimulation({ simulationId }: Props) {
     setSessionActive(true);
     setActiveTab("vehicle");
     playSound("scan");
-    toast.success(isOnTrial ? "Workshop Session Started — free during your trial" : "🔑 Workshop Session Started — 200 VX deducted");
+    toast.success(trialWaivesPayment ? "Workshop Session Started — free during your trial" : "🔑 Workshop Session Started — 200 VX deducted");
     announce("Vehicle diagnostics simulator session started.");
-  }, [spendVX, playSound, announce, isOnTrial]);
+  }, [spendVX, playSound, announce, trialWaivesPayment]);
 
   // ── Vehicle confirm ────────────────────────────────────────────────────────
   const confirmVehicle = () => {

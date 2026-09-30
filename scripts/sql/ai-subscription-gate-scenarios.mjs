@@ -1,39 +1,19 @@
-// 20261061 — the AI subscription gate — executed in PGlite.
+// 20261062 + 20261063 — the AI subscription gate and the trial rule — executed in PGlite.
 //
 //   npm i --no-save @electric-sql/pglite
-//   node scripts/sql/ai-subscription-gate-scenarios.mjs supabase/migrations/20261062000000_ai_subscription_gate.sql
+//   node scripts/sql/ai-subscription-gate-scenarios.mjs   (runs both migrations)
 //
 // Runs the migration twice over minimal stubs of the tables it reads and drives
 // ai_subscription_gate / ai_subscription_gate_whatsapp through every
 // subscription state the repository can represent. Exit status 1 on any failure.
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
+import { STUBS, MIGRATIONS } from "./gate-stubs.mjs";
 
 const db = new PGlite();
-await db.exec(`
-  CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
-  GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-  CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
-  CREATE TABLE public.user_roles (user_id uuid, role public.app_role);
-  CREATE FUNCTION public.has_role(_user_id uuid, _role public.app_role) RETURNS boolean
-    LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-    AS $$ SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = _role) $$;
-  CREATE TABLE public.billing_plans (id text PRIMARY KEY, is_active boolean NOT NULL DEFAULT true);
-  INSERT INTO public.billing_plans VALUES ('kids',true),('basic',true),('pro',true),('business',true),
-    ('legacy_basic',false),('free',true);
-  CREATE TABLE public.user_subscriptions (id serial PRIMARY KEY, user_id uuid, plan_id text, status text,
-    started_at timestamptz DEFAULT now(), ends_at timestamptz);
-  CREATE TABLE public.profiles (user_id uuid PRIMARY KEY, trial_expires_at timestamptz);
-  CREATE TABLE public.user_points (user_id uuid PRIMARY KEY, balance integer);
-  CREATE TABLE public.subscription_orders (user_id uuid, plan_id text, status text);
-  CREATE TABLE public.site_settings (key text PRIMARY KEY, value jsonb);
-  INSERT INTO public.site_settings VALUES ('owner_contact', '{"whatsapp_number":"+961 70 000 001"}');
-  CREATE FUNCTION public.whatsapp_is_owner_number(_wa_phone text) RETURNS boolean LANGUAGE sql STABLE
-    AS $$ SELECT right(regexp_replace(_wa_phone,'\\D','','g'),8) = '70000001' $$;
-  CREATE TABLE public.whatsapp_identities (wa_phone text PRIMARY KEY, user_id uuid);
-`);
+await db.exec(STUBS);
 
-const sql = readFileSync(process.argv[2], "utf8");
+const sql = (process.argv.length > 2 ? process.argv.slice(2) : MIGRATIONS).map((f) => readFileSync(f, "utf8")).join("\n");
 await db.exec(sql);
 await db.exec(sql); // re-runnable
 

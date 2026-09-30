@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { useTrial } from "@/hooks/useTrial";
+import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { JoinModal } from "@/components/voice-room/JoinModal";
 import { LivePollWidget } from "@/components/voice-room/LivePollWidget";
 import type { Poll } from "@/components/voice-room/LivePollWidget";
@@ -3027,6 +3028,7 @@ export default function VoiceRoom() {
   const { isAdmin, loading: adminLoading } = useAdmin();
   const { spendVX } = useVXWallet();
   const { isOnTrial } = useTrial();
+  const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
 
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -3554,7 +3556,7 @@ export default function VoiceRoom() {
 
   useEffect(() => {
     if (!user || adminLoading) return;
-    if (isAdmin || isOnTrial) {
+    if (isAdmin || trialWaivesPayment) {
       setVoiceAiEnabled(true);
       return;
     }
@@ -3567,7 +3569,7 @@ export default function VoiceRoom() {
   // Keyed on user.id: a Supabase session refresh recreates the user object and
   // must not re-query the purchase row.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, isAdmin, isOnTrial, adminLoading]);
+  }, [user?.id, isAdmin, trialWaivesPayment, adminLoading]);
 
   const handleActivateVoiceAi = useCallback(async () => {
     if (!user) return false;

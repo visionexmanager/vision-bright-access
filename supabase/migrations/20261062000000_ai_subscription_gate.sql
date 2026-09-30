@@ -16,10 +16,10 @@
 --
 -- ── Who is entitled ────────────────────────────────────────────────────────
 --
--- The source of truth is unchanged: `user_subscriptions` joined to
--- `billing_plans`, with exactly the predicate `plan_for_user` uses for a
--- subscription (status 'active', `ends_at` not passed, plan row active). What is
--- new is that only the paid plans count:
+-- There is ONE resolution of "which plan is this account on": `plan_for_user`
+-- (admin → an active paid subscription → the free week → none; redefined in
+-- 20261063). This gate does not read the subscription tables a second time — it
+-- asks that function and accepts only the paid plans:
 --
 --   kids, basic, pro, business   (PAID_PLAN_ORDER in src/lib/billing/plans.ts;
 --                                 ai-subscription-gate.test.ts pins the two)
@@ -27,7 +27,8 @@
 --
 -- And, deliberately, what does not:
 --
---   * the free-trial week (`profiles.trial_expires_at`) — not a paid plan;
+--   * the free-trial week (`profiles.trial_expires_at`) — the trial has no AI
+--     capability of its own (see trial_sections() in 20261063);
 --   * status 'cancelled', 'expired' or 'past_due', or 'active' past `ends_at`;
 --   * a `subscription_orders` row that is pending or rejected — a checkout
 --     started, or payment details entered, is not a subscription until an
@@ -35,8 +36,8 @@
 --   * a VX balance of any size;
 --   * a plan row that is no longer active (the retired `legacy_*` plans).
 --
--- `plan_for_user` itself is not reused because it returns 'free_trial' ahead
--- of a paid subscription, which would wrongly refuse someone who is both.
+-- Someone inside their free week who has also subscribed is on their paid plan:
+-- `plan_for_user` puts an active subscription ahead of the trial.
 --
 -- ── The one notice ─────────────────────────────────────────────────────────
 --
@@ -100,18 +101,7 @@ AS $$
 BEGIN
   IF _user_id IS NULL THEN RETURN false; END IF;
 
-  IF public.has_role(_user_id, 'admin') THEN RETURN true; END IF;
-
-  RETURN EXISTS (
-    SELECT 1
-      FROM public.user_subscriptions s
-      JOIN public.billing_plans p ON p.id = s.plan_id
-     WHERE s.user_id = _user_id
-       AND s.status = 'active'
-       AND (s.ends_at IS NULL OR s.ends_at > now())
-       AND p.is_active
-       AND s.plan_id = ANY (public.ai_eligible_plans())
-  );
+  RETURN public.plan_for_user(_user_id) = ANY (public.ai_eligible_plans() || ARRAY['admin']::text[]);
 END;
 $$;
 

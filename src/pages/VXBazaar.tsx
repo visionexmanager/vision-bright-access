@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePoints } from "@/hooks/usePoints";
 import { useTrial } from "@/hooks/useTrial";
+import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -225,6 +226,7 @@ export default function VXBazaar() {
   const { user } = useAuth();
   const { totalPoints } = usePoints();
   const { isOnTrial } = useTrial();
+  const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
   const { t, lang } = useLanguage();
   const queryClient = useQueryClient();
   const { playSound } = useSound();
@@ -1570,7 +1572,7 @@ export default function VXBazaar() {
                 </div>
 
                 {/* Cost summary */}
-                {isOnTrial ? (
+                {trialWaivesPayment ? (
                   <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
                     <p className="text-sm font-bold text-emerald-400">🎁 {t("bazaar.freeDuringTrial")}</p>
                   </div>
@@ -1595,12 +1597,12 @@ export default function VXBazaar() {
 
                 <Button
                   onClick={() => createShopMutation.mutate()}
-                  disabled={!user || !createForm.name.trim() || createShopMutation.isPending || (!isOnTrial && totalPoints < TIER_CONFIG[createForm.tier].setupCost)}
+                  disabled={!user || !createForm.name.trim() || createShopMutation.isPending || (!trialWaivesPayment && totalPoints < TIER_CONFIG[createForm.tier].setupCost)}
                   className="w-full bg-amber-500 text-black hover:bg-amber-400 font-black py-5 text-base"
                 >
                   {createShopMutation.isPending
                     ? t("bazaar.opening")
-                    : isOnTrial
+                    : trialWaivesPayment
                       ? t("bazaar.openTierFree").replace("{tier}", tierLabel(createForm.tier))
                       : t("bazaar.openTierCost").replace("{tier}", tierLabel(createForm.tier)).replace("{amount}", TIER_CONFIG[createForm.tier].setupCost.toLocaleString())}
                 </Button>

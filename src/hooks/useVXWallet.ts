@@ -3,12 +3,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrial } from "@/hooks/useTrial";
+import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export function useVXWallet() {
   const { user } = useAuth();
   const { isOnTrial } = useTrial();
+  const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
   const { t } = useLanguage();
   const queryClient = useQueryClient();
 
@@ -39,7 +41,7 @@ export function useVXWallet() {
       }
 
       // Free trial bypasses usage charges while users can still earn VX for later upgrades.
-      if (isOnTrial && !options?.chargeDuringTrial) {
+      if (trialWaivesPayment && !options?.chargeDuringTrial) {
         if (!options?.suppressToast) toast({ title: t("vxWallet.freeTrialActive"), description: t("vxWallet.freeTrialDesc").replace("{item}", itemName) });
         return true;
       }
@@ -67,7 +69,7 @@ export function useVXWallet() {
 
       return true;
     },
-    [user, isOnTrial, balance, queryClient, t]
+    [user, trialWaivesPayment, balance, queryClient, t]
   );
 
   /**
@@ -77,8 +79,8 @@ export function useVXWallet() {
    */
   const canSpendVX = useCallback(
     (amount: number, options?: { chargeDuringTrial?: boolean }) =>
-      !!user && ((isOnTrial && !options?.chargeDuringTrial) || balance >= amount),
-    [user, isOnTrial, balance]
+      !!user && ((trialWaivesPayment && !options?.chargeDuringTrial) || balance >= amount),
+    [user, trialWaivesPayment, balance]
   );
 
   return { balance, isLoading, spendVX, canSpendVX };
