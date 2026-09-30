@@ -90,3 +90,23 @@ jobs:
           status=${PIPESTATUS[0]}
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
+
+      # Supabase keeps the metadata: the measurement and what is installed, never a file.
+      - name: Record the metadata in Supabase
+        if: ${{ success() && inputs.action != 'inspect' && inputs.action != 'schedule' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -uo pipefail
+          [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ] || { echo "::warning::Supabase secrets are not set; metadata not recorded"; exit 0; }
+          post() { # $1 function name, $2 JSON document; prints only the HTTP status
+            curl -s -o /dev/null -w '%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/$1" \
+              -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -H 'Content-Type: application/json' \
+              --data "$(jq -c --argjson d "$2" -n '{_data: $d}')"
+          }
+          snap=$(ssh target 'cat /var/lib/visionex/data/manifests/storage.json')
+          echo "storage snapshot: HTTP $(post datahub_record_snapshot "$snap")"
+          ssh target 'for f in /var/lib/visionex/data/datasets/*/*/current/MANIFEST.json; do [ -f "$f" ] && cat "$f"; done' | jq -c . | while read -r doc; do
+            echo "dataset $(echo "$doc" | jq -r .dataset): HTTP $(post datahub_record_dataset "$doc")"
+          done
