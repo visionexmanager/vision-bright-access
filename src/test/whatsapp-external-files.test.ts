@@ -132,7 +132,7 @@ describe("directCandidate: only a licensed item on a named host, and only a type
       expect(directCandidate(item, "book"), provider).toBeNull();
     }
     // The two image hosts were added on purpose (whatsapp-image-request.test.ts); a book from either still never qualifies.
-    expect(Object.keys(DELIVERY_HOSTS).sort()).toEqual(["gutenberg", "internet_archive", "openstax", "openverse", "wikimedia_commons"]);
+    expect(Object.keys(DELIVERY_HOSTS).sort()).toEqual(["artic", "cleveland_museum", "flickr", "gutenberg", "internet_archive", "met_museum", "openalex", "openstax", "openverse", "rijksmuseum", "wikimedia_commons"]);
     expect(KIND_SEARCH.audiobook.providers).toEqual(["internet_archive"]);
   });
 });
@@ -419,12 +419,12 @@ describe("the WhatsApp webhook", () => {
   });
 
   it("does not send an external copy of a book the Visionex library holds", () => {
-    expect(webhook).toMatch(/if \(library\.length === 0 && token && phoneNumberId && parseFileWish\(questionText\)\)/);
+    expect(webhook).toMatch(/if \(library\.length === 0 && token && phoneNumberId && \(parseFileWish\(questionText\) \|\| wantsSend\(questionText\)\)\)/);
   });
 
   it("logs the outcome without a title, a query, an address or a number", () => {
     const logs = webhook.split("\n").filter((l) => l.includes('log("external_file"'));
-    expect(logs).toHaveLength(3); // book, media and image
+    expect(logs).toHaveLength(4); // book, media, image and recording/paper/document
     for (const line of logs) expect(line).not.toMatch(/query|title|url|incoming\.from/);
   });
 });
