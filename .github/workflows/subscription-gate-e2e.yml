@@ -8,10 +8,15 @@ name: Subscription gate end-to-end
 
 on:
   workflow_dispatch:
+  push:
+    branches: [claude/subscription-gate-audit-f4e20b]
+    paths: [.github/workflows/subscription-gate-e2e.yml]
   pull_request:
     paths:
       - supabase/functions/**
       - scripts/e2e/**
+      - scripts/sql/ai-subscription-gate-*
+      - supabase/migrations/2026106*
       - .github/workflows/subscription-gate-e2e.yml
 
 permissions:
@@ -28,3 +33,19 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno run --no-lock --node-modules-dir=none --import-map=scripts/e2e/import-map.json -A scripts/e2e/subscription-gate-harness.ts
+
+  sql:
+    name: The gate SQL, single connection and real concurrency
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install the two test-only servers (not saved to package.json)
+        run: npm i --no-save @electric-sql/pglite embedded-postgres pg
+      - name: Scenarios (PGlite)
+        run: node scripts/sql/ai-subscription-gate-scenarios.mjs supabase/migrations/20261062000000_ai_subscription_gate.sql
+      - name: Ten simultaneous connections on a real PostgreSQL
+        run: node scripts/sql/ai-subscription-gate-concurrency.mjs supabase/migrations/20261062000000_ai_subscription_gate.sql

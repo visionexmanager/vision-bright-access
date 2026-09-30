@@ -28,6 +28,8 @@ Deno.env.set("WHATSAPP_APP_SECRET", "stub-app-secret");
 Deno.env.set("WHATSAPP_PHONE_NUMBER_ID", "000000000000000");
 Deno.env.set("WHATSAPP_TOKEN", "stub-token-never-sent");
 Deno.env.set("WHATSAPP_VERIFY_TOKEN", "stub-verify");
+Deno.env.set("META_APP_SECRET", "stub-meta-secret");
+Deno.env.set("FACEBOOK_PAGE_ACCESS_TOKEN", "stub-page-token-never-sent");
 
 const USER_TOKEN = "gate-user-token";
 const USER_ID = "00000000-0000-4000-8000-0000000000a1";
@@ -41,6 +43,7 @@ let tableWrites: string[] = [];
 let providerCalls: string[] = [];
 let graphSends = 0;
 let gateAsked = 0;
+const providerPaths: string[] = [];
 
 const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status, headers: { "Content-Type": "application/json" } });
 // The gate, and identity/authorization questions that spend nothing.
@@ -76,6 +79,9 @@ async function stub(req: Request): Promise<Response> {
       return json(mode);
     }
     if (name === "has_role") return json(false);
+    // Meta inbox: switched on, with a sending credential, so a message reaches the gate.
+    if (name === "meta_messaging_allowed") return json({ ok: true, account_id: "00000000-0000-4000-8000-0000000000c1" });
+    if (name === "resolve_social_account_token") return json({ ok: true, access_token: "stub-token-never-sent" });
     return json(true); // limits, budgets and meters answer "allowed", so a request that passes the gate goes on to spend
   }
   const table = path.match(/^\/rest\/v1\/([a-z0-9_]+)$/);
@@ -98,11 +104,12 @@ const pending: Promise<unknown>[] = [];
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   if (url.startsWith(STUB)) return stub(new Request(url, init));
-  if (url.includes("graph.facebook.com")) {
+  if (url.includes("graph.facebook.com") || url.includes("graph.instagram.com")) {
     if (new URL(url).pathname.endsWith("/messages")) graphSends++;
     return json({ messages: [{ id: "wamid.stub" }] });
   }
   providerCalls.push(new URL(url).hostname);
+  providerPaths.push(new URL(url).pathname);
   return json({ error: "stubbed: this harness never reaches a provider" }, 503);
 }) as typeof fetch;
 (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime = { waitUntil: (p: Promise<unknown>) => { pending.push(p.catch(() => undefined)); } };
@@ -128,6 +135,7 @@ async function load(name: string): Promise<Handler> {
 }
 
 function reset(m: Mode) {
+  providerPaths.length = 0;
   mode = m; rpcCalls = []; tableWrites = []; providerCalls = []; graphSends = 0; gateAsked = 0; pending.length = 0;
 }
 
@@ -198,6 +206,11 @@ for (const [label, m] of [["unsubscribed signed-in", "blocked_silent"]] as const
   const r = await post(MODERATION, { body: { text: "hello" } });
   const vx = rpcCalls.filter((x) => !GATE_ONLY.has(x));
   console.log(`INFO  ${label}: http=${r.status}, gate asked=${gateAsked}, provider calls=${providerCalls.length} (${[...new Set(providerCalls)].join(",")}), limit/VX RPCs=${vx.join(",") || "none"}, writes=${[...new Set(tableWrites)].join(",") || "none"}`);
+  const onlyModeration = providerCalls.length === 1 && providerCalls[0] === "api.openai.com" && providerPaths.every((x) => x === "/v1/moderations");
+  const noSpend = vx.length === 0 && [...new Set(tableWrites)].every((w) => w === "post:ai_usage_events");
+  const okMod = onlyModeration && noSpend;
+  console.log(`${okMod ? "PASS" : "FAIL"} moderate-content: exactly one call, to /v1/moderations only; no limit, VX or agent RPC; the only write is the usage log`);
+  if (!okMod) failures++;
 }
 
 console.log("## Authorized caller goes past the gate, and is still metered");
@@ -281,6 +294,65 @@ console.log("## WhatsApp (the real webhook, signed inbound messages)");
   console.log(`${eOk ? "PASS" : "FAIL"} gate unreachable: silence, provider calls=${providerCalls.length}, replies=${graphSends}`);
   if (!eOk) failures++;
 }
+
+async function signedWith(secret: string, body: string): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)));
+  return `sha256=${[...mac].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+}
+async function messenger(sender: string, text: string, secret = "stub-meta-secret") {
+  const payload = JSON.stringify({
+    object: "page",
+    entry: [{ id: "page1", time: Date.now(), messaging: [{
+      sender: { id: sender }, recipient: { id: "page1" }, timestamp: Date.now(),
+      message: { mid: `m_gate_${crypto.randomUUID()}`, text },
+    }] }],
+  });
+  return await post("meta-messaging-webhook", { raw: payload, headers: { "x-hub-signature-256": await signedWith(secret, payload) } });
+}
+
+console.log("## Messenger / Instagram (the real meta-messaging-webhook, signed inbound messages)");
+{
+  atomicNotices = true;
+  firstNoticeTaken = new Set();
+  reset("blocked_first_notice");
+  const bad = await messenger("5001", "hello", "wrong-secret");
+  const badOk = bad.status === 403 && gateAsked === 0 && providerCalls.length === 0;
+  console.log(`${badOk ? "PASS" : "FAIL"} forged delivery (bad signature): http=${bad.status}, gate asked=${gateAsked}, provider calls=${providerCalls.length}`);
+  if (!badOk) failures++;
+
+  reset("blocked_first_notice");
+  const a = await messenger("5001", "what are your opening hours?");
+  const aOk = a.status === 200 && gateAsked === 1 && graphSends === 1 && providerCalls.length === 0;
+  console.log(`${aOk ? "PASS" : "FAIL"} first message, unsubscribed sender: http=${a.status}, gate asked=${gateAsked}, notices sent=${graphSends}, provider calls=${providerCalls.length}`);
+  if (!aOk) failures++;
+
+  reset("blocked_first_notice");
+  const b = await messenger("5001", "hello?");
+  const bOk = b.status === 200 && graphSends === 0 && providerCalls.length === 0;
+  console.log(`${bOk ? "PASS" : "FAIL"} second message, same sender: http=${b.status}, replies sent=${graphSends}, provider calls=${providerCalls.length}`);
+  if (!bOk) failures++;
+
+  reset("blocked_first_notice");
+  const burst = await Promise.all(Array.from({ length: 10 }, () => messenger("5002", "hello")));
+  const cOk = burst.every((r) => r.status === 200) && graphSends === 1 && providerCalls.length === 0;
+  console.log(`${cOk ? "PASS" : "FAIL"} 10 concurrent messages, one new sender: notices sent=${graphSends}, provider calls=${providerCalls.length}`);
+  if (!cOk) failures++;
+
+  reset("error");
+  await messenger("5003", "hello");
+  const eOk = providerCalls.length === 0 && graphSends === 0;
+  console.log(`${eOk ? "PASS" : "FAIL"} gate unreachable: silence, provider calls=${providerCalls.length}, replies=${graphSends}`);
+  if (!eOk) failures++;
+
+  atomicNotices = false;
+  reset("authorized");
+  await messenger("5004", "what are your opening hours?");
+  const dOk = providerCalls.length > 0;
+  console.log(`${dOk ? "PASS" : "FAIL"} authorized sender reaches the assistant, so the gate is the only thing stopping the others: provider attempts=${providerCalls.length}`);
+  if (!dOk) failures++;
+}
+
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`);
 Deno.exit(failures === 0 ? 0 : 1);
