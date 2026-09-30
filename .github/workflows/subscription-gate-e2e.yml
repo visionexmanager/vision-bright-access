@@ -1,0 +1,30 @@
+name: Subscription gate end-to-end
+
+# Runs the real Edge Function handlers against a Supabase stub on localhost and
+# counts what an unsubscribed caller reaches: provider calls, limit and VX RPCs,
+# writes, WhatsApp replies. Every outbound provider request is intercepted and
+# answered 503, so no key is needed and nothing external is contacted.
+# See scripts/e2e/subscription-gate-harness.ts.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - supabase/functions/**
+      - scripts/e2e/**
+      - .github/workflows/subscription-gate-e2e.yml
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Unsubscribed callers reach no provider
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno run --no-lock --node-modules-dir=none --import-map=scripts/e2e/import-map.json -A scripts/e2e/subscription-gate-harness.ts

@@ -69,6 +69,9 @@ async function stub(req: Request): Promise<Response> {
   if (rpc) {
     rpcCalls.push(rpc[1]);
     if (rpc[1] === "has_role") return json(isAdmin);
+    // The subscription gate: this harness tests the functions, not entitlement
+    // (scripts/e2e/subscription-gate-harness.ts does that).
+    if (rpc[1].startsWith("ai_subscription_gate")) return json("authorized");
     if (ALLOW.has(rpc[1])) return json(true);
     return json(null);
   }
