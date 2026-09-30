@@ -39,7 +39,7 @@ describe("parseImageRequest: an explicit request to find and send an existing pi
     ["find an image of the Lord of the Rings and send it to me", "Lord of the Rings"],
     ["show me photos of Petra", "Petra"],
     ["please send me a photo of salt and pepper", "salt and pepper"],
-  ])("English: %s", (text, query) => expect(parseImageRequest(text)).toEqual({ query }));
+  ])("English: %s", (text, query) => expect(parseImageRequest(text)).toMatchObject({ query }));
 
   // One real request per supported language; the subject must survive, the verb, image word and filler must not.
   it.each([
@@ -131,14 +131,14 @@ describe("the image sources", () => {
       providers: ["wikimedia_commons", "openverse", "met_museum", "artic", "cleveland_museum", "rijksmuseum", "flickr"],
     });
     for (const provider of ["youtube", "vimeo", "pixabay", "pexels", "unsplash", "dailymotion"]) expect(DELIVERY_HOSTS[provider]).toBeUndefined();
-    expect(DELIVERY_HOSTS.wikimedia_commons).toEqual(["upload.wikimedia.org", "commons.wikimedia.org"]);
+    expect(DELIVERY_HOSTS.wikimedia_commons).toEqual(["upload.wikimedia.org", "commons.wikimedia.org", "thumb.wikimedia.org"]);
     expect(DELIVERY_HOSTS.openverse).toEqual(["api.openverse.org"]);
   });
 
   it("sends a Commons original that fits Meta's 5 MB image limit, from Commons' own server", () => {
     expect(directCandidate(commons(), "image")).toMatchObject({
       url: "https://upload.wikimedia.org/wikipedia/commons/a/ab/Red_fox_in_snow.jpg", mime: "image/jpeg", size: 2 * MB, fileName: "Red-fox-in-snow.jpg",
-      hosts: ["upload.wikimedia.org", "commons.wikimedia.org"],
+      hosts: ["upload.wikimedia.org", "commons.wikimedia.org", "thumb.wikimedia.org"],
     });
   });
 
@@ -207,20 +207,21 @@ function deps(over: { items?: ExternalContentItem[]; deliver?: (a: DeliverableAs
 }
 
 describe("attachExternalFile for an image", () => {
-  it("delivers a Wikimedia Commons picture as an image, then sends the credit: title, maker, source, licence, page", async () => {
+  it("delivers a Wikimedia Commons picture as an image, with the credit in its caption and no link, no second message", async () => {
     const { d, deliverFn, sendText } = deps({ items: [commons()] });
     const out = await attachExternalFile({ kind: "image", query: "red fox", language: "en" }, d);
     expect(out).toMatchObject({ outcome: "delivered", provider: "wikimedia_commons", kind: "image", tried: 1 });
     expect(deliverFn.mock.calls[0][0]).toMatchObject({
       url: "https://upload.wikimedia.org/wikipedia/commons/a/ab/Red_fox_in_snow.jpg", mimeType: "image/jpeg", fileName: "Red-fox-in-snow.jpg",
-      allowedHosts: ["upload.wikimedia.org", "commons.wikimedia.org"],
+      allowedHosts: ["upload.wikimedia.org", "commons.wikimedia.org", "thumb.wikimedia.org"],
     });
     // A failed delivery must fall through to the caller, not send a second message from inside.
     expect(deliverFn.mock.calls[0][0]).not.toHaveProperty("fallbackUrl");
-    const credit = String((sendText.mock.calls[0] as unknown[])[0]);
-    expect(credit).toContain("Red fox in snow — Jane Doe");
-    expect(credit).toContain("Wikimedia Commons · CC BY 4.0");
-    expect(credit).toContain("https://commons.wikimedia.org/wiki/File:Red_fox_in_snow.jpg");
+    const caption = String(deliverFn.mock.calls[0][0].caption);
+    expect(caption).toContain("Red fox in snow — Jane Doe");
+    expect(caption).toContain("CC BY 4.0 · Wikimedia Commons");
+    expect(caption).not.toMatch(/https?:|www\./);
+    expect(sendText).not.toHaveBeenCalled();
   });
 
   it("delivers an Openverse picture from Openverse's host, with its credit", async () => {
@@ -228,7 +229,8 @@ describe("attachExternalFile for an image", () => {
     const out = await attachExternalFile({ kind: "image", query: "eiffel tower", language: "fr" }, d);
     expect(out).toMatchObject({ outcome: "delivered", provider: "openverse", kind: "image" });
     expect(deliverFn.mock.calls[0][0]).toMatchObject({ url: `https://api.openverse.org/v1/images/${OPENVERSE_ID}/thumb/`, allowedHosts: ["api.openverse.org"], mimeType: "image/jpeg" });
-    expect(String((sendText.mock.calls[0] as unknown[])[0])).toContain("Openverse · CC BY 4.0");
+    expect(String(deliverFn.mock.calls[0][0].caption)).toContain("CC BY 4.0 · Openverse");
+    expect(sendText).not.toHaveBeenCalled();
   });
 
   it("searches only the two sources, for images, in the sender's language", async () => {
@@ -245,7 +247,7 @@ describe("attachExternalFile for an image", () => {
   });
 
   it("falls back to the result's own page when the picture cannot be attached — and says nothing itself", async () => {
-    const { d, sendText } = deps({ items: [commons({ providerItemId: "1" }), commons({ providerItemId: "2" })], deliver: async () => failed() });
+    const { d, sendText } = deps({ items: [commons({ providerItemId: "1" }), commons({ providerItemId: "2", downloadUrl: "https://upload.wikimedia.org/wikipedia/commons/c/cd/Other_fox.jpg" })], deliver: async () => failed() });
     const out = await attachExternalFile({ kind: "image", query: "red fox", language: "en" }, d);
     expect(out).toEqual({ outcome: "none", reason: "delivery_failed", tried: 2, link: { url: "https://commons.wikimedia.org/wiki/File:Red_fox_in_snow.jpg", title: "Red fox in snow" } });
     expect(sendText).not.toHaveBeenCalled();
@@ -301,7 +303,7 @@ describe("end to end through deliverAsset", () => {
     expect(out).toMatchObject({ outcome: "delivered", kind: "image" });
     expect(calls.map((c) => c.url.split("/").slice(-1)[0])).toEqual(["media", "messages"]);
     expect(JSON.parse(String(calls[1].body))).toMatchObject({ type: "image", to: "9627", image: { id: "media-1" } });
-    expect(sendText).toHaveBeenCalledTimes(1);
+    expect(sendText).not.toHaveBeenCalled(); // the picture, and nothing after it
   });
 
   it("a resized Commons copy is followed through its redirect, within the named hosts", async () => {
@@ -375,7 +377,7 @@ describe("the WhatsApp webhook", () => {
 
   it("logs the outcome without a query, a title, an address or a number, and reads no secret", () => {
     const logs = block.split("\n").filter((l) => l.includes('log("external_file"'));
-    expect(logs).toHaveLength(1);
+    expect(logs).toHaveLength(2); // the file, and the link-only answer
     expect(logs[0]).not.toMatch(/query|title|url|incoming\.from/);
     expect(block).not.toMatch(/Deno\.env\.get\("[A-Z_]*(KEY|TOKEN|SECRET)/);
   });

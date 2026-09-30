@@ -313,7 +313,7 @@ import {
   parseMediaRequest,
   searchMedia,
 } from "../_shared/whatsappFreeMedia.ts";
-import { attachExternalFile, parseFileWish } from "../_shared/whatsappExternalFiles.ts";
+import { attachExternalFile, findExternalLinks, parseFileWish } from "../_shared/whatsappExternalFiles.ts";
 import {
   type Capability,
   type CatalogNode,
@@ -421,7 +421,7 @@ import {
   deliveryLogFields,
   type DeliveryResult,
 } from "../_shared/whatsappAssetDelivery.ts";
-import { ASSET_CAPABILITY_DIRECTIVE, parseAssetRequest, parseImageRequest, wantsSend } from "../_shared/whatsappImageRequest.ts";
+import { ASSET_CAPABILITY_DIRECTIVE, parseAssetRequest, parseImageRequest, wantsLink, wantsSend } from "../_shared/whatsappImageRequest.ts";
 import { translateWithChain } from "../_shared/whatsappQueryTranslate.ts";
 import { extractDocumentText } from "../_shared/whatsappDocumentText.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
@@ -5166,12 +5166,28 @@ Deno.serve(async (req) => {
       // as before. When the picture cannot be attached, the sender gets the
       // result's own page (with its licence); when nothing matches, the message
       // carries on to whatever handled it before.
+      /**
+       * "... with the link" / "send me the link to ...": the answer is the address and nothing is attached.
+       * True when it answered. A request that did not ask for a link never comes here.
+       */
+      const answerWithLinks = async (kind: "image" | "audio" | "video" | "document", query: string): Promise<boolean> => {
+        const links = await findExternalLinks(
+          { kind, query, language: answerLanguage },
+          { fetch: (url, init) => fetch(url, init), env: (name) => Deno.env.get(name), translate: translateWithChain },
+        );
+        log("external_file", { flow: kind, outcome: links.length > 0 ? "link" : "none", count: links.length });
+        if (links.length === 0) return false;
+        await reply(links.map((l) => `${l.title}\n${l.url}`).join("\n\n"), "reply");
+        return true;
+      };
+
       const imageRequest = humanOwnsThis || !featureOn("services.media")
         ? null
         : parseImageRequest(questionText);
-      if (imageRequest && token && phoneNumberId) {
+      if (imageRequest && imageRequest.wantsLink && (await answerWithLinks("image", imageRequest.query))) continue;
+      if (imageRequest && !imageRequest.wantsLink && token && phoneNumberId) {
         const attached = await attachExternalFile(
-          { kind: "image", query: imageRequest.query, language: answerLanguage },
+          { kind: "image", query: imageRequest.query, language: answerLanguage, count: imageRequest.count },
           {
             fetch: (url, init) => fetch(url, init),
             env: (name) => Deno.env.get(name),
@@ -5212,7 +5228,7 @@ Deno.serve(async (req) => {
         // is delivered as an attachment. Podcasts stay links (a publisher's
         // stream is not a licensed copy). When nothing is delivered the list of
         // links below still follows, so the sender never gets less than before.
-        if (token && phoneNumberId && request.kind !== "podcast") {
+        if (token && phoneNumberId && request.kind !== "podcast" && !wantsLink(questionText)) {
           const attached = await attachExternalFile(
             { kind: request.kind, query: request.query, language: answerLanguage },
             {
@@ -5298,7 +5314,7 @@ Deno.serve(async (req) => {
         // a licensed copy from a connected open source (a Gutenberg text, an
         // OpenStax or Internet Archive PDF) is delivered as an attachment. What
         // cannot be delivered falls through to the list of links below.
-        if (library.length === 0 && token && phoneNumberId && (parseFileWish(questionText) || wantsSend(questionText))) {
+        if (library.length === 0 && token && phoneNumberId && !wantsLink(questionText) && (parseFileWish(questionText) || wantsSend(questionText))) {
           const attached = await attachExternalFile(
             { kind: "book", query, language: answerLanguage },
             {
@@ -5339,9 +5355,10 @@ Deno.serve(async (req) => {
       const assetRequest = humanOwnsThis || bookNotFound || mediaNotFound || !featureOn("services.media")
         ? null
         : parseAssetRequest(questionText);
-      if (assetRequest && token && phoneNumberId) {
+      if (assetRequest && assetRequest.wantsLink && (await answerWithLinks(assetRequest.kind, assetRequest.query))) continue;
+      if (assetRequest && !assetRequest.wantsLink && token && phoneNumberId) {
         const attached = await attachExternalFile(
-          { kind: assetRequest.kind, query: assetRequest.query, language: answerLanguage },
+          { kind: assetRequest.kind, query: assetRequest.query, language: answerLanguage, count: assetRequest.count },
           {
             fetch: (url, init) => fetch(url, init),
             env: (name) => Deno.env.get(name),

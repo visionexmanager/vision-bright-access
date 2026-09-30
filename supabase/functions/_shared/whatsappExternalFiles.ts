@@ -67,7 +67,8 @@ export const DELIVERY_HOSTS: Readonly<Record<string, readonly string[]>> = {
   internet_archive: ["archive.org"],
   // A picture: Commons' own file servers, and Openverse's thumbnail endpoint (its
   // originals sit on whatever site the work came from, which is not a host we name).
-  wikimedia_commons: ["upload.wikimedia.org", "commons.wikimedia.org"],
+  // Special:FilePath answers with a redirect to thumb.wikimedia.org, where Commons keeps its resized copies.
+  wikimedia_commons: ["upload.wikimedia.org", "commons.wikimedia.org", "thumb.wikimedia.org"],
   openverse: ["api.openverse.org"],
   // Museum images released as CC0, from the museum's own image servers.
   met_museum: ["images.metmuseum.org"],
@@ -210,8 +211,9 @@ export function directCandidate(item: ExternalContentItem, kind: FileKind): File
  */
 export function licenceAllows(licence: { name: string } | null | undefined, modified: boolean): boolean {
   const name = licence?.name ?? "";
-  if (!/^(CC0|CC[ -]|Public Domain|United States Government Work|No known copyright)/i.test(name)) return false;
-  if (/(?:^|[\s-])NC(?:[\s-]|$)/i.test(name)) return false;
+  // "Attribution" is how Commons names its older Creative Commons tags ("Attribution-ShareAlike").
+  if (!/^(CC0|CC[ -]|Attribution|Public Domain|United States Government Work|No known copyright)/i.test(name)) return false;
+  if (/(?:^|[\s-])NC(?:[\s-]|$)|Non-?Commercial/i.test(name)) return false;
   if (modified && NO_DERIVATIVES.test(name)) return false;
   return true;
 }
@@ -220,14 +222,17 @@ const extensionOf = (url: string): string => /\.([a-z0-9]{2,5})(?:[?#]|$)/i.exec
 
 /** Audio and video from Wikimedia Commons: what Meta takes as it is, or converted on the processor. */
 function commonsMediaCandidate(item: ExternalContentItem, kind: "audio" | "video", hosts: readonly string[]): FileCandidate | null {
-  if (item.provider !== "wikimedia_commons" || !item.downloadUrl || !COMMONS_FILE.test(item.downloadUrl)) return null;
-  const mime = (item.mimeType ?? "").toLowerCase();
+  const original = item.provider === "wikimedia_commons" ? commonsOriginal(item.downloadUrl) : null;
+  if (!original) return null;
+  let mime = (item.mimeType ?? "").toLowerCase();
+  // Commons labels every Ogg "application/ogg": a .ogv is a video, the rest are sound.
+  if (mime === "application/ogg") mime = /\.ogv$/i.test(original.name) ? "video/ogg" : "audio/ogg";
   const wanted = kind === "audio" ? /^audio\// : /^video\//;
   if (!wanted.test(mime)) return null;
   const direct = mime === "audio/mpeg" || mime === "video/mp4";
   if (!licenceAllows(item.license, !direct)) return null;
   return {
-    url: item.downloadUrl, mime, fileName: fileNameFor(item.title, direct ? mime : (kind === "audio" ? TO_MP3.mime : TO_MP4.mime)),
+    url: original.url, mime, fileName: fileNameFor(item.title, direct ? mime : (kind === "audio" ? TO_MP3.mime : TO_MP4.mime)),
     size: item.sizeBytes, hosts, ...(direct ? {} : { convert: kind === "audio" ? TO_MP3 : TO_MP4, mustConvert: true }),
   };
 }
@@ -243,8 +248,9 @@ function hostEntry(url: string, hosts: readonly string[]): string | null {
 function documentCandidate(item: ExternalContentItem, hosts: readonly string[]): FileCandidate | null {
   if (!item.downloadUrl || !licenceAllows(item.license, false)) return null;
   if (item.provider === "wikimedia_commons") {
-    if (item.mimeType !== "application/pdf" || !COMMONS_FILE.test(item.downloadUrl)) return null;
-    return { url: item.downloadUrl, mime: "application/pdf", fileName: fileNameFor(item.title, "application/pdf"), size: item.sizeBytes, hosts };
+    const original = commonsOriginal(item.downloadUrl);
+    if (item.mimeType !== "application/pdf" || !original) return null;
+    return { url: original.url, mime: "application/pdf", fileName: fileNameFor(item.title, "application/pdf"), size: item.sizeBytes, hosts };
   }
   if (item.provider === "openalex") {
     const entry = hostEntry(item.downloadUrl, hosts);
@@ -255,7 +261,13 @@ function documentCandidate(item: ExternalContentItem, hosts: readonly string[]):
 }
 
 const IMAGE_MIMES = new Set(["image/jpeg", "image/png"]);
-const COMMONS_FILE = /^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/(?!thumb\/)[0-9a-f]\/[0-9a-f]{2}\/([^/?#]+)$/;
+// The API answers with "?utm_source=..." after the address; the file is served without it, and it is dropped.
+const COMMONS_FILE = /^(https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/(?!thumb\/)[0-9a-f]\/[0-9a-f]{2}\/([^/?#]+))(?:\?utm_[\w=&.%:/-]{0,200})?$/;
+/** The file's own address (no tracking query) and its name, or null when this is not a Commons original. */
+function commonsOriginal(url: string | null): { url: string; name: string } | null {
+  const m = url ? COMMONS_FILE.exec(url) : null;
+  return m ? { url: m[1], name: m[2] } : null;
+}
 /** The exact shape of each museum's image address; anything else is not delivered. */
 const MUSEUM_IMAGE: Readonly<Record<string, RegExp>> = {
   met_museum: /^https:\/\/images\.metmuseum\.org\/CRDImages\/[\w/.-]+\.(?:jpg|jpeg|png)$/i,
@@ -291,21 +303,21 @@ function imageCandidate(item: ExternalContentItem, hosts: readonly string[]): Fi
   const url = item.downloadUrl as string;
   if (item.provider === "wikimedia_commons") {
     const mime = (item.mimeType ?? "").toLowerCase();
-    const match = COMMONS_FILE.exec(url);
-    if (!match) return null;
+    const original = commonsOriginal(url);
+    if (!original) return null;
     if (IMAGE_MIMES.has(mime)) {
       if (item.sizeBytes !== null && item.sizeBytes <= limit) {
         return licenceAllows(item.license, false)
-          ? { url, mime, fileName: fileNameFor(item.title, mime), size: item.sizeBytes, hosts }
+          ? { url: original.url, mime, fileName: fileNameFor(item.title, mime), size: item.sizeBytes, hosts }
           : null;
       }
       if (!licenceAllows(item.license, true)) return null;
       // Special:FilePath answers with a redirect to Commons' resized copy, of the original's type.
-      return { url: `https://commons.wikimedia.org/wiki/Special:FilePath/${match[1]}?width=1600`, mime, fileName: fileNameFor(item.title, mime), size: null, hosts };
+      return { url: `https://commons.wikimedia.org/wiki/Special:FilePath/${original.name}?width=1600`, mime, fileName: fileNameFor(item.title, mime), size: null, hosts };
     }
     // A raster type Meta refuses (WebP, GIF, TIFF, BMP) can still be converted; a vector drawing cannot.
     if (/^image\/(webp|gif|tiff|bmp)$/.test(mime) && licenceAllows(item.license, true)) {
-      return { url, mime, fileName: fileNameFor(item.title, "image/jpeg"), size: item.sizeBytes, hosts, convert: TO_JPEG };
+      return { url: original.url, mime, fileName: fileNameFor(item.title, "image/jpeg"), size: item.sizeBytes, hosts, convert: TO_JPEG };
     }
     return null;
   }
@@ -353,7 +365,19 @@ export async function declaredSize(url: string, hosts: readonly string[], fetchI
   }
 }
 
-/** The credit that travels with a file: title, maker, source, licence, address — names and codes only. */
+/**
+ * The attribution that travels INSIDE the file's own message (its caption): title, maker, licence, source —
+ * no address, no link. Public domain and CC0 need none. A licence that asks for credit (CC BY and the
+ * like) gets it here, so the sender receives the file and nothing else.
+ */
+export function attributionCaption(item: ExternalContentItem): string | undefined {
+  const licence = item.license?.name ?? "";
+  if (!licence || /^(CC0|Public Domain|United States Government|No known copyright)/i.test(licence)) return undefined;
+  const text = [[item.title, item.creator].filter(Boolean).join(" — "), [licence, item.providerName].filter(Boolean).join(" · ")].filter(Boolean).join("\n");
+  return text.length > 400 ? text.slice(0, 399) + "…" : text;
+}
+
+/** The credit that travels with a file, for a reply that IS a link: title, maker, source, licence, address — names and codes only. */
 export function creditText(item: ExternalContentItem): string {
   return [
     [item.title, item.creator].filter(Boolean).join(" — "),
@@ -380,7 +404,7 @@ export interface AttachDeps {
 }
 
 export type AttachOutcome =
-  | { outcome: "delivered"; provider: string; kind: WhatsAppMediaKind; tried: number }
+  | { outcome: "delivered"; provider: string; kind: WhatsAppMediaKind; tried: number; count: number }
   | {
     outcome: "none";
     reason: "no_query" | "search_failed" | "no_candidate" | "delivery_failed";
@@ -390,6 +414,8 @@ export type AttachOutcome =
   };
 
 const MAX_CANDIDATES = 3;
+/** The most files one request sends: "some pictures of ..." is three, a number is honoured up to five. */
+export const MAX_FILES = 5;
 const METADATA_TIMEOUT_MS = 8_000;
 
 /** AbortSignal.timeout exists in Deno and current browsers; a test runtime without it just has no timeout. */
@@ -423,7 +449,7 @@ async function archiveCandidate(item: ExternalContentItem, kind: FileKind, deps:
  * against their type by deliverAsset like any other file; a failure anywhere is a failed
  * delivery, never a partial one.
  */
-async function deliverConverted(candidate: FileCandidate, spec: ConvertSpec, deps: AttachDeps): Promise<DeliveryResult> {
+async function deliverConverted(candidate: FileCandidate, spec: ConvertSpec, deps: AttachDeps, caption?: string): Promise<DeliveryResult> {
   const failed = (reason: "asset_too_large" | "asset_type_unsupported" | "asset_download_failed" | "asset_not_found" | "asset_invalid" | "asset_download_timeout"): DeliveryResult =>
     ({ outcome: "failed", reason, ms: 0 });
   // The processor takes at most 16 MB; a bigger source is refused before it is downloaded.
@@ -436,7 +462,7 @@ async function deliverConverted(candidate: FileCandidate, spec: ConvertSpec, dep
   }
   const out = await deps.convert!(got.bytes, `to=${spec.to}${spec.options ? `&${spec.options}` : ""}`);
   if (!out.ok || !out.bytes?.length || !out.mime) return failed("asset_type_unsupported");
-  return deps.deliver({ bytes: out.bytes, mimeType: out.mime, fileName: fileNameFor(candidate.fileName.replace(/\.[^.]+$/, ""), out.mime) });
+  return deps.deliver({ bytes: out.bytes, mimeType: out.mime, fileName: fileNameFor(candidate.fileName.replace(/\.[^.]+$/, ""), out.mime), caption });
 }
 
 const CONVERT_SOURCE_MAX = 16 * 1024 * 1024;
@@ -447,7 +473,7 @@ const CONVERT_SOURCE_MAX = 16 * 1024 * 1024;
  * when nothing was delivered, so the caller's list of links still follows.
  */
 export async function attachExternalFile(
-  params: { kind: FileKind; query: string; language: string },
+  params: { kind: FileKind; query: string; language: string; count?: number },
   deps: AttachDeps,
 ): Promise<AttachOutcome> {
   // The catalogues are mostly indexed in English. A request in another script is searched in English
@@ -471,14 +497,14 @@ export async function attachExternalFile(
 const NON_LATIN = /[^\p{Script=Latin}\p{Script=Common}\p{Script=Inherited}]/u;
 
 async function attemptAttach(
-  params: { kind: FileKind; query: string; language: string },
+  params: { kind: FileKind; query: string; language: string; count?: number },
   deps: AttachDeps,
 ): Promise<AttachOutcome> {
   const query = stripFileWish(params.query);
   if (query.length < 2) return { outcome: "none", reason: "no_query", tried: 0 };
 
   const spec = KIND_SEARCH[params.kind];
-  const input = normalizeSearchInput({ query, categories: [...spec.categories], providers: [...spec.providers], language: params.language, limit: 4 });
+  const input = normalizeSearchInput({ query, categories: [...spec.categories], providers: [...spec.providers], language: params.language, limit: Math.min(12, 4 + 2 * ((params.count ?? 1) - 1)) });
   if (!input) return { outcome: "none", reason: "no_query", tried: 0 };
 
   let found: AggregateResult;
@@ -488,10 +514,21 @@ async function attemptAttach(
     return { outcome: "none", reason: "search_failed", tried: 0 };
   }
 
+  // A picture, recording, film or paper comes from the sources in the order they are preferred (Commons and
+  // Openverse before a museum's artwork for "a photo of a fox"); within a source the catalogue's ranking stands.
+  if (params.kind === "image" || params.kind === "audio" || params.kind === "video" || params.kind === "document") {
+    const rank = (provider: string) => { const i = spec.providers.indexOf(provider); return i < 0 ? spec.providers.length : i; };
+    found = { ...found, items: found.items.map((item, at) => ({ item, at })).sort((a, b) => rank(a.item.provider) - rank(b.item.provider) || a.at - b.at).map((x) => x.item) };
+  }
+
   let tried = 0;
+  let sent = 0;
+  let first: { provider: string; kind: WhatsAppMediaKind } | null = null;
+  const wanted = Math.max(1, Math.min(MAX_FILES, params.count ?? 1));
+  const seen = new Set<string>();
   let link: { url: string; title: string } | undefined;
   for (const item of found.items) {
-    if (tried >= MAX_CANDIDATES) break;
+    if (tried >= MAX_CANDIDATES + wanted - 1) break;
     // The work asked for, not merely the top of a ranking. A picture is what the search engine matched
     // to the words (its title is often a file name, and the subject may be in another language), so
     // the catalogue's own ranking decides; a book, a paper or a film is held to its title.
@@ -501,7 +538,9 @@ async function attemptAttach(
       // A recording from the Archive is chosen the way an audiobook chapter is: a small MP3 that fits.
       ? await archiveCandidate(item, params.kind === "audio" ? "audiobook" : params.kind, deps)
       : directCandidate(item, params.kind);
-    if (!candidate) continue;
+    if (!candidate || seen.has(candidate.url)) continue;
+    seen.add(candidate.url);
+    const caption = attributionCaption(item);
     const rule = deliveryRuleFor(candidate.mime);
     // A file whose size nobody stated is asked its size before it is downloaded.
     const size = candidate.size ?? await declaredSize(candidate.url, candidate.hosts, deps.fetch);
@@ -510,18 +549,53 @@ async function attemptAttach(
     let result: DeliveryResult;
     if (fits) {
       tried++;
-      result = await deps.deliver({ url: candidate.url, allowedHosts: candidate.hosts, mimeType: candidate.mime, fileName: candidate.fileName });
+      result = await deps.deliver({ url: candidate.url, allowedHosts: candidate.hosts, mimeType: candidate.mime, fileName: candidate.fileName, caption });
     } else if (candidate.convert && deps.convert) {
       // A type Meta refuses, or a file over its limit: converted on the media processor, then sent as bytes.
       tried++;
-      result = await deliverConverted(candidate, candidate.convert, deps);
+      result = await deliverConverted(candidate, candidate.convert, deps, caption);
     } else {
       continue;
     }
     if (result.outcome.startsWith("delivered_")) {
-      await deps.sendText(creditText(item)).catch(() => undefined);
-      return { outcome: "delivered", provider: item.provider, kind: (result as Extract<DeliveryResult, { kind: WhatsAppMediaKind }>).kind, tried };
+      sent++;
+      first ??= { provider: item.provider, kind: (result as Extract<DeliveryResult, { kind: WhatsAppMediaKind }>).kind };
+      if (sent >= wanted) break;
     }
   }
+  // The file, and nothing else: no link and no second message. What credit a licence asks for
+  // travelled in the caption.
+  if (first) return { outcome: "delivered", provider: first.provider, kind: first.kind, tried, count: sent };
   return { outcome: "none", reason: tried === 0 ? "no_candidate" : "delivery_failed", tried, ...(link ? { link } : {}) };
+}
+
+/**
+ * "Send me the link to ...": what the sender asked for is the address, so the answer is the address and
+ * nothing is downloaded or attached. The results' own pages (they carry the licence), up to three.
+ */
+export async function findExternalLinks(
+  params: { kind: FileKind; query: string; language: string },
+  deps: Pick<AttachDeps, "fetch" | "env" | "search" | "translate">,
+): Promise<Array<{ title: string; url: string }>> {
+  const run = async (raw: string): Promise<Array<{ title: string; url: string }>> => {
+    const query = stripFileWish(raw);
+    const spec = KIND_SEARCH[params.kind];
+    const input = query.length >= 2 ? normalizeSearchInput({ query, categories: [...spec.categories], providers: [...spec.providers], language: params.language, limit: 4 }) : null;
+    if (!input) return [];
+    try {
+      const found = await (deps.search ?? ((i) => searchExternalContent(i, { fetch: deps.fetch, env: deps.env }, { deadlineMs: 6_000 })))(input);
+      return found.items.filter((i) => /^https:\/\//i.test(i.externalUrl)).slice(0, 3).map((i) => ({ title: i.title, url: i.externalUrl }));
+    } catch {
+      return [];
+    }
+  };
+  if (deps.translate && NON_LATIN.test(params.query)) {
+    let english: string | null = null;
+    try { english = await deps.translate(stripFileWish(params.query)); } catch { english = null; }
+    if (english && !NON_LATIN.test(english)) {
+      const links = await run(english.slice(0, 80));
+      if (links.length) return links;
+    }
+  }
+  return run(params.query);
 }

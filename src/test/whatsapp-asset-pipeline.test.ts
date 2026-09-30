@@ -43,7 +43,7 @@ describe("parseAssetRequest: find and send a recording, a paper or a document", 
     ["send me a document about photosynthesis", "document", "photosynthesis"],
     ["find an audio recording of a thunderstorm", "audio", "thunderstorm"],
     ["send me a recording of ocean waves", "audio", "ocean waves"],
-  ])("English: %s", (text, kind, query) => expect(parseAssetRequest(text)).toEqual({ kind, query }));
+  ])("English: %s", (text, kind, query) => expect(parseAssetRequest(text)).toMatchObject({ kind, query }));
 
   it.each([
     ["ar", "ابعتلي ملف PDF عن الذكاء الاصطناعي", "document", "الذكاء الاصطناعي"],
@@ -99,7 +99,7 @@ describe("parseAssetRequest: find and send a recording, a paper or a document", 
   });
 
   it("and the picture parser is untouched by it", () => {
-    expect(parseImageRequest("send me an image of a red fox")).toEqual({ query: "red fox" });
+    expect(parseImageRequest("send me an image of a red fox")).toMatchObject({ query: "red fox" });
     expect(parseImageRequest("create an image of a red fox")).toBeNull();
     expect(parseAssetRequest("send me an image of a red fox")).toBeNull();
   });
@@ -313,15 +313,16 @@ function deps(over: { items?: ExternalContentItem[]; deliver?: AttachDeps["deliv
 }
 
 describe("research: from a question to the PDF", () => {
-  it("delivers the open-access PDF as a document, then the citation: title, author, source, licence, DOI", async () => {
+  it("delivers the open-access PDF as a document; the citation is its caption, with no link and no second message", async () => {
     const { d, deliverFn, sendText } = deps({ items: [paper()] });
     const out = await attachExternalFile({ kind: "document", query: "accessible education", language: "en" }, d);
     expect(out).toMatchObject({ outcome: "delivered", provider: "openalex", kind: "document" });
     expect(deliverFn.mock.calls[0][0]).toMatchObject({ url: "https://zenodo.org/records/1/files/paper.pdf", mimeType: "application/pdf", allowedHosts: ["zenodo.org"] });
-    const credit = String((sendText.mock.calls[0] as unknown[])[0]);
-    expect(credit).toContain("Accessible education for blind learners — A. Author");
-    expect(credit).toContain("OpenAlex · CC BY");
-    expect(credit).toContain("https://doi.org/10.1000/abc");
+    const caption = String(deliverFn.mock.calls[0][0].caption);
+    expect(caption).toContain("Accessible education for blind learners — A. Author");
+    expect(caption).toContain("CC BY · OpenAlex");
+    expect(caption).not.toMatch(/https?:|doi\.org/);
+    expect(sendText).not.toHaveBeenCalled();
   });
 
   it("a metadata-only paper is never claimed as a file: the answer is its page", async () => {
@@ -430,7 +431,8 @@ describe("conversion of what Meta will not take, or will not take at that size",
       const result = await attachExternalFile({ kind, query: "clip", language: "en" }, d);
       expect(result, kind).toMatchObject({ outcome: "delivered", kind: deliveredKind });
       expect(convert.mock.calls[0][1]).toBe(kind === "audio" ? "to=mp3" : "to=mp4");
-      expect(JSON.parse(String(calls[1].body))).toMatchObject({ type: sendType });
+      // An audio file cannot carry a caption, so a licence that asks for credit sends it as a short text first (no link); the file is the last call.
+      expect(JSON.parse(String(calls[calls.length - 1].body))).toMatchObject({ type: sendType });
     }
   });
 
@@ -474,7 +476,8 @@ describe("end to end through deliverAsset: documents", () => {
     const { d, sendText } = deps({ items: [paper()], deliver: real(fetchImpl as never) });
     expect(await attachExternalFile({ kind: "document", query: "accessible education", language: "en" }, d)).toMatchObject({ outcome: "delivered", kind: "document" });
     expect(JSON.parse(String(calls[1].body))).toMatchObject({ type: "document", to: "9627", document: { id: "media-1", filename: "Accessible-education-for-blind-learners.pdf" } });
-    expect(sendText).toHaveBeenCalledTimes(1);
+    expect(sendText).not.toHaveBeenCalled();
+    expect(JSON.parse(String(calls[1].body)).document.caption).toContain("CC BY · OpenAlex");
   });
 
   it("an HTML page, a JSON error or a ZIP served as the PDF is refused, and the answer is the page", async () => {
@@ -562,14 +565,14 @@ describe("the WhatsApp webhook", () => {
     expect(webhook.split("convert: externalConvert(),")).toHaveLength(5); // image, asset, video/audiobook, book
     expect(webhook.split("translate: translateWithChain,")).toHaveLength(5);
     const logs = webhook.split("\n").filter((l) => l.includes('log("external_file"'));
-    expect(logs).toHaveLength(4);
+    expect(logs).toHaveLength(5); // book, media, image, recording/paper/document, and the link-only answer
     for (const line of logs) expect(line).not.toMatch(/query|title|url|incoming\.from|token/i);
   });
 
   it("'send me' counts as asking for the file in the video, audiobook and book flows, and the existing list is still the fallback", () => {
     // A film or an audiobook is always tried as a file first; only a podcast (a publisher's stream) is not.
-    expect(webhook).toMatch(/if \(token && phoneNumberId && request\.kind !== "podcast"\) \{/);
-    expect(webhook).toMatch(/library\.length === 0 && token && phoneNumberId && \(parseFileWish\(questionText\) \|\| wantsSend\(questionText\)\)/);
+    expect(webhook).toMatch(/if \(token && phoneNumberId && request\.kind !== "podcast" && !wantsLink\(questionText\)\) \{/);
+    expect(webhook).toMatch(/library\.length === 0 && token && phoneNumberId && !wantsLink\(questionText\) && \(parseFileWish\(questionText\) \|\| wantsSend\(questionText\)\)/);
   });
 
   it("leaves the assistant's own generation, summarising and translating to the existing flows", () => {
