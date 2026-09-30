@@ -10,7 +10,7 @@
 //
 // ── Where the answer comes from ────────────────────────────────────────────
 //
-// `ai_subscription_gate` (migration 20261061000000). It reads
+// `ai_subscription_gate` (migration 20261062000000). It reads
 // `user_subscriptions` and `billing_plans` — the existing source of truth —
 // and opens AI for an admin or an active, unexpired Kids/Basic/Pro/Business
 // subscription, and for nothing else: not a trial, not a VX balance, not a

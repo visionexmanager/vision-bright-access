@@ -1,7 +1,7 @@
 // 20261061 — the AI subscription gate — executed in PGlite.
 //
 //   npm i --no-save @electric-sql/pglite
-//   node scripts/sql/ai-subscription-gate-scenarios.mjs supabase/migrations/20261061000000_ai_subscription_gate.sql
+//   node scripts/sql/ai-subscription-gate-scenarios.mjs supabase/migrations/20261062000000_ai_subscription_gate.sql
 //
 // Runs the migration twice over minimal stubs of the tables it reads and drives
 // ai_subscription_gate / ai_subscription_gate_whatsapp through every

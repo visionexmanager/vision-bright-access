@@ -43,7 +43,7 @@ import {
   SUBSCRIPTION_GATE_EVENT,
 } from "@/lib/billing/subscriptionGateObserver";
 
-const MIGRATION = "supabase/migrations/20261061000000_ai_subscription_gate.sql";
+const MIGRATION = "supabase/migrations/20261062000000_ai_subscription_gate.sql";
 const FUNCTIONS = "supabase/functions";
 
 // ── An in-memory gate with the SQL's semantics ───────────────────────────────
