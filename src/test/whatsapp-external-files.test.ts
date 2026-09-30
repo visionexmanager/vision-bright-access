@@ -131,7 +131,8 @@ describe("directCandidate: only a licensed item on a named host, and only a type
       const item = makeItem(provider, { provider, providerItemId: "1", title: "x", contentType: "book", externalUrl: "https://example.org/x", downloadUrl: "https://example.org/x.pdf", license: CC0 });
       expect(directCandidate(item, "book"), provider).toBeNull();
     }
-    expect(Object.keys(DELIVERY_HOSTS).sort()).toEqual(["gutenberg", "internet_archive", "openstax"]);
+    // The two image hosts were added on purpose (whatsapp-image-request.test.ts); a book from either still never qualifies.
+    expect(Object.keys(DELIVERY_HOSTS).sort()).toEqual(["gutenberg", "internet_archive", "openstax", "openverse", "wikimedia_commons"]);
     expect(KIND_SEARCH.audiobook.providers).toEqual(["internet_archive"]);
   });
 });
@@ -423,7 +424,7 @@ describe("the WhatsApp webhook", () => {
 
   it("logs the outcome without a title, a query, an address or a number", () => {
     const logs = webhook.split("\n").filter((l) => l.includes('log("external_file"'));
-    expect(logs).toHaveLength(2);
+    expect(logs).toHaveLength(3); // book, media and image
     for (const line of logs) expect(line).not.toMatch(/query|title|url|incoming\.from/);
   });
 });

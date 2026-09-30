@@ -26,7 +26,7 @@ import { normalizeSearchInput, searchExternalContent } from "./externalContent/a
 import type { AggregateResult, ExternalContentItem, Fetch, GetEnv } from "./externalContent/types.ts";
 import { deliveryRuleFor, isFetchableAssetUrl, type DeliverableAsset, type DeliveryResult, type WhatsAppMediaKind } from "./whatsappAssetDelivery.ts";
 
-export type FileKind = "book" | "audiobook" | "video";
+export type FileKind = "book" | "audiobook" | "video" | "image";
 
 // ─── Did the sender ask for the file? ──────────────────────────────────────
 
@@ -65,12 +65,17 @@ export const DELIVERY_HOSTS: Readonly<Record<string, readonly string[]>> = {
   gutenberg: ["gutenberg.org"],
   openstax: ["openstax.org"],
   internet_archive: ["archive.org"],
+  // A picture: Commons' own file servers, and Openverse's thumbnail endpoint (its
+  // originals sit on whatever site the work came from, which is not a host we name).
+  wikimedia_commons: ["upload.wikimedia.org", "commons.wikimedia.org"],
+  openverse: ["api.openverse.org"],
 };
 
 export const KIND_SEARCH: Readonly<Record<FileKind, { categories: readonly string[]; providers: readonly string[] }>> = {
   book: { categories: ["books", "education"], providers: ["gutenberg", "openstax", "internet_archive"] },
   audiobook: { categories: ["audio"], providers: ["internet_archive"] },
   video: { categories: ["video"], providers: ["internet_archive"] },
+  image: { categories: ["images"], providers: ["wikimedia_commons", "openverse"] },
 };
 
 const ARCHIVE_ID = /^[A-Za-z0-9._-]{1,100}$/;
@@ -152,6 +157,42 @@ export function directCandidate(item: ExternalContentItem, kind: FileKind): File
   if (item.provider === "openstax" && kind === "book" && item.downloadUrl && /\.pdf(\?|$)/i.test(item.downloadUrl)) {
     return { url: item.downloadUrl, mime: "application/pdf", fileName: fileNameFor(item.title, "application/pdf"), size: item.sizeBytes, hosts };
   }
+  if (kind === "image") return imageCandidate(item, hosts);
+  return null;
+}
+
+const IMAGE_MIMES = new Set(["image/jpeg", "image/png"]);
+const COMMONS_FILE = /^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/(?!thumb\/)[0-9a-f]\/[0-9a-f]{2}\/([^/?#]+)$/;
+const OPENVERSE_THUMB = /^https:\/\/api\.openverse\.org\/v1\/images\/[0-9a-f-]{36}\/thumb\/?$/;
+/** A Creative Commons licence that forbids a changed copy: a resized picture would be one. */
+const NO_DERIVATIVES = /(?:^|[\s-])ND(?:[\s-]|$)/i;
+
+/**
+ * The picture for an image item: Wikimedia Commons' original when it fits Meta's
+ * limit, else Commons' own resized copy; Openverse's resized thumbnail, which it
+ * serves itself. Only a licence that permits copying qualifies (the providers
+ * leave `downloadUrl` empty otherwise), and a no-derivatives licence never gets a
+ * resized copy.
+ */
+function imageCandidate(item: ExternalContentItem, hosts: readonly string[]): FileCandidate | null {
+  const limit = deliveryRuleFor("image/jpeg")?.maxBytes ?? 0;
+  const licence = item.license?.name ?? "";
+  if (!item.downloadUrl || !item.license) return null;
+  if (item.provider === "wikimedia_commons") {
+    const mime = item.mimeType ?? "";
+    const match = COMMONS_FILE.exec(item.downloadUrl);
+    if (!IMAGE_MIMES.has(mime) || !match) return null;
+    if (item.sizeBytes !== null && item.sizeBytes <= limit) {
+      return { url: item.downloadUrl, mime, fileName: fileNameFor(item.title, mime), size: item.sizeBytes, hosts };
+    }
+    if (NO_DERIVATIVES.test(licence)) return null;
+    // Special:FilePath answers with a redirect to Commons' resized copy, of the original's type.
+    return { url: `https://commons.wikimedia.org/wiki/Special:FilePath/${match[1]}?width=1600`, mime, fileName: fileNameFor(item.title, mime), size: null, hosts };
+  }
+  if (item.provider === "openverse") {
+    if (!item.thumbnailUrl || !OPENVERSE_THUMB.test(item.thumbnailUrl) || NO_DERIVATIVES.test(licence)) return null;
+    return { url: item.thumbnailUrl, mime: "image/jpeg", fileName: fileNameFor(item.title, "image/jpeg"), size: null, hosts };
+  }
   return null;
 }
 
@@ -162,10 +203,11 @@ export function directCandidate(item: ExternalContentItem, kind: FileKind): File
  * in the title or the maker's name. Words are compared as letters and digits, so
  * Arabic and Chinese titles match too (a query of one word needs that one word).
  */
-export function matchesRequest(item: ExternalContentItem, query: string): boolean {
+export function matchesRequest(item: ExternalContentItem, query: string, loose = false): boolean {
   const terms = query.toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 2);
   if (terms.length === 0) return false;
-  const haystack = `${item.title} ${item.creator ?? ""}`.toLocaleLowerCase();
+  // A picture's title is often a file name; its description and tags say what it shows.
+  const haystack = `${item.title} ${item.creator ?? ""}${loose ? ` ${item.description ?? ""} ${(item.tags ?? []).join(" ")}` : ""}`.toLocaleLowerCase();
   return terms.filter((w) => haystack.includes(w)).length >= Math.min(terms.length, 2);
 }
 
@@ -210,7 +252,13 @@ export interface AttachDeps {
 
 export type AttachOutcome =
   | { outcome: "delivered"; provider: string; kind: WhatsAppMediaKind; tried: number }
-  | { outcome: "none"; reason: "no_query" | "search_failed" | "no_candidate" | "delivery_failed"; tried: number };
+  | {
+    outcome: "none";
+    reason: "no_query" | "search_failed" | "no_candidate" | "delivery_failed";
+    tried: number;
+    /** The first matching result's own page (it carries the licence), for a caller that answers with a link. */
+    link?: { url: string; title: string };
+  };
 
 const MAX_CANDIDATES = 3;
 const METADATA_TIMEOUT_MS = 8_000;
@@ -264,10 +312,12 @@ export async function attachExternalFile(
   }
 
   let tried = 0;
+  let link: { url: string; title: string } | undefined;
   for (const item of found.items) {
     if (tried >= MAX_CANDIDATES) break;
     // The work asked for, not merely the top of a ranking.
-    if (!matchesRequest(item, query)) continue;
+    if (!matchesRequest(item, query, params.kind === "image")) continue;
+    if (params.kind === "image" && !link && /^https:\/\//i.test(item.externalUrl)) link = { url: item.externalUrl, title: item.title };
     const candidate = item.provider === "internet_archive"
       ? await archiveCandidate(item, params.kind, deps)
       : directCandidate(item, params.kind);
@@ -290,5 +340,5 @@ export async function attachExternalFile(
       return { outcome: "delivered", provider: item.provider, kind: (result as Extract<DeliveryResult, { kind: WhatsAppMediaKind }>).kind, tried };
     }
   }
-  return { outcome: "none", reason: tried === 0 ? "no_candidate" : "delivery_failed", tried };
+  return { outcome: "none", reason: tried === 0 ? "no_candidate" : "delivery_failed", tried, ...(link ? { link } : {}) };
 }
