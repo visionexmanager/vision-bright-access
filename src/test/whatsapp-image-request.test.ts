@@ -237,10 +237,10 @@ describe("attachExternalFile for an image", () => {
     expect(search).toHaveBeenCalledWith(expect.objectContaining({ query: "red fox", providers: KIND_SEARCH.image.providers, categories: ["images"], language: "ar" }));
   });
 
-  it("skips a picture that is not the one asked for, and tries the next that is", async () => {
-    const { d, deliverFn } = deps({ items: [commons({ title: "Cathedral", description: "A church", providerItemId: "1" }), openverse({ title: "Red fox", tags: ["fox"] })] });
-    const out = await attachExternalFile({ kind: "image", query: "red fox", language: "en" }, d);
-    expect(out).toMatchObject({ outcome: "delivered", provider: "openverse", tried: 1 });
+  it("takes the catalogue's own ranking for a picture: its title is often a file name and the subject may be in another language", async () => {
+    const { d, deliverFn } = deps({ items: [commons({ title: "IMG 2041", description: null, providerItemId: "1" }), openverse({ title: "Red fox", tags: ["fox"] })] });
+    const out = await attachExternalFile({ kind: "image", query: "ثعلب", language: "ar" }, d);
+    expect(out).toMatchObject({ outcome: "delivered", provider: "wikimedia_commons", tried: 1 });
     expect(deliverFn).toHaveBeenCalledTimes(1);
   });
 
@@ -360,7 +360,9 @@ describe("the WhatsApp webhook", () => {
   });
 
   it("is off when the media feature is off, or when a person or the assistant owns the conversation", () => {
-    expect(block).toMatch(/aiFocused \|\| humanOwnsThis \|\| !featureOn\("services\.media"\)/);
+    // An explicit request for a picture is served even while the assistant holds the floor.
+    expect(block).toMatch(/const imageRequest = humanOwnsThis \|\| !featureOn\("services\.media"\)/);
+    expect(block).not.toMatch(/aiFocused/);
   });
 
   it("delivers through deliverAsset, and ends the turn only when it delivered or answered with the link", () => {

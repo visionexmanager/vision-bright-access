@@ -131,10 +131,28 @@ function wordPattern(words: readonly string[]): RegExp {
   return new RegExp(parts.join("|"), "iu");
 }
 
+/** "I want", "I need", "can you get me": with a picture's name, a request. Making is already ruled out by the CREATE list. */
+const WANT_VERBS = [
+  "want", "need", "would like", "looking for", "can you", "could you", "can i get", "can i have", "i'd like",
+  "بدي", "بدّي", "أريد", "اريد", "ابغى", "أبغى", "ابي", "أبي", "عايز", "عاوز", "محتاج", "محتاجة", "ممكن", "أحتاج", "احتاج", "أود",
+  "quiero", "necesito", "me gustaría", "busco", "je veux", "veux", "voudrais", "j'ai besoin", "cherche", "ich möchte", "möchte", "brauche", "will", "suche",
+  "voglio", "vorrei", "ho bisogno", "quero", "preciso", "gostaria", "procuro", "хочу", "нужна", "нужен", "нужно", "ищу",
+  "istiyorum", "lazım", "lazim", "ihtiyacım var", "mau", "ingin", "butuh", "perlu", "muốn", "cần", "चाहिए", "चाहता", "चाहती", "চাই",
+  "میخوام", "می‌خواهم", "میخواهم", "لازم", "چاہیے", "چاہتا", "چاہتی", "ほしい", "欲しい", "見たい", "원해", "원합니다", "필요해", "싶어",
+  "wil", "ik heb nodig", "chcę", "chce", "potrzebuję", "我要", "想要", "需要", "想看", "想找",
+];
+const WANT = wordPattern(WANT_VERBS);
 const IMAGE = wordPattern(IMAGE_WORDS);
+/** The picture's name opens the message ("صورة أسد", "photo of Petra"): nothing else it could be, once making is ruled out. */
+const OPENS_WITH_IMAGE = new RegExp(String.raw`^[\s"'«(]*(?:${IMAGE.source})`, "iu");
+/** In a Latin script a bare noun is too common ("image generation models"); it must be followed by "of", "de", "von"... */
+const LATIN_NOUN_THEN_CONNECTOR = /^[\s"'«(]*[\p{Script=Latin}'-]+(?:\s+[\p{Script=Latin}'-]+)?\s+(?:of|about|de|du|des|del|della|di|da|von|van|over|o|sobre|sur|über|ueber|za|na|dla)\s/iu;
+const LATIN_START = /^[\s"'«(]*\p{Script=Latin}/u;
+/** The message opens with the noun, and in a Latin script says what it is "of". */
+const opens = (re: RegExp, message: string): boolean => re.test(message) && (!LATIN_START.test(message) || LATIN_NOUN_THEN_CONNECTOR.test(message));
 const RETRIEVE = wordPattern(RETRIEVE_VERBS);
 const CREATE = wordPattern(CREATE_VERBS);
-const REMOVABLE = new RegExp(`${IMAGE.source}|${RETRIEVE.source}`, "giu");
+const REMOVABLE = new RegExp(`${IMAGE.source}|${RETRIEVE.source}|${WANT.source}`, "giu");
 const FILLER_SET = new Set(EDGE_FILLERS.map((w) => w.toLowerCase()));
 /** A sentence about a picture someone already has ("the picture you sent was nice"), not a request. */
 const ABOUT_A_PICTURE = /^(?:you|i|we|he|she|they|it|was|is|that|this|which|who|أرسلته|بعتلي|اللي|الذي|الي)(?:\s|$)/iu;
@@ -145,7 +163,8 @@ export function parseImageRequest(text: string | null | undefined): ImageRequest
   const message = (text ?? "").normalize("NFC").trim();
   if (!message || message.length > MESSAGE_MAX_CHARS || message.startsWith("/")) return null;
   if (CREATE.test(message)) return null;
-  if (!IMAGE.test(message) || !RETRIEVE.test(message)) return null;
+  if (!IMAGE.test(message)) return null;
+  if (!RETRIEVE.test(message) && !WANT.test(message) && !opens(OPENS_WITH_IMAGE, message)) return null;
 
   const stripped = message.replace(REMOVABLE, " ").replace(/\s+/g, " ").replace(EDGE_PUNCT, "").trim();
   const tokens = stripped.split(" ").filter(Boolean);
@@ -156,6 +175,7 @@ export function parseImageRequest(text: string | null | undefined): ImageRequest
 
   // Unspaced scripts leave their particles attached to the subject: 「エッフェル塔の」「埃菲尔铁塔的」.
   query = query.replace(/(?:[のをはがにでてもと的吧下给我请帮]|一下|을|를|은|는|의|좀|줘)+$/u, "").replace(/^(?:[のをはがにでてもと的吧下给我请帮]|一张|一个)+/u, "").trim();
+  query = query.replace(/^لل/u, "ال");
   if (query.length < 2 || query.length > IMAGE_QUERY_MAX_CHARS) return null;
   if (ABOUT_A_PICTURE.test(query)) return null;
   return { query };
@@ -168,7 +188,7 @@ export function parseImageRequest(text: string | null | undefined): ImageRequest
 // and so does one that means SUMMARISE, EXPLAIN, TRANSLATE or ANALYSE, because
 // "summarise this paper" is a question about a document, not a request for one.
 
-export type AssetKind = "audio" | "document";
+export type AssetKind = "audio" | "document" | "video";
 
 export interface AssetRequest {
   kind: AssetKind;
@@ -196,6 +216,12 @@ const AUDIO_WORDS = [
   "آڈیو", "ریکارڈنگ", "آواز",
   "âm thanh", "ghi âm",
   "音频", "录音", "声音",
+];
+
+const VIDEO_WORDS = [
+  "video", "videos", "video clip", "clip", "clips", "movie", "movies", "film", "films", "footage", "documentary",
+  "فيديو", "فيديوهات", "مقطع فيديو", "مقطع", "فيلم", "فلم", "أفلام", "افلام",
+  "vídeo", "vidéo", "видео", "фильм", "视频", "動画", "비디오", "영상", "वीडियो", "ভিডিও", "ویدیو", "ویڈیو", "wideo", "filme", "phim", "película", "pelicula", "filmato",
 ];
 
 const DOCUMENT_WORDS = [
@@ -255,10 +281,12 @@ const SEND_VERBS = [
 ];
 
 const AUDIO = wordPattern(AUDIO_WORDS);
+const VIDEO = wordPattern(VIDEO_WORDS);
 const DOCUMENT = wordPattern(DOCUMENT_WORDS);
 const ANALYSE = wordPattern(ANALYSE_VERBS);
 const SEND = wordPattern(SEND_VERBS);
-const ASSET_REMOVABLE = new RegExp(`${AUDIO.source}|${DOCUMENT.source}|${RETRIEVE.source}`, "giu");
+const ASSET_REMOVABLE = new RegExp(`${AUDIO.source}|${VIDEO.source}|${DOCUMENT.source}|${RETRIEVE.source}|${WANT.source}`, "giu");
+const OPENS_WITH_ASSET = new RegExp(String.raw`^[\s"'«(]*(?:${AUDIO.source}|${VIDEO.source}|${DOCUMENT.source})`, "iu");
 /** An audiobook or a podcast has its own flow; "audio" inside those words must not start this one. */
 const OTHER_MEDIA = wordPattern([
   "audiobook", "audiobooks", "audio book", "podcast", "podcasts", "كتاب صوتي", "بودكاست", "hörbuch", "livre audio", "audiolibro", "audiolivro", "аудиокнига", "подкаст",
@@ -277,7 +305,8 @@ function strip(message: string, removable: RegExp): string | null {
   const isFiller = (t: string) => FILLER_SET.has(t.toLowerCase().replace(EDGE_PUNCT, ""));
   while (tokens.length && isFiller(tokens[0])) tokens.shift();
   while (tokens.length && isFiller(tokens[tokens.length - 1])) tokens.pop();
-  const query = tokens.join(" ").replace(/(?:[のをはがにでてもと的吧下给我请帮]|一下|을|를|은|는|의|좀|줘)+$/u, "").replace(/^(?:[のをはがにでてもと的吧下给我请帮]|一张|一个)+/u, "").trim();
+  let query = tokens.join(" ").replace(/(?:[のをはがにでてもと的吧下给我请帮]|一下|을|를|은|는|의|좀|줘)+$/u, "").replace(/^(?:[のをはがにでてもと的吧下给我请帮]|一张|一个)+/u, "").trim();
+  query = query.replace(/^لل/u, "ال");
   if (query.length < 2 || query.length > IMAGE_QUERY_MAX_CHARS || ABOUT_A_PICTURE.test(query)) return null;
   return query;
 }
@@ -287,9 +316,20 @@ export function parseAssetRequest(text: string | null | undefined): AssetRequest
   const message = (text ?? "").normalize("NFC").trim();
   if (!message || message.length > MESSAGE_MAX_CHARS || message.startsWith("/")) return null;
   if (CREATE.test(message) || ANALYSE.test(message) || OTHER_MEDIA.test(message) || IMAGE.test(message)) return null;
-  if (!RETRIEVE.test(message)) return null;
-  const kind: AssetKind | null = DOCUMENT.test(message) ? "document" : AUDIO.test(message) ? "audio" : null;
+  if (!RETRIEVE.test(message) && !WANT.test(message) && !opens(OPENS_WITH_ASSET, message)) return null;
+  const kind: AssetKind | null = DOCUMENT.test(message) ? "document" : VIDEO.test(message) ? "video" : AUDIO.test(message) ? "audio" : null;
   if (!kind) return null;
   const query = strip(message, ASSET_REMOVABLE);
   return query ? { kind, query } : null;
 }
+
+/**
+ * What the assistant is told about files, so that a message this module did not
+ * recognise is not answered with "I cannot send images". Visionex can: the
+ * sender only has to say what they want.
+ */
+export const ASSET_CAPABILITY_DIRECTIVE =
+  "Visionex on WhatsApp CAN send real pictures, audio recordings, videos, research papers, PDFs and books as attachments, taken from open, freely licensed sources, " +
+  "whenever the person asks for one (for example: \"send me a photo of Petra\", \"find research papers about dyslexia and send them\", \"send me an audio recording of rain\"). " +
+  "Never say that you cannot send images, files or media on WhatsApp. If the person wants one, ask them in one short sentence what it should show or be about, " +
+  "and tell them to ask for it the way the examples do.";
