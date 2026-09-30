@@ -21,6 +21,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
 
 import {
@@ -805,6 +806,10 @@ serve(async (req) => {
 
   const { data: { user }, error: authErr } = await db.auth.getUser();
   if (authErr || !user) return jsonError("Unauthorized", 401);
+
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(dbService, req, user.id, CORS);
+  if (refused) return refused;
 
   // ── Entitlement, for people only ────────────────────────────────────────
   //

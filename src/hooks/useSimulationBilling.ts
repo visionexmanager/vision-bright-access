@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { useTrial } from "@/hooks/useTrial";
+import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { SIMULATION_PRICES } from "@/systems/pricingSystem";
 import { isFallbackSimulationId } from "@/data/requiredSimulations";
 
@@ -19,6 +20,7 @@ export function useSimulationBilling(
   const { user } = useAuth();
   const { spendVX, isLoading: isWalletLoading } = useVXWallet();
   const { isOnTrial } = useTrial();
+  const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
   const [status, setStatus] = useState<BillingStatus>("idle");
   const [message, setMessage] = useState("");
   const [usageSeconds, setUsageSeconds] = useState(0);
@@ -225,6 +227,6 @@ export function useSimulationBilling(
     paidSeconds,
     remainingSeconds,
     remainingMinutes,
-    isFreeTrial: isOnTrial,
+    isFreeTrial: trialWaivesPayment,
   };
 }

@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
       await supabase.rpc("system_insert_notification", {
         _user_id: profile.user_id,
         _title:   "⏳ Your free week ends tomorrow",
-        _body:    `Your free week of Visionex ends on ${expiresDate}. To keep every section open, choose a plan: ${TIER_SUMMARY}. Without one you keep the news, the community and the assistive-product catalogue.`,
+        _body:    `Your free week of Visionex ends on ${expiresDate}. To unlock AI services and every section, choose a plan: ${TIER_SUMMARY}. Without one you keep the news, the community and the assistive-product catalogue.`,
         _type:    "warning",
       });
 
@@ -214,8 +214,8 @@ Deno.serve(async (req) => {
           `<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
 <h2 style="color:#f59e0b;">⏳ Your free week ends tomorrow</h2>
 <p>Hi ${profile.display_name ?? "there"},</p>
-<p>Your free week of Visionex ends on <strong>${expiresDate}</strong>. Until then every section is open, on the site and on WhatsApp.</p>
-<h3>Choose a plan to keep them open</h3>
+<p>Your free week of Visionex ends on <strong>${expiresDate}</strong>. Until then you have the news, the community and the assistive-product catalogue; AI services and the other sections need a plan.</p>
+<h3>Choose a plan to unlock them</h3>
 <ul>
   <li><strong>Kids — $3/month, 3,000 VX:</strong> VisionKids only — its lessons, stories and learning games, made for children.</li>
   <li><strong>Basic — $5/month, 5,000 VX:</strong> the Visionex assistant, Academy, Library, Arcade and VXBazaar.</li>
@@ -305,8 +305,8 @@ Deno.serve(async (req) => {
         _user_id: profile.user_id,
         _title:   "Your free week has ended",
         _body:    hasShops
-          ? `Your free week has ended and Bazaar shop billing has been processed. Choose a plan — ${TIER_SUMMARY} — to reopen every section. The news, the community and assistive products stay open either way.`
-          : `Your free week has ended. Choose a plan — ${TIER_SUMMARY} — to reopen every section. The news, the community and assistive products stay open either way.`,
+          ? `Your free week has ended and Bazaar shop billing has been processed. Choose a plan — ${TIER_SUMMARY} — to unlock AI services and every section. The news, the community and assistive products stay open either way.`
+          : `Your free week has ended. Choose a plan — ${TIER_SUMMARY} — to unlock AI services and every section. The news, the community and assistive products stay open either way.`,
         _type:    "info",
       });
 
@@ -323,7 +323,7 @@ Deno.serve(async (req) => {
 <h2 style="color:#10b981;">Your free week has ended</h2>
 <p>Hi ${profile.display_name ?? "there"},</p>
 <p>Your free week on Visionex has ended. The news, the community and the assistive-product catalogue stay open, and the assistant keeps a small free daily allowance on WhatsApp.</p>
-<p>To reopen every section, choose <strong>Kids $3</strong> (VisionKids only), <strong>Basic $5</strong>, <strong>Pro $10</strong> or <strong>Business $20</strong> a month — <a href="${PRICING_URL}">see what each one opens</a>.</p>
+<p>To unlock AI services and every section, choose <strong>Kids $3</strong> (VisionKids only), <strong>Basic $5</strong>, <strong>Pro $10</strong> or <strong>Business $20</strong> a month — <a href="${PRICING_URL}">see what each one opens</a>.</p>
 ${shopRows}
 <p>Visit <a href="https://visionex.app/dashboard">your dashboard</a> to manage your account.</p>
 <p style="color:#6b7280;font-size:0.85em;">Questions? Contact us at <a href="mailto:hello@visionex.app">hello@visionex.app</a></p>

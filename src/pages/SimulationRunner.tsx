@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrial } from "@/hooks/useTrial";
+import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { useAchievements } from "@/hooks/useAchievements";
 import { useAmbientSound, getSimulationAmbient } from "@/hooks/useAmbientSound";
 import { useSimulationBilling } from "@/hooks/useSimulationBilling";
@@ -61,6 +62,7 @@ export default function SimulationRunner() {
   const { checkAndUnlock } = useAchievements();
 
   const { isOnTrial, trialDaysLeft } = useTrial();
+  const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
   const [simulation, setSimulation] = useState<Simulation | null>(null);
   const [progress, setProgress] = useState<SimProgress | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
@@ -249,7 +251,7 @@ export default function SimulationRunner() {
                 {t("bsim.backToList")}
               </Link>
             </Button>
-            {isOnTrial && (
+            {trialWaivesPayment && (
               <Badge className="gap-1.5 bg-primary/10 text-primary border-primary/30">
                 <Gift className="h-3.5 w-3.5" />
                 {t("sim.trialUnlocked")}
@@ -330,7 +332,7 @@ export default function SimulationRunner() {
     return (
       <Layout>
         {/* Trial banner */}
-        {isOnTrial && (
+        {trialWaivesPayment && (
           <div className="w-full bg-primary/10 border-b border-primary/20 px-4 py-2 flex items-center justify-center gap-2 text-xs font-semibold text-primary">
             <Gift className="h-3.5 w-3.5" />
             {t("sim.trialUnlocked")} · {trialDaysLeft} {t("liveTV.days")}

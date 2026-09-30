@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthProvider";
 import { CartProvider } from "@/contexts/CartProvider";
 import { LanguageProvider } from "@/contexts/LanguageProvider";
+import { SubscriptionGateNotice } from "@/components/SubscriptionGateNotice";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeProvider";
 import { SoundProvider } from "@/contexts/SoundProvider";
@@ -1636,6 +1637,7 @@ const App = () => (
         <BrowserRouter>
           <LanguageProvider>
             <AuthProvider>
+              <SubscriptionGateNotice />
               <CartProvider>
                 <CurrencyProvider>
                   <SoundProvider>

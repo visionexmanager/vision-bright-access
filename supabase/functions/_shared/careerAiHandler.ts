@@ -9,6 +9,7 @@ import { CostTier, runStructuredCareerAI } from "./careerAiOrchestrator.ts";
 import { CAREER_AI_RESPONSE_SCHEMA, CareerAiRole, CareerAiService, getCareerAiPrompt } from "./careerPrompts.ts";
 import { buildUserAiContext } from "./careerAiMemory.ts";
 import { checkRateLimit } from "./careerRateLimit.ts";
+import { subscriptionGate } from "./subscriptionGate.ts";
 import { validateAndCleanInput } from "./careerAiSafety.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -54,6 +55,10 @@ export async function authenticateCareerAiRequest(
   if (authErr || !user) return { ok: false, response: json({ error: "Unauthorized" }, 401, corsHeaders) };
 
   const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(serviceClient, req, user.id, corsHeaders);
+  if (refused) return { ok: false, response: refused };
 
   const rate = await checkRateLimit(serviceClient, user.id);
   if (!rate.allowed) {

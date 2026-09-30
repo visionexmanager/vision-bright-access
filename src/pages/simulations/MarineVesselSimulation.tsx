@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useVXWallet } from "@/hooks/useVXWallet";
 import { useTrial } from "@/hooks/useTrial";
+import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { useEarnPoints } from "@/hooks/useEarnPoints";
 import { useScreenReader } from "@/hooks/useScreenReader";
 import { useSimulationProgress } from "@/hooks/useSimulationProgress";
@@ -537,6 +538,7 @@ export function MarineVesselSimulation({ simulationId }: Props) {
   const { t }                   = useLanguage();
   const { balance, spendVX }    = useVXWallet();
   const { isOnTrial }           = useTrial();
+  const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
   const { earnPoints }          = useEarnPoints();
   const { announce, announceUrgent } = useScreenReader();
   const { savedProgress }       = useSimulationProgress(simulationId);
@@ -610,8 +612,8 @@ export function MarineVesselSimulation({ simulationId }: Props) {
     if (!ok) return;
     setPhase("active");
     announce("Maritime Command Center activated. Fleet of 8 vessels is now live on the world map.");
-    toast.success(isOnTrial ? "Command Center active — free during your trial." : "⚓ Command Center active — fleet online.");
-  }, [user, spendVX, announce, isOnTrial]);
+    toast.success(trialWaivesPayment ? "Command Center active — free during your trial." : "⚓ Command Center active — fleet online.");
+  }, [user, spendVX, announce, trialWaivesPayment]);
 
   // Select vessel + announce to screen reader
   const handleSelectVessel = useCallback((v: Vessel) => {

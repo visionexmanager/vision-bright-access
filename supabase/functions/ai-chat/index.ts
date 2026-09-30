@@ -16,6 +16,7 @@ import { expectedScriptForMessage } from "../_shared/answerLanguage.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { billedRequest, billingRefusalResponse, requestIdempotencyKey, streamWithEnd } from "../_shared/vx/billing.ts";
 import { chatUsageBound, utf8Bytes } from "../_shared/metering.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 
 installUsageMetering("ai-chat");
 
@@ -246,6 +247,11 @@ Deno.serve(async (req) => {
     // Everything that reads or writes a user's data below also checks `user`.
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const serviceClient = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
+
+    // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+    // Signed-in and anonymous callers alike; `user` is from the verified auth.getUser() above.
+    const refused = await subscriptionGate(serviceClient, req, user?.id ?? null, corsHeaders);
+    if (refused) return refused;
 
     // Platform-wide daily ceiling, checked before the per-user limit. Fails
     // open by design (see check_ai_budget) so a metering fault cannot take the

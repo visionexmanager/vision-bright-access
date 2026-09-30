@@ -80,6 +80,8 @@ import {
 } from "../_shared/messaging/types.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { isAuthorized, requireActiveSubscription } from "../_shared/subscriptionGate.ts";
+import { subscriptionRequiredShortNotice } from "../_shared/whatsappEntitlements.ts";
 
 installUsageMetering("meta-messaging-webhook");
 
@@ -421,6 +423,26 @@ Deno.serve(async (req) => {
         }
         return sent.ok;
       };
+
+      // ── Subscription gate ─────────────────────────────────────────────
+      //
+      // Before the welcome, the handover and the model. A Messenger or
+      // Instagram sender is not linked to any VisionEX account, so no sender
+      // here is entitled: each is told once, and then nothing is answered.
+      // Keyed by channel and the page-scoped sender id from the signed
+      // webhook. Fails closed and silent.
+      {
+        const verdict = await requireActiveSubscription(db, {
+          channel: "meta",
+          senderId: `${incoming.channel}:${incoming.senderId}`,
+        });
+        if (!isAuthorized(verdict)) {
+          if (verdict === "blocked_first_notice") {
+            await reply(subscriptionRequiredShortNotice(language), "unsupported");
+          }
+          continue;
+        }
+      }
 
       if (conversation.isNew) await reply(welcomeFor(language), "welcome");
 

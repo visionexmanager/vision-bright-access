@@ -141,7 +141,10 @@ import {
   readEntitlement,
   shouldWarn,
   UNKNOWN_ENTITLEMENT,
+  gateAllowsAccountTurn,
+  subscriptionRequiredNotice,
 } from "../_shared/whatsappEntitlements.ts";
+import { isAuthorized, requireActiveSubscription } from "../_shared/subscriptionGate.ts";
 import {
   formatWeather,
   parseWeatherRequest,
@@ -2179,6 +2182,61 @@ Deno.serve(async (req) => {
         await reply(formatLinkOnly({ song, language: answerLanguage }), "reply");
       };
 
+      // ── Subscription gate ─────────────────────────────────────────────
+      //
+      // Before the rate limiter, the allowance, onboarding, transcription and
+      // every model: a sender without an active paid plan is told once, then
+      // nothing. The message is already claimed and recorded above, so the
+      // transcript still shows it and a Meta retry stays a no-op. Decided by
+      // `ai_subscription_gate_whatsapp` from the signed sender number and the
+      // emailed-code link — never by anything the sender typed. Fails closed:
+      // a gate that could not be asked is a silent refusal.
+      //
+      // The single exception is linking this number to an account, in typed
+      // text: a subscriber whose number is not linked yet has no other way
+      // past the gate, and that flow reaches no model and no paid provider.
+      // `gateAccountOnly` then ends the delivery right after the account flow.
+      stage = "subscription_gate";
+      let gateAccountOnly = false;
+      {
+        const verdict = await requireActiveSubscription(db, { channel: "whatsapp", waPhone: incoming.from });
+        if (!isAuthorized(verdict)) {
+          const accountTurn = gateAllowsAccountTurn({
+            text: incoming.text,
+            hasMedia: !!incoming.media,
+            hasLocation: !!incoming.location,
+            hasSelection: !!incoming.selection,
+            wantsVoice: voiceRequested,
+            inAccountStep: session.step === ACCOUNT_EMAIL_STEP || session.step === ACCOUNT_CODE_STEP,
+            accountIntent: parseAccountIntent(incoming.text),
+          });
+          // The one notice goes out whichever way this message then goes: a
+          // sender whose first message was "link account" is still told.
+          if (verdict === "blocked_first_notice") {
+            // Sent as text directly, not through `reply`: a voice note in
+            // would be answered by synthesis, which is a paid provider.
+            const notice = subscriptionRequiredNotice(answerLanguage);
+            await db.from("whatsapp_messages").insert({
+              conversation_id: conversationId,
+              direction: "outbound",
+              body: notice,
+              kind: "unsupported",
+              medium: replyMedium({ spokenInput: false, body: notice }),
+            });
+            if (token && phoneNumberId) {
+              await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: notice });
+            }
+          }
+          if (accountTurn) {
+            gateAccountOnly = true;
+            log("subscription_gate", { outcome: "account_only" });
+          } else {
+            log("subscription_gate", { outcome: verdict });
+            continue;
+          }
+        }
+      }
+
       // ── Abuse control ─────────────────────────────────────────────────
       //
       // Placed after the message is logged, so a throttled sender is still
@@ -4148,6 +4206,13 @@ Deno.serve(async (req) => {
           await saveSession();
           continue;
         }
+      }
+
+      // A sender the subscription gate let through only to link an account
+      // goes no further than the account flow: nothing below may run for them.
+      if (gateAccountOnly) {
+        await saveSession();
+        continue;
       }
 
       // ── The news ──────────────────────────────────────────────────────

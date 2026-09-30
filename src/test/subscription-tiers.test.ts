@@ -6,6 +6,7 @@ import {
   TIERS,
   TIER_ORDER,
   TRIAL_DAYS,
+  TRIAL_SECTIONS,
   cheapestTierFor,
   planAllows,
   planSections,
@@ -69,9 +70,13 @@ describe("the free week", () => {
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.trial_period_days[\s\S]{0,200}SELECT 7/);
   });
 
-  it("opens every section, so nothing is hidden during the trial", () => {
-    expect([...planSections("free_trial")].sort()).toEqual(SECTIONS.map((s) => s.key).sort());
-    expect(sectionsInMigration("free_trial").sort()).toEqual(SECTIONS.map((s) => s.key).sort());
+  it("opens ONLY what TRIAL_SECTIONS names — never every section", () => {
+    expect([...planSections("free_trial")]).toEqual([...TRIAL_SECTIONS]);
+    expect(TRIAL_SECTIONS.length).toBeLessThan(SECTIONS.length);
+    // The database carries the same explicit list (20261063), and stopped listing the other fifteen.
+    const migration = readFileSync("supabase/migrations/20261063000000_trial_is_not_full_access.sql", "utf8");
+    const list = /FUNCTION public\.trial_sections\(\)[\s\S]*?ARRAY\[([^\]]*)\]/.exec(migration)?.[1] ?? "";
+    expect([...list.matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]).sort()).toEqual([...TRIAL_SECTIONS].sort());
   });
 
   it("warns a day before it ends, not three", () => {

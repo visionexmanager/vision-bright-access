@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Radio, Search, ChevronLeft, ChevronRight, RefreshCw, Lock } from "lucide-react";
 import { useRadioSubscription } from "@/hooks/useRadioSubscription";
 import { useTrial } from "@/hooks/useTrial";
+import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { useAuth } from "@/contexts/AuthContext";
 import { StationCard } from "@/components/radio/StationCard";
 import { detectType } from "@/components/streamUrlType";
@@ -26,7 +27,8 @@ export default function LiveRadio() {
     stations, genres, isLoading, stationsError, refetchStations,
   } = useRadioSubscription();
   const { isOnTrial, trialDaysLeft } = useTrial();
-  const displayDays = subscription ? daysRemaining : (isOnTrial ? trialDaysLeft : 0);
+  const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
+  const displayDays = subscription ? daysRemaining : (trialWaivesPayment ? trialDaysLeft : 0);
 
   const [query,      setQuery]      = useState("");
   const [activeSlug, setActiveSlug] = useState<string>("all");
@@ -81,7 +83,7 @@ export default function LiveRadio() {
 
             {isSubscribed ? (
               <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 text-sm px-4 py-2">
-                ✓ {isOnTrial && !subscription ? t("home.highlight.trial") : t("liveRadio.activeSubscription")} · {displayDays} {t(displayDays === 1 ? "liveRadio.day" : "liveRadio.days")}
+                ✓ {trialWaivesPayment && !subscription ? t("home.highlight.trial") : t("liveRadio.activeSubscription")} · {displayDays} {t(displayDays === 1 ? "liveRadio.day" : "liveRadio.days")}
               </Badge>
             ) : (
               <Button asChild size="lg" className="bg-orange-500 hover:bg-orange-400 text-white font-bold shadow-lg shadow-orange-500/30">

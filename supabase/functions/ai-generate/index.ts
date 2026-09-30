@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getGenerator, GENERATION_SCHEMA } from "../_shared/generators.ts";
 import { structuredCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
@@ -37,9 +38,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    const serviceClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+    const refused = await subscriptionGate(serviceClient, req, user.id, corsHeaders);
+    if (refused) return refused;
+
     // Per-user daily ceiling, before anything reaches a provider (Phase 2F-2).
     const limited = await chargeDailyLimit(
-      createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!),
+      serviceClient,
       user.id, "ai-generate", corsHeaders,
     );
     if (limited) return limited;

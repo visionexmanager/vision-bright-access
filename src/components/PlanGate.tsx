@@ -25,7 +25,7 @@ import {
   type SectionKey,
 } from "@/lib/billing/plans";
 
-function UpgradeNotice({ section }: { section: SectionKey }) {
+function UpgradeNotice({ section, onTrial }: { section: SectionKey; onTrial: boolean }) {
   const { t, dir } = useLanguage();
   const tier = cheapestTierFor(section);
   const sectionName = t(sectionDef(section).labelKey);
@@ -45,7 +45,7 @@ function UpgradeNotice({ section }: { section: SectionKey }) {
           needs to know which door this is. */}
       <Lock className="mb-4 h-10 w-10 text-muted-foreground" aria-hidden="true" />
       <h1 className="text-2xl font-black">{t("planGate.title")}</h1>
-      <p className="mt-3 text-muted-foreground">{t("planGate.trialOver")}</p>
+      <p className="mt-3 text-muted-foreground">{t(onTrial ? "planGate.notInTrial" : "planGate.trialOver")}</p>
       <p className="mt-2 font-semibold">{body}</p>
 
       <Link
@@ -64,10 +64,10 @@ function UpgradeNotice({ section }: { section: SectionKey }) {
 export function PlanGate({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { user } = useAuth();
-  const { has } = usePlanAccess();
+  const { access, has } = usePlanAccess();
 
   const section = sectionForPath(location.pathname);
   if (!section || !user || has(section)) return <>{children}</>;
 
-  return <UpgradeNotice section={section} />;
+  return <UpgradeNotice section={section} onTrial={access?.trialActive === true} />;
 }

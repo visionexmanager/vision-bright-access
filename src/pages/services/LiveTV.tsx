@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useTVSubscription } from "@/hooks/useTVSubscription";
 import { useTrial } from "@/hooks/useTrial";
+import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChannelCard } from "@/components/tv/ChannelCard";
 import { FavoriteButton } from "@/components/tv/FavoriteButton";
@@ -48,11 +49,12 @@ export default function LiveTV() {
     channels, categories, isLoading, channelsError, refetchChannels,
   } = useTVSubscription();
   const { isOnTrial, trialDaysLeft } = useTrial();
+  const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
   const { getHistory }               = useWatchHistory();
 
   const displayDays = subscription
     ? daysRemaining
-    : isOnTrial ? trialDaysLeft : 0;
+    : trialWaivesPayment ? trialDaysLeft : 0;
 
   // Read from localStorage once on mount — doesn't depend on channels
   const recentHistory = useMemo(() => getHistory().slice(0, 8), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -120,7 +122,7 @@ export default function LiveTV() {
 
             {isSubscribed ? (
               <Badge className="bg-green-500/20 text-green-300 border-green-500/40 text-sm px-4 py-2">
-                ✓ {isOnTrial && !subscription ? t("home.highlight.trial") : t("liveTV.activeSubscription")}
+                ✓ {trialWaivesPayment && !subscription ? t("home.highlight.trial") : t("liveTV.activeSubscription")}
                 {" · "}{displayDays} {t(displayDays === 1 ? "liveTV.day" : "liveTV.days")}
               </Badge>
             ) : (

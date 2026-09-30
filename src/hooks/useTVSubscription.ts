@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrial } from "@/hooks/useTrial";
+import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
 
@@ -57,6 +58,7 @@ export function useTVSubscription() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { isOnTrial, trialDaysLeft } = useTrial();
+  const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
   const { t } = useLanguage();
 
   const { data: subscription, isLoading: subLoading } = useQuery<TVSubscription | null>({
@@ -121,7 +123,7 @@ export function useTVSubscription() {
     },
   });
 
-  const isSubscribed = isOnTrial || !!(
+  const isSubscribed = trialWaivesPayment || !!(
     subscription &&
     subscription.status === "active" &&
     new Date(subscription.expires_at) > new Date()
@@ -135,7 +137,7 @@ export function useTVSubscription() {
           (new Date(subscription.expires_at).getTime() - Date.now()) / 86_400_000
         )
       )
-    : isOnTrial ? trialDaysLeft : 0;
+    : trialWaivesPayment ? trialDaysLeft : 0;
 
   const subscribe = useCallback(
     async (planId: string): Promise<boolean> => {

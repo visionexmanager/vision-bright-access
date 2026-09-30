@@ -4,6 +4,7 @@ import { decodePdfDataUrl, isPdfDataUrl, PDF_NO_TEXT_CODE, PDF_NO_TEXT_MESSAGE, 
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { detectLanguage } from "../_shared/whatsappLanguageDetect.ts";
 import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 
 installUsageMetering("ocr-scan");
@@ -84,6 +85,10 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+    // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+    const refused = await subscriptionGate(serviceClient, req, user.id, corsHeaders);
+    if (refused) return refused;
+
     const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", {
       _user_id: user.id,
       _function_name: "ocr-scan",

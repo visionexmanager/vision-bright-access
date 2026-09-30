@@ -153,7 +153,7 @@ describe("the wallet's read-only check mirrors spendVX", () => {
 
   it("applies the same three rules — signed in, trial, balance — and spends nothing", () => {
     const fn = wallet.slice(wallet.indexOf("const canSpendVX = useCallback("), wallet.indexOf("return { balance"));
-    expect(fn).toContain("!!user && ((isOnTrial && !options?.chargeDuringTrial) || balance >= amount)");
+    expect(fn).toContain("!!user && ((trialWaivesPayment && !options?.chargeDuringTrial) || balance >= amount)");
     expect(fn).not.toMatch(/rpc\(|toast\(/);
   });
 });

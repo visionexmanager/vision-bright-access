@@ -9,6 +9,7 @@ import {
   decideVoiceAccess,
   type VoiceAccessResult,
 } from "./access.ts";
+import { requireActiveSubscription, subscriptionGateResponse } from "../subscriptionGate.ts";
 
 export { refusalResponse } from "./access.ts";
 export type { VoiceAccessRefusal, VoiceAccessResult } from "./access.ts";
@@ -41,6 +42,14 @@ export async function guardVoiceRequest(
         const { data, error } = await userClient.auth.getUser();
         if (error || !data?.user) return null;
         return { id: data.user.id };
+      },
+
+      async authorize(userId) {
+        const serviceClient = createClient(supabaseUrl!, serviceKey!);
+        const verdict = await requireActiveSubscription(serviceClient, { channel: "web", userId });
+        if (verdict === "authorized") return null;
+        const refused = subscriptionGateResponse(verdict);
+        return { status: refused.status as 403 | 503, body: await refused.json() };
       },
 
       async checkLimit(userId, name) {

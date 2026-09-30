@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Gift, AlertTriangle } from "lucide-react";
 import { useTrial } from "@/hooks/useTrial";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { PRICING_PATH } from "@/lib/billing/plans";
@@ -16,9 +17,12 @@ import { PRICING_PATH } from "@/lib/billing/plans";
 export function TrialBanner() {
   const { user } = useAuth();
   const { isOnTrial, trialDaysLeft } = useTrial();
+  const { access } = usePlanAccess();
   const { t } = useLanguage();
 
-  if (!user || !isOnTrial) return null;
+  // Only an account that is ON the trial plan: somebody who subscribed inside
+  // their first week is on their paid plan and is not told the week is ending.
+  if (!user || !isOnTrial || access?.trialActive !== true) return null;
 
   const isEnding = trialDaysLeft <= 1;
 

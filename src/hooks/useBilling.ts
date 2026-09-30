@@ -54,11 +54,11 @@ export function useBillingInit() {
 export function useCanGenerate() {
   const { data: status } = useBillingStatus();
   const { data: balance } = useLiveBalance();
-  const { isAdmin, isNewUser } = useFreeAccess();
+  const { isAdmin } = useFreeAccess();
 
-  // Admins, and accounts still inside their free week, always have full access
+  // Admins have full access. The free week does not: the server refuses AI work
+  // without a subscription, so this must not promise it.
   if (isAdmin) return { canGenerate: true, reason: "admin" };
-  if (isNewUser) return { canGenerate: true, reason: "free_period" };
 
   if (!status) return { canGenerate: true, reason: "loading" }; // optimistic
 
