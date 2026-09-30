@@ -412,7 +412,8 @@ describe("the WhatsApp webhook", () => {
   it("tries the file before the list of links, and carries on to the list unless it delivered", () => {
     const media = webhook.slice(webhook.indexOf("const request = { kind: mediaRequest.kind"), webhook.indexOf("const found = await searchMedia(request);"));
     expect(media).toContain('request.kind !== "podcast"');
-    expect(media).toContain("parseFileWish(questionText)");
+    // Always attempted for a film or an audiobook; the list of links is the fallback.
+    expect(media).toContain("attachExternalFile(");
     expect(media).toMatch(/if \(attached\.outcome === "delivered"\) continue;/);
     const book = webhook.slice(webhook.indexOf('{ kind: "book", query, language: answerLanguage }'), webhook.indexOf("const [outside, archive]"));
     expect(book).toMatch(/if \(attached\.outcome === "delivered"\) continue;/);

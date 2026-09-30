@@ -551,7 +551,8 @@ describe("the WhatsApp webhook", () => {
   it("the recording/paper/document flow follows the books flow and ends the turn only when it delivered or answered with a link", () => {
     expect(block.length).toBeGreaterThan(300);
     expect(webhook.indexOf("parseAssetRequest(questionText)")).toBeGreaterThan(webhook.indexOf("parseBookRequest(questionText)"));
-    expect(block).toMatch(/aiFocused \|\| humanOwnsThis \|\| bookNotFound \|\| mediaNotFound \|\| !featureOn\("services\.media"\)/);
+    expect(block).toMatch(/const assetRequest = humanOwnsThis \|\| bookNotFound \|\| mediaNotFound \|\| !featureOn\("services\.media"\)/);
+    expect(block).not.toMatch(/aiFocused/);
     expect(block).toMatch(/if \(attached\.outcome === "delivered"\) continue;/);
     expect(block).toContain("deliveryFallbackText(answerLanguage)");
     expect(block).toMatch(/if \(attached\.link\) \{[\s\S]*?continue;\s*\}\s*\}\s*$/);
@@ -559,13 +560,15 @@ describe("the WhatsApp webhook", () => {
 
   it("every flow can convert on the media processor, and none reads a secret or logs a query, title or address", () => {
     expect(webhook.split("convert: externalConvert(),")).toHaveLength(5); // image, asset, video/audiobook, book
+    expect(webhook.split("translate: translateWithChain,")).toHaveLength(5);
     const logs = webhook.split("\n").filter((l) => l.includes('log("external_file"'));
     expect(logs).toHaveLength(4);
     for (const line of logs) expect(line).not.toMatch(/query|title|url|incoming\.from|token/i);
   });
 
   it("'send me' counts as asking for the file in the video, audiobook and book flows, and the existing list is still the fallback", () => {
-    expect(webhook).toContain('request.kind !== "podcast" && (parseFileWish(questionText) || wantsSend(questionText))');
+    // A film or an audiobook is always tried as a file first; only a podcast (a publisher's stream) is not.
+    expect(webhook).toMatch(/if \(token && phoneNumberId && request\.kind !== "podcast"\) \{/);
     expect(webhook).toMatch(/library\.length === 0 && token && phoneNumberId && \(parseFileWish\(questionText\) \|\| wantsSend\(questionText\)\)/);
   });
 
@@ -573,5 +576,93 @@ describe("the WhatsApp webhook", () => {
     const parser = readFileSync("supabase/functions/_shared/whatsappImageRequest.ts", "utf8");
     expect(parser).toMatch(/CREATE\.test\(message\) \|\| ANALYSE\.test\(message\)/);
     expect(block).not.toMatch(/image-generate|handleOwnerCommand|understandImage|extractDocumentText/);
+  });
+});
+
+// ─── The fix for "I cannot send images" ───────────────────────────────────
+
+import { ASSET_CAPABILITY_DIRECTIVE } from "../../supabase/functions/_shared/whatsappImageRequest.ts";
+
+describe("a request is recognised the way people actually write it", () => {
+  it.each([
+    ["بدي صورة عن بيروت", "بيروت"], ["ابعتلي صورة أسد", "أسد"], ["صورة برج ايفل", "برج ايفل"], ["أريد صورة لجبل أفرست", "جبل أفرست"],
+    ["ممكن صورة للأهرامات", "الأهرامات"], ["جيبلي صورة القدس", "القدس"], ["i want a picture of a lion", "lion"], ["photo of petra", "petra"],
+    ["quiero una foto de Barcelona", "Barcelona"], ["je veux une photo de Paris", "Paris"], ["ich möchte ein Foto von Berlin", "Berlin"], ["хочу фото Байкала", "Байкала"],
+  ])("a picture: %s", (text, query) => {
+    const parsed = parseImageRequest(text);
+    expect(parsed, text).not.toBeNull();
+    expect(parsed!.query).toContain(query);
+  });
+
+  it("wanting is asking, but making is still ruled out, and a bare Latin noun is not a request", () => {
+    expect(parseImageRequest("أنشئ صورة أسد")).toBeNull();
+    expect(parseImageRequest("i want you to generate a picture of a lion")).toBeNull();
+    expect(parseImageRequest("image generation models")).toBeNull();
+    expect(parseImageRequest("what is in this image")).toBeNull();
+    expect(parseImageRequest("ارسل صورة")).toBeNull(); // nothing to look for
+  });
+
+  it.each([
+    ["ابعتلي فيديو عن بركان", "video", "بركان"], ["send me a video about volcanoes", "video", "volcanoes"], ["find a film about Petra and send it", "video", "Petra"],
+    ["بدي ملف pdf عن الذكاء الاصطناعي", "document", "الذكاء الاصطناعي"], ["أريد أبحاث عن الديسلكسيا", "document", "الديسلكسيا"], ["i need research papers about dyslexia", "document", "dyslexia"],
+    ["pdf about cats", "document", "cats"], ["send me an audio recording of rain", "audio", "rain"],
+  ])("a video, paper or recording: %s", (text, kind, query) => {
+    const parsed = parseAssetRequest(text);
+    expect(parsed, text).not.toBeNull();
+    expect(parsed!.kind).toBe(kind);
+    expect(parsed!.query).toContain(query);
+  });
+});
+
+describe("a request in Arabic, Persian, Russian or Chinese is searched in English first", () => {
+  it("translates, tries the English phrase first, then the original, and delivers from whichever works", async () => {
+    const searches: string[] = [];
+    const deliver = vi.fn(async () => delivered("image"));
+    const d: AttachDeps = {
+      fetch: (async () => { throw new Error("no network"); }) as never, env: () => undefined, deliver, sendText: async () => undefined,
+      translate: async (q) => (q === "بيروت" ? "Beirut" : null),
+      search: async (input) => { searches.push(input.query); return input.query === "Beirut" ? found(commons({ title: "Beirut skyline", providerItemId: "9" })) : found(); },
+    };
+    const out = await attachExternalFile({ kind: "image", query: "بيروت", language: "ar" }, d);
+    expect(out).toMatchObject({ outcome: "delivered", provider: "wikimedia_commons" });
+    expect(searches).toEqual(["Beirut"]);
+  });
+
+  it("falls back to the original words when the English search finds nothing, and returns a page if there is one", async () => {
+    const searches: string[] = [];
+    const d: AttachDeps = {
+      fetch: (async () => { throw new Error("no network"); }) as never, env: () => undefined, deliver: async () => failed(), sendText: async () => undefined,
+      translate: async () => "Beirut",
+      search: async (input) => { searches.push(input.query); return input.query === "بيروت" ? found(commons({ providerItemId: "9" })) : found(); },
+    };
+    const out = await attachExternalFile({ kind: "image", query: "بيروت", language: "ar" }, d);
+    expect(searches).toEqual(["Beirut", "بيروت"]);
+    expect(out).toMatchObject({ outcome: "none", link: { url: "https://commons.wikimedia.org/wiki/File:Red_fox.jpg" } });
+  });
+
+  it("never asks for a translation of a Latin-script request, and survives a translator that fails or answers in the same script", async () => {
+    const translate = vi.fn(async () => "x");
+    const base = { fetch: (async () => { throw new Error("no network"); }) as never, env: () => undefined, deliver: async () => delivered("image"), sendText: async () => undefined, search: async () => found(commons()) };
+    await attachExternalFile({ kind: "image", query: "red fox", language: "en" }, { ...base, translate });
+    expect(translate).not.toHaveBeenCalled();
+    for (const t of [async () => { throw new Error("down"); }, async () => null, async () => "بيروت", async () => ""]) {
+      expect(await attachExternalFile({ kind: "image", query: "بيروت", language: "ar" }, { ...base, translate: t as never })).toMatchObject({ outcome: "delivered" });
+    }
+  });
+});
+
+describe("the assistant is never left believing it cannot send files", () => {
+  const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
+  it("says that pictures, recordings, videos, papers and books can be sent, and forbids the refusal", () => {
+    expect(ASSET_CAPABILITY_DIRECTIVE).toMatch(/CAN send real pictures, audio recordings, videos, research papers, PDFs and books/);
+    expect(ASSET_CAPABILITY_DIRECTIVE).toMatch(/Never say that you cannot send/);
+    expect(webhook).toContain("ASSET_CAPABILITY_DIRECTIVE,");
+  });
+
+  it("serves an explicit request for a picture, a video, a recording or a paper while the assistant holds the floor", () => {
+    const image = webhook.slice(webhook.indexOf("// ── A picture that already exists"), webhook.indexOf("// ── Videos, podcasts and audiobooks"));
+    const asset = webhook.slice(webhook.indexOf("// ── A recording, a paper or a document"), webhook.indexOf("const bazaarRequest ="));
+    expect(image).not.toContain("aiFocused");
+    expect(asset).not.toContain("aiFocused");
   });
 });

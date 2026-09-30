@@ -421,7 +421,8 @@ import {
   deliveryLogFields,
   type DeliveryResult,
 } from "../_shared/whatsappAssetDelivery.ts";
-import { parseAssetRequest, parseImageRequest, wantsSend } from "../_shared/whatsappImageRequest.ts";
+import { ASSET_CAPABILITY_DIRECTIVE, parseAssetRequest, parseImageRequest, wantsSend } from "../_shared/whatsappImageRequest.ts";
+import { translateWithChain } from "../_shared/whatsappQueryTranslate.ts";
 import { extractDocumentText } from "../_shared/whatsappDocumentText.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { readOfficeLocally } from "../_shared/whatsappOffice.ts";
@@ -5165,7 +5166,7 @@ Deno.serve(async (req) => {
       // as before. When the picture cannot be attached, the sender gets the
       // result's own page (with its licence); when nothing matches, the message
       // carries on to whatever handled it before.
-      const imageRequest = aiFocused || humanOwnsThis || !featureOn("services.media")
+      const imageRequest = humanOwnsThis || !featureOn("services.media")
         ? null
         : parseImageRequest(questionText);
       if (imageRequest && token && phoneNumberId) {
@@ -5175,6 +5176,7 @@ Deno.serve(async (req) => {
             fetch: (url, init) => fetch(url, init),
             env: (name) => Deno.env.get(name),
             convert: externalConvert(),
+            translate: translateWithChain,
             deliver: (asset) => deliverAsset({ phoneNumberId, token, to: incoming.from, asset }),
             sendText: (body) => reply(body, "reply"),
           },
@@ -5210,13 +5212,14 @@ Deno.serve(async (req) => {
         // is delivered as an attachment. Podcasts stay links (a publisher's
         // stream is not a licensed copy). When nothing is delivered the list of
         // links below still follows, so the sender never gets less than before.
-        if (token && phoneNumberId && request.kind !== "podcast" && (parseFileWish(questionText) || wantsSend(questionText))) {
+        if (token && phoneNumberId && request.kind !== "podcast") {
           const attached = await attachExternalFile(
             { kind: request.kind, query: request.query, language: answerLanguage },
             {
               fetch: (url, init) => fetch(url, init),
               env: (name) => Deno.env.get(name),
               convert: externalConvert(),
+              translate: translateWithChain,
               deliver: (asset) => deliverAsset({ phoneNumberId, token, to: incoming.from, asset }),
               sendText: (body) => reply(body, "reply"),
             },
@@ -5302,6 +5305,7 @@ Deno.serve(async (req) => {
               fetch: (url, init) => fetch(url, init),
               env: (name) => Deno.env.get(name),
               convert: externalConvert(),
+              translate: translateWithChain,
               deliver: (asset) => deliverAsset({ phoneNumberId, token, to: incoming.from, asset }),
               sendText: (body) => reply(body, "reply"),
             },
@@ -5332,7 +5336,7 @@ Deno.serve(async (req) => {
       // explicit find/send request matches, anything that asks to make, summarise,
       // explain or translate is left alone, a file that cannot be attached is
       // answered with the result's own page, and no match carries on as before.
-      const assetRequest = aiFocused || humanOwnsThis || bookNotFound || mediaNotFound || !featureOn("services.media")
+      const assetRequest = humanOwnsThis || bookNotFound || mediaNotFound || !featureOn("services.media")
         ? null
         : parseAssetRequest(questionText);
       if (assetRequest && token && phoneNumberId) {
@@ -5342,6 +5346,7 @@ Deno.serve(async (req) => {
             fetch: (url, init) => fetch(url, init),
             env: (name) => Deno.env.get(name),
             convert: externalConvert(),
+            translate: translateWithChain,
             deliver: (asset) => deliverAsset({ phoneNumberId, token, to: incoming.from, asset }),
             sendText: (body) => reply(body, "reply"),
           },
@@ -5871,6 +5876,8 @@ Deno.serve(async (req) => {
             mediaNotFound ? mediaNotFoundDirective(mediaNotFound) : null,
             productNotFound ? productNotFoundDirective(productNotFound) : null,
             wantsDocument ? WORD_DOCUMENT_DIRECTIVE : null,
+            // Pictures, recordings, videos and papers ARE sendable here; the model is told so.
+            ASSET_CAPABILITY_DIRECTIVE,
           ],
           summary,
           turns,

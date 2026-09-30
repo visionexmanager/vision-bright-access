@@ -97,7 +97,7 @@ export const KIND_SEARCH: Readonly<Record<FileKind, { categories: readonly strin
 };
 
 /** Kinds whose caller has no list of links of its own, so a result's own page is what a failed attachment falls back to. */
-const LINK_FALLBACK_KINDS: ReadonlySet<FileKind> = new Set(["image", "audio", "document"]);
+const LINK_FALLBACK_KINDS: ReadonlySet<FileKind> = new Set(["image", "audio", "video", "document"]);
 
 const ARCHIVE_ID = /^[A-Za-z0-9._-]{1,100}$/;
 const MB = 1024 * 1024;
@@ -371,6 +371,8 @@ export interface AttachDeps {
   deliver: (asset: DeliverableAsset) => Promise<DeliveryResult>;
   /** Plain text to the sender, for the credit line. */
   sendText: (body: string) => Promise<unknown>;
+  /** Translates a search phrase into English, for a request in a script the catalogues do not index. Absent when there is no provider. */
+  translate?: (query: string) => Promise<string | null>;
   /** Converts a file on the media processor (convertMediaLocally, bound to its config). Absent when there is none. */
   convert?: (bytes: Uint8Array, query: string) => Promise<{ ok: boolean; bytes?: Uint8Array; mime?: string; code?: string }>;
   /** Overridable for tests. */
@@ -448,6 +450,30 @@ export async function attachExternalFile(
   params: { kind: FileKind; query: string; language: string },
   deps: AttachDeps,
 ): Promise<AttachOutcome> {
+  // The catalogues are mostly indexed in English. A request in another script is searched in English
+  // first when the caller can translate it (an Arabic title is rarely on a file), then as it was written.
+  let english: string | null = null;
+  if (deps.translate && NON_LATIN.test(params.query)) {
+    try { english = await deps.translate(stripFileWish(params.query)); } catch { english = null; }
+    english = english?.replace(/\s+/g, " ").trim().slice(0, 80) ?? null;
+    if (english && english.length >= 2 && english.toLowerCase() !== params.query.toLowerCase() && !NON_LATIN.test(english)) {
+      const translated = await attemptAttach({ ...params, query: english }, deps);
+      if (translated.outcome === "delivered") return translated;
+      const original = await attemptAttach(params, deps);
+      if (original.outcome === "delivered") return original;
+      return { ...original, tried: translated.tried + original.tried, ...(translated.link ?? original.link ? { link: translated.link ?? original.link } : {}) };
+    }
+  }
+  return attemptAttach(params, deps);
+}
+
+/** A letter outside the Latin script: the catalogues will not match it by title. */
+const NON_LATIN = /[^\p{Script=Latin}\p{Script=Common}\p{Script=Inherited}]/u;
+
+async function attemptAttach(
+  params: { kind: FileKind; query: string; language: string },
+  deps: AttachDeps,
+): Promise<AttachOutcome> {
   const query = stripFileWish(params.query);
   if (query.length < 2) return { outcome: "none", reason: "no_query", tried: 0 };
 
@@ -466,8 +492,10 @@ export async function attachExternalFile(
   let link: { url: string; title: string } | undefined;
   for (const item of found.items) {
     if (tried >= MAX_CANDIDATES) break;
-    // The work asked for, not merely the top of a ranking.
-    if (!matchesRequest(item, query, params.kind === "image" || params.kind === "document", params.kind === "document" ? 1 : 2)) continue;
+    // The work asked for, not merely the top of a ranking. A picture is what the search engine matched
+    // to the words (its title is often a file name, and the subject may be in another language), so
+    // the catalogue's own ranking decides; a book, a paper or a film is held to its title.
+    if (params.kind !== "image" && !matchesRequest(item, query, params.kind === "document", params.kind === "document" ? 1 : 2)) continue;
     if (LINK_FALLBACK_KINDS.has(params.kind) && !link && /^https:\/\//i.test(item.externalUrl)) link = { url: item.externalUrl, title: item.title };
     const candidate = item.provider === "internet_archive"
       // A recording from the Archive is chosen the way an audiobook chapter is: a small MP3 that fits.
