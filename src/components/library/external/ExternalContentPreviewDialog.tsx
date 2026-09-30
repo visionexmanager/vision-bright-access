@@ -134,7 +134,7 @@ export function ExternalContentPreviewDialog({ item, onClose }: Props) {
               <Button asChild variant="outline" size="sm" className="gap-1.5">
                 <a href={shown.externalUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t("library.openSources.open").replace("{provider}", shown.providerName)}
+                  {shown.provider === "youtube" ? t("library.youtube.openOn") : t("library.openSources.open").replace("{provider}", shown.providerName)}
                   <span className="sr-only"> ({t("library.researchAssistant.external.opensInNewTab")})</span>
                 </a>
               </Button>

@@ -53,6 +53,8 @@ const GATE_ONLY = new Set(["ai_subscription_gate", "ai_subscription_gate_whatsap
 const BODIES: Record<string, unknown> = {
   "career-ai": { action: "coach", message: "hello", prompt: "hello" },
   "organization-ai-admin": { organization_id: "00000000-0000-4000-8000-0000000000b1", mode: "training_plan" },
+  // YouTube search is a mode of this function; the refusal must come before any googleapis call.
+  "library-research-assistant": { mode: "youtube_search", query: "photosynthesis", youtube: { type: "video" } },
 };
 
 async function stub(req: Request): Promise<Response> {
@@ -254,6 +256,21 @@ for (const fn of ["ai-chat", "ai-generate", "academy-chat", "image-generate", "r
   const extra = rpcCalls.filter((r) => !GATE_ONLY.has(r));
   const ok = res.status === 403 && providerCalls.length === 0 && extra.length === 0 && tableWrites.length === 0;
   console.log(`${ok ? "PASS" : "FAIL"} trial account -> ${fn}: http=${res.status}, provider calls=${providerCalls.length}, limit/VX RPCs=${extra.length}, writes=${tableWrites.length}`);
+  if (!ok) failures++;
+}
+
+console.log("## YouTube search and details need the Library, like every other Library mode");
+for (const body of [
+  { mode: "youtube_search", query: "photosynthesis", youtube: { type: "video" } },
+  { mode: "youtube_resource", resource_type: "video", resource_id: "dQw4w9WgXcQ" },
+]) {
+  reset("blocked_silent");
+  let res: { status: number; code: string };
+  try { res = await post("library-research-assistant", { headers: { "x-plan": "free_trial", "x-trial": "true" }, body }); } catch { res = { status: -1, code: "threw" }; }
+  const extra = rpcCalls.filter((r) => !GATE_ONLY.has(r));
+  const google = providerCalls.filter((h) => /google|youtube|ytimg/.test(h));
+  const ok = res.status === 403 && google.length === 0 && providerCalls.length === 0 && extra.length === 0 && tableWrites.length === 0;
+  console.log(`${ok ? "PASS" : "FAIL"} unentitled caller -> ${body.mode}: http=${res.status}, googleapis calls=${google.length}, limit/VX RPCs=${extra.length}, writes=${tableWrites.length}`);
   if (!ok) failures++;
 }
 

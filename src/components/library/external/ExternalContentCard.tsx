@@ -23,6 +23,18 @@ export function previewAction(item: ExternalContentItem): "play" | "read" | "vie
   return "view";
 }
 
+/** "12 March 2026" in the reader's language, for a full ISO date; a bare year or anything else is left out. */
+export function publishedOn(value: string | null, locale: string): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  try {
+    return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(date);
+  } catch {
+    return value;
+  }
+}
+
 const ACTION_ICON = { play: Play, read: BookOpen, view: Eye } as const;
 
 interface Props {
@@ -33,6 +45,8 @@ interface Props {
   savePending?: boolean;
   onToggleSave?: (item: ExternalContentItem) => void;
   /** Present when the reader has research projects; adds the item to the chosen one as a reference. */
+  /** Wording for the save button where a source has its own (YouTube says "Add to Library"). */
+  saveKeys?: { save: string; saved: string };
   projectAction?: { added: boolean; pending: boolean; disabled: boolean; onAdd: (item: ExternalContentItem) => void };
 }
 
@@ -41,8 +55,8 @@ interface Props {
  * move result to result; the source, licence and credit are plain text in
  * reading order, and every link that leaves Visionex says so.
  */
-export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(function ExternalContentCard({ item, onPreview, saved = false, savePending = false, onToggleSave, projectAction }, headingRef) {
-  const { t } = useLanguage();
+export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(function ExternalContentCard({ item, onPreview, saved = false, savePending = false, onToggleSave, projectAction, saveKeys }, headingRef) {
+  const { t, lang } = useLanguage();
   const titleId = useId();
   const hintId = useId();
   const action = previewAction(item);
@@ -75,6 +89,9 @@ export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(functio
           ) : null}
         </div>
         <p className="text-xs font-medium">{t("library.openSources.source").replace("{provider}", item.providerName)}</p>
+        {publishedOn(item.publishedAt, lang) && (
+          <p className="text-xs text-muted-foreground">{t("library.openSources.published").replace("{date}", publishedOn(item.publishedAt, lang)!)}</p>
+        )}
         {item.creator && (
           <p dir="auto" className="line-clamp-1 text-xs text-muted-foreground">{t("library.openSources.by").replace("{creator}", item.creator)}</p>
         )}
@@ -113,7 +130,7 @@ export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(functio
           <Button asChild size="sm" variant="outline" className="gap-1.5">
             <a href={item.externalUrl} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              {t("library.openSources.open").replace("{provider}", item.providerName)}
+              {item.provider === "youtube" ? t("library.youtube.openOn") : t("library.openSources.open").replace("{provider}", item.providerName)}
               <span className="sr-only">: {item.title}</span>
               {newTab}
             </a>
@@ -126,10 +143,10 @@ export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(functio
               aria-pressed={saved}
               disabled={savePending}
               onClick={() => onToggleSave(item)}
-              aria-label={`${t(saved ? "library.openSources.saved" : "library.openSources.save")}: ${item.title}`}
+              aria-label={`${t(saved ? (saveKeys?.saved ?? "library.openSources.saved") : (saveKeys?.save ?? "library.openSources.save"))}: ${item.title}`}
             >
               {saved ? <BookmarkCheck className="h-3.5 w-3.5" aria-hidden="true" /> : <Bookmark className="h-3.5 w-3.5" aria-hidden="true" />}
-              {t(saved ? "library.openSources.saved" : "library.openSources.save")}
+              {t(saved ? (saveKeys?.saved ?? "library.openSources.saved") : (saveKeys?.save ?? "library.openSources.save"))}
             </Button>
           )}
           {projectAction && (() => {

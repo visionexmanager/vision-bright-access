@@ -10,3 +10,7 @@ export {
   checkAllProviders, checkProviderHealth, normalizeSearchInput, resolveExternalItem, ResultCache, searchExternalContent,
   type NormalizedInput, type SearchInput,
 } from "./aggregate.ts";
+export {
+  YouTubeError, classifyGoogleError, getYouTubeResource, isYouTubeResourceUrl, normalizeYouTubeSearch, searchYouTube, splitYouTubeItemId,
+  youtubeErrorResponse, youtubeStats,
+} from "./youtube.ts";

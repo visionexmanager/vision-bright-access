@@ -19,7 +19,10 @@ export type ContentType =
   | "article"
   | "dataset"
   | "podcast"
-  | "radio";
+  | "radio"
+  /** A YouTube channel or playlist: a reference to a collection at its source, never a copy of it. */
+  | "channel"
+  | "playlist";
 
 /** What a reader filters by. A provider serves one or more of these. */
 export type ContentCategory = "images" | "audio" | "video" | "books" | "documents" | "education" | "data" | "news";
@@ -67,6 +70,12 @@ export interface ProviderDescriptor {
   minIntervalMs?: number;
   /** A query the health check can expect results for. */
   healthQuery?: string;
+  /**
+   * Answers only when a search names it (`providers: [id]`). For a provider whose
+   * quota is small (YouTube: 100 searches a day on the default key), so that a
+   * search across every source cannot spend it by accident.
+   */
+  optIn?: boolean;
 }
 
 export interface UnsupportedProvider {
@@ -127,6 +136,11 @@ export interface ExternalContentItem {
   publishedAt: string | null;
   /** True when the item must be resolved (`getItem`) before it can be played. */
   needsResolve: boolean;
+  /**
+   * Provider-specific facts worth keeping (a YouTube channel id, a view count),
+   * small and flat. Only what the provider states; bounded again by the database.
+   */
+  metadata?: Record<string, string | number | boolean | null>;
 }
 
 export interface SearchParams {

@@ -395,7 +395,10 @@ describe("keys and errors", () => {
     const params = { query: "cat", categories: [], language: "en", page: 1, limit: 3 } as const;
     const failures = await Promise.allSettled([unsplash.search(params, { fetch: fetchFn, env }), youtube.search(params, { fetch: fetchFn, env })]);
     expect(calls[0].headers.Authorization).toBe("Client-ID UNSPLASH-SECRET");
-    expect(new URL(calls[1].url).searchParams.get("key")).toBe("YT-SECRET");
+    // YouTube's key travels in a header, so it is never in a URL that a log or a proxy could keep.
+    expect(calls[1].headers["x-goog-api-key"]).toBe("YT-SECRET");
+    expect(calls[1].url).not.toContain("YT-SECRET");
+    expect(new URL(calls[1].url).searchParams.has("key")).toBe(false);
     for (const f of failures) {
       expect(f.status).toBe("rejected");
       const reason = (f as PromiseRejectedResult).reason as Error;

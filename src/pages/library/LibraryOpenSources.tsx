@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ExternalContentCard } from "@/components/library/external/ExternalContentCard";
 import { ExternalContentPreviewDialog } from "@/components/library/external/ExternalContentPreviewDialog";
+import { YouTubeSearchPanel } from "@/components/library/external/YouTubeSearchPanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -47,6 +48,8 @@ export default function LibraryOpenSources() {
   const [providers, setProviders] = useState<ProviderSummary[]>([]);
   // My Library: what the reader has kept, and the one save/remove in flight.
   const [view, setView] = useState<"search" | "saved">(() => (params.get("view") === "saved" ? "saved" : "search"));
+  const [source, setSource] = useState<"all" | "youtube">(() => (params.get("source") === "youtube" ? "youtube" : "all"));
+  const sourceId = useId();
   const [saved, setSaved] = useState<ExternalContentItem[]>([]);
   const [savedLoaded, setSavedLoaded] = useState(false);
   const [pendingSave, setPendingSave] = useState<string | null>(null);
@@ -183,12 +186,33 @@ export default function LibraryOpenSources() {
     ? { added: inProject.has(`${projectId}|${item.id}`), pending: addingToProject === item.id, disabled: !projectId, onAdd: (i: ExternalContentItem) => void addToProject(i) }
     : undefined);
 
+  const changeSource = (next: "all" | "youtube") => {
+    setSource(next);
+    setSaveMessage("");
+    const q = params.get("q");
+    const type = params.get("type");
+    setParams({ ...(next === "all" && q ? { q } : {}), ...(next === "all" && type ? { type } : {}), ...(next === "youtube" ? { source: "youtube" } : {}) }, { replace: true });
+  };
+
+  const renderYouTubeCard = (item: ExternalContentItem, ref?: (el: HTMLHeadingElement | null) => void) => (
+    <ExternalContentCard
+      ref={ref}
+      item={item}
+      onPreview={setPreview}
+      saved={savedIds.has(item.id)}
+      savePending={pendingSave === item.id}
+      onToggleSave={(i) => void toggleSave(i)}
+      saveKeys={{ save: "library.youtube.addToLibrary", saved: "library.youtube.inLibrary" }}
+      projectAction={projectActionFor(item)}
+    />
+  );
+
   const showView = (next: "search" | "saved") => {
     setView(next);
     setSaveMessage("");
     const q = params.get("q");
     const type = params.get("type");
-    setParams({ ...(q ? { q } : {}), ...(type ? { type } : {}), ...(next === "saved" ? { view: "saved" } : {}) }, { replace: true });
+    setParams({ ...(q ? { q } : {}), ...(type ? { type } : {}), ...(source === "youtube" ? { source: "youtube" } : {}), ...(next === "saved" ? { view: "saved" } : {}) }, { replace: true });
   };
 
   const nameOf = (id: string) => providers.find((p) => p.id === id)?.name ?? id;
@@ -256,7 +280,20 @@ export default function LibraryOpenSources() {
         )}
 
 
-        {view === "search" && (<>
+        {view === "search" && (
+          <div className="mb-4 max-w-xs">
+            <label htmlFor={sourceId} className="mb-1.5 block text-sm font-medium">{t("library.openSources.sourceLabel")}</label>
+            <select id={sourceId} value={source} onChange={(e) => changeSource(e.target.value as "all" | "youtube")}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <option value="all">{t("library.openSources.sourceAll")}</option>
+              <option value="youtube">{t("library.youtube.name")}</option>
+            </select>
+          </div>
+        )}
+
+        {view === "search" && source === "youtube" && <YouTubeSearchPanel renderCard={renderYouTubeCard} />}
+
+        {view === "search" && source === "all" && (<>
         <form role="search" onSubmit={submit} className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
             <label htmlFor={queryId} className="mb-1.5 block text-sm font-medium">{t("library.openSources.searchLabel")}</label>

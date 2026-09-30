@@ -20788,6 +20788,7 @@ export type Database = {
           language: string | null
           license_name: string | null
           license_url: string | null
+          metadata: Json | null
           note: string | null
           provider: string
           provider_name: string
@@ -20809,6 +20810,7 @@ export type Database = {
           language?: string | null
           license_name?: string | null
           license_url?: string | null
+          metadata?: Json | null
           note?: string | null
           provider: string
           provider_name: string
@@ -20830,6 +20832,7 @@ export type Database = {
           language?: string | null
           license_name?: string | null
           license_url?: string | null
+          metadata?: Json | null
           note?: string | null
           provider?: string
           provider_name?: string
