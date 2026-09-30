@@ -8,6 +8,7 @@
  */
 
 import { embeds } from "../embed.ts";
+import { getYouTubeResource, searchYouTube, splitYouTubeItemId, YouTubeError, YOUTUBE_MAX_LIMIT, YOUTUBE_MAX_QUERY_CHARS } from "../youtube.ts";
 import { allowsRedistribution, clean, cleanOrNull, getJson, httpsUrl, licenseFromUrl, makeItem, positiveNumber, ProviderError, tagList, wants } from "../http.ts";
 import type { ContentLicense, ContentProvider, ContentType, ExternalContentItem, ProviderContext } from "../types.ts";
 
@@ -204,29 +205,24 @@ export const pixabay: ContentProvider = {
 };
 
 // ─── YouTube ───────────────────────────────────────────────────────────────
+//
+// The full integration (search, details, channels, playlists, cache, ETags, error
+// mapping) lives in ../youtube.ts. This is only the registry's face of it: a
+// video search for a search that names YouTube, mapped onto the ProviderError
+// codes the aggregator reports.
 
-export function parseYouTube(data: unknown): ExternalContentItem[] {
-  const items = ((data as { items?: Array<Record<string, unknown>> })?.items) ?? [];
-  return items.flatMap((item) => {
-    const videoId = ((item.id ?? {}) as { videoId?: string }).videoId;
-    const snippet = (item.snippet ?? {}) as Record<string, unknown>;
-    const embed = typeof videoId === "string" ? embeds.youtube(videoId) : null;
-    const title = clean(snippet.title, 200);
-    if (!embed || !videoId || !title) return [];
-    const thumbs = (snippet.thumbnails ?? {}) as Record<string, { url?: string } | undefined>;
-    return [makeItem("YouTube", {
-      provider: "youtube",
-      providerItemId: videoId,
-      title,
-      description: cleanOrNull(snippet.description, 300),
-      contentType: "video",
-      thumbnailUrl: httpsUrl(thumbs.medium?.url ?? thumbs.default?.url),
-      embedUrl: embed,
-      externalUrl: `https://www.youtube.com/watch?v=${videoId}`,
-      creator: cleanOrNull(snippet.channelTitle, 120),
-      publishedAt: typeof snippet.publishedAt === "string" ? snippet.publishedAt.slice(0, 10) : null,
-    })];
-  });
+export { parseYouTube } from "../youtube.ts";
+
+function asProviderError(err: unknown): never {
+  if (!(err instanceof YouTubeError)) throw err;
+  switch (err.code) {
+    case "youtube_not_configured": throw new ProviderError("not_configured");
+    case "youtube_quota_exceeded":
+    case "youtube_rate_limited": throw new ProviderError("rate_limited", 429);
+    case "youtube_timeout": throw new ProviderError("timeout");
+    case "youtube_bad_response": throw new ProviderError("invalid_response");
+    default: throw new ProviderError("http_error");
+  }
 }
 
 export const youtube: ContentProvider = {
@@ -237,20 +233,42 @@ export const youtube: ContentProvider = {
   categories: ["video", "education"],
   auth: { kind: "api_key", env: ["YOUTUBE_API_KEY"] },
   capabilities: { search: true, preview: false, embed: true, download: false },
-  licenseNote: "Played only through YouTube's embedded player (privacy-enhanced domain); downloading is prohibited by YouTube's terms.",
-  rateLimit: "10,000 quota units per day; one search costs 100 units.",
+  licenseNote: "Discovery through the official YouTube Data API. Played only in YouTube's embedded player (privacy-enhanced domain), always linked to YouTube; downloading is prohibited by YouTube's terms.",
+  rateLimit: "10,000 quota units a day on the default key; one search costs 100 units. Searched only when named, cached for 15 minutes.",
+  optIn: true,
   healthQuery: "photosynthesis",
   async search(params, ctx) {
-    const key = secret(ctx, "YOUTUBE_API_KEY");
-    // Paging needs the previous response's pageToken, which a stateless page number cannot carry.
+    apiKeyPresent(ctx);
+    // Paging needs the previous response's token, which a stateless page number cannot carry.
     if (params.page > 1) return [];
-    const q = new URLSearchParams({
-      part: "snippet", type: "video", q: params.query, maxResults: String(params.limit), key,
-      safeSearch: "strict", videoEmbeddable: "true", relevanceLanguage: params.language,
-    });
-    return parseYouTube(await getJson(ctx, `https://www.googleapis.com/youtube/v3/search?${q}`));
+    try {
+      const page = await searchYouTube({
+        query: params.query.slice(0, YOUTUBE_MAX_QUERY_CHARS), type: "video", order: "relevance", language: params.language,
+        region: null, captions: false, hd: false, duration: null, channelId: null, pageToken: null,
+        limit: Math.min(params.limit, YOUTUBE_MAX_LIMIT),
+      }, { fetch: ctx.fetch, env: ctx.env });
+      return page.items;
+    } catch (err) {
+      return asProviderError(err);
+    }
+  },
+  /** Details for one video, channel or playlist, fetched when a reader opens it (one quota unit). */
+  async getItem(providerItemId, ctx) {
+    apiKeyPresent(ctx);
+    const ref = splitYouTubeItemId(providerItemId);
+    if (!ref) return null;
+    try {
+      return await getYouTubeResource(ref.type, ref.id, { fetch: ctx.fetch, env: ctx.env });
+    } catch (err) {
+      if (err instanceof YouTubeError && err.code === "youtube_not_found") return null;
+      return asProviderError(err);
+    }
   },
 };
+
+function apiKeyPresent(ctx: ProviderContext): void {
+  if (!ctx.env("YOUTUBE_API_KEY")?.trim()) throw new ProviderError("not_configured");
+}
 
 // ─── Vimeo ─────────────────────────────────────────────────────────────────
 

@@ -20,6 +20,7 @@ const state = vi.hoisted(() => ({
   projects: [] as Array<{ id: string; title: string }>,
   addProjectItem: vi.fn(),
   toast: vi.fn(),
+  ytSearch: vi.fn(),
 }));
 
 vi.mock("@/contexts/LanguageContext", () => ({
@@ -59,6 +60,10 @@ vi.mock("@/services/library/externalContent", async () => {
     runExternalProviderHealthCheck: state.health,
     fetchStoredProviderHealth: state.stored,
     citationFor: (await vi.importActual<typeof import("@/services/library/externalContent")>("@/services/library/externalContent")).citationFor,
+    searchYouTube: state.ytSearch,
+    YouTubeRequestError: class YouTubeRequestError extends Error {
+      constructor(readonly code: string) { super(code); }
+    },
     fetchSavedExternalItems: state.saved,
     saveExternalItem: state.save,
     unsaveExternalItem: state.unsave,
@@ -108,6 +113,7 @@ beforeEach(() => {
   state.projects = [];
   state.addProjectItem.mockReset().mockResolvedValue(undefined);
   state.toast.mockReset();
+  state.ytSearch.mockReset();
 });
 
 describe("Open Sources page", () => {
@@ -520,5 +526,135 @@ describe("My Library: keyboard and screen-reader behaviour", () => {
     expect(source).not.toContain("aria-labelledby={projectLabelId}");
     renderPage("/library/open-sources?q=moon");
     expect(await screen.findByLabelText("project")).toBeInTheDocument();
+  });
+});
+
+describe("YouTube as a source on the Open Sources page", () => {
+  const CHANNEL_ID = "UCX6OQ3DkcsbYNE6H8uQQuVA";
+  const ytVideo: ExternalContentItem = {
+    ...makeItem("YouTube", {
+      provider: "youtube", providerItemId: "dQw4w9WgXcQ", title: "Photosynthesis explained", contentType: "video", creator: "Edu Channel",
+      externalUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", embedUrl: "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
+      thumbnailUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg", publishedAt: "2026-03-12", durationSeconds: 3723, needsResolve: true,
+    }),
+    metadata: { resourceType: "video", channelId: CHANNEL_ID },
+  };
+  const ytChannel: ExternalContentItem = {
+    ...makeItem("YouTube", {
+      provider: "youtube", providerItemId: `channel:${CHANNEL_ID}`, title: "Edu Channel", contentType: "channel", creator: "Edu Channel",
+      externalUrl: `https://www.youtube.com/channel/${CHANNEL_ID}`,
+    }),
+    metadata: { resourceType: "channel", channelId: CHANNEL_ID },
+  };
+  const openYouTube = async () => {
+    state.ytSearch.mockResolvedValue({ items: [ytVideo, ytChannel], nextPageToken: null, prevPageToken: null, totalResults: null, cached: false });
+    renderPage("/library/open-sources?source=youtube");
+    fireEvent.change(await screen.findByLabelText("What are you looking for?"), { target: { value: "photosynthesis" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search YouTube" }));
+    return screen.findByRole("article", { name: "Photosynthesis explained" });
+  };
+
+  it("is one entry in the source selector, and replaces the general search while chosen", async () => {
+    renderPage("/library/open-sources");
+    const select = await screen.findByLabelText("Source");
+    expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual(["All sources", "YouTube"]);
+    expect(screen.getByRole("search")).toBeInTheDocument(); // the general search
+    expect(screen.queryByRole("search", { name: "Search YouTube" })).toBeNull();
+    fireEvent.change(select, { target: { value: "youtube" } });
+    expect(screen.getByRole("search", { name: "Search YouTube" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Type")).toBeInTheDocument(); // YouTube's own Type filter
+    fireEvent.change(select, { target: { value: "all" } });
+    expect(screen.queryByRole("search", { name: "Search YouTube" })).toBeNull();
+  });
+
+  it("opens straight on YouTube from the address, and the general search is not called", async () => {
+    await openYouTube();
+    expect(state.search).not.toHaveBeenCalled();
+    expect(state.ytSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it("a video card shows the source, channel, date and duration, and says 'Open on YouTube'", async () => {
+    const card = await openYouTube();
+    expect(within(card).getByText("Source: YouTube")).toBeInTheDocument();
+    expect(within(card).getByText("Published March 12, 2026")).toBeInTheDocument();
+    expect(within(card).getByText("Length 1:02:03")).toBeInTheDocument();
+    expect(within(card).getByText("Video")).toBeInTheDocument();
+    expect(within(card).getByText(/Edu Channel/)).toBeInTheDocument();
+    const open = within(card).getByRole("link", { name: /Open on YouTube.*Photosynthesis explained.*opens in a new tab/ });
+    expect(open).toHaveAttribute("href", "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    expect(open).toHaveAttribute("rel", "noopener noreferrer");
+    expect(within(card).queryByRole("link", { name: /Download/ })).toBeNull(); // nothing is ever downloadable
+    expect(within(card).getByRole("button", { name: "Play: Photosynthesis explained" })).toBeInTheDocument();
+  });
+
+  it("a channel card is labelled as a channel and links to it", async () => {
+    await openYouTube();
+    const card = screen.getByRole("article", { name: "Edu Channel" });
+    expect(within(card).getByText("Channel")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /Open on YouTube/ })).toHaveAttribute("href", `https://www.youtube.com/channel/${CHANNEL_ID}`);
+    expect(within(card).queryByRole("button", { name: /^(Play|View|Read):/ })).toBeNull(); // no player for a channel: it opens on YouTube
+  });
+
+  it("Add to Library saves the reference with its provider, id, address and metadata — and only that", async () => {
+    const card = await openYouTube();
+    fireEvent.click(within(card).getByRole("button", { name: "Add to Library: Photosynthesis explained" }));
+    await waitFor(() => expect(state.save).toHaveBeenCalledTimes(1));
+    expect(state.save).toHaveBeenCalledWith(expect.objectContaining({
+      id: "youtube:dQw4w9WgXcQ", provider: "youtube", externalUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      metadata: { resourceType: "video", channelId: CHANNEL_ID },
+    }));
+    const pressed = await within(card).findByRole("button", { name: "In Library: Photosynthesis explained" });
+    expect(pressed).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain("Saved to My Library: Photosynthesis explained"));
+  });
+
+  it("Add to Project files the reference in the chosen project, with a citation that names YouTube and its address", async () => {
+    state.projects = [{ id: "p1", title: "Plants" }];
+    const card = await openYouTube();
+    fireEvent.change(screen.getByLabelText("project"), { target: { value: "p1" } });
+    fireEvent.click(within(card).getByRole("button", { name: "Add to project: Photosynthesis explained" }));
+    await waitFor(() => expect(state.addProjectItem).toHaveBeenCalledTimes(1));
+    const [projectId, userId, input] = state.addProjectItem.mock.calls[0];
+    expect([projectId, userId, input.itemType]).toEqual(["p1", "user-1", "reference"]);
+    expect(input.citationText).toContain("YouTube");
+    expect(input.citationText).toContain("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    expect(input.citationText).not.toMatch(/transcript|full text|watched/i); // a reference, not a claim to have read the video
+  });
+
+  it("a reader whose plan lacks the Library is told why, and the button stays off", async () => {
+    const { SaveExternalItemError } = await import("@/services/library/externalContent");
+    state.save.mockRejectedValue(new SaveExternalItemError("subscription_required"));
+    const card = await openYouTube();
+    fireEvent.click(within(card).getByRole("button", { name: "Add to Library: Photosynthesis explained" }));
+    await waitFor(() => expect(screen.getAllByRole("status").map((s) => s.textContent)).toContain("Saving to My Library needs a plan that includes the Library."));
+    expect(within(card).getByRole("button", { name: "Add to Library: Photosynthesis explained" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("View opens YouTube's own player, and offers Open on YouTube beside it", async () => {
+    state.resolve.mockResolvedValue({ ...ytVideo, needsResolve: false });
+    const card = await openYouTube();
+    fireEvent.click(within(card).getByRole("button", { name: "Play: Photosynthesis explained" }));
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(within(dialog).getByTitle(/Photosynthesis explained.*YouTube/)).toBeInTheDocument());
+    expect(within(dialog).getByTitle(/YouTube/)).toHaveAttribute("src", "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ");
+    expect(within(dialog).getByRole("link", { name: /Open on YouTube/ })).toHaveAttribute("href", "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    expect(state.resolve).toHaveBeenCalledWith("youtube:dQw4w9WgXcQ");
+  });
+
+  it("a video that cannot be embedded is said to be unavailable here, with the link to YouTube still there", async () => {
+    state.resolve.mockResolvedValue({ ...ytVideo, needsResolve: false, embedUrl: null });
+    const card = await openYouTube();
+    fireEvent.click(within(card).getByRole("button", { name: "Play: Photosynthesis explained" }));
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(within(dialog).getByRole("status")).toBeInTheDocument());
+    expect(within(dialog).queryByTitle(/YouTube/)).toBeNull();
+    expect(within(dialog).getByRole("link", { name: /Open on YouTube/ })).toBeInTheDocument();
+  });
+
+  it("YouTube results can be saved and the saved view keeps them", async () => {
+    state.saved.mockResolvedValue([ytVideo]);
+    renderPage("/library/open-sources?view=saved");
+    const card = await screen.findByRole("article", { name: "Photosynthesis explained" });
+    expect(within(card).getByRole("link", { name: /Open on YouTube/ })).toBeInTheDocument();
   });
 });

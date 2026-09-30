@@ -94,15 +94,31 @@ export function normalizeSearchInput(input: SearchInput): NormalizedInput | null
 export function selectProviders(input: NormalizedInput, env: GetEnv, registry: readonly ContentProvider[] = CONTENT_PROVIDERS): ContentProvider[] {
   return registry.filter((p) =>
     providerStatus(p, env) === "ready" &&
-    (input.providers.length === 0 || input.providers.includes(p.id)) &&
+    // A provider with a small quota answers only when a search names it.
+    (input.providers.length === 0 ? !p.optIn : input.providers.includes(p.id)) &&
     (input.categories.length === 0 || p.categories.some((c) => input.categories.includes(c))));
 }
 
 // ─── Merge ────────────────────────────────────────────────────────────────
 
+/**
+ * One address in a form that two providers' spellings of it share: no scheme, no
+ * "www.", no tracking query, no trailing slash. The query is dropped EXCEPT the
+ * parameters that name the resource (YouTube's `v` and `list`), because
+ * `youtube.com/watch?v=A` and `youtube.com/watch?v=B` are different videos, and
+ * stripping the query made every YouTube result look like a copy of the first.
+ */
 function normalizeUrl(url: string | null): string | null {
   if (!url) return null;
-  return url.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
+  let keep = "";
+  try {
+    const u = new URL(url);
+    const named = ["v", "list"].flatMap((name) => (u.searchParams.has(name) ? [`${name}=${u.searchParams.get(name)}`] : []));
+    if (named.length) keep = `?${named.join("&")}`;
+  } catch {
+    // Not an absolute address: no query to keep.
+  }
+  return url.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/[?#].*$/, "").replace(/\/+$/, "") + keep.toLowerCase();
 }
 
 function normalizeText(text: string | null): string {

@@ -33,7 +33,8 @@ import { structuredCompletion, createEmbedding, ProviderError } from "../_shared
 import { ensureBookIndexed, retrieveChunks, formatChunksAsContext } from "../_shared/libraryRag.ts";
 import { searchOpenSources } from "../_shared/openResearchSources.ts";
 import {
-  checkAllProviders, normalizeSearchInput, resolveExternalItem, searchExternalContent, summarizeProviders, UNSUPPORTED_PROVIDERS,
+  checkAllProviders, getYouTubeResource, normalizeSearchInput, normalizeYouTubeSearch, resolveExternalItem, searchExternalContent, searchYouTube,
+  summarizeProviders, UNSUPPORTED_PROVIDERS, youtubeErrorResponse, youtubeStats,
 } from "../_shared/externalContent/index.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
@@ -44,7 +45,7 @@ function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
 }
 
-type ContentMode = "content_providers" | "content_search" | "content_item" | "content_health";
+type ContentMode = "content_providers" | "content_search" | "content_item" | "content_health" | "youtube_search" | "youtube_resource" | "youtube_stats";
 type Mode = "summarize_multiple" | "compare_books" | "compare_authors" | "literature_review" | "research_outline" | "suggest_references" | "external_sources" | "knowledge_gaps" | ContentMode;
 
 interface RequestBody {
@@ -63,9 +64,14 @@ interface RequestBody {
   limit?: number;
   /** content_item: "<provider>:<providerItemId>" */
   item_id?: string;
+  /** youtube_search: type, order, language, region, captions, hd, duration, channelId, pageToken, limit (the query is `query`). */
+  youtube?: Record<string, unknown>;
+  /** youtube_resource: "video" | "channel" | "playlist" and its id. */
+  resource_type?: string;
+  resource_id?: string;
 }
 
-const CONTENT_MODES: ReadonlySet<string> = new Set<ContentMode>(["content_providers", "content_search", "content_item", "content_health"]);
+const CONTENT_MODES: ReadonlySet<string> = new Set<ContentMode>(["content_providers", "content_search", "content_item", "content_health", "youtube_search", "youtube_resource", "youtube_stats"]);
 const readEnv = (name: string) => Deno.env.get(name);
 
 /**
@@ -107,8 +113,33 @@ async function handleContentMode(
     return json({ ok: true, health, saved: !error }, 200, cors);
   }
 
+  // What this instance has spent of YouTube's quota: counts only, admin only.
+  if (body.mode === "youtube_stats") {
+    if (!(await isAdmin())) return json({ error: "Forbidden" }, 403, cors);
+    return json({ ok: true, stats: youtubeStats() }, 200, cors);
+  }
+
   const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: userId, _function_name: "library-content-search" });
   if (allowed === false) return json({ error: "Daily limit reached. Try again tomorrow." }, 429, cors);
+
+  // YouTube (official Data API, discovery only). Every failure leaves here as a
+  // VisionEX code: nothing Google said, no URL and no key is in an answer or a log.
+  if (body.mode === "youtube_search" || body.mode === "youtube_resource") {
+    try {
+      if (body.mode === "youtube_search") {
+        const input = normalizeYouTubeSearch({ ...(body.youtube ?? {}), query: body.query });
+        if (!input.ok) return json({ ok: false, error: "youtube_invalid_request", reason: input.reason }, 400, cors);
+        const page = await searchYouTube(input.value, { fetch, env: readEnv });
+        return json({ ok: true, ...page }, 200, cors);
+      }
+      const item = await getYouTubeResource(body.resource_type as "video" | "channel" | "playlist", String(body.resource_id ?? ""), { fetch, env: readEnv });
+      return json({ ok: true, item }, 200, cors);
+    } catch (err) {
+      const answer = youtubeErrorResponse(err);
+      console.warn(`[${body.mode}] ${answer.body.error}`);
+      return json(answer.body, answer.status, cors);
+    }
+  }
 
   if (body.mode === "content_item") {
     const item = await resolveExternalItem(String(body.item_id ?? ""), { fetch, env: readEnv });

@@ -1,4 +1,4 @@
-// 20261065 — saving an external Library result. Executed in PGlite over the real
+// 20261065 + 20261066 — saving an external Library result, YouTube included. Executed in PGlite over the real
 // entitlement migrations (20261062, 20261063), so "who may save" is decided by the
 // same plan resolution as everywhere else.
 //
@@ -26,6 +26,9 @@ await db.exec(`
 const saved = readFileSync("supabase/migrations/20261065000000_library_saved_external_items.sql", "utf8");
 await db.exec(saved);
 await db.exec(saved); // re-runnable
+const youtubeMigration = readFileSync("supabase/migrations/20261066000000_library_saved_youtube_references.sql", "utf8");
+await db.exec(youtubeMigration);
+await db.exec(youtubeMigration); // re-runnable
 
 let fail = 0;
 const expect = (label, cond) => { if (!cond) fail++; console.log(`${cond ? "PASS" : "FAIL"}  ${label}`); };
@@ -81,6 +84,38 @@ expect("a non-object payload is refused", /invalid_item/.test((await rejects(() 
 await save({ id: "x_y:9", provider: "x_y", description: "d".repeat(900) });
 expect("a description over 600 characters is trimmed, not stored whole",
   (await db.query("select char_length(description) n from library_saved_external_items where item_id = 'x_y:9'")).rows[0].n === 600);
+
+// ── YouTube: a reference to a YouTube resource, and nothing that only looks like one ──
+const VIDEO = "dQw4w9WgXcQ";
+const CHANNEL = "UCX6OQ3DkcsbYNE6H8uQQuVA";
+const PLAYLIST = "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf";
+const yt = (over = {}) => ({
+  id: `youtube:${VIDEO}`, provider: "youtube", providerName: "YouTube", title: "A lecture", contentType: "video", creator: "Some Channel",
+  externalUrl: `https://www.youtube.com/watch?v=${VIDEO}`, thumbnailUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
+  metadata: { resourceType: "video", channelId: CHANNEL }, ...over,
+});
+const saveYt = async (over) => (await db.query("select public.library_save_external_item($1::jsonb) id", [JSON.stringify(yt(over))])).rows[0].id;
+await as(u(2));
+await saveYt();
+const storedMeta = (await db.query("select metadata from library_saved_external_items where item_id = $1", [`youtube:${VIDEO}`])).rows[0].metadata;
+expect("a YouTube video is saved, with its metadata", storedMeta?.resourceType === "video" && storedMeta?.channelId === CHANNEL);
+expect("a YouTube channel is saved", !!(await saveYt({ id: `youtube:channel:${CHANNEL}`, contentType: "channel", externalUrl: `https://www.youtube.com/channel/${CHANNEL}`, thumbnailUrl: null, metadata: { resourceType: "channel", channelId: CHANNEL } })));
+expect("a YouTube playlist is saved", !!(await saveYt({ id: `youtube:playlist:${PLAYLIST}`, contentType: "playlist", externalUrl: `https://www.youtube.com/playlist?list=${PLAYLIST}`, thumbnailUrl: null, metadata: { resourceType: "playlist" } })));
+const badYt = async (label, over) => expect(label, /lsei_youtube_check|violates check/.test((await rejects(() => saveYt(over))) ?? ""));
+await badYt("a 'youtube' row that points at another site is refused", { externalUrl: "https://evil.example/watch?v=dQw4w9WgXcQ" });
+await badYt("a YouTube address for a different video than its id is refused", { externalUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" });
+await badYt("a look-alike host is refused", { externalUrl: "https://www.youtube.com.evil.example/watch?v=dQw4w9WgXcQ" });
+await badYt("http is refused", { externalUrl: "http://www.youtube.com/watch?v=dQw4w9WgXcQ" });
+await badYt("a video id that is not 11 characters is refused", { id: "youtube:short", externalUrl: "https://www.youtube.com/watch?v=short" });
+await badYt("a video typed as a channel is refused", { contentType: "channel" });
+await badYt("a channel whose id is not a channel id is refused", { id: "youtube:channel:notachannel", contentType: "channel", externalUrl: "https://www.youtube.com/channel/notachannel" });
+await badYt("a playlist address that does not match its id is refused", { id: `youtube:playlist:${PLAYLIST}`, contentType: "playlist", externalUrl: "https://www.youtube.com/playlist?list=PLzzzzzzzzzzzzzzzz" });
+await saveYt({ id: "youtube:aaaaaaaaaaa", externalUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", metadata: ["x"] });
+expect("metadata that is not an object is ignored, not stored", (await db.query("select metadata from library_saved_external_items where item_id = 'youtube:aaaaaaaaaaa'")).rows[0].metadata === null);
+await badYt("metadata over 2,000 characters is refused", { metadata: { note: "n".repeat(2100) } });
+expect("a channel or playlist type is allowed for another provider too (it is a kind of thing, not a YouTube privilege)",
+  !!(await save({ id: "other_src:c1", provider: "other_src", contentType: "channel" })));
+expect("metadata is optional", !!(await save({ id: "other_src:nometa", provider: "other_src" })));
 
 // ── The cap ──
 await db.exec(`INSERT INTO library_saved_external_items (user_id, item_id, provider, provider_name, title, content_type, external_url)
