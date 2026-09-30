@@ -113,6 +113,34 @@ describe("one resolution in the database", () => {
     expect(/FUNCTION public\.ai_eligible_plans[\s\S]{0,200}ARRAY\[([^\]]*)\]/.exec(eligible)?.[1]).not.toMatch(/free_trial/);
   });
 
+  it("the LAST definition of every entitlement function is the one in 20261062/20261063", () => {
+    const expected: Record<string, string> = {
+      plan_for_user: "20261063", user_sections: "20261063", my_plan_access: "20261063", whatsapp_entitlements: "20261063",
+      trial_sections: "20261063", ai_user_entitled: "20261062", ai_subscription_gate: "20261062",
+    };
+    const files = readdirSync("supabase/migrations").sort();
+    for (const [fn, version] of Object.entries(expected)) {
+      const definers = files.filter((f) => new RegExp(`create( or replace)? function (public\\.)?${fn}\\b`, "i").test(code(read(`supabase/migrations/${f}`))));
+      expect(definers.at(-1)?.startsWith(version), `${fn}: last defined in ${definers.at(-1)}`).toBe(true);
+    }
+  });
+
+  it("no migration after 20261063 reads a trial flag in code (the service-request perk is the only survivor, and it is older)", () => {
+    const later = readdirSync("supabase/migrations").filter((f) => f.split("_")[0] > "20261063000000");
+    for (const file of later) {
+      expect(code(read(`supabase/migrations/${file}`)), file).not.toMatch(/free_trial|trial_expires_at|is_in_trial|trial_ends_at|trial_sections/i);
+    }
+  });
+
+  it("the one trial waiver left is the deliberate one: submit_paid_service_request, one free request per service", () => {
+    const sql = code(read("supabase/migrations/20261044000000_service_request_atomic_charge.sql"));
+    expect(sql).toMatch(/paid_via = 'trial'/);
+    expect(sql).toMatch(/_on_trial THEN 0 ELSE _price/);
+    const files = readdirSync("supabase/migrations").sort();
+    const definers = files.filter((f) => /create( or replace)? function (public\.)?submit_paid_service_request\b/i.test(code(read(`supabase/migrations/${f}`))));
+    expect(definers).toEqual(["20261044000000_service_request_atomic_charge.sql"]);
+  });
+
   it("no later migration re-opens the trial", () => {
     const later = readdirSync("supabase/migrations").filter((f) => f.split("_")[0] > "20261063000000");
     for (const file of later) {

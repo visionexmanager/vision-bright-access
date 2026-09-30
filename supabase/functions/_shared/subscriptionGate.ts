@@ -10,10 +10,11 @@
 //
 // ── Where the answer comes from ────────────────────────────────────────────
 //
-// `ai_subscription_gate` (migration 20261062000000). It reads
-// `user_subscriptions` and `billing_plans` — the existing source of truth —
-// and opens AI for an admin or an active, unexpired Kids/Basic/Pro/Business
-// subscription, and for nothing else: not a trial, not a VX balance, not a
+// `ai_subscription_gate` (migration 20261062000000). It asks `plan_for_user`
+// (20261063) — the one resolution the site and WhatsApp use too, built on
+// `user_subscriptions` and `billing_plans` — and opens AI for an admin or an
+// active, unexpired Kids/Basic/Pro/Business subscription, and for nothing else:
+// not the free week (which has no AI capability), not a VX balance, not a
 // pending order, not a lapsed subscription. The same call records, atomically,
 // whether this caller has already been told, so exactly one of any number of
 // simultaneous refused requests is `blocked_first_notice`.
