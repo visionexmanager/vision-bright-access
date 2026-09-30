@@ -40,7 +40,8 @@ export function useVXWallet() {
         return false;
       }
 
-      // Free trial bypasses usage charges while users can still earn VX for later upgrades.
+      // The free week waives nothing (TRIAL_WAIVES_PAYMENT is false); this branch stays for the day a
+      // trial capability is defined that is genuinely free, so it is one constant to flip, not a rewrite.
       if (trialWaivesPayment && !options?.chargeDuringTrial) {
         if (!options?.suppressToast) toast({ title: t("vxWallet.freeTrialActive"), description: t("vxWallet.freeTrialDesc").replace("{item}", itemName) });
         return true;
