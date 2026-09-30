@@ -255,7 +255,7 @@ describe("attachExternalFile", () => {
   it("gives up after three attempts, sends nothing, and says why — so the caller's list of links follows", async () => {
     const { d, deliverFn, sendText } = deps({ items: [1, 2, 3, 4, 5].map((i) => gutenbergItem(String(i))), deliver: async () => failed() });
     const out = await attachExternalFile({ kind: "book", query: "frankenstein", language: "en" }, d);
-    expect(out).toEqual({ outcome: "none", reason: "delivery_failed", tried: 3 });
+    expect(out).toEqual({ outcome: "none", reason: "delivery_failed", tried: 3, detail: "deliver_asset_download_failed" });
     expect(deliverFn).toHaveBeenCalledTimes(3);
     expect(sendText).not.toHaveBeenCalled();
   });

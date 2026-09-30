@@ -30,7 +30,7 @@ const MESSAGE_MAX_CHARS = 140;
 /** Words for "picture", in the supported languages. */
 const IMAGE_WORDS = [
   "image", "images", "photo", "photos", "picture", "pictures", "pic", "pics", "photograph",
-  "صورة", "صوره", "صور",
+  "صورة", "صوره", "صور", "صورتين", "صورتان",
   "ছবি", "ছবিটি", "ফটো",
   "bild", "bilder", "foto", "fotos",
   "imagen", "imágenes", "imagenes", "fotografía", "fotografia",
@@ -172,11 +172,21 @@ const PLURAL_WORDS = [
   "zdjęcia", "zdjecia", "artykuły", "изображения", "картинки", "фотографии", "статьи", "исследования", "resimler", "makaleler", "études", "etudes", "articles",
 ];
 const PLURAL = wordPattern(PLURAL_WORDS);
+
+/** Number words (2 to 5) in the languages people write them in; digits are read separately. */
+const NUMBER_WORDS: Readonly<Record<string, number>> = {
+  two: 2, three: 3, four: 4, five: 5, dos: 2, tres: 3, cuatro: 4, cinco: 5, deux: 2, trois: 3, quatre: 4, cinq: 5, zwei: 2, drei: 3, vier: 4, "fünf": 5, fuenf: 5,
+  "اثنين": 2, "اثنتين": 2, "صورتين": 2, "صورتان": 2, "ثلاث": 3, "ثلاثة": 3, "أربع": 4, "اربع": 4, "أربعة": 4, "اربعة": 4, "خمس": 5, "خمسة": 5,
+};
+const NUMBER = wordPattern(Object.keys(NUMBER_WORDS).filter((w) => w !== "صورتين" && w !== "صورتان"));
 const DIGIT = /(?<![\p{L}\p{N}])([1-9\u0661-\u0669])(?![\p{L}\p{N}])/u;
 const ARABIC_INDIC_ZERO = 0x0660;
 
 /** How many files: the number the sender wrote (at most 5), else 3 for a plural when sets are allowed, else 1. */
 function fileCount(message: string, pluralMeansMany: boolean): number {
+  if (/(?<![\p{L}\p{N}])(?:صورتين|صورتان)(?![\p{L}\p{N}])/u.test(message)) return 2;
+  const word = new RegExp(NUMBER.source, "iu").exec(message)?.[0]?.toLowerCase();
+  if (word && NUMBER_WORDS[word]) return NUMBER_WORDS[word];
   const digit = DIGIT.exec(message)?.[1];
   if (digit) {
     const code = digit.charCodeAt(0);
@@ -187,7 +197,7 @@ function fileCount(message: string, pluralMeansMany: boolean): number {
 }
 const DIGITS_GLOBAL = /(?<![\p{L}\p{N}])[1-9\u0661-\u0669](?![\p{L}\p{N}])/gu;
 /** The picture's name opens the message ("صورة أسد", "photo of Petra"): nothing else it could be, once making is ruled out. */
-const OPENS_WITH_IMAGE = new RegExp(String.raw`^[\s"'«(]*(?:${IMAGE.source})`, "iu");
+const OPENS_WITH_IMAGE = new RegExp(String.raw`^[\s"'«(]*(?:[1-9\u0661-\u0669]\s*|(?:${NUMBER.source})\s+)?(?:${IMAGE.source})`, "iu");
 /** In a Latin script a bare noun is too common ("image generation models"); it must be followed by "of", "de", "von"... */
 const LATIN_NOUN_THEN_CONNECTOR = /^[\s"'«(]*[\p{Script=Latin}'-]+(?:\s+[\p{Script=Latin}'-]+)?\s+(?:of|about|de|du|des|del|della|di|da|von|van|over|o|sobre|sur|über|ueber|za|na|dla)\s/iu;
 const LATIN_START = /^[\s"'«(]*\p{Script=Latin}/u;
@@ -195,7 +205,7 @@ const LATIN_START = /^[\s"'«(]*\p{Script=Latin}/u;
 const opens = (re: RegExp, message: string): boolean => re.test(message) && (!LATIN_START.test(message) || LATIN_NOUN_THEN_CONNECTOR.test(message));
 const RETRIEVE = wordPattern(RETRIEVE_VERBS);
 const CREATE = wordPattern(CREATE_VERBS);
-const REMOVABLE = new RegExp(`${IMAGE.source}|${RETRIEVE.source}|${WANT.source}|${LINK.source}`, "giu");
+const REMOVABLE = new RegExp(`${IMAGE.source}|${RETRIEVE.source}|${WANT.source}|${LINK.source}|${NUMBER.source}`, "giu");
 const FILLER_SET = new Set(EDGE_FILLERS.map((w) => w.toLowerCase()));
 /** A sentence about a picture someone already has ("the picture you sent was nice"), not a request. */
 const ABOUT_A_PICTURE = /^(?:you|i|we|he|she|they|it|was|is|that|this|which|who|أرسلته|بعتلي|اللي|الذي|الي)(?:\s|$)/iu;
@@ -330,8 +340,8 @@ const VIDEO = wordPattern(VIDEO_WORDS);
 const DOCUMENT = wordPattern(DOCUMENT_WORDS);
 const ANALYSE = wordPattern(ANALYSE_VERBS);
 const SEND = wordPattern(SEND_VERBS);
-const ASSET_REMOVABLE = new RegExp(`${AUDIO.source}|${VIDEO.source}|${DOCUMENT.source}|${RETRIEVE.source}|${WANT.source}|${LINK.source}`, "giu");
-const OPENS_WITH_ASSET = new RegExp(String.raw`^[\s"'«(]*(?:${AUDIO.source}|${VIDEO.source}|${DOCUMENT.source})`, "iu");
+const ASSET_REMOVABLE = new RegExp(`${AUDIO.source}|${VIDEO.source}|${DOCUMENT.source}|${RETRIEVE.source}|${WANT.source}|${LINK.source}|${NUMBER.source}`, "giu");
+const OPENS_WITH_ASSET = new RegExp(String.raw`^[\s"'«(]*(?:[1-9\u0661-\u0669]\s*|(?:${NUMBER.source})\s+)?(?:${AUDIO.source}|${VIDEO.source}|${DOCUMENT.source})`, "iu");
 /** An audiobook or a podcast has its own flow; "audio" inside those words must not start this one. */
 const OTHER_MEDIA = wordPattern([
   "audiobook", "audiobooks", "audio book", "podcast", "podcasts", "كتاب صوتي", "بودكاست", "hörbuch", "livre audio", "audiolibro", "audiolivro", "аудиокнига", "подкаст",

@@ -249,7 +249,7 @@ describe("attachExternalFile for an image", () => {
   it("falls back to the result's own page when the picture cannot be attached — and says nothing itself", async () => {
     const { d, sendText } = deps({ items: [commons({ providerItemId: "1" }), commons({ providerItemId: "2", downloadUrl: "https://upload.wikimedia.org/wikipedia/commons/c/cd/Other_fox.jpg" })], deliver: async () => failed() });
     const out = await attachExternalFile({ kind: "image", query: "red fox", language: "en" }, d);
-    expect(out).toEqual({ outcome: "none", reason: "delivery_failed", tried: 2, link: { url: "https://commons.wikimedia.org/wiki/File:Red_fox_in_snow.jpg", title: "Red fox in snow" } });
+    expect(out).toEqual({ outcome: "none", reason: "delivery_failed", tried: 2, detail: "deliver_asset_download_failed", link: { url: "https://commons.wikimedia.org/wiki/File:Red_fox_in_snow.jpg", title: "Red fox in snow" } });
     expect(sendText).not.toHaveBeenCalled();
   });
 
