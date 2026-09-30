@@ -8,7 +8,7 @@
  *   { ok, timestamp, components: { [name]: { ok, status, detail, state? } } }
  */
 
-import { overpassViaProcessor, processorAvailable } from "../_shared/whatsappProcessor.ts";
+import { overpassViaProcessor, probeProcessor, processorAvailable } from "../_shared/whatsappProcessor.ts";
 import { PAUSED_MODELS } from "../_shared/aiProvider.ts";
 import { PARKED_PROVIDERS } from "../_shared/providerState.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -863,6 +863,25 @@ Deno.serve(async (req: Request) => {
     ? { ok: true, status: "ok", detail: `Overpass via the Visionex server reachable and answering ("${relayName}").` }
     : { ok: false, status: "warning", detail: "Overpass via the Visionex server did not answer — the processor may need action=deploy." };
   results.map_overpass_relay = relayProbe;
+
+  // The media processor itself, with the token the functions hold: what conversion of a picture, a recording or a
+  // video (and OCR) depends on. A state and the target names it converts to; never the token or the address.
+  const processor = await probeProcessor();
+  results.media_processor = processor.state === "ok"
+    ? {
+      ok: true,
+      status: processor.convert && processor.convert.video.includes("mp4") && processor.convert.audio.includes("mp3") && processor.convert.image.includes("jpg") ? "ok" : "warning",
+      detail: processor.convert
+        ? `Media processor answers and accepts our token. Converts: audio ${processor.convert.audio.join("/")}; video ${processor.convert.video.join("/")}; image ${processor.convert.image.join("/")}.`
+        : "Media processor answers and accepts our token, but does not list its conversions (an older image).",
+    }
+    : processor.state === "not_configured"
+    ? { ok: false, status: "warning", detail: "Media processor is not configured (MEDIA_PROCESSOR_URL / MEDIA_PROCESSOR_TOKEN): no file is converted, so a recording, a video or an oversize picture stays a link." }
+    : processor.state === "unauthorised"
+    ? { ok: false, status: "error", detail: `Media processor refused our token (HTTP ${processor.status}): it was started with a different PROCESSOR_TOKEN than the functions hold. Every conversion fails until it is redeployed (deploy-media-processor, action=deploy) or the secret is aligned.` }
+    : processor.state === "bad_response"
+    ? { ok: false, status: "warning", detail: `Media processor answered HTTP ${processor.status} to /capabilities: the route or an older image may be in the way.` }
+    : { ok: false, status: "warning", detail: "Media processor did not answer: the service or its route is down." };
 
   // What the sender actually experiences, one line per question they can ask.
   // A question is answerable if any one service in its group answered, and

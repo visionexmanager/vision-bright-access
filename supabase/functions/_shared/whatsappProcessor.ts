@@ -207,6 +207,41 @@ export async function convertMediaLocally(params: {
   }
 }
 
+// ── Is the processor there, and does it take our token? ───────────────────────
+
+/** What the function can say about the processor without sending it a file. */
+export type ProcessorProbe =
+  | { state: "not_configured" }
+  | { state: "unreachable" }
+  | { state: "unauthorised"; status: number }
+  | { state: "bad_response"; status: number }
+  | { state: "ok"; convert: { audio: string[]; video: string[]; image: string[] } | null };
+
+/**
+ * Asks /capabilities with the token this function really holds. The answer is a
+ * state, never the token, the address or the body: 401 means the processor was
+ * started with a different token than the one the functions were given, which is
+ * why every conversion would fail while the service itself reads as healthy.
+ */
+export async function probeProcessor(params: { config?: ProcessorConfig | null; fetchImpl?: typeof fetch; timeoutMs?: number } = {}): Promise<ProcessorProbe> {
+  const config = params.config === undefined ? processorConfig() : params.config;
+  if (!config) return { state: "not_configured" };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), params.timeoutMs ?? 8_000);
+  try {
+    const res = await (params.fetchImpl ?? fetch)(`${config.url}/capabilities`, { headers: { authorization: `Bearer ${config.token}` }, signal: controller.signal });
+    if (res.status === 401 || res.status === 403) return { state: "unauthorised", status: res.status };
+    if (!res.ok) return { state: "bad_response", status: res.status };
+    const body = await res.json().catch(() => null) as { convert?: { audio?: unknown; video?: unknown; image?: unknown } } | null;
+    const names = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, 12) : []);
+    return { state: "ok", convert: body?.convert ? { audio: names(body.convert.audio), video: names(body.convert.video), image: names(body.convert.image) } : null };
+  } catch {
+    return { state: "unreachable" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ── Overpass, from the VPS ───────────────────────────────────────────────────
 
 /** The elements Overpass returned, as the service passes them through. */
