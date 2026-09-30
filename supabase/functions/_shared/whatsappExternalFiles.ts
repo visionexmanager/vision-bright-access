@@ -24,9 +24,9 @@
 
 import { normalizeSearchInput, searchExternalContent } from "./externalContent/aggregate.ts";
 import type { AggregateResult, ExternalContentItem, Fetch, GetEnv } from "./externalContent/types.ts";
-import { deliveryRuleFor, isFetchableAssetUrl, type DeliverableAsset, type DeliveryResult, type WhatsAppMediaKind } from "./whatsappAssetDelivery.ts";
+import { deliveryRuleFor, fetchAssetBytes, isFetchableAssetUrl, type DeliverableAsset, type DeliveryResult, type WhatsAppMediaKind } from "./whatsappAssetDelivery.ts";
 
-export type FileKind = "book" | "audiobook" | "video" | "image";
+export type FileKind = "book" | "audiobook" | "video" | "image" | "audio" | "document";
 
 // ─── Did the sender ask for the file? ──────────────────────────────────────
 
@@ -69,14 +69,35 @@ export const DELIVERY_HOSTS: Readonly<Record<string, readonly string[]>> = {
   // originals sit on whatever site the work came from, which is not a host we name).
   wikimedia_commons: ["upload.wikimedia.org", "commons.wikimedia.org"],
   openverse: ["api.openverse.org"],
+  // Museum images released as CC0, from the museum's own image servers.
+  met_museum: ["images.metmuseum.org"],
+  artic: ["www.artic.edu"],
+  cleveland_museum: ["openaccess-cdn.clevelandart.org"],
+  rijksmuseum: ["iiif.micr.io"],
+  // Flickr: only a photo whose own licence allows it (see licenceAllows).
+  flickr: ["staticflickr.com"],
+  // Research: the open repositories and publishers whose open-access PDFs a server can fetch.
+  // Left out on purpose: Europe PMC, PubMed Central, bioRxiv and medRxiv, which answer a bot challenge.
+  openalex: [
+    "arxiv.org", "zenodo.org", "hal.science", "hal.archives-ouvertes.fr", "core.ac.uk", "osf.io", "figshare.com", "mdpi.com", "mdpi-res.com",
+    "frontiersin.org", "plos.org", "peerj.com", "elifesciences.org", "biomedcentral.com", "springeropen.com", "nature.com", "oapen.org", "scielo.org",
+    "redalyc.org", "hindawi.com",
+  ],
 };
 
 export const KIND_SEARCH: Readonly<Record<FileKind, { categories: readonly string[]; providers: readonly string[] }>> = {
   book: { categories: ["books", "education"], providers: ["gutenberg", "openstax", "internet_archive"] },
   audiobook: { categories: ["audio"], providers: ["internet_archive"] },
-  video: { categories: ["video"], providers: ["internet_archive"] },
-  image: { categories: ["images"], providers: ["wikimedia_commons", "openverse"] },
+  video: { categories: ["video"], providers: ["internet_archive", "wikimedia_commons"] },
+  // Freely licensed pictures, in the order they are preferred: Commons and Openverse first, then the museums' CC0 images, then Flickr.
+  image: { categories: ["images"], providers: ["wikimedia_commons", "openverse", "met_museum", "artic", "cleveland_museum", "rijksmuseum", "flickr"] },
+  audio: { categories: ["audio"], providers: ["wikimedia_commons", "internet_archive"] },
+  // A paper or a PDF: an open-access full text with a stated open licence, or a PDF on Commons.
+  document: { categories: ["documents"], providers: ["openalex", "wikimedia_commons"] },
 };
+
+/** Kinds whose caller has no list of links of its own, so a result's own page is what a failed attachment falls back to. */
+const LINK_FALLBACK_KINDS: ReadonlySet<FileKind> = new Set(["image", "audio", "document"]);
 
 const ARCHIVE_ID = /^[A-Za-z0-9._-]{1,100}$/;
 const MB = 1024 * 1024;
@@ -126,13 +147,31 @@ export function pickArchiveFile(files: readonly ArchiveFile[], kind: FileKind): 
   return pdf ? { name: pdf.name, mime: "application/pdf", size: pdf.size } : null;
 }
 
+/** How to turn a file WhatsApp will not carry (or that is too big) into one it will, on the media processor. */
+export interface ConvertSpec {
+  /** The processor's target name. */
+  to: "jpg" | "mp3" | "mp4";
+  /** The MIME type of what comes back. */
+  mime: string;
+  /** Extra processor options, as a query string ("width=1600"). */
+  options?: string;
+}
+
 export interface FileCandidate {
   url: string;
   mime: string;
   fileName: string;
   size: number | null;
   hosts: readonly string[];
+  /** Only used when the file as it is cannot be sent: a type Meta refuses, or a size over its limit. */
+  convert?: ConvertSpec;
+  /** The declared type looks sendable but the real content is not (an Ogg is Vorbis more often than Opus): always convert. */
+  mustConvert?: boolean;
 }
+
+const TO_JPEG: ConvertSpec = { to: "jpg", mime: "image/jpeg", options: "width=1600&quality=balanced" };
+const TO_MP3: ConvertSpec = { to: "mp3", mime: "audio/mpeg" };
+const TO_MP4: ConvertSpec = { to: "mp4", mime: "video/mp4" };
 
 const extensionFor = (mime: string): string => deliveryRuleFor(mime)?.extensions[0] ?? "bin";
 
@@ -158,42 +197,128 @@ export function directCandidate(item: ExternalContentItem, kind: FileKind): File
     return { url: item.downloadUrl, mime: "application/pdf", fileName: fileNameFor(item.title, "application/pdf"), size: item.sizeBytes, hosts };
   }
   if (kind === "image") return imageCandidate(item, hosts);
+  if (kind === "audio" || kind === "video") return commonsMediaCandidate(item, kind, hosts);
+  if (kind === "document") return documentCandidate(item, hosts);
+  return null;
+}
+
+/**
+ * May this licence's work be passed on by a commercial service? Creative
+ * Commons (without NonCommercial), public domain, CC0 and government works do;
+ * anything else, or no licence, does not. A no-derivatives licence allows the
+ * file as it is but not a resized or converted copy, so `modified` refuses it.
+ */
+export function licenceAllows(licence: { name: string } | null | undefined, modified: boolean): boolean {
+  const name = licence?.name ?? "";
+  if (!/^(CC0|CC[ -]|Public Domain|United States Government Work|No known copyright)/i.test(name)) return false;
+  if (/(?:^|[\s-])NC(?:[\s-]|$)/i.test(name)) return false;
+  if (modified && NO_DERIVATIVES.test(name)) return false;
+  return true;
+}
+
+const extensionOf = (url: string): string => /\.([a-z0-9]{2,5})(?:[?#]|$)/i.exec(url)?.[1]?.toLowerCase() ?? "";
+
+/** Audio and video from Wikimedia Commons: what Meta takes as it is, or converted on the processor. */
+function commonsMediaCandidate(item: ExternalContentItem, kind: "audio" | "video", hosts: readonly string[]): FileCandidate | null {
+  if (item.provider !== "wikimedia_commons" || !item.downloadUrl || !COMMONS_FILE.test(item.downloadUrl)) return null;
+  const mime = (item.mimeType ?? "").toLowerCase();
+  const wanted = kind === "audio" ? /^audio\// : /^video\//;
+  if (!wanted.test(mime)) return null;
+  const direct = mime === "audio/mpeg" || mime === "video/mp4";
+  if (!licenceAllows(item.license, !direct)) return null;
+  return {
+    url: item.downloadUrl, mime, fileName: fileNameFor(item.title, direct ? mime : (kind === "audio" ? TO_MP3.mime : TO_MP4.mime)),
+    size: item.sizeBytes, hosts, ...(direct ? {} : { convert: kind === "audio" ? TO_MP3 : TO_MP4, mustConvert: true }),
+  };
+}
+
+/** The suffix-matched allowlist entry a PDF's host falls under, or null. */
+function hostEntry(url: string, hosts: readonly string[]): string | null {
+  let host: string;
+  try { host = new URL(url).hostname.toLowerCase(); } catch { return null; }
+  return hosts.find((h) => host === h || host.endsWith(`.${h}`)) ?? null;
+}
+
+/** A paper or a PDF: an open-access PDF with a stated open licence from a named repository, or a PDF on Commons. */
+function documentCandidate(item: ExternalContentItem, hosts: readonly string[]): FileCandidate | null {
+  if (!item.downloadUrl || !licenceAllows(item.license, false)) return null;
+  if (item.provider === "wikimedia_commons") {
+    if (item.mimeType !== "application/pdf" || !COMMONS_FILE.test(item.downloadUrl)) return null;
+    return { url: item.downloadUrl, mime: "application/pdf", fileName: fileNameFor(item.title, "application/pdf"), size: item.sizeBytes, hosts };
+  }
+  if (item.provider === "openalex") {
+    const entry = hostEntry(item.downloadUrl, hosts);
+    if (!entry || !isFetchableAssetUrl(item.downloadUrl, [entry])) return null;
+    return { url: item.downloadUrl, mime: "application/pdf", fileName: fileNameFor(item.title, "application/pdf"), size: null, hosts: [entry] };
+  }
   return null;
 }
 
 const IMAGE_MIMES = new Set(["image/jpeg", "image/png"]);
 const COMMONS_FILE = /^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\/(?!thumb\/)[0-9a-f]\/[0-9a-f]{2}\/([^/?#]+)$/;
+/** The exact shape of each museum's image address; anything else is not delivered. */
+const MUSEUM_IMAGE: Readonly<Record<string, RegExp>> = {
+  met_museum: /^https:\/\/images\.metmuseum\.org\/CRDImages\/[\w/.-]+\.(?:jpg|jpeg|png)$/i,
+  artic: /^https:\/\/www\.artic\.edu\/iiif\/2\/[0-9a-f-]{36}\/full\/\d{2,4},\/0\/default\.jpg$/,
+  cleveland_museum: /^https:\/\/openaccess-cdn\.clevelandart\.org\/[\w./-]+\.(?:jpg|jpeg|png)$/i,
+  rijksmuseum: /^https:\/\/iiif\.micr\.io\/[A-Za-z0-9_-]{3,40}\/full\/max\/0\/default\.jpg$/,
+};
 const OPENVERSE_THUMB = /^https:\/\/api\.openverse\.org\/v1\/images\/[0-9a-f-]{36}\/thumb\/?$/;
 /** A Creative Commons licence that forbids a changed copy: a resized picture would be one. */
 const NO_DERIVATIVES = /(?:^|[\s-])ND(?:[\s-]|$)/i;
 
 /**
- * The picture for an image item: Wikimedia Commons' original when it fits Meta's
- * limit, else Commons' own resized copy; Openverse's resized thumbnail, which it
- * serves itself. Only a licence that permits copying qualifies (the providers
- * leave `downloadUrl` empty otherwise), and a no-derivatives licence never gets a
- * resized copy.
+ * The picture for an image item.
+ *
+ *   Wikimedia Commons  the original when it fits Meta's 5 MB, else Commons' own resized copy;
+ *                      a WebP, GIF or TIFF is converted to JPEG on the processor
+ *   Openverse          its resized thumbnail, which it serves itself (the originals sit on the
+ *                      site the work came from, which is not a host we name)
+ *   the museums        the CC0 image from the museum's own server; resized on the processor
+ *                      when it is over Meta's limit
+ *   Flickr             the photo as Flickr serves it, only where its own licence allows
+ *
+ * Only a licence that permits passing the work on qualifies, and a
+ * no-derivatives licence never gets a resized or converted copy.
  */
 function imageCandidate(item: ExternalContentItem, hosts: readonly string[]): FileCandidate | null {
   const limit = deliveryRuleFor("image/jpeg")?.maxBytes ?? 0;
-  const licence = item.license?.name ?? "";
-  if (!item.downloadUrl || !item.license) return null;
-  if (item.provider === "wikimedia_commons") {
-    const mime = item.mimeType ?? "";
-    const match = COMMONS_FILE.exec(item.downloadUrl);
-    if (!IMAGE_MIMES.has(mime) || !match) return null;
-    if (item.sizeBytes !== null && item.sizeBytes <= limit) {
-      return { url: item.downloadUrl, mime, fileName: fileNameFor(item.title, mime), size: item.sizeBytes, hosts };
-    }
-    if (NO_DERIVATIVES.test(licence)) return null;
-    // Special:FilePath answers with a redirect to Commons' resized copy, of the original's type.
-    return { url: `https://commons.wikimedia.org/wiki/Special:FilePath/${match[1]}?width=1600`, mime, fileName: fileNameFor(item.title, mime), size: null, hosts };
-  }
+  if (!item.downloadUrl && item.provider !== "openverse") return null;
   if (item.provider === "openverse") {
-    if (!item.thumbnailUrl || !OPENVERSE_THUMB.test(item.thumbnailUrl) || NO_DERIVATIVES.test(licence)) return null;
+    if (!item.downloadUrl || !item.thumbnailUrl || !OPENVERSE_THUMB.test(item.thumbnailUrl) || !licenceAllows(item.license, true)) return null;
     return { url: item.thumbnailUrl, mime: "image/jpeg", fileName: fileNameFor(item.title, "image/jpeg"), size: null, hosts };
   }
-  return null;
+  const url = item.downloadUrl as string;
+  if (item.provider === "wikimedia_commons") {
+    const mime = (item.mimeType ?? "").toLowerCase();
+    const match = COMMONS_FILE.exec(url);
+    if (!match) return null;
+    if (IMAGE_MIMES.has(mime)) {
+      if (item.sizeBytes !== null && item.sizeBytes <= limit) {
+        return licenceAllows(item.license, false)
+          ? { url, mime, fileName: fileNameFor(item.title, mime), size: item.sizeBytes, hosts }
+          : null;
+      }
+      if (!licenceAllows(item.license, true)) return null;
+      // Special:FilePath answers with a redirect to Commons' resized copy, of the original's type.
+      return { url: `https://commons.wikimedia.org/wiki/Special:FilePath/${match[1]}?width=1600`, mime, fileName: fileNameFor(item.title, mime), size: null, hosts };
+    }
+    // A raster type Meta refuses (WebP, GIF, TIFF, BMP) can still be converted; a vector drawing cannot.
+    if (/^image\/(webp|gif|tiff|bmp)$/.test(mime) && licenceAllows(item.license, true)) {
+      return { url, mime, fileName: fileNameFor(item.title, "image/jpeg"), size: item.sizeBytes, hosts, convert: TO_JPEG };
+    }
+    return null;
+  }
+  const ext = extensionOf(url);
+  const pattern = MUSEUM_IMAGE[item.provider];
+  if (item.provider === "flickr") {
+    if (!/^https:\/\/live\.staticflickr\.com\/[\w/-]+\.jpg$/.test(url) || !licenceAllows(item.license, false)) return null;
+    return { url, mime: "image/jpeg", fileName: fileNameFor(item.title, "image/jpeg"), size: null, hosts };
+  }
+  if (!pattern || !pattern.test(url) || !licenceAllows(item.license, false)) return null;
+  const mime = ext === "png" ? "image/png" : "image/jpeg";
+  // Over Meta's limit (museum originals often are) it is resized, which CC0 allows.
+  return { url, mime, fileName: fileNameFor(item.title, mime), size: item.sizeBytes, hosts, convert: TO_JPEG };
 }
 
 /**
@@ -203,12 +328,12 @@ function imageCandidate(item: ExternalContentItem, hosts: readonly string[]): Fi
  * in the title or the maker's name. Words are compared as letters and digits, so
  * Arabic and Chinese titles match too (a query of one word needs that one word).
  */
-export function matchesRequest(item: ExternalContentItem, query: string, loose = false): boolean {
+export function matchesRequest(item: ExternalContentItem, query: string, loose = false, need = 2): boolean {
   const terms = query.toLocaleLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 2);
   if (terms.length === 0) return false;
   // A picture's title is often a file name; its description and tags say what it shows.
   const haystack = `${item.title} ${item.creator ?? ""}${loose ? ` ${item.description ?? ""} ${(item.tags ?? []).join(" ")}` : ""}`.toLocaleLowerCase();
-  return terms.filter((w) => haystack.includes(w)).length >= Math.min(terms.length, 2);
+  return terms.filter((w) => haystack.includes(w)).length >= Math.min(terms.length, need);
 }
 
 /**
@@ -246,6 +371,8 @@ export interface AttachDeps {
   deliver: (asset: DeliverableAsset) => Promise<DeliveryResult>;
   /** Plain text to the sender, for the credit line. */
   sendText: (body: string) => Promise<unknown>;
+  /** Converts a file on the media processor (convertMediaLocally, bound to its config). Absent when there is none. */
+  convert?: (bytes: Uint8Array, query: string) => Promise<{ ok: boolean; bytes?: Uint8Array; mime?: string; code?: string }>;
   /** Overridable for tests. */
   search?: (input: NonNullable<ReturnType<typeof normalizeSearchInput>>) => Promise<AggregateResult>;
 }
@@ -289,6 +416,30 @@ async function archiveCandidate(item: ExternalContentItem, kind: FileKind, deps:
 }
 
 /**
+ * Fetches the file from its named host (every redirect re-checked), converts it on the
+ * media processor, and delivers what comes back. The bytes of the result are checked
+ * against their type by deliverAsset like any other file; a failure anywhere is a failed
+ * delivery, never a partial one.
+ */
+async function deliverConverted(candidate: FileCandidate, spec: ConvertSpec, deps: AttachDeps): Promise<DeliveryResult> {
+  const failed = (reason: "asset_too_large" | "asset_type_unsupported" | "asset_download_failed" | "asset_not_found" | "asset_invalid" | "asset_download_timeout"): DeliveryResult =>
+    ({ outcome: "failed", reason, ms: 0 });
+  // The processor takes at most 16 MB; a bigger source is refused before it is downloaded.
+  if (candidate.size !== null && candidate.size > CONVERT_SOURCE_MAX) return failed("asset_too_large");
+  const got = await fetchAssetBytes({ url: candidate.url, allowedHosts: candidate.hosts, maxBytes: CONVERT_SOURCE_MAX, fetchImpl: deps.fetch as typeof fetch });
+  if (!got.ok) {
+    const reason = (got as { reason: string }).reason;
+    const known = ["asset_too_large", "asset_not_found", "asset_invalid", "asset_download_timeout"] as const;
+    return failed((known as readonly string[]).includes(reason) ? reason as (typeof known)[number] : "asset_download_failed");
+  }
+  const out = await deps.convert!(got.bytes, `to=${spec.to}${spec.options ? `&${spec.options}` : ""}`);
+  if (!out.ok || !out.bytes?.length || !out.mime) return failed("asset_type_unsupported");
+  return deps.deliver({ bytes: out.bytes, mimeType: out.mime, fileName: fileNameFor(candidate.fileName.replace(/\.[^.]+$/, ""), out.mime) });
+}
+
+const CONVERT_SOURCE_MAX = 16 * 1024 * 1024;
+
+/**
  * Searches the connected sources for a licensed file of this kind and delivers
  * the first one that goes through. Returns what happened; sends nothing itself
  * when nothing was delivered, so the caller's list of links still follows.
@@ -316,25 +467,29 @@ export async function attachExternalFile(
   for (const item of found.items) {
     if (tried >= MAX_CANDIDATES) break;
     // The work asked for, not merely the top of a ranking.
-    if (!matchesRequest(item, query, params.kind === "image")) continue;
-    if (params.kind === "image" && !link && /^https:\/\//i.test(item.externalUrl)) link = { url: item.externalUrl, title: item.title };
+    if (!matchesRequest(item, query, params.kind === "image" || params.kind === "document", params.kind === "document" ? 1 : 2)) continue;
+    if (LINK_FALLBACK_KINDS.has(params.kind) && !link && /^https:\/\//i.test(item.externalUrl)) link = { url: item.externalUrl, title: item.title };
     const candidate = item.provider === "internet_archive"
-      ? await archiveCandidate(item, params.kind, deps)
+      // A recording from the Archive is chosen the way an audiobook chapter is: a small MP3 that fits.
+      ? await archiveCandidate(item, params.kind === "audio" ? "audiobook" : params.kind, deps)
       : directCandidate(item, params.kind);
     if (!candidate) continue;
     const rule = deliveryRuleFor(candidate.mime);
-    if (!rule) continue;
     // A file whose size nobody stated is asked its size before it is downloaded.
     const size = candidate.size ?? await declaredSize(candidate.url, candidate.hosts, deps.fetch);
-    if (size !== null && size > rule.maxBytes) continue;
+    const fits = rule !== null && !candidate.mustConvert && (size === null || size <= rule.maxBytes);
 
-    tried++;
-    const result = await deps.deliver({
-      url: candidate.url,
-      allowedHosts: candidate.hosts,
-      mimeType: candidate.mime,
-      fileName: candidate.fileName,
-    });
+    let result: DeliveryResult;
+    if (fits) {
+      tried++;
+      result = await deps.deliver({ url: candidate.url, allowedHosts: candidate.hosts, mimeType: candidate.mime, fileName: candidate.fileName });
+    } else if (candidate.convert && deps.convert) {
+      // A type Meta refuses, or a file over its limit: converted on the media processor, then sent as bytes.
+      tried++;
+      result = await deliverConverted(candidate, candidate.convert, deps);
+    } else {
+      continue;
+    }
     if (result.outcome.startsWith("delivered_")) {
       await deps.sendText(creditText(item)).catch(() => undefined);
       return { outcome: "delivered", provider: item.provider, kind: (result as Extract<DeliveryResult, { kind: WhatsAppMediaKind }>).kind, tried };

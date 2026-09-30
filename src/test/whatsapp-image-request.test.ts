@@ -125,9 +125,12 @@ describe("parseImageRequest: what is not this flow's business", () => {
 // ─── Which pictures may be sent as the file ───────────────────────────────
 
 describe("the image sources", () => {
-  it("asks only Wikimedia Commons and Openverse, for images", () => {
-    expect(KIND_SEARCH.image).toEqual({ categories: ["images"], providers: ["wikimedia_commons", "openverse"] });
-    for (const provider of ["youtube", "vimeo", "pixabay", "flickr", "pexels", "unsplash"]) expect(DELIVERY_HOSTS[provider]).toBeUndefined();
+  it("asks only sources whose terms allow passing the picture on, for images", () => {
+    expect(KIND_SEARCH.image).toEqual({
+      categories: ["images"],
+      providers: ["wikimedia_commons", "openverse", "met_museum", "artic", "cleveland_museum", "rijksmuseum", "flickr"],
+    });
+    for (const provider of ["youtube", "vimeo", "pixabay", "pexels", "unsplash", "dailymotion"]) expect(DELIVERY_HOSTS[provider]).toBeUndefined();
     expect(DELIVERY_HOSTS.wikimedia_commons).toEqual(["upload.wikimedia.org", "commons.wikimedia.org"]);
     expect(DELIVERY_HOSTS.openverse).toEqual(["api.openverse.org"]);
   });
@@ -152,8 +155,10 @@ describe("the image sources", () => {
     expect(directCandidate(commons({ license: CC_BY_ND }), "image")).not.toBeNull();
   });
 
-  it("refuses a type Meta does not take (WebP, SVG, GIF) and a file address that is not Commons' original", () => {
-    for (const mimeType of ["image/webp", "image/svg+xml", "image/gif", "image/tiff"]) expect(directCandidate(commons({ mimeType }), "image")).toBeNull();
+  it("converts a raster type Meta does not take, refuses a vector one, and refuses an address that is not Commons' original", () => {
+    for (const mimeType of ["image/webp", "image/gif", "image/tiff"]) expect(directCandidate(commons({ mimeType }), "image"), mimeType).toMatchObject({ convert: { to: "jpg", mime: "image/jpeg" } });
+    expect(directCandidate(commons({ mimeType: "image/svg+xml" }), "image")).toBeNull();
+    expect(directCandidate(commons({ mimeType: "image/webp", license: CC_BY_ND }), "image")).toBeNull();
     expect(directCandidate(commons({ downloadUrl: "https://evil.example/a.jpg" }), "image")).toBeNull();
     expect(directCandidate(commons({ downloadUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/x.jpg/200px-x.jpg" }), "image")).toBeNull();
   });
@@ -229,7 +234,7 @@ describe("attachExternalFile for an image", () => {
   it("searches only the two sources, for images, in the sender's language", async () => {
     const search = vi.fn(async () => found());
     await attachExternalFile({ kind: "image", query: "red fox", language: "ar" }, deps({ search }).d);
-    expect(search).toHaveBeenCalledWith(expect.objectContaining({ query: "red fox", providers: ["wikimedia_commons", "openverse"], categories: ["images"], language: "ar" }));
+    expect(search).toHaveBeenCalledWith(expect.objectContaining({ query: "red fox", providers: KIND_SEARCH.image.providers, categories: ["images"], language: "ar" }));
   });
 
   it("skips a picture that is not the one asked for, and tries the next that is", async () => {

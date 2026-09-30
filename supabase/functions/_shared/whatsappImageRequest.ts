@@ -49,7 +49,7 @@ const IMAGE_WORDS = [
 /** Words for "send", "find", "show", "search" (an explicit request to retrieve something that exists). */
 const RETRIEVE_VERBS = [
   "send", "find", "search", "show", "get", "give", "fetch", "look up",
-  "أرسل", "ارسل", "أرسلي", "ارسلي", "ابعت", "ابعتلي", "ابعث", "ابعثلي", "دور", "دوّر", "دورلي", "ابحث", "ابحثلي", "جيب", "جيبلي", "أعطني", "اعطيني", "هات", "وريني", "أرني", "ارني",
+  "أرسل", "ارسل", "أرسلي", "ارسلي", "ابعت", "ابعتلي", "ابعث", "ابعثلي", "وأرسلها", "وارسلها", "وأرسلهم", "وابعتها", "وأرسلهما", "دور", "دوّر", "دورلي", "ابحث", "ابحثلي", "جيب", "جيبلي", "أعطني", "اعطيني", "هات", "وريني", "أرني", "ارني",
   "পাঠাও", "পাঠান", "খুঁজে", "খুঁজুন", "দেখাও", "দেখান", "দাও",
   "schick", "schicke", "schick mir", "sende", "finde", "suche", "zeig", "zeige", "gib",
   "envía", "envia", "envíame", "enviame", "manda", "mándame", "mandame", "busca", "encuentra", "muestra", "dame", "enséñame",
@@ -73,7 +73,7 @@ const RETRIEVE_VERBS = [
 /** Verbs that mean MAKE. One of these anywhere and the message is not a request to find a picture. */
 const CREATE_VERBS = [
   "generate", "generated", "create", "make", "draw", "design", "paint", "render", "imagine", "illustrate", "produce", "edit", "convert",
-  "أنشئ", "انشئ", "ولّد", "ولد", "اصنع", "اعمل", "ارسم", "صمم", "صمّم", "عدل", "حوّل", "حول",
+  "أنشئ", "انشئ", "ولّد", "ولد", "اصنع", "اعمل", "ارسم", "صمم", "صمّم", "عدل", "حوّل",
   "তৈরি", "বানাও", "আঁকো", "আঁক",
   "generiere", "erstelle", "erzeuge", "zeichne", "gestalte",
   "genera", "crea", "dibuja", "diseña", "haz", "pinta",
@@ -97,6 +97,7 @@ const CREATE_VERBS = [
 
 /** Words that carry no part of the subject, stripped from either end of what is left. */
 const EDGE_FILLERS = [
+  "them", "these", "those", "on", "حول", "بخصوص", "sobre", "acerca", "sur", "propos", "zum", "su", "sul", "sulla", "sull", "over", "na", "temat", "об", "پر", "بارے", "درباره", "সম্পর্কে", "về",
   "a", "an", "the", "of", "me", "to", "it", "for", "some", "about", "please", "and", "my", "us",
   "لي", "لى", "من", "عن", "على", "إلى", "الى", "و", "ل", "رجاء", "لو", "سمحت", "فضلك", "ال",
   "আমাকে", "একটি", "এর", "এবং", "দয়া", "করে", "একটা",
@@ -158,4 +159,137 @@ export function parseImageRequest(text: string | null | undefined): ImageRequest
   if (query.length < 2 || query.length > IMAGE_QUERY_MAX_CHARS) return null;
   if (ABOUT_A_PICTURE.test(query)) return null;
   return { query };
+}
+
+// ─── Audio recordings, papers and documents ───────────────────────────────
+//
+// The same rule as for a picture — an explicit find/send verb and a noun for the
+// thing — with two more ways out: a verb that means MAKE rules the message out,
+// and so does one that means SUMMARISE, EXPLAIN, TRANSLATE or ANALYSE, because
+// "summarise this paper" is a question about a document, not a request for one.
+
+export type AssetKind = "audio" | "document";
+
+export interface AssetRequest {
+  kind: AssetKind;
+  query: string;
+}
+
+const AUDIO_WORDS = [
+  "audio recording", "audio recordings", "audio clip", "audio", "recording", "recordings", "sound", "sounds",
+  "تسجيل صوتي", "تسجيلات صوتية", "مقطع صوتي", "تسجيل", "صوتية", "صوت",
+  "অডিও", "রেকর্ডিং", "শব্দ",
+  "aufnahme", "tonaufnahme", "geräusch", "klang",
+  "grabación", "grabacion", "sonido",
+  "ضبط صوتی", "صدا", "صوتی",
+  "enregistrement audio", "enregistrement", "son",
+  "ऑडियो", "रिकॉर्डिंग", "आवाज़",
+  "rekaman", "suara",
+  "registrazione", "suono",
+  "音声", "録音", "音",
+  "오디오", "녹음", "소리",
+  "opname", "geluid",
+  "nagranie", "dźwięk", "dzwiek",
+  "áudio", "gravação", "gravacao", "som",
+  "аудио", "аудиозапись", "запись", "звук",
+  "ses kaydı", "ses kaydi", "ses",
+  "آڈیو", "ریکارڈنگ", "آواز",
+  "âm thanh", "ghi âm",
+  "音频", "录音", "声音",
+];
+
+const DOCUMENT_WORDS = [
+  "open-access", "open access", "artículos", "articulos", "artigos", "articoli", "études", "etudes", "estudios", "estudos", "studi", "artikelen", "artykuły", "makaleler", "dokumenty", "dokumenten",
+  "research papers", "research paper", "papers", "paper", "pdf", "pdfs", "document", "documents", "article", "articles", "study", "studies", "research", "thesis", "journal article",
+  "ملف", "مستند", "وثيقة", "ورقة بحثية", "أوراق بحثية", "أبحاث", "بحث", "دراسة", "دراسات", "مقال", "مقالة",
+  "নথি", "গবেষণা", "প্রবন্ধ", "পেপার", "ডকুমেন্ট",
+  "dokument", "dokumente", "artikel", "studie", "forschung", "aufsatz", "abschlussarbeit",
+  "documento", "documentos", "artículo", "articulo", "estudio", "investigación", "investigacion", "artigo", "estudo", "pesquisa", "articolo", "ricerca",
+  "مقاله", "پژوهش", "سند", "مطالعه", "تحقیق",
+  "étude", "etude", "recherche", "publication",
+  "दस्तावेज़", "दस्तावेज", "शोध", "लेख", "अध्ययन", "पेपर",
+  "dokumen", "penelitian", "studi", "makalah", "jurnal",
+  "論文", "文書", "資料", "研究",
+  "논문", "문서", "연구",
+  "onderzoek", "studie",
+  "artykuł", "artykul", "badanie", "badania", "praca naukowa",
+  "документ", "статья", "статью", "исследование", "исследования", "научную работу",
+  "belge", "makale", "araştırma", "arastirma", "çalışma",
+  "دستاویز", "مقالہ",
+  "tài liệu", "bài báo", "nghiên cứu",
+  "文档", "论文", "文件", "研究",
+];
+
+/** Verbs that ask about a document or a recording rather than for it. */
+const ANALYSE_VERBS = [
+  "summarize", "summarise", "summary", "explain", "translate", "analyze", "analyse", "read", "transcribe", "critique", "review",
+  "لخص", "لخّص", "اشرح", "ترجم", "حلل", "حلّل", "اقرأ", "ملخص", "فرّغ",
+  "resume", "resumen", "explica", "traduce", "analiza", "lee", "transcribe",
+  "résume", "resume", "explique", "traduis", "analyse", "lis",
+  "fasse", "erkläre", "übersetze", "analysiere", "lies",
+  "резюмируй", "кратко", "объясни", "переведи", "проанализируй", "прочитай",
+  "özetle", "açıkla", "acikla", "çevir", "cevir", "analiz",
+  "总结", "解释", "翻译", "分析", "阅读",
+  "要約", "説明", "翻訳", "分析",
+  "요약", "설명", "번역", "분석",
+  "resuma", "explique", "traduza", "analise",
+  "riassumi", "spiega", "traduci", "analizza",
+  "vat samen", "leg uit", "vertaal",
+  "streść", "streszcz", "wyjaśnij", "przetłumacz",
+  "ringkas", "jelaskan", "terjemahkan",
+  "tóm tắt", "giải thích", "dịch",
+  "सारांश", "समझाओ", "अनुवाद",
+  "সারসংক্ষেপ", "ব্যাখ্যা", "অনুবাদ",
+  "خلاصه", "توضیح", "ترجمه",
+  "خلاصہ", "وضاحت", "ترجمہ",
+];
+
+/** The verbs that mean SEND, a subset of the retrieval verbs: "send me the video" is a request for the file itself. */
+const SEND_VERBS = [
+  "send", "أرسل", "ارسل", "أرسلي", "ارسلي", "ابعت", "ابعتلي", "ابعث", "ابعثلي", "وأرسلها", "وارسلها", "وأرسلهم", "وابعتها",
+  "পাঠাও", "পাঠান", "schick", "schicke", "schick mir", "sende", "envía", "envia", "envíame", "enviame", "manda", "mándame", "mandame",
+  "بفرست", "بفرستید", "بفرستین", "envoie", "envoyez", "envoie-moi", "भेजो", "भेजें", "भेज", "kirim", "kirimkan",
+  "invia", "inviami", "mandami", "送って", "送ってください", "送信して", "보내", "보내줘", "보내주세요", "stuur", "wyślij", "wyslij",
+  "envie", "mande", "отправь", "пришли", "отправьте", "скинь", "gönder", "gonder", "yolla", "بھیجو", "بھیجیں", "بھیج", "gửi",
+  "发给我", "发送", "发",
+];
+
+const AUDIO = wordPattern(AUDIO_WORDS);
+const DOCUMENT = wordPattern(DOCUMENT_WORDS);
+const ANALYSE = wordPattern(ANALYSE_VERBS);
+const SEND = wordPattern(SEND_VERBS);
+const ASSET_REMOVABLE = new RegExp(`${AUDIO.source}|${DOCUMENT.source}|${RETRIEVE.source}`, "giu");
+/** An audiobook or a podcast has its own flow; "audio" inside those words must not start this one. */
+const OTHER_MEDIA = wordPattern([
+  "audiobook", "audiobooks", "audio book", "podcast", "podcasts", "كتاب صوتي", "بودكاست", "hörbuch", "livre audio", "audiolibro", "audiolivro", "аудиокнига", "подкаст",
+  "有声书", "播客", "オーディオブック", "ポッドキャスト", "오디오북", "팟캐스트", "sesli kitap", "buku audio", "luisterboek", "sách nói", "کتاب صوتی", "پادکست",
+]);
+
+/** True when the message says SEND (so a request for a video or a book means the file, not a list of links). */
+export function wantsSend(text: string | null | undefined): boolean {
+  const message = (text ?? "").normalize("NFC").trim();
+  return !!message && message.length <= MESSAGE_MAX_CHARS && !message.startsWith("/") && !CREATE.test(message) && SEND.test(message);
+}
+
+function strip(message: string, removable: RegExp): string | null {
+  const stripped = message.replace(removable, " ").replace(/\s+/g, " ").replace(EDGE_PUNCT, "").trim();
+  const tokens = stripped.split(" ").filter(Boolean);
+  const isFiller = (t: string) => FILLER_SET.has(t.toLowerCase().replace(EDGE_PUNCT, ""));
+  while (tokens.length && isFiller(tokens[0])) tokens.shift();
+  while (tokens.length && isFiller(tokens[tokens.length - 1])) tokens.pop();
+  const query = tokens.join(" ").replace(/(?:[のをはがにでてもと的吧下给我请帮]|一下|을|를|은|는|의|좀|줘)+$/u, "").replace(/^(?:[のをはがにでてもと的吧下给我请帮]|一张|一个)+/u, "").trim();
+  if (query.length < 2 || query.length > IMAGE_QUERY_MAX_CHARS || ABOUT_A_PICTURE.test(query)) return null;
+  return query;
+}
+
+/** A request to find and send an existing recording, paper or document, or null. */
+export function parseAssetRequest(text: string | null | undefined): AssetRequest | null {
+  const message = (text ?? "").normalize("NFC").trim();
+  if (!message || message.length > MESSAGE_MAX_CHARS || message.startsWith("/")) return null;
+  if (CREATE.test(message) || ANALYSE.test(message) || OTHER_MEDIA.test(message) || IMAGE.test(message)) return null;
+  if (!RETRIEVE.test(message)) return null;
+  const kind: AssetKind | null = DOCUMENT.test(message) ? "document" : AUDIO.test(message) ? "audio" : null;
+  if (!kind) return null;
+  const query = strip(message, ASSET_REMOVABLE);
+  return query ? { kind, query } : null;
 }

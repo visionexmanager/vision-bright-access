@@ -31,6 +31,9 @@ export interface OpenReference {
   url: string;
   doi: string | null;
   openAccess: boolean;
+  /** OpenAlex only: the open-access copy as a PDF, and its licence, when the record states both. */
+  pdfUrl?: string | null;
+  license?: string | null;
   /** Wikipedia only: the matching passage, as plain text. */
   snippet: string | null;
   /** One line to paste into a bibliography, with the link. */
@@ -87,7 +90,7 @@ export async function searchOpenAlex(fetchFn: Fetch, topic: string, limit = 6, p
     search: topic,
     "per-page": String(limit),
     page: String(page),
-    select: "id,title,publication_year,doi,authorships,open_access,primary_location",
+    select: "id,title,publication_year,doi,authorships,open_access,primary_location,best_oa_location",
   });
   const data = await getJson(fetchFn, `https://api.openalex.org/works?${params}`) as { results?: Array<Record<string, unknown>> };
   return (data.results ?? []).flatMap((work) => {
@@ -98,12 +101,17 @@ export async function searchOpenAlex(fetchFn: Fetch, topic: string, limit = 6, p
     const doi = typeof work.doi === "string" && work.doi.startsWith("https://doi.org/") ? work.doi : null;
     const oa = (work.open_access ?? {}) as { is_oa?: boolean; oa_url?: string | null };
     const landing = ((work.primary_location ?? {}) as { landing_page_url?: string | null }).landing_page_url ?? null;
+    // A PDF is offered only with a stated open licence: an open-access copy without one is a link, not a file to pass on.
+    const best = (work.best_oa_location ?? {}) as { pdf_url?: unknown; license?: unknown };
+    const oaLicense = typeof best.license === "string" && /^(cc[-0]|public-domain)/i.test(best.license) ? best.license.slice(0, 40) : null;
+    const pdfUrl = oaLicense && typeof best.pdf_url === "string" && /^https:\/\//.test(best.pdf_url) && best.pdf_url.length <= 500 ? best.pdf_url : null;
     const url = doi ?? (oa.oa_url && /^https:\/\//.test(oa.oa_url) ? oa.oa_url : null) ?? (landing && /^https:\/\//.test(landing) ? landing : null) ?? (typeof work.id === "string" ? work.id : null);
     if (!url) return [];
     return [withCitation({
       source: "openalex", kind: "article", title, authors,
       year: typeof work.publication_year === "number" ? work.publication_year : null,
       url, doi: doi ? doi.replace("https://doi.org/", "") : null, openAccess: oa.is_oa === true, snippet: null,
+      ...(pdfUrl ? { pdfUrl, license: oaLicense } : {}),
     })];
   });
 }

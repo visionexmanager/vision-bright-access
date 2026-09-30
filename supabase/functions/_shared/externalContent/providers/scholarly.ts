@@ -7,6 +7,14 @@ import { searchOpenAlex } from "../../openResearchSources.ts";
 import { clean, cleanOrNull, getText, makeItem } from "../http.ts";
 import type { ContentProvider, ExternalContentItem } from "../types.ts";
 
+/** OpenAlex writes licences as slugs ("cc-by-sa", "cc0", "public-domain"). */
+export function openAlexLicenseName(slug: string): string {
+  const s = slug.toLowerCase();
+  if (s === "cc0") return "CC0";
+  if (s === "public-domain") return "Public Domain";
+  return `CC ${s.slice(3).toUpperCase()}`;
+}
+
 export const openAlex: ContentProvider = {
   id: "openalex",
   name: "OpenAlex",
@@ -14,8 +22,8 @@ export const openAlex: ContentProvider = {
   docs: "https://docs.openalex.org/",
   categories: ["documents", "education"],
   auth: { kind: "none" },
-  capabilities: { search: true, preview: false, embed: false, download: false },
-  licenseNote: "Catalogue data is CC0. Links go to the DOI or to the open-access copy when one exists.",
+  capabilities: { search: true, preview: false, embed: false, download: true },
+  licenseNote: "Catalogue data is CC0. Links go to the DOI or to the open-access copy when one exists; a PDF is offered only when the record states an open licence.",
   rateLimit: "100,000 requests per day, 10 per second.",
   healthQuery: "photosynthesis",
   async search(params, ctx) {
@@ -31,6 +39,8 @@ export const openAlex: ContentProvider = {
       publishedAt: ref.year ? String(ref.year) : null,
       attribution: ref.citation,
       tags: ref.openAccess ? ["open access"] : [],
+      // The open-access PDF, only where the record states an open licence (see searchOpenAlex).
+      ...(ref.pdfUrl ? { mimeType: "application/pdf", downloadUrl: ref.pdfUrl, license: { name: openAlexLicenseName(ref.license ?? ""), url: null } } : {}),
     }));
   },
 };

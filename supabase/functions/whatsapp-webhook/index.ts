@@ -421,11 +421,11 @@ import {
   deliveryLogFields,
   type DeliveryResult,
 } from "../_shared/whatsappAssetDelivery.ts";
-import { parseImageRequest } from "../_shared/whatsappImageRequest.ts";
+import { parseAssetRequest, parseImageRequest, wantsSend } from "../_shared/whatsappImageRequest.ts";
 import { extractDocumentText } from "../_shared/whatsappDocumentText.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { readOfficeLocally } from "../_shared/whatsappOffice.ts";
-import { convertMediaLocally, overpassViaProcessor } from "../_shared/whatsappProcessor.ts";
+import { convertMediaLocally, overpassViaProcessor, processorAvailable } from "../_shared/whatsappProcessor.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
 
 // Record each chat/vision provider attempt in the registry (Phase 2K-4). Recording only.
@@ -523,6 +523,9 @@ import {
   runContentCommand,
 } from "../_shared/ownerContentActions.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+/** The media processor, when one is configured: it converts a type Meta refuses, or a file over its limit, into one Meta takes. */
+const externalConvert = () => processorAvailable() ? (bytes: Uint8Array, query: string) => convertMediaLocally({ bytes, query }) : undefined;
 
 installUsageMetering("whatsapp-webhook");
 
@@ -5171,6 +5174,7 @@ Deno.serve(async (req) => {
           {
             fetch: (url, init) => fetch(url, init),
             env: (name) => Deno.env.get(name),
+            convert: externalConvert(),
             deliver: (asset) => deliverAsset({ phoneNumberId, token, to: incoming.from, asset }),
             sendText: (body) => reply(body, "reply"),
           },
@@ -5206,12 +5210,13 @@ Deno.serve(async (req) => {
         // is delivered as an attachment. Podcasts stay links (a publisher's
         // stream is not a licensed copy). When nothing is delivered the list of
         // links below still follows, so the sender never gets less than before.
-        if (token && phoneNumberId && request.kind !== "podcast" && parseFileWish(questionText)) {
+        if (token && phoneNumberId && request.kind !== "podcast" && (parseFileWish(questionText) || wantsSend(questionText))) {
           const attached = await attachExternalFile(
             { kind: request.kind, query: request.query, language: answerLanguage },
             {
               fetch: (url, init) => fetch(url, init),
               env: (name) => Deno.env.get(name),
+              convert: externalConvert(),
               deliver: (asset) => deliverAsset({ phoneNumberId, token, to: incoming.from, asset }),
               sendText: (body) => reply(body, "reply"),
             },
@@ -5290,12 +5295,13 @@ Deno.serve(async (req) => {
         // a licensed copy from a connected open source (a Gutenberg text, an
         // OpenStax or Internet Archive PDF) is delivered as an attachment. What
         // cannot be delivered falls through to the list of links below.
-        if (library.length === 0 && token && phoneNumberId && parseFileWish(questionText)) {
+        if (library.length === 0 && token && phoneNumberId && (parseFileWish(questionText) || wantsSend(questionText))) {
           const attached = await attachExternalFile(
             { kind: "book", query, language: answerLanguage },
             {
               fetch: (url, init) => fetch(url, init),
               env: (name) => Deno.env.get(name),
+              convert: externalConvert(),
               deliver: (asset) => deliverAsset({ phoneNumberId, token, to: incoming.from, asset }),
               sendText: (body) => reply(body, "reply"),
             },
@@ -5316,6 +5322,36 @@ Deno.serve(async (req) => {
         }
         log("books", { outcome: outside === null && archive === null ? "unreachable" : "empty" });
         bookNotFound = query;
+      }
+
+      // ── A recording, a paper or a document that already exists ─────────────
+      //
+      // "Find research papers about ... and send them": an open-access PDF with a
+      // stated open licence (OpenAlex), or a PDF or recording on Wikimedia Commons or
+      // the Internet Archive, delivered as the file. Same rule as a picture: only an
+      // explicit find/send request matches, anything that asks to make, summarise,
+      // explain or translate is left alone, a file that cannot be attached is
+      // answered with the result's own page, and no match carries on as before.
+      const assetRequest = aiFocused || humanOwnsThis || bookNotFound || mediaNotFound || !featureOn("services.media")
+        ? null
+        : parseAssetRequest(questionText);
+      if (assetRequest && token && phoneNumberId) {
+        const attached = await attachExternalFile(
+          { kind: assetRequest.kind, query: assetRequest.query, language: answerLanguage },
+          {
+            fetch: (url, init) => fetch(url, init),
+            env: (name) => Deno.env.get(name),
+            convert: externalConvert(),
+            deliver: (asset) => deliverAsset({ phoneNumberId, token, to: incoming.from, asset }),
+            sendText: (body) => reply(body, "reply"),
+          },
+        );
+        log("external_file", { flow: assetRequest.kind, outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.reason } : { provider: attached.provider }) });
+        if (attached.outcome === "delivered") continue;
+        if (attached.link) {
+          await reply(deliveryFallbackText(answerLanguage).replace("{url}", attached.link.url), "reply");
+          continue;
+        }
       }
 
       const bazaarRequest = aiFocused || bookNotFound || mediaNotFound || !featureOn("services.bazaar")
