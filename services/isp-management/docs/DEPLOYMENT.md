@@ -26,6 +26,9 @@ firewall rules, existing nginx server names, DNS provider — the probe delibera
 Server access exists only as GitHub Actions secrets, so this session could not log in; a human (or a
 reviewed, manually-dispatched workflow) must run the steps.
 
+## CI access path for the PI check
+The `isp-pi-check` workflow uses its own restricted SSH key, never the administrator key: see `deploy/ci-pi-check/README.md` (forced command, two-line sudoers rule, hash-pinned bundle, dry-run installer, uninstaller). Not installed until approved.
+
 ## Server layout
 
 ```

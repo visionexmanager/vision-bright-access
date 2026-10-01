@@ -16,6 +16,9 @@ talks to PI's API only, which keeps PI's billing/expiry/provisioning logic the s
 | getActiveSessions | `GET /api/sessions/list` | unverified; NAS addresses are dropped in the mapper |
 | enableUser / disableUser / disconnectSession | `POST /api/user/bulk/actions/` (inactivate / disconnect permission names known) | **payload unknown → NotSupported** until a template is supplied |
 
+## Server-side connectivity check
+`.github/workflows/isp-pi-check.yml` (manual, main only) runs `src/pi-check.ts` on the server as one fixed `sudo -n node` command. It reads `/etc/visionex-isp/isp.env` itself (must be a regular file, root-owned, mode 0600/0400; parsed, never executed), then reports only `<label>: PASS|FAIL|SKIP`: env file, PI base URL, route (DNS, TCP/tunnel), token endpoint, authentication and, if requested, a GET-only probe of the 7 read endpoints against `PI_TEST_USERNAME`. Credentials, TOTP code and token stay in that process's memory; the runner drops any output line outside the vocabulary and discards stderr. Shapes (key names and types) are written only to `PI_PROBE_SHAPES_FILE`, never logged.
+
 ## Closing the gaps
 1. **Shapes:** `PI_BASE_URL=… PI_USERNAME=… PI_PASSWORD=… npm run pi:probe -- <test-username>` prints the
    *structure* of each read response (keys and types, no values). Adjust `src/providers/pi/mapper.ts` and the

@@ -1,0 +1,105 @@
+name: ISP PI connectivity check
+
+# Read-only. From the Hetzner server, checks that the ISP service can reach and
+# authenticate to the PI portal with the credentials stored in
+# /etc/visionex-isp/isp.env, and (optionally) that the read-only PI endpoints answer.
+#
+# This workflow cannot run an arbitrary command on the server, by construction:
+#  * It uses its OWN dedicated SSH key (secret ISP_PI_CHECK_SSH_KEY) for the dedicated
+#    account `isp-ci`. The server pins that key to a forced command in authorized_keys
+#    (deploy/ci-pi-check/authorized_keys.template): whatever the client asks to run is
+#    ignored and treated as data. The key has no shell, no tty, no forwarding, and the
+#    account has no sudo beyond two exact command lines (sudoers.isp-pi-check).
+#  * The only thing this job ever sends is one of two literal words, `check` or `probe`,
+#    chosen by a shell if/else on a boolean input. No input, secret, or expression is
+#    interpolated into the command line.
+#  * The program that runs on the server is NOT supplied by this workflow. It is the
+#    reviewed bundle installed by an administrator and verified by SHA-256 on every run
+#    (deploy/ci-pi-check/isp-pi-check-run), so changing this file cannot change what
+#    runs as root.
+#  * PI credentials stay only in /etc/visionex-isp/isp.env; none are GitHub secrets.
+#  * Output is a closed vocabulary ("<label>: PASS|FAIL|SKIP"); the runner drops any other
+#    line and discards stderr. The job refuses to run from any ref but main.
+# All of the above is asserted by services/isp-management/test/ci-ssh-restriction.test.ts.
+on:
+  workflow_dispatch:
+    inputs:
+      probe:
+        description: "Also run the read-only probe against the test account named in the server-side file"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: isp-pi-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check PI connectivity from the server
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open the restricted connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          KEY: ${{ secrets.ISP_PI_CHECK_SSH_KEY }}
+          HOSTKEY: ${{ secrets.ISP_PI_CHECK_HOST_KEY }}
+        run: |
+          set -uo pipefail
+          [ -n "$HOST" ] && [ -n "$KEY" ] || { echo "::error::Server secrets are not configured"; exit 1; }
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_isp_ci
+          chmod 600 ~/.ssh/id_isp_ci
+          if [ -n "$HOSTKEY" ]; then
+            printf '%s\n' "$HOSTKEY" > ~/.ssh/known_hosts
+            STRICT=yes
+          else
+            echo "::warning::ISP_PI_CHECK_HOST_KEY is not set; the server key is trusted on first use"
+            STRICT=accept-new
+          fi
+          cat > ~/.ssh/config <<CONF
+          Host target
+            User isp-ci
+            StrictHostKeyChecking $STRICT
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_isp_ci
+            ConnectTimeout 15
+            BatchMode yes
+            RequestTTY no
+            ForwardAgent no
+            ForwardX11 no
+            ClearAllForwardings yes
+            SendEnv -*
+          CONF
+          printf '  HostName %s\n' "$HOST" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          echo "SSH setup: PASS"
+
+      - name: Run the read-only check
+        env:
+          PROBE: ${{ inputs.probe }}
+        run: |
+          set -uo pipefail
+          # The only two command words the server will accept. Nothing is interpolated.
+          if [ "$PROBE" = "true" ]; then MODE=probe; else MODE=check; fi
+          # stderr is discarded; stdout is captured to a file and never shown unfiltered.
+          ssh -T target "$MODE" < /dev/null 2>/dev/null > "$RUNNER_TEMP/raw.txt"
+          rc=$?
+          total=$(wc -l < "$RUNNER_TEMP/raw.txt")
+          grep -E '^(env file|PI base URL|PI route \((DNS|TCP)\)|token endpoint|authentication|read-only probe|shapes file): (PASS|FAIL|SKIP)( \([0-9]+/[0-9]+ endpoints\))?$' "$RUNNER_TEMP/raw.txt" > "$RUNNER_TEMP/clean.txt" || true
+          kept=$(wc -l < "$RUNNER_TEMP/clean.txt")
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/clean.txt"
+          [ "$total" -gt "$kept" ] && echo "note: $((total - kept)) unexpected output line(s) suppressed"
+          rm -f "$RUNNER_TEMP/raw.txt"
+          if [ "$kept" -eq 0 ]; then echo "FAIL: no result received (restricted account not installed, key not accepted, or server unreachable)"; exit 1; fi
+          [ "$rc" -eq 0 ] && grep -q '^authentication: PASS$' "$RUNNER_TEMP/clean.txt" || { echo "RESULT: FAIL"; exit 1; }
+          echo "RESULT: PASS"
+
+      - name: Forget the key
+        if: always()
+        run: rm -f ~/.ssh/id_isp_ci ~/.ssh/config ~/.ssh/known_hosts

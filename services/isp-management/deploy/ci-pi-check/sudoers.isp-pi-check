@@ -1,0 +1,15 @@
+# /etc/sudoers.d/isp-pi-check   (root:root 0440; install.sh validates it with visudo -c first)
+#
+# The CI-only account may run exactly two command lines, as root, with no password:
+#   /usr/local/sbin/isp-pi-check-run check
+#   /usr/local/sbin/isp-pi-check-run probe
+# A sudoers entry that spells out its arguments matches ONLY those arguments, so
+# there is no wildcard, no shell, no way to add or substitute an argument, and no
+# way to name a different program. Nothing else is granted: not ALL, not a shell, not
+# docker, not any editor or pager.
+Cmnd_Alias ISP_PI_CHECK = /usr/local/sbin/isp-pi-check-run check, /usr/local/sbin/isp-pi-check-run probe
+
+Defaults:isp-ci env_reset, !setenv, !env_editor
+Defaults:isp-ci secure_path="/usr/bin:/bin"
+Defaults:isp-ci !requiretty, !visiblepw
+isp-ci ALL=(root) NOPASSWD: ISP_PI_CHECK

@@ -1,0 +1,29 @@
+#!/bin/sh
+# Installed as /usr/local/sbin/isp-pi-check-entry (root:root 0755).
+#
+# This is the ONLY thing the CI key can run: authorized_keys says
+#   command="/usr/local/sbin/isp-pi-check-entry"
+# so sshd ignores whatever command the client asked for and puts that text in
+# SSH_ORIGINAL_COMMAND. This script treats that text as DATA: it is compared to two
+# literal words and never evaluated, expanded, or passed to a shell.
+#
+# It runs as the unprivileged user isp-ci, and its only effect is to start the one
+# sudo-whitelisted program with one of two fixed arguments.
+
+# Anything the client could influence is not trusted; start from a known PATH.
+PATH=/usr/bin:/bin
+export PATH
+
+case "${SSH_ORIGINAL_COMMAND-}" in
+  check) MODE=check ;;
+  probe) MODE=probe ;;
+  *)
+    # Includes empty (no command), any other word, and any attempt at injection.
+    echo "refused" >&2
+    exit 2
+    ;;
+esac
+
+# stdin is not used by the check; close it so the client cannot feed anything in.
+exec 0</dev/null
+exec /usr/bin/sudo -n /usr/local/sbin/isp-pi-check-run "$MODE"

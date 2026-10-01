@@ -36,3 +36,7 @@
 *.awk  text eol=lf
 *.conf text eol=lf
 *.sh   text eol=lf
+
+# ISP CI check: scripts run on Linux and the bundle is hashed byte-for-byte; never CRLF.
+services/isp-management/deploy/ci-pi-check/* text eol=lf
+services/isp-management/deploy/ci-pi-check/pi-check.mjs linguist-generated=true

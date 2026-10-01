@@ -17,7 +17,9 @@
     "migrate": "node dist/migrate-main.js",
     "test": "vitest run",
     "admin": "node dist/admin-cli.js",
-    "pi:probe": "tsx scripts/pi-contract-probe.ts"
+    "pi:probe": "tsx scripts/pi-contract-probe.ts",
+    "ci-bundle": "node scripts/build-ci-bundle.mjs",
+    "ci-bundle:check": "node scripts/build-ci-bundle.mjs --check"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
@@ -29,6 +31,7 @@
     "@electric-sql/pglite": "^0.5.8",
     "@types/node": "^26.6.3",
     "@types/pg": "^8.23.1",
+    "esbuild": "^0.28.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
