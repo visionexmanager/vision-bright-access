@@ -315,10 +315,14 @@ update_all() {
   version="$(date -u +%Y-%m-%d)"; ok=0; bad=0
   while IFS='|' read -r group name url mb archive validate; do
     case "$group" in '' | '#'*) continue ;; esac
-    if ( DATASET_GROUP="$group" VALIDATE_NONEMPTY="$validate" install_dataset "$name" "$version" "$url" "-" "$mb" "${archive:-auto}" ) >>"$log" 2>&1; then
-      ok=$((ok + 1)); say "ok   $name"
+    if out=$( ( DATASET_GROUP="$group" VALIDATE_NONEMPTY="$validate" install_dataset "$name" "$version" "$url" "-" "$mb" "${archive:-auto}" ) 2>&1 ); then
+      printf '%s
+' "$out" >> "$log"; ok=$((ok + 1)); say "ok   $name"
     else
-      bad=$((bad + 1)); say "FAIL $name (the previous version stays active; see logs/update.log)"
+      printf '%s
+' "$out" >> "$log"; bad=$((bad + 1))
+      say "FAIL $name (the previous version stays active): $(printf '%s' "$out" | tail -n 2 | tr '
+' ' ' | cut -c1-240)"
     fi
   done < "$conf"
   status >/dev/null
