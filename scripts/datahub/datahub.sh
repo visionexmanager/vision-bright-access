@@ -128,6 +128,7 @@ RESERVE_GB=$RESERVE_GB
 EMERGENCY_FREE_PCT=$EMERGENCY_FREE_PCT
 KEEP_VERSIONS=$KEEP_VERSIONS
 EOF
+  sync_conf
   [ -f "$DATA_DIR/config/datasets.conf" ] || cat > "$DATA_DIR/config/datasets.conf" <<'CONF'
 # group|name|official source (https)|declared extracted size in MB|archive|file that must exist after extraction
 # The first, smallest, authoritative datasets. Larger ones are added here only after the disk has been measured.
@@ -138,6 +139,7 @@ iana|tzdata|https://data.iana.org/time-zones/tzdata-latest.tar.gz|10|tar.gz|tzda
 CONF
   say "initialised: $DATA_DIR (effective budget ${eff} GB)"
   find "$DATA_DIR" -maxdepth 2 -type d | sort | sed "s|^$DATA_DIR|.|" | head -40
+  status
 }
 
 load_budget() {
@@ -260,9 +262,15 @@ install_dataset() {
   fi
   case "$archive" in
     zip)
-      command -v unzip >/dev/null || die "unzip is not installed on the server"
-      if unzip -Z1 "$work/payload" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then die "archive has an unsafe path; refused"; fi
-      unzip -q -o "$work/payload" -d "$work/extract" ;;
+      # unzip when the box has it; Python's zipfile (which also drops absolute and ".." members) when it does not.
+      if command -v unzip >/dev/null; then
+        if unzip -Z1 "$work/payload" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then die "archive has an unsafe path; refused"; fi
+        unzip -q -o "$work/payload" -d "$work/extract"
+      else
+        command -v python3 >/dev/null || die "neither unzip nor python3 is installed on the server"
+        if python3 -c 'import sys,zipfile;print("\n".join(zipfile.ZipFile(sys.argv[1]).namelist()))' "$work/payload" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then die "archive has an unsafe path; refused"; fi
+        python3 -c 'import sys,zipfile;zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$work/payload" "$work/extract"
+      fi ;;
     tar.gz)
       if tar -tzf "$work/payload" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then die "archive has an unsafe path; refused"; fi
       tar -xzf "$work/payload" -C "$work/extract" --no-same-owner --no-same-permissions ;;
@@ -299,19 +307,39 @@ EOF
   status >/dev/null
 }
 
+# The list of datasets comes from the repository (GitHub = config); the workflow ships it base64 in DATASETS_CONF_B64.
+sync_conf() {
+  [ -n "${DATASETS_CONF_B64:-}" ] || return 0
+  tmpc="$DATA_DIR/config/datasets.conf.new"
+  printf '%s' "$DATASETS_CONF_B64" | base64 -d > "$tmpc" 2>/dev/null || { rm -f "$tmpc"; die "the dataset list could not be decoded"; }
+  # Every non-comment line must have exactly six fields and an https source.
+  line_ok='^[a-z0-9_-]+[|][a-z0-9_-]+[|]https://[^|[:space:]]+[|][0-9]+[|](zip|tar[.]gz|gz|raw|auto)[|][A-Za-z0-9._-]+$'
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in '' | '#'* | ' '*'#'*) continue ;; esac
+    [[ "$line" =~ $line_ok ]] || { rm -f "$tmpc"; die "the dataset list has a malformed line; the previous list stays"; }
+  done < "$tmpc"
+  mv -f "$tmpc" "$DATA_DIR/config/datasets.conf"
+  say "dataset list updated from the repository"
+}
+
 # ── update-all: what the scheduler runs, on the box that has the disk ──────────
 update_all() {
   [ -d "$DATA_DIR" ] || die "$DATA_DIR does not exist (run init)"
+  sync_conf
   conf="$DATA_DIR/config/datasets.conf"; [ -f "$conf" ] || die "no datasets.conf"
   log="$DATA_DIR/logs/update.log"
   [ -f "$log" ] && [ "$(stat -c %s "$log")" -gt $((5 * MB)) ] && : > "$log"
   version="$(date -u +%Y-%m-%d)"; ok=0; bad=0
   while IFS='|' read -r group name url mb archive validate; do
     case "$group" in '' | '#'*) continue ;; esac
-    if ( DATASET_GROUP="$group" VALIDATE_NONEMPTY="$validate" install_dataset "$name" "$version" "$url" "-" "$mb" "${archive:-auto}" ) >>"$log" 2>&1; then
-      ok=$((ok + 1)); say "ok   $name"
+    if out=$( ( DATASET_GROUP="$group" VALIDATE_NONEMPTY="$validate" install_dataset "$name" "$version" "$url" "-" "$mb" "${archive:-auto}" ) 2>&1 ); then
+      printf '%s
+' "$out" >> "$log"; ok=$((ok + 1)); say "ok   $name"
     else
-      bad=$((bad + 1)); say "FAIL $name (the previous version stays active; see logs/update.log)"
+      printf '%s
+' "$out" >> "$log"; bad=$((bad + 1))
+      say "FAIL $name (the previous version stays active): $(printf '%s' "$out" | tail -n 2 | tr '
+' ' ' | cut -c1-240)"
     fi
   done < "$conf"
   status >/dev/null

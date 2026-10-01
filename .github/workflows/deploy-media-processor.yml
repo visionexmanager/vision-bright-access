@@ -24,11 +24,11 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "status = report only. deploy = build and run. expose = publish through nginx. selftest = prove OCR reads a known image."
+        description: "status = report only. deploy = build and run. expose = publish through nginx. selftest = prove OCR reads a known image. datahub = prove the Data Hub is readable through the service, and only through it."
         required: true
         default: status
         type: choice
-        options: [status, deploy, expose, selftest]
+        options: [status, deploy, expose, selftest, datahub]
 
 permissions:
   contents: read
@@ -272,6 +272,47 @@ jobs:
           echo "free RAM      : $(free -m | awk '/^Mem:/{print $7" MB available"}')"
           REMOTE
           say '```'
+
+      # Reads the Data Hub the way the application will: over the service, with the token, a dataset slug and a path.
+      # Nothing here is secret (public datasets), and the token goes into a curl header from the environment.
+      - name: Read the Data Hub through the service
+        if: inputs.action == 'datahub'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          [ -n "${TOKEN:-}" ] || { echo '::error::PROCESSOR_TOKEN is not set.'; exit 1; }
+          BASE=https://visionex.app/internal/media/datahub
+          fails=0
+          code() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 -H "authorization: Bearer $TOKEN" "$1"; }
+          expect() { # label, got, wanted
+            if [ "$2" = "$3" ]; then say "PASS  $1 ($2)"; else say "FAIL  $1: got $2, wanted $3"; fails=$((fails + 1)); fi
+          }
+          say "## Data Hub through the service"
+          say '```'
+          expect "no token is refused" "$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$BASE/datasets")" 401
+          expect "a wrong token is refused" "$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -H 'authorization: Bearer not-the-token' "$BASE/datasets")" 401
+          DS=$(curl -s --max-time 20 -H "authorization: Bearer $TOKEN" "$BASE/datasets")
+          expect "the datasets are listed" "$(code "$BASE/datasets")" 200
+          say "datasets: $(echo "$DS" | tr -d '
+' | cut -c1-600)"
+          expect "the last storage measurement is readable" "$(code "$BASE/storage")" 200
+          SLUG=$(echo "$DS" | grep -o '"slug":"[a-z0-9_-]*"' | head -1 | cut -d'"' -f4)
+          if [ -n "$SLUG" ]; then
+            expect "a file inside the active version is served" "$(code "$BASE/file?dataset=$SLUG&path=MANIFEST.json")" 200
+            echo "first bytes of that file: $(curl -s --max-time 20 -H "authorization: Bearer $TOKEN" "$BASE/file?dataset=$SLUG&path=MANIFEST.json" | head -c 120 | tr -d '
+')" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            say "FAIL  no dataset is installed yet"; fails=$((fails + 1))
+          fi
+          expect "a path out of the dataset is refused" "$(code "$BASE/file?dataset=${SLUG:-x}&path=../../../etc/passwd")" 400
+          expect "an encoded path out is refused" "$(code "$BASE/file?dataset=${SLUG:-x}&path=%2e%2e%2f%2e%2e%2fetc%2fpasswd")" 400
+          expect "an absolute path is refused" "$(code "$BASE/file?dataset=${SLUG:-x}&path=/etc/passwd")" 400
+          expect "a dataset that is not a slug is refused" "$(code "$BASE/file?dataset=../datasets&path=MANIFEST.json")" 400
+          expect "a dataset that is not installed is a 404" "$(code "$BASE/file?dataset=nosuch&path=MANIFEST.json")" 404
+          say '```'
+          [ "$fails" -eq 0 ] || { echo "::error::$fails Data Hub check(s) failed"; exit 1; }
 
       - name: Confirm the website is untouched
         if: inputs.action == 'deploy'
