@@ -83,10 +83,11 @@ jobs:
           set -uo pipefail
           case "$BUDGET$RESERVE" in *[!0-9]*) echo "::error::budget and reserve must be whole numbers"; exit 1 ;; esac
           cmd="$ACTION"; [ "$ACTION" = update ] && cmd="update-all"
+          CONF_B64=$(base64 -w0 scripts/datahub/datasets.conf)
           echo "## Data Hub: $ACTION" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           # root when we are root, sudo without a password otherwise; the script itself refuses any path outside /var/lib, /srv, /data, /mnt.
-          ssh target "if [ \"\$(id -u)\" = 0 ]; then S=''; else S='sudo -n'; fi; echo \"user: \$(whoami)  host: \$(hostname -s)\"; \$S env DATA_DIR=/var/lib/visionex/data BUDGET_GB=$BUDGET RESERVE_GB=$RESERVE bash -s -- $cmd" < scripts/datahub/datahub.sh 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          ssh target "if [ \"\$(id -u)\" = 0 ]; then S=''; else S='sudo -n'; fi; echo \"user: \$(whoami)  host: \$(hostname -s)\"; \$S env DATA_DIR=/var/lib/visionex/data BUDGET_GB=$BUDGET RESERVE_GB=$RESERVE DATASETS_CONF_B64=$CONF_B64 bash -s -- $cmd" < scripts/datahub/datahub.sh 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           status=${PIPESTATUS[0]}
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           exit "$status"

@@ -128,6 +128,7 @@ RESERVE_GB=$RESERVE_GB
 EMERGENCY_FREE_PCT=$EMERGENCY_FREE_PCT
 KEEP_VERSIONS=$KEEP_VERSIONS
 EOF
+  sync_conf
   [ -f "$DATA_DIR/config/datasets.conf" ] || cat > "$DATA_DIR/config/datasets.conf" <<'CONF'
 # group|name|official source (https)|declared extracted size in MB|archive|file that must exist after extraction
 # The first, smallest, authoritative datasets. Larger ones are added here only after the disk has been measured.
@@ -306,9 +307,23 @@ EOF
   status >/dev/null
 }
 
+# The list of datasets comes from the repository (GitHub = config); the workflow ships it base64 in DATASETS_CONF_B64.
+sync_conf() {
+  [ -n "${DATASETS_CONF_B64:-}" ] || return 0
+  tmpc="$DATA_DIR/config/datasets.conf.new"
+  printf '%s' "$DATASETS_CONF_B64" | base64 -d > "$tmpc" 2>/dev/null || { rm -f "$tmpc"; die "the dataset list could not be decoded"; }
+  # Every non-comment line must have exactly six fields and an https source.
+  if grep -vE '^[[:space:]]*(#|$)' "$tmpc" | grep -qvE '^[a-z0-9_-]+|[a-z0-9_-]+|https://[^|[:space:]]+|[0-9]+|(zip|tar.gz|gz|raw|auto)|[A-Za-z0-9._-]+$'; then
+    rm -f "$tmpc"; die "the dataset list has a malformed line; the previous list stays"
+  fi
+  mv -f "$tmpc" "$DATA_DIR/config/datasets.conf"
+  say "dataset list updated from the repository"
+}
+
 # ── update-all: what the scheduler runs, on the box that has the disk ──────────
 update_all() {
   [ -d "$DATA_DIR" ] || die "$DATA_DIR does not exist (run init)"
+  sync_conf
   conf="$DATA_DIR/config/datasets.conf"; [ -f "$conf" ] || die "no datasets.conf"
   log="$DATA_DIR/logs/update.log"
   [ -f "$log" ] && [ "$(stat -c %s "$log")" -gt $((5 * MB)) ] && : > "$log"
