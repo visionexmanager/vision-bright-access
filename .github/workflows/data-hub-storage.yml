@@ -74,6 +74,14 @@ jobs:
           chmod 600 ~/.ssh/config
           ssh target 'echo connected' >/dev/null
 
+      # The weekly update runs on the server itself, so the worker has to be there: the script from this commit.
+      - name: Install the update worker on the server
+        if: ${{ inputs.action == 'schedule' }}
+        run: |
+          set -uo pipefail
+          ssh target 'if [ "$(id -u)" = 0 ]; then S=""; else S="sudo -n"; fi; $S install -d -m 755 /usr/local/lib/visionex && $S tee /usr/local/lib/visionex/datahub.sh >/dev/null && $S chmod 755 /usr/local/lib/visionex/datahub.sh' < scripts/datahub/datahub.sh
+          echo "worker installed"
+
       - name: Run on the server
         env:
           ACTION:  ${{ inputs.action }}
