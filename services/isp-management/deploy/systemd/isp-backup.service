@@ -1,0 +1,11 @@
+[Unit]
+Description=VisionEX ISP database backup
+After=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/visionex-isp/backup.env
+ExecStart=/opt/visionex-isp/app/services/isp-management/deploy/scripts/backup.sh daily
+# Not a long-running service: sandbox what a one-shot needs.
+NoNewPrivileges=true
+PrivateTmp=true

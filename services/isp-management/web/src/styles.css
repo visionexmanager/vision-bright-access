@@ -1,0 +1,48 @@
+:root {
+  --bg: #f6f7f9; --panel: #fff; --text: #111827; --muted: #4b5563; --line: #d1d5db; --brand: #1d4ed8; --brand-text: #fff;
+  --danger: #b91c1c; --danger-bg: #fef2f2; --ok: #166534; --warn: #92400e; --focus: #1d4ed8;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0b1220; --panel: #111a2e; --text: #e5e7eb; --muted: #9ca3af; --line: #2b3652; --brand: #60a5fa; --brand-text: #0b1220; --danger: #fca5a5; --danger-bg: #3b1212; --ok: #86efac; --warn: #fcd34d; --focus: #93c5fd; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.skip { position: absolute; left: -999px; top: 0; background: var(--panel); padding: .75rem; z-index: 10; }
+.skip:focus { left: 0; }
+header.top { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; padding: .5rem 1rem; background: var(--panel); border-bottom: 1px solid var(--line); }
+header.top strong { margin-right: auto; }
+nav ul { display: flex; flex-wrap: wrap; gap: .25rem; list-style: none; margin: 0; padding: 0; }
+nav a, nav button { display: inline-block; padding: .5rem .75rem; min-height: 44px; border-radius: 6px; color: var(--text); text-decoration: none; background: none; border: 0; font: inherit; cursor: pointer; }
+nav a[aria-current="page"] { background: var(--brand); color: var(--brand-text); }
+main { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+h1 { font-size: 1.5rem; margin: .5rem 0 1rem; }
+h2 { font-size: 1.15rem; margin: 1.25rem 0 .5rem; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; margin-bottom: 1rem; }
+.grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.stat { padding: .75rem; border: 1px solid var(--line); border-radius: 8px; }
+.stat b { display: block; font-size: 1.4rem; }
+label { display: block; font-weight: 600; margin: .75rem 0 .25rem; }
+input, select { width: 100%; max-width: 28rem; min-height: 44px; padding: .5rem .65rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); font: inherit; }
+button.btn { min-height: 44px; padding: .5rem 1rem; border-radius: 6px; border: 1px solid var(--brand); background: var(--brand); color: var(--brand-text); font: inherit; font-weight: 600; cursor: pointer; margin: .25rem .25rem .25rem 0; }
+button.btn.secondary { background: transparent; color: var(--brand); }
+button.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+button.btn.danger.secondary { background: transparent; color: var(--danger); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: .85rem; color: var(--muted); }
+.table-wrap { overflow-x: auto; }
+.badge { display: inline-block; padding: .1rem .5rem; border-radius: 999px; border: 1px solid currentColor; font-size: .85rem; font-weight: 600; }
+.ACTIVE, .ok { color: var(--ok); } .SUSPENDED, .EXPIRED, .warn { color: var(--warn); } .TERMINATED, .UNKNOWN, .bad { color: var(--danger); }
+.alert { padding: .75rem 1rem; border-radius: 8px; border: 1px solid var(--line); margin: .75rem 0; }
+.alert.error { background: var(--danger-bg); border-color: var(--danger); }
+.muted { color: var(--muted); }
+.tabs { display: flex; flex-wrap: wrap; gap: .25rem; margin: 1rem 0; border-bottom: 1px solid var(--line); }
+.tabs button { background: none; border: 0; padding: .6rem 1rem; min-height: 44px; font: inherit; cursor: pointer; color: var(--text); border-bottom: 3px solid transparent; }
+.tabs button[aria-selected="true"] { border-bottom-color: var(--brand); font-weight: 700; }
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); max-width: 32rem; width: calc(100% - 2rem); padding: 1.25rem; }
+dialog::backdrop { background: rgba(0,0,0,.55); }
+code.secret { display: block; padding: .5rem; background: var(--bg); border: 1px dashed var(--line); word-break: break-all; margin: .25rem 0; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}

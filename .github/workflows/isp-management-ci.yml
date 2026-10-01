@@ -1,0 +1,51 @@
+name: ISP management CI
+
+# Checks only. There is deliberately NO deploy job: the ISP service is deployed by
+# hand to its own isolated host (services/isp-management/docs/DEPLOYMENT.md),
+# never by the public VisionEX pipeline.
+on:
+  pull_request:
+    branches: [main]
+    paths: ["services/isp-management/**", ".github/workflows/isp-management-ci.yml"]
+  push:
+    branches: [main]
+    paths: ["services/isp-management/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  isp-management:
+    name: ISP management (typecheck, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/isp-management
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            services/isp-management/package-lock.json
+            services/isp-management/web/package-lock.json
+      - run: npm ci
+      - run: npm --prefix web ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      # The repo is public and CI logs are world-readable: assert no secret-shaped
+      # value slipped into the built bundles or the committed tree.
+      - name: No secrets in the build output
+        run: |
+          if grep -rEl '(PI_PASSWORD|ISP_ENCRYPTION_KEY|WA_APP_SECRET|WA_ACCESS_TOKEN)=.{8,}' web/dist dist 2>/dev/null; then
+            echo "secret-shaped value in build output" >&2; exit 1
+          fi
+      - name: Shell scripts parse
+        run: for f in deploy/scripts/*.sh; do bash -n "$f"; done
