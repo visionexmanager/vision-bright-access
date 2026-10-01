@@ -60,7 +60,7 @@ describe("serving a file", () => {
   it("serves a data file inside the active version, with its type and size", async () => {
     if (!canLink) return;
     const file = await resolveDatasetFile(root, "tzdata", "tzdata.zi");
-    expect(file).toMatchObject({ size: 15, type: "text/plain; charset=utf-8" });
+    expect(file).toMatchObject({ size: 16, type: "text/plain; charset=utf-8" });
     expect(readFileSync(file.path, "utf8")).toBe("# version 2026a\n");
     expect(await resolveDatasetFile(root, "tzdata", "sub/zone.tab")).toMatchObject({ type: "text/plain; charset=utf-8" });
     expect(await resolveDatasetFile(root, "tzdata", "README")).toMatchObject({ type: "text/plain; charset=utf-8" });
