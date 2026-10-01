@@ -313,9 +313,11 @@ sync_conf() {
   tmpc="$DATA_DIR/config/datasets.conf.new"
   printf '%s' "$DATASETS_CONF_B64" | base64 -d > "$tmpc" 2>/dev/null || { rm -f "$tmpc"; die "the dataset list could not be decoded"; }
   # Every non-comment line must have exactly six fields and an https source.
-  if grep -vE '^[[:space:]]*(#|$)' "$tmpc" | grep -qvE '^[a-z0-9_-]+|[a-z0-9_-]+|https://[^|[:space:]]+|[0-9]+|(zip|tar.gz|gz|raw|auto)|[A-Za-z0-9._-]+$'; then
-    rm -f "$tmpc"; die "the dataset list has a malformed line; the previous list stays"
-  fi
+  line_ok='^[a-z0-9_-]+[|][a-z0-9_-]+[|]https://[^|[:space:]]+[|][0-9]+[|](zip|tar[.]gz|gz|raw|auto)[|][A-Za-z0-9._-]+$'
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in '' | '#'* | ' '*'#'*) continue ;; esac
+    [[ "$line" =~ $line_ok ]] || { rm -f "$tmpc"; die "the dataset list has a malformed line; the previous list stays"; }
+  done < "$tmpc"
   mv -f "$tmpc" "$DATA_DIR/config/datasets.conf"
   say "dataset list updated from the repository"
 }
