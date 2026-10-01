@@ -1,0 +1,36 @@
+{
+  "name": "visionex-isp-management",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated internal ISP management layer around the PI/Proradius portal. Not a public VisionEX feature.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json && npm --prefix web run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/main.js",
+    "worker": "node dist/worker-main.js",
+    "migrate": "node dist/migrate-main.js",
+    "test": "vitest run",
+    "admin": "node dist/admin-cli.js",
+    "pi:probe": "tsx scripts/pi-contract-probe.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "fastify": "^5.12.5",
+    "pg": "^8.23.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/node": "^26.6.3",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}
