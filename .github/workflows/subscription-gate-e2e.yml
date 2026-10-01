@@ -18,6 +18,7 @@ on:
       - scripts/sql/ai-subscription-gate-*
       - scripts/sql/trial-*
       - scripts/sql/library-saved-*
+      - scripts/sql/data-hub-*
       - scripts/sql/gate-stubs.mjs
       - supabase/migrations/2026106*
       - .github/workflows/subscription-gate-e2e.yml
@@ -56,5 +57,7 @@ jobs:
         run: node scripts/sql/trial-waiver-scenarios.mjs
       - name: Saving an external Library result (PGlite)
         run: node scripts/sql/library-saved-external-scenarios.mjs
+      - name: Data Hub control layer, metadata only (PGlite)
+        run: node scripts/sql/data-hub-scenarios.mjs
       - name: Ten simultaneous connections on a real PostgreSQL
         run: node scripts/sql/ai-subscription-gate-concurrency.mjs
