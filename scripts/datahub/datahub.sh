@@ -138,6 +138,7 @@ iana|tzdata|https://data.iana.org/time-zones/tzdata-latest.tar.gz|10|tar.gz|tzda
 CONF
   say "initialised: $DATA_DIR (effective budget ${eff} GB)"
   find "$DATA_DIR" -maxdepth 2 -type d | sort | sed "s|^$DATA_DIR|.|" | head -40
+  status
 }
 
 load_budget() {
