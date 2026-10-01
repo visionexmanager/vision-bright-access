@@ -1211,6 +1211,18 @@ Deno.serve(async (req) => {
         .maybeSingle();
       let existing = firstRead.data;
 
+      // The owner's own number is answered like a customer's: that is what it is for (testing the assistant). An
+      // escalation flag on it - one word from the model that reads as a handover is enough to set it - would leave
+      // the tester talking to nobody, so the flag is cleared here, in the row and in the database. A conversation the
+      // owner has put under human control (`control`) is left exactly as they set it.
+      if (existing && existing.escalated === true && isOwner(incoming.from, configuredOwner)) {
+        existing = { ...existing, escalated: false, escalation_reason: null, escalated_at: null };
+        await db
+          .from("whatsapp_conversations")
+          .update({ escalated: false, escalation_reason: null, escalated_at: null })
+          .eq("wa_phone", incoming.from);
+      }
+
       /**
        * Whether the profile columns could be read at all.
        *
@@ -5197,7 +5209,7 @@ Deno.serve(async (req) => {
             sendText: (body) => reply(body, "reply"),
           },
         );
-        log("external_file", { flow: "image", outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.reason } : { provider: attached.provider }) });
+        log("external_file", { flow: "image", outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.detail ?? attached.reason } : { provider: attached.provider }) });
         if (attached.outcome === "delivered") continue;
         if (attached.link) {
           await reply(deliveryFallbackText(answerLanguage).replace("{url}", attached.link.url), "reply");
@@ -5240,7 +5252,7 @@ Deno.serve(async (req) => {
               sendText: (body) => reply(body, "reply"),
             },
           );
-          log("external_file", { flow: request.kind, outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.reason } : { provider: attached.provider }) });
+          log("external_file", { flow: request.kind, outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.detail ?? attached.reason } : { provider: attached.provider }) });
           if (attached.outcome === "delivered") continue;
         }
 
@@ -5326,7 +5338,7 @@ Deno.serve(async (req) => {
               sendText: (body) => reply(body, "reply"),
             },
           );
-          log("external_file", { flow: "book", outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.reason } : { provider: attached.provider }) });
+          log("external_file", { flow: "book", outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.detail ?? attached.reason } : { provider: attached.provider }) });
           if (attached.outcome === "delivered") continue;
         }
 
@@ -5368,7 +5380,7 @@ Deno.serve(async (req) => {
             sendText: (body) => reply(body, "reply"),
           },
         );
-        log("external_file", { flow: assetRequest.kind, outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.reason } : { provider: attached.provider }) });
+        log("external_file", { flow: assetRequest.kind, outcome: attached.outcome, count: attached.tried, ...(attached.outcome === "none" ? { reason: attached.detail ?? attached.reason } : { provider: attached.provider }) });
         if (attached.outcome === "delivered") continue;
         if (attached.link) {
           await reply(deliveryFallbackText(answerLanguage).replace("{url}", attached.link.url), "reply");

@@ -383,7 +383,7 @@ describe("conversion of what Meta will not take, or will not take at that size",
     const out = await attachExternalFile({ kind: "image", query: "wheat field", language: "en" }, d);
     expect(out).toMatchObject({ outcome: "delivered", kind: "image" });
     expect(convert).toHaveBeenCalledTimes(1);
-    expect(convert.mock.calls[0][1]).toBe("to=jpg&width=1600&quality=balanced");
+    expect(convert.mock.calls[0][1]).toBe("to=jpg&width=1920&quality=balanced");
     expect(JSON.parse(String(calls[1].body))).toMatchObject({ type: "image", image: { id: "media-1" } });
   });
 

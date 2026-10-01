@@ -154,7 +154,7 @@ export interface ConvertSpec {
   to: "jpg" | "mp3" | "mp4";
   /** The MIME type of what comes back. */
   mime: string;
-  /** Extra processor options, as a query string ("width=1600"). */
+  /** Extra processor options, as a query string ("width=1920"; the processor takes only 320, 640, 800, 1024, 1280, 1920, 2560). */
   options?: string;
 }
 
@@ -170,7 +170,7 @@ export interface FileCandidate {
   mustConvert?: boolean;
 }
 
-const TO_JPEG: ConvertSpec = { to: "jpg", mime: "image/jpeg", options: "width=1600&quality=balanced" };
+const TO_JPEG: ConvertSpec = { to: "jpg", mime: "image/jpeg", options: "width=1920&quality=balanced" };
 const TO_MP3: ConvertSpec = { to: "mp3", mime: "audio/mpeg" };
 const TO_MP4: ConvertSpec = { to: "mp4", mime: "video/mp4" };
 
@@ -411,6 +411,8 @@ export type AttachOutcome =
     tried: number;
     /** The first matching result's own page (it carries the licence), for a caller that answers with a link. */
     link?: { url: string; title: string };
+    /** Why the tries failed, as one label: "download_asset_not_found", "convert_unauthorised", "deliver_asset_content_mismatch". Never a message or an address. */
+    detail?: string;
   };
 
 const MAX_CANDIDATES = 3;
@@ -449,7 +451,7 @@ async function archiveCandidate(item: ExternalContentItem, kind: FileKind, deps:
  * against their type by deliverAsset like any other file; a failure anywhere is a failed
  * delivery, never a partial one.
  */
-async function deliverConverted(candidate: FileCandidate, spec: ConvertSpec, deps: AttachDeps, caption?: string): Promise<DeliveryResult> {
+async function deliverConverted(candidate: FileCandidate, spec: ConvertSpec, deps: AttachDeps, caption: string | undefined, note: (code: string) => void): Promise<DeliveryResult> {
   const failed = (reason: "asset_too_large" | "asset_type_unsupported" | "asset_download_failed" | "asset_not_found" | "asset_invalid" | "asset_download_timeout"): DeliveryResult =>
     ({ outcome: "failed", reason, ms: 0 });
   // The processor takes at most 16 MB; a bigger source is refused before it is downloaded.
@@ -457,12 +459,18 @@ async function deliverConverted(candidate: FileCandidate, spec: ConvertSpec, dep
   const got = await fetchAssetBytes({ url: candidate.url, allowedHosts: candidate.hosts, maxBytes: CONVERT_SOURCE_MAX, fetchImpl: deps.fetch as typeof fetch });
   if (!got.ok) {
     const reason = (got as { reason: string }).reason;
+    note(`download_${reason}`);
     const known = ["asset_too_large", "asset_not_found", "asset_invalid", "asset_download_timeout"] as const;
     return failed((known as readonly string[]).includes(reason) ? reason as (typeof known)[number] : "asset_download_failed");
   }
   const out = await deps.convert!(got.bytes, `to=${spec.to}${spec.options ? `&${spec.options}` : ""}`);
-  if (!out.ok || !out.bytes?.length || !out.mime) return failed("asset_type_unsupported");
-  return deps.deliver({ bytes: out.bytes, mimeType: out.mime, fileName: fileNameFor(candidate.fileName.replace(/\.[^.]+$/, ""), out.mime), caption });
+  if (!out.ok || !out.bytes?.length || !out.mime) {
+    note(`convert_${out.code ?? "empty"}`);
+    return failed("asset_type_unsupported");
+  }
+  const sent = await deps.deliver({ bytes: out.bytes, mimeType: out.mime, fileName: fileNameFor(candidate.fileName.replace(/\.[^.]+$/, ""), out.mime), caption });
+  if (!sent.outcome.startsWith("delivered_")) note(`deliver_${(sent as { reason?: string }).reason ?? "failed"}`);
+  return sent;
 }
 
 const CONVERT_SOURCE_MAX = 16 * 1024 * 1024;
@@ -487,7 +495,9 @@ export async function attachExternalFile(
       if (translated.outcome === "delivered") return translated;
       const original = await attemptAttach(params, deps);
       if (original.outcome === "delivered") return original;
-      return { ...original, tried: translated.tried + original.tried, ...(translated.link ?? original.link ? { link: translated.link ?? original.link } : {}) };
+      const link = translated.link ?? original.link;
+      const detail = translated.detail ?? original.detail;
+      return { ...original, tried: translated.tried + original.tried, ...(link ? { link } : {}), ...(detail ? { detail } : {}) };
     }
   }
   return attemptAttach(params, deps);
@@ -523,6 +533,7 @@ async function attemptAttach(
 
   let tried = 0;
   let sent = 0;
+  const details: string[] = [];
   let first: { provider: string; kind: WhatsAppMediaKind } | null = null;
   const wanted = Math.max(1, Math.min(MAX_FILES, params.count ?? 1));
   const seen = new Set<string>();
@@ -532,7 +543,8 @@ async function attemptAttach(
     // The work asked for, not merely the top of a ranking. A picture is what the search engine matched
     // to the words (its title is often a file name, and the subject may be in another language), so
     // the catalogue's own ranking decides; a book, a paper or a film is held to its title.
-    if (params.kind !== "image" && !matchesRequest(item, query, params.kind === "document", params.kind === "document" ? 1 : 2)) continue;
+    const catalogueRanked = params.kind === "audio" || params.kind === "video" || params.kind === "document";
+    if (params.kind !== "image" && !matchesRequest(item, query, catalogueRanked, catalogueRanked ? 1 : 2)) continue;
     if (LINK_FALLBACK_KINDS.has(params.kind) && !link && /^https:\/\//i.test(item.externalUrl)) link = { url: item.externalUrl, title: item.title };
     const candidate = item.provider === "internet_archive"
       // A recording from the Archive is chosen the way an audiobook chapter is: a small MP3 that fits.
@@ -550,10 +562,11 @@ async function attemptAttach(
     if (fits) {
       tried++;
       result = await deps.deliver({ url: candidate.url, allowedHosts: candidate.hosts, mimeType: candidate.mime, fileName: candidate.fileName, caption });
+      if (!result.outcome.startsWith("delivered_")) details.push(`deliver_${(result as { reason?: string }).reason ?? "failed"}`);
     } else if (candidate.convert && deps.convert) {
       // A type Meta refuses, or a file over its limit: converted on the media processor, then sent as bytes.
       tried++;
-      result = await deliverConverted(candidate, candidate.convert, deps, caption);
+      result = await deliverConverted(candidate, candidate.convert, deps, caption, (code) => details.push(code));
     } else {
       continue;
     }
@@ -566,7 +579,8 @@ async function attemptAttach(
   // The file, and nothing else: no link and no second message. What credit a licence asks for
   // travelled in the caption.
   if (first) return { outcome: "delivered", provider: first.provider, kind: first.kind, tried, count: sent };
-  return { outcome: "none", reason: tried === 0 ? "no_candidate" : "delivery_failed", tried, ...(link ? { link } : {}) };
+  const detail = details[0]?.replace(/[^a-z0-9_]/gi, "_").slice(0, 60);
+  return { outcome: "none", reason: tried === 0 ? "no_candidate" : "delivery_failed", tried, ...(link ? { link } : {}), ...(detail ? { detail } : {}) };
 }
 
 /**
