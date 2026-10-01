@@ -34,6 +34,8 @@
 
 import { createServer } from "node:http";
 import { checkOverpassQuery, relayOverpass } from "./overpass.mjs";
+import { DataHubError, listDatasets, readStorage, resolveDatasetFile } from "./datahub.mjs";
+import { createReadStream } from "node:fs";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
@@ -94,6 +96,8 @@ const HOST = process.env.HOST ?? "0.0.0.0";
  * service for whoever finds it.
  */
 const TOKEN = process.env.PROCESSOR_TOKEN ?? "";
+// The Data Hub's persistent disk, mounted read-only by the deployment. Reached only through /datahub/*.
+const DATAHUB_DIR = process.env.DATAHUB_DIR ?? "/data/visionex";
 
 const started = Date.now();
 let inFlight = 0;
@@ -864,6 +868,33 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/overpass") {
       return await handleOverpass(req, res, correlation);
+    }
+
+    // The Data Hub: read-only, authenticated, never a filesystem path from the caller.
+    if (req.method === "GET" && url.pathname.startsWith("/datahub/")) {
+      try {
+        if (url.pathname === "/datahub/datasets") return send(res, 200, { ok: true, datasets: await listDatasets(DATAHUB_DIR) });
+        if (url.pathname === "/datahub/storage") return send(res, 200, { ok: true, storage: await readStorage(DATAHUB_DIR) });
+        if (url.pathname === "/datahub/file") {
+          const file = await resolveDatasetFile(DATAHUB_DIR, url.searchParams.get("dataset"), url.searchParams.get("path"));
+          log("datahub_read", { correlation, dataset: file.dataset.slug, bytes: file.size });
+          res.writeHead(200, {
+            "content-type": file.type,
+            "content-length": file.size,
+            "cache-control": "no-store",
+            "x-content-type-options": "nosniff",
+            "content-disposition": "attachment",
+          });
+          return createReadStream(file.path).on("error", () => res.destroy()).pipe(res);
+        }
+        return send(res, 404, { ok: false, reason: "not_found" });
+      } catch (error) {
+        if (error instanceof DataHubError) {
+          log("datahub_refused", { correlation, reason: error.code });
+          return send(res, error.status, { ok: false, reason: error.code });
+        }
+        throw error;
+      }
     }
 
     return send(res, 404, { ok: false, reason: "not_found" });
