@@ -1,0 +1,66 @@
+# Separate from the public VisionEX stack: its own project, networks, database and secrets.
+#   docker compose -p visionex-isp --env-file /etc/visionex-isp/isp.env -f deploy/docker-compose.yml up -d
+name: visionex-isp
+
+x-app: &app
+  image: visionex-isp:${ISP_IMAGE_TAG:-current}
+  env_file: /etc/visionex-isp/isp.env   # outside the repository, mode 0600
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+  stop_grace_period: 20s
+  logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
+  networks: [internal, egress]
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: isp
+      POSTGRES_USER: isp_owner
+      POSTGRES_PASSWORD_FILE: /run/secrets/isp_db_owner_password
+    secrets: [isp_db_owner_password]
+    volumes: ["isp_pgdata:/var/lib/postgresql/data"]
+    # No `ports:` on purpose: PostgreSQL is reachable only on the internal network.
+    networks: [internal]
+    restart: unless-stopped
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U isp_owner -d isp"], interval: 10s, timeout: 5s, retries: 6 }
+    deploy: { resources: { limits: { memory: 512M, cpus: "1.0" } } }
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
+
+  migrate:
+    <<: *app
+    command: ["node", "dist/migrate-main.js"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL_OWNER}   # table owner; only this one-shot job uses it
+    restart: "no"
+    networks: [internal]
+    depends_on: { db: { condition: service_healthy } }
+
+  api:
+    <<: *app
+    command: ["node", "dist/main.js"]
+    # Loopback only; nginx on the host is the sole way in.
+    ports: ["127.0.0.1:8443:8443"]
+    environment: { ISP_HOST: 0.0.0.0 }
+    depends_on: { db: { condition: service_healthy } }
+    healthcheck: { test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8443/liveness').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], interval: 15s, timeout: 5s, retries: 4 }
+    deploy: { resources: { limits: { memory: 384M, cpus: "1.0" } } }
+
+  worker:
+    <<: *app
+    command: ["node", "dist/worker-main.js"]
+    depends_on: { db: { condition: service_healthy } }
+    deploy: { resources: { limits: { memory: 256M, cpus: "0.5" } } }
+
+networks:
+  internal: { internal: true }   # no route to the Internet
+  egress: {}                      # api/worker only: PI (via the private tunnel) and WhatsApp
+
+volumes:
+  isp_pgdata: {}
+
+secrets:
+  isp_db_owner_password: { file: /etc/visionex-isp/db_owner_password }
