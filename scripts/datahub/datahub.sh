@@ -260,9 +260,15 @@ install_dataset() {
   fi
   case "$archive" in
     zip)
-      command -v unzip >/dev/null || die "unzip is not installed on the server"
-      if unzip -Z1 "$work/payload" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then die "archive has an unsafe path; refused"; fi
-      unzip -q -o "$work/payload" -d "$work/extract" ;;
+      # unzip when the box has it; Python's zipfile (which also drops absolute and ".." members) when it does not.
+      if command -v unzip >/dev/null; then
+        if unzip -Z1 "$work/payload" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then die "archive has an unsafe path; refused"; fi
+        unzip -q -o "$work/payload" -d "$work/extract"
+      else
+        command -v python3 >/dev/null || die "neither unzip nor python3 is installed on the server"
+        if python3 -c 'import sys,zipfile;print("\n".join(zipfile.ZipFile(sys.argv[1]).namelist()))' "$work/payload" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then die "archive has an unsafe path; refused"; fi
+        python3 -c 'import sys,zipfile;zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$work/payload" "$work/extract"
+      fi ;;
     tar.gz)
       if tar -tzf "$work/payload" | grep -Eq '(^/|(^|/)\.\.(/|$))'; then die "archive has an unsafe path; refused"; fi
       tar -xzf "$work/payload" -C "$work/extract" --no-same-owner --no-same-permissions ;;
