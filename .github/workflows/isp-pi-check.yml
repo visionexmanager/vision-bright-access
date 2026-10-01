@@ -1,26 +1,32 @@
 name: ISP PI connectivity check
 
-# Read-only. Checks, from the Hetzner server, that the ISP service can reach and
-# authenticate to the PI portal using the credentials already stored in
-# /etc/visionex-isp/isp.env, then (optionally) captures response SHAPES.
+# Read-only. From the Hetzner server, checks that the ISP service can reach and
+# authenticate to the PI portal with the credentials already stored in
+# /etc/visionex-isp/isp.env, and (optionally) that the read-only PI endpoints answer.
 #
-# Hard rules this workflow keeps:
-#  * It changes nothing: no PI write, no file write outside a private temp dir, no
-#    service touched. It never calls suspend/resume/terminate.
-#  * Credentials are read from the root-owned env file on the server at run time.
-#    They never appear in this repository, in a command line, in process
-#    arguments (the login body is piped on stdin) or in output.
-#  * This repository is PUBLIC and run logs are world-readable. Output is limited
-#    to PASS/FAIL words, status codes and, for the probe, key NAMES and types —
-#    no hostnames, addresses, values, tokens or customer data.
-#  * The probe stage only runs after every connectivity check passed.
+# Guarantees (each is enforced by code and asserted by services/isp-management/test/pi-check.test.ts):
+#  * One fixed remote command: `sudo -n /usr/bin/node --input-type=module -`, fed a
+#    bundle built from THIS repository at the main commit. No shell, no free-form
+#    commands, no file dump. The job refuses to run from any ref but main.
+#  * No free-text input. The only input is a boolean. The test account is read by the
+#    program from the root-only env file (PI_TEST_USERNAME) and is never an argument,
+#    input or output.
+#  * Credentials, the TOTP seed/code and the access token exist only in the memory of
+#    that one node process. They are never in argv, files, or logs.
+#  * Output is a closed vocabulary: "<label>: PASS|FAIL|SKIP". The runner additionally
+#    drops any line that does not match that exact pattern and discards stderr, so a
+#    bug cannot leak a body, id, address, token or customer name into this PUBLIC log.
+#  * After authentication only GET requests can leave the process (enforced in code,
+#    including PiClient's automatic re-login). No PI write, no server change.
+#  * Optional response shapes (key names and types only) can be saved to a root-only
+#    file the owner names in the env file (PI_PROBE_SHAPES_FILE); they are never logged.
 on:
   workflow_dispatch:
     inputs:
-      probe_user:
-        description: "A TEST customer username to run the read-only shape probe against (leave empty to skip the probe)"
-        required: false
-        default: ""
+      probe:
+        description: "Also run the read-only probe against the test account named in the server-side file"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,10 +38,24 @@ concurrency:
 jobs:
   check:
     name: Check PI connectivity from the server
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/isp-management/package-lock.json
+
+      - name: Build the check program from this commit
+        working-directory: services/isp-management
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --silent
+          npx esbuild scripts/pi-check-main.ts --bundle --platform=node --format=esm --log-level=error --outfile="$RUNNER_TEMP/pi-check.mjs"
 
       - name: Open the connection
         env:
@@ -60,88 +80,27 @@ jobs:
           printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
           ssh target 'echo ok' >/dev/null 2>&1 || { echo "::error::SSH connection failed"; exit 1; }
-          echo "Connected."
+          echo "SSH: PASS"
 
-      - name: Connectivity and authentication checks
-        run: |
-          set -uo pipefail
-          # Output is captured and filtered to lines this script prints itself.
-          ssh target 'sudo -n bash -s' <<'REMOTE' | tee result.txt
-          set -u
-          pass() { echo "PASS  $1"; }
-          fail() { echo "FAIL  $1"; echo "STOP  $2"; exit 3; }
-          F=/etc/visionex-isp/isp.env
-
-          # 0. The secret file: present, root-owned, mode 600.
-          [ -f "$F" ] || fail "env file exists" "create $F (names only in services/isp-management/.env.example)"
-          [ "$(stat -c '%U:%a' "$F")" = "root:600" ] || fail "env file is root:600" "chmod 600 and chown root the file"
-          pass "env file exists, root-owned, mode 600"
-          command -v node >/dev/null && command -v curl >/dev/null || fail "node and curl are installed" "install node and curl on the server"
-
-          # Load it into THIS shell only; nothing below prints a value.
-          set -a; . "$F"; set +a
-          for v in PI_BASE_URL PI_USERNAME PI_PASSWORD; do
-            [ -n "${!v:-}" ] || fail "$v is set" "set $v in $F"
-          done
-          pass "PI_BASE_URL, PI_USERNAME, PI_PASSWORD are set"
-
-          # 1. Base URL shape, and the tunnel/routing to it.
-          case "$PI_BASE_URL" in http://*|https://*) pass "PI_BASE_URL is an http(s) URL";; *) fail "PI_BASE_URL is an http(s) URL" "fix PI_BASE_URL";; esac
-          hostport="${PI_BASE_URL#*://}"; hostport="${hostport%%/*}"
-          host="${hostport%%:*}"
-          port="${hostport##*:}"; [ "$port" = "$hostport" ] && { case "$PI_BASE_URL" in https://*) port=443;; *) port=80;; esac; }
-
-          ip="$(getent ahostsv4 "$host" | awk 'NR==1{print $1}')"
-          [ -n "$ip" ] || fail "DNS resolves the PI host" "the server cannot resolve the PI host name (tunnel DNS / split-horizon not configured)"
-          case "$ip" in
-            10.*|192.168.*|172.1[6-9].*|172.2?.*|172.3[01].*) pass "DNS resolves to a private address";;
-            *) pass "DNS resolves to a public address";;
-          esac
-          if timeout 6 bash -c "exec 3<>/dev/tcp/$ip/$port" 2>/dev/null; then pass "TCP connection to the PI port succeeds"
-          else fail "TCP connection to the PI port" "no route/port closed: the private tunnel to the PI network is not up or not routed"; fi
-
-          # 2. POST /api/token/ is reachable (login body piped on stdin, never in argv).
-          T="$(mktemp -d)"; chmod 700 "$T"; trap 'rm -rf "$T"' EXIT
-          body() { node -e 'const d={username:process.env.PI_USERNAME,password:process.env.PI_PASSWORD};if(process.env.OTP)d.otp_code=process.env.OTP;process.stdout.write(JSON.stringify(d))'; }
-          code="$(body | curl -sS --max-time 15 -o "$T/r1" -w '%{http_code}' -H 'content-type: application/json' --data-binary @- "$PI_BASE_URL/api/token/" 2>/dev/null || echo 000)"
-          [ "$code" != "000" ] || fail "POST /api/token/ reachable" "request did not complete (TLS or routing problem)"
-          pass "POST /api/token/ is reachable (HTTP $code)"
-
-          # 3. Authentication, using the file's credentials.
-          if [ "$code" = "202" ]; then
-            [ -n "${PI_TOTP_SECRET:-}" ] || fail "authentication" "the account requires 2FA: set PI_TOTP_SECRET in $F (or use an account without 2FA)"
-            OTP="$(node -e '
-          const c=require("crypto"),A="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-          let bits=0,v=0,k=[];for(const ch of process.env.PI_TOTP_SECRET.replace(/[ =]/g,"").toUpperCase()){v=(v<<5)|A.indexOf(ch);bits+=5;if(bits>=8){k.push((v>>>(bits-8))&255);bits-=8}}
-          const t=Buffer.alloc(8);t.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30000)));
-          const h=c.createHmac("sha1",Buffer.from(k)).update(t).digest();const o=h[h.length-1]&15;
-          console.log(String((h.readUInt32BE(o)&0x7fffffff)%1000000).padStart(6,"0"))')"; export OTP
-            code="$(body | curl -sS --max-time 15 -o "$T/r1" -w '%{http_code}' -H 'content-type: application/json' --data-binary @- "$PI_BASE_URL/api/token/" 2>/dev/null || echo 000)"
-          fi
-          has="$(node -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));console.log(d&&d.access?"yes":"no")' "$T/r1" 2>/dev/null || echo no)"
-          [ "$code" = "200" ] && [ "$has" = "yes" ] || fail "authentication succeeds (HTTP $code)" "login was refused: check PI_USERNAME/PI_PASSWORD (account must exist and be allowed to use the API)"
-          pass "authentication succeeds and a token was issued (token not shown)"
-          echo "DONE  all connectivity checks passed"
-          REMOTE
-          rc=${PIPESTATUS[0]}
-          # 4. Nothing secret reached the log.
-          if grep -Eq 'eyJ[A-Za-z0-9_-]{10,}|"access"' result.txt; then echo "FAIL  output contained secret-shaped text"; exit 1; fi
-          echo "PASS  no credential-shaped text in the output"
-          exit "$rc"
-
-      - name: Read-only shape probe (only after every check passed)
-        if: ${{ success() && inputs.probe_user != '' }}
+      - name: Run the read-only check
         env:
-          PROBE_USER: ${{ inputs.probe_user }}
+          PROBE: ${{ inputs.probe }}
         run: |
           set -uo pipefail
-          case "$PROBE_USER" in *[!A-Za-z0-9._@-]*|"") echo "::error::probe_user has invalid characters"; exit 1;; esac
-          cd services/isp-management
-          npm ci --silent
-          npx esbuild scripts/pi-contract-probe.ts --bundle --platform=node --format=esm --outfile="$RUNNER_TEMP/probe.mjs" --log-level=error
-          # Credentials come from the env file on the server (read as root at run time).
-          ssh target "sudo -n bash -c 'set -a; . /etc/visionex-isp/isp.env; set +a; exec node --input-type=module - \"\$1\"' _ '$PROBE_USER'" < "$RUNNER_TEMP/probe.mjs" | tee "$RUNNER_TEMP/probe.out"
-          if grep -Eq 'eyJ[A-Za-z0-9_-]{10,}' "$RUNNER_TEMP/probe.out"; then echo "::error::secret-shaped text in probe output"; exit 1; fi
+          ARG=""
+          [ "$PROBE" = "true" ] && ARG="--probe"
+          # stderr is discarded; stdout is captured to a file and never shown unfiltered.
+          ssh target "sudo -n /usr/bin/node --input-type=module - $ARG" < "$RUNNER_TEMP/pi-check.mjs" 2>/dev/null > "$RUNNER_TEMP/raw.txt"
+          rc=$?
+          total=$(wc -l < "$RUNNER_TEMP/raw.txt")
+          grep -E '^(env file|PI base URL|PI route \((DNS|TCP)\)|token endpoint|authentication|read-only probe|shapes file): (PASS|FAIL|SKIP)( \([0-9]+/[0-9]+ endpoints\))?$' "$RUNNER_TEMP/raw.txt" > "$RUNNER_TEMP/clean.txt" || true
+          kept=$(wc -l < "$RUNNER_TEMP/clean.txt")
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/clean.txt"
+          [ "$total" -gt "$kept" ] && echo "note: $((total - kept)) unexpected output line(s) suppressed"
+          rm -f "$RUNNER_TEMP/raw.txt"
+          if [ "$kept" -eq 0 ]; then echo "FAIL: no result received (the SSH user needs sudo -n for node, and node must be installed)"; exit 1; fi
+          [ "$rc" -eq 0 ] && grep -q '^authentication: PASS$' "$RUNNER_TEMP/clean.txt" || { echo "RESULT: FAIL"; exit 1; }
+          echo "RESULT: PASS"
 
       - name: Forget the key
         if: always()

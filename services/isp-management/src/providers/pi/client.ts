@@ -6,6 +6,8 @@ export interface PiClientOptions {
   username: string;
   password: string;
   totpSecret?: string;
+  /** A token already obtained in memory (the connectivity check logs in once, then reuses it). */
+  initialToken?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
   now?: () => number;
@@ -26,6 +28,7 @@ export class PiClient {
   constructor(private o: PiClientOptions) {
     this.f = o.fetchImpl ?? fetch;
     this.timeout = o.timeoutMs ?? 15_000;
+    this.token = o.initialToken ?? null;
   }
 
   private async raw(method: string, path: string, body?: unknown, query?: Record<string, string | number | undefined>) {
