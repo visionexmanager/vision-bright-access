@@ -3,7 +3,7 @@ import { lookup } from "node:dns/promises";
 import net from "node:net";
 import { totpAt } from "./crypto.js";
 import { PiClient } from "./providers/pi/client.js";
-import { PI_CONTRACT } from "./providers/pi/provider.js";
+import { PI_CONTRACT } from "./providers/pi/contract.js";
 import { shapeOf } from "./providers/pi/shape.js";
 
 /**

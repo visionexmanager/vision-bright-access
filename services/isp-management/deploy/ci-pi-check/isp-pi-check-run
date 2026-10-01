@@ -1,0 +1,54 @@
+#!/bin/bash
+# Installed as /usr/local/sbin/isp-pi-check-run (root:root 0755).
+# The only program `sudo` lets isp-ci run (see sudoers.isp-pi-check), and only as
+#   isp-pi-check-run check   |   isp-pi-check-run probe
+#
+# It refuses to run unless the check program on disk is byte-for-byte the one this
+# repository pinned, then runs it with an empty environment. It cannot read or
+# print the PI env file itself: the node program opens it, parses it and reports
+# only fixed PASS/FAIL words.
+
+BUNDLE=/usr/local/lib/isp-pi-check/pi-check.mjs
+NODE=/usr/bin/node
+ROOT_UID=0
+# Pinned by scripts/build-ci-bundle.mjs from deploy/ci-pi-check/pi-check.mjs.
+EXPECTED_SHA256=3fdf2ff0de6f0c19b5749f8ecb42ee67846299fc01da62610e23e68e7d4b9a38
+
+set -u
+PATH=/usr/bin:/bin
+export PATH
+umask 077
+
+fail() { echo "refused" >&2; exit "$1"; }
+
+# Exactly one argument, exactly one of two words.
+[ "$#" -eq 1 ] || fail 2
+case "$1" in
+  check) ARGS=() ;;
+  probe) ARGS=(--probe) ;;
+  *) fail 2 ;;
+esac
+
+# One run at a time (a read-only lock on this file: no file is created or written).
+exec 9<"$0" || fail 3
+/usr/bin/flock -n 9 || fail 3
+
+# The program and the directory holding it must be root-owned and not writable by
+# anyone else; otherwise someone could swap the code that runs as root.
+safe() { # path
+  local s
+  s="$(/usr/bin/stat -c '%u %a' "$1")" || return 1
+  [ "${s%% *}" = "$ROOT_UID" ] || return 1
+  local mode="${s##* }"
+  [ $(( 0$mode & 022 )) -eq 0 ] # no group/world write bit
+}
+safe "$BUNDLE" || fail 4
+safe "$(/usr/bin/dirname "$BUNDLE")" || fail 4
+safe "$NODE" || fail 4
+
+# Integrity pin: the exact reviewed bundle, or nothing.
+actual="$(/usr/bin/sha256sum "$BUNDLE" | /usr/bin/cut -d' ' -f1)"
+[ "$actual" = "$EXPECTED_SHA256" ] || fail 4
+
+# Empty environment (no NODE_OPTIONS, LD_PRELOAD, proxies, ...), stderr discarded.
+exec /usr/bin/env -i PATH=/usr/bin:/bin LANG=C "$NODE" "$BUNDLE" "${ARGS[@]}" 2>/dev/null

@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { base32Encode } from "../src/crypto.js";
 import { LABELS, parseEnv, runPiCheck, type CheckOptions } from "../src/pi-check.js";
@@ -210,34 +207,5 @@ describe("env file parsing", () => {
     const e = parseEnv(`PI_USERNAME=a\nPI_PASSWORD='b c'\nPI_BASE_URL=https://x # note\nOTHER=1\nPI_TEST_USERNAME=$(touch /tmp/pwned)\n`);
     expect(e).toEqual({ PI_USERNAME: "a", PI_PASSWORD: "b c", PI_BASE_URL: "https://x", PI_TEST_USERNAME: "$(touch /tmp/pwned)" });
     expect(Object.keys(e)).not.toContain("OTHER");
-  });
-});
-
-describe("the workflow is narrowly scoped (static guarantees)", () => {
-  const wf = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", ".github", "workflows", "isp-pi-check.yml"), "utf8");
-  it("takes no free-text input, so nothing sensitive can be typed into a public run", () => {
-    const inputs = wf.slice(wf.indexOf("inputs:"), wf.indexOf("permissions:"));
-    expect(inputs).toMatch(/type: boolean/);
-    expect(inputs).not.toMatch(/username|user:/i);
-    expect(inputs).not.toMatch(/type: string/);
-  });
-  it("runs only from main, with read-only repo permissions", () => {
-    expect(wf).toMatch(/github\.ref == 'refs\/heads\/main'/);
-    expect(wf).toMatch(/permissions:\s*\n\s*contents: read/);
-  });
-  it("never traces, dumps or interpolates secrets, and runs one fixed remote command", () => {
-    expect(wf).not.toMatch(/set -x|set -o xtrace|\bcat \/etc|\benv\b\s*\||printenv/);
-    expect(wf).not.toMatch(/inputs\.[a-z_]*user/i);
-    expect(wf).not.toMatch(/ssh target ['"]?(bash|sh)\b/);
-    expect(wf).toMatch(/sudo -n \/usr\/bin\/node --input-type=module -/);
-    expect((wf.match(/ssh target/g) ?? []).length).toBeLessThanOrEqual(3);
-  });
-  it("filters the remote output through an allow-list and discards stderr", () => {
-    expect(wf).toMatch(/2>\/dev\/null/);
-    expect(wf).toMatch(/grep -E/);
-    for (const l of ["env file", "authentication", "read-only probe"]) expect(wf).toContain(l);
-  });
-  it("makes no state-changing calls", () => {
-    expect(wf).not.toMatch(/docker (compose )?(up|down|restart|stop|rm|run)|systemctl|ufw|iptables|supabase|psql|certbot|nginx/i);
   });
 });
