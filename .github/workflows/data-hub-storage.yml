@@ -1,0 +1,112 @@
+name: Data Hub storage
+
+# The Visionex Data Hub lives on the production server's persistent disk. This
+# workflow is the way onto that disk: it runs scripts/datahub/datahub.sh there over
+# the same SSH secrets the other server workflows use.
+#
+#   GitHub   = code, config, manifests (this repository)
+#   Supabase = metadata and control
+#   Server   = the actual data, the indexes and the persistent cache
+#
+# Manual only. `inspect` is read-only. The others write ONLY under DATA_DIR
+# (default /var/lib/visionex/data), which no deployment touches: the SPA is built
+# elsewhere, containers mount nothing from it, and Docker cleanup never reaches it.
+#
+# The repository is PUBLIC and these logs are world-readable: the script prints
+# capacities, directory totals and dataset names, never a secret, an upload's name,
+# or a URL with credentials.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "inspect = read-only report. init = create the directory and layout. update = download and install the listed datasets. status = measure. schedule = weekly update and hourly measurement."
+        required: true
+        default: inspect
+        type: choice
+        options: [inspect, init, update, status, schedule]
+      budget_gb:
+        description: "Global Data Hub budget in GB (datasets, indexes, caches)"
+        required: false
+        default: "100"
+      reserve_gb:
+        description: "Free space that is never used, in GB"
+        required: false
+        default: "10"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-hub-storage
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Data Hub (${{ inputs.action }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          for v in HOST USER KEY; do [ -z "${!v}" ] && { echo "::error::Missing secret for $v"; exit 1; }; done
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_deploy
+            ConnectTimeout 15
+            BatchMode yes
+            ServerAliveInterval 30
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'echo connected' >/dev/null
+
+      - name: Run on the server
+        env:
+          ACTION:  ${{ inputs.action }}
+          BUDGET:  ${{ inputs.budget_gb }}
+          RESERVE: ${{ inputs.reserve_gb }}
+        run: |
+          set -uo pipefail
+          case "$BUDGET$RESERVE" in *[!0-9]*) echo "::error::budget and reserve must be whole numbers"; exit 1 ;; esac
+          cmd="$ACTION"; [ "$ACTION" = update ] && cmd="update-all"
+          echo "## Data Hub: $ACTION" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          # root when we are root, sudo without a password otherwise; the script itself refuses any path outside /var/lib, /srv, /data, /mnt.
+          ssh target "if [ \"\$(id -u)\" = 0 ]; then S=''; else S='sudo -n'; fi; echo \"user: \$(whoami)  host: \$(hostname -s)\"; \$S env DATA_DIR=/var/lib/visionex/data BUDGET_GB=$BUDGET RESERVE_GB=$RESERVE bash -s -- $cmd" < scripts/datahub/datahub.sh 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          status=${PIPESTATUS[0]}
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      # Supabase keeps the metadata: the measurement and what is installed, never a file.
+      - name: Record the metadata in Supabase
+        if: ${{ success() && inputs.action != 'inspect' && inputs.action != 'schedule' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -uo pipefail
+          [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ] || { echo "::warning::Supabase secrets are not set; metadata not recorded"; exit 0; }
+          post() { # $1 function name, $2 JSON document; prints only the HTTP status
+            curl -s -o /dev/null -w '%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/$1" \
+              -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -H 'Content-Type: application/json' \
+              --data "$(jq -c --argjson d "$2" -n '{_data: $d}')"
+          }
+          snap=$(ssh target 'cat /var/lib/visionex/data/manifests/storage.json')
+          echo "storage snapshot: HTTP $(post datahub_record_snapshot "$snap")"
+          ssh target 'for f in /var/lib/visionex/data/datasets/*/*/current/MANIFEST.json; do [ -f "$f" ] && cat "$f"; done' | jq -c . | while read -r doc; do
+            echo "dataset $(echo "$doc" | jq -r .dataset): HTTP $(post datahub_record_dataset "$doc")"
+          done
