@@ -295,14 +295,12 @@ jobs:
           expect "a wrong token is refused" "$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -H 'authorization: Bearer not-the-token' "$BASE/datasets")" 401
           DS=$(curl -s --max-time 20 -H "authorization: Bearer $TOKEN" "$BASE/datasets")
           expect "the datasets are listed" "$(code "$BASE/datasets")" 200
-          say "datasets: $(echo "$DS" | tr -d '
-' | cut -c1-600)"
+          say "datasets: $(echo "$DS" | tr -d '[:cntrl:]' | cut -c1-600)"
           expect "the last storage measurement is readable" "$(code "$BASE/storage")" 200
           SLUG=$(echo "$DS" | grep -o '"slug":"[a-z0-9_-]*"' | head -1 | cut -d'"' -f4)
           if [ -n "$SLUG" ]; then
             expect "a file inside the active version is served" "$(code "$BASE/file?dataset=$SLUG&path=MANIFEST.json")" 200
-            echo "first bytes of that file: $(curl -s --max-time 20 -H "authorization: Bearer $TOKEN" "$BASE/file?dataset=$SLUG&path=MANIFEST.json" | head -c 120 | tr -d '
-')" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "first bytes of that file: $(curl -s --max-time 20 -H "authorization: Bearer $TOKEN" "$BASE/file?dataset=$SLUG&path=MANIFEST.json" | head -c 120 | tr -d '[:cntrl:]')" | tee -a "$GITHUB_STEP_SUMMARY"
           else
             say "FAIL  no dataset is installed yet"; fails=$((fails + 1))
           fi
