@@ -350,9 +350,9 @@ update_all() {
 # Weekly, on this server: the update worker lives where the disk is. Supabase keeps metadata, not files.
 schedule() {
   [ "$(id -u)" = 0 ] || die "schedule needs root"
-  install -d -m 755 /usr/local/lib/visionex
-  cp "$0" /usr/local/lib/visionex/datahub.sh 2>/dev/null || cat "$0" > /usr/local/lib/visionex/datahub.sh
-  chmod 755 /usr/local/lib/visionex/datahub.sh
+  # The workflow installs the worker first (this script arrives on stdin, so it has no file of its own to copy).
+  [ -x /usr/local/lib/visionex/datahub.sh ] || die "the update worker is not installed at /usr/local/lib/visionex/datahub.sh"
+  /usr/local/lib/visionex/datahub.sh status >/dev/null || die "the installed worker does not run"
   cat > /etc/cron.d/visionex-datahub <<CRON
 # Visionex Data Hub: update the local datasets (versioned, verified, atomic), then measure storage.
 MAILTO=""
