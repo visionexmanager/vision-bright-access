@@ -114,7 +114,9 @@ init() {
   fi
   mkdir -p "$DATA_DIR"
   for d in "${layout[@]}"; do mkdir -p "$DATA_DIR/$d"; done
-  chmod 750 "$DATA_DIR"
+  # Readable by the service in the read-only container (it runs as an unprivileged user). Public datasets only; nothing secret lives here,
+  # and the service is the only door: this directory is not served by nginx and not exposed anywhere.
+  chmod 755 "$DATA_DIR"; chmod -R go+rX "$DATA_DIR" 2>/dev/null || true
   # A marker the deploy scripts can check: if this file is missing the directory was replaced.
   [ -f "$DATA_DIR/config/HUB_ID" ] || { date -u +%Y-%m-%dT%H:%M:%SZ > "$DATA_DIR/config/HUB_ID"; }
   # Effective budget: never more than fits with the reserve left over.
