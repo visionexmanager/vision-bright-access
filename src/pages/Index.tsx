@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
-  Accessibility,
   ArrowRight,
-  BookOpen,
   Bot,
   BriefcaseBusiness,
   CheckCircle,
@@ -80,7 +78,6 @@ const DESTINATION_GROUPS: DestinationGroup[] = [
       { icon: HeartHandshake, titleKey: "home.feature.services", descKey: "home.feature.servicesDesc", to: "/services" },
       { icon: WandSparkles, titleKey: "nav.aiStudio", descKey: "home.feature.aiDesc", to: "/services/ai-media-studio" },
       { icon: FileCog, titleKey: "nav.fileConverter", descKey: "fileStudio.desc", to: "/services/file-studio" },
-      { icon: Accessibility, titleKey: "nav.assistiveProducts", descKey: "vep.subtitle", to: "/assistive-products" },
     ],
   },
   {
@@ -88,7 +85,6 @@ const DESTINATION_GROUPS: DestinationGroup[] = [
     labelKey: "home.group.learn",
     items: [
       { icon: GraduationCap, titleKey: "home.feature.academy", descKey: "home.feature.academyDesc", to: "/academy", requiresAuth: true },
-      { icon: BookOpen, titleKey: "nav.library", descKey: "library.home.heroSubtitle", to: "/library" },
       { icon: PlayCircle, titleKey: "nav.content", descKey: "content.subtitle", to: "/content" },
       { icon: Newspaper, titleKey: "nav.news", descKey: "news.subtitle", to: "/news" },
     ],

@@ -51,10 +51,10 @@ describe("numbered selection", () => {
   it("numbers the controls after the children, matching what is announced", () => {
     const entries = menuEntries("products");
     const children = childrenOf("products");
-    expect(entries.slice(0, children.length).map((e) => e.number)).toEqual([1, 2, 3, 4, 5]);
+    expect(entries.slice(0, children.length).map((e) => e.number)).toEqual([1, 2, 3, 4]);
 
-    // Products has 5 children, so 6 is the first control ("back").
-    const sixth = resolveMenuInput("6", "products");
+    // Products has 4 children, so 5 is the first control ("back").
+    const sixth = resolveMenuInput("5", "products");
     expect(sixth.kind).toBe("back");
     expect(sixth.kind === "back" && sixth.node.id).toBe(MAIN_MENU_ID);
   });

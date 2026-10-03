@@ -286,7 +286,6 @@ const Mancala = lazyWithRetry(() => import("./pages/games/expansion/Mancala"));
 const RoyalGameOfUr = lazyWithRetry(() => import("./pages/games/expansion/RoyalGameOfUr"));
 const WordMaster = lazyWithRetry(() => import("./pages/games/WordMaster"));
 const SkyboundQuest = lazyWithRetry(() => import("./pages/games/SkyboundQuest"));
-const AssistiveProducts = lazyWithRetry(() => import("./pages/AssistiveProducts"));
 const BusinessSimulator = lazyWithRetry(() => import("./pages/BusinessSimulator"));
 const SimulationRunner = lazyWithRetry(() => import("./pages/SimulationRunner"));
 const SimulationsSummary = lazyWithRetry(() => import("./pages/SimulationsSummary"));
@@ -1039,7 +1038,7 @@ function AppRoutes() {
                     <Route path="/games/maze-runner" element={<GameEconomyGate gameTitle="Maze Runner"><MazeRunner /></GameEconomyGate>} />
                     <Route path="/games/parking-challenge" element={<GameEconomyGate gameTitle="Parking Challenge"><ParkingChallenge /></GameEconomyGate>} />
                     <Route path="/games/escape-room" element={<GameEconomyGate gameTitle="Escape Room"><EscapeRoom /></GameEconomyGate>} />
-                    <Route path="/assistive-products" element={<AssistiveProducts />} />
+                    <Route path="/assistive-products" element={<Navigate to="/bazaar" replace />} />
                     <Route path="/business-simulator" element={<BusinessSimulator />} />
                     <Route path="/business-simulator/:slug" element={<SimulationRunner />} />
                     <Route path="/simulations-summary" element={<SimulationsSummary />} />

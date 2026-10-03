@@ -33,7 +33,7 @@ vi.mock("@/components/ThemeToggle", () => ({ ThemeToggle: () => null }));
 
 /** Every destination the desktop bar carried before it was trimmed. */
 const FORMERLY_TOP_LEVEL = [
-  "/", "/bazaar", "/services", "/finance", "/kids", "/library",
+  "/", "/bazaar", "/services", "/finance", "/kids",
   "/content", "/games", "/careers", "/academy", "/news",
 ];
 
@@ -76,7 +76,7 @@ describe("Navbar destinations survive the trim", () => {
 
     const menu = screen.getByRole("menu");
     expect(hrefsIn(menu)).toEqual([
-      "/library", "/kids",
+      "/kids",
       "/news", "/content",
       "/finance", "/professional-tools",
       "/community", "/contact-us",
@@ -91,7 +91,7 @@ describe("Navbar destinations survive the trim", () => {
     const menu = screen.getByRole("menu");
 
     const group = (key: string) => hrefsIn(within(menu).getByRole("group", { name: en[key as keyof typeof en] }));
-    expect(group("nav.group.learning")).toEqual(["/library", "/kids"]);
+    expect(group("nav.group.learning")).toEqual(["/kids"]);
     expect(group("nav.group.media")).toEqual(["/news", "/content"]);
     expect(group("nav.group.work")).toEqual(["/finance", "/professional-tools"]);
     expect(group("nav.group.community")).toEqual(["/community", "/contact-us"]);
@@ -102,10 +102,10 @@ describe("Navbar destinations survive the trim", () => {
     renderNavbar();
     fireEvent.click(screen.getByRole("button", { name: en["nav.openMenu"] }));
     const text = screen.getByRole("dialog").textContent ?? "";
-    // Learning comes before the Academy and the Library, and the news is under
+    // Learning comes before the Academy and VisionKids, and the news is under
     // media — never between the Academy and VisionKids again.
     const at = (label: string) => text.indexOf(label);
-    expect(at(en["nav.group.learning"])).toBeLessThan(at(en["nav.library"]));
+    expect(at(en["nav.group.learning"])).toBeLessThan(at(en["nav.kids"]));
     expect(at(en["nav.group.media"])).toBeLessThan(at(en["nav.news"]));
     expect(at(en["nav.news"])).toBeGreaterThan(at(en["nav.kids"]));
   });

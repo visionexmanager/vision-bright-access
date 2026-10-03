@@ -181,7 +181,7 @@ describe("numbered menu — screen reader semantics", () => {
   it("every option is a real button, so keyboard and screen reader both reach it", () => {
     renderMenu("products");
     const buttons = screen.getAllByRole("button");
-    expect(buttons.length).toBe(9); // 5 children + back, main menu, search, help
+    expect(buttons.length).toBe(8); // 4 children + back, main menu, search, help
     for (const button of buttons) {
       expect(button.tagName).toBe("BUTTON");
       expect(button).not.toHaveAttribute("aria-hidden", "true");
