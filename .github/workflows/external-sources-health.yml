@@ -1,0 +1,29 @@
+name: External sources health
+
+# Probes every external content provider (YouTube, Vimeo, Pixabay, Internet
+# Archive, Open Library ...) from a GitHub runner with the real keys, via
+# scripts/probe/external-sources-health.ts. Read-only. The script prints one
+# line per provider: state, latency, result count. It never prints a key, a
+# URL or an item title. The repository is public, so keep it that way.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe the providers
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Run the probe
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          VIMEO_ACCESS_TOKEN: ${{ secrets.VIMEO_ACCESS_TOKEN }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+        run: deno run --no-lock --node-modules-dir=none -A scripts/probe/external-sources-health.ts | tee -a "$GITHUB_STEP_SUMMARY"
