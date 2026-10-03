@@ -4,14 +4,10 @@ import { decodePdfDataUrl, isPdfDataUrl, PDF_NO_TEXT_CODE, PDF_NO_TEXT_MESSAGE, 
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { detectLanguage } from "../_shared/whatsappLanguageDetect.ts";
 import { ProviderError, structuredCompletionWithFallback, type ProviderTarget } from "../_shared/aiProvider.ts";
-import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 
 installUsageMetering("ocr-scan");
-
-// Record each vision attempt in the provider registry. Recording only.
-installChatAttemptRecording();
 
 // OpenAI leads because it renders every page of a scanned PDF. When its credit or
 // quota runs out (429 insufficient_quota) or it is down, the chain moves to Gemini
