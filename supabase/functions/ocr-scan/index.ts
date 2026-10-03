@@ -1,13 +1,39 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { boundedText, checkImageDataUrl, providerErrorSummary } from "../_shared/providerInput.ts";
+import { boundedText, checkImageDataUrl } from "../_shared/providerInput.ts";
 import { decodePdfDataUrl, isPdfDataUrl, PDF_NO_TEXT_CODE, PDF_NO_TEXT_MESSAGE, pdfScanResult } from "../_shared/ocrDocument.ts";
 import { extractPdfText } from "../_shared/whatsappPdfText.ts";
 import { detectLanguage } from "../_shared/whatsappLanguageDetect.ts";
-import { meteredFetch } from "../_shared/meteredFetch.ts";
+import { ProviderError, structuredCompletionWithFallback, type ProviderTarget } from "../_shared/aiProvider.ts";
+import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 
 installUsageMetering("ocr-scan");
+
+// Record each vision attempt in the provider registry. Recording only.
+installChatAttemptRecording();
+
+// OpenAI leads because it renders every page of a scanned PDF. When its credit or
+// quota runs out (429 insufficient_quota) or it is down, the chain moves to Gemini
+// instead of failing every scan, which is what a single provider did.
+const OCR_TARGETS: ProviderTarget[] = [
+  { provider: "openai", model: "gpt-4o" },
+  { provider: "gemini", model: "gemini-flash-lite-latest" },
+  { provider: "gemini", model: "gemini-flash-latest" },
+];
+
+const OCR_SCHEMA = {
+  type: "object",
+  properties: {
+    extracted_text: { type: "string", description: "All text extracted from the image, preserving original layout" },
+    detected_language: { type: "string", description: "Primary language detected (e.g. English, Arabic, Hindi)" },
+    confidence: { type: "string", enum: ["High", "Medium", "Low"], description: "OCR confidence based on image quality" },
+    word_count: { type: "number", description: "Approximate number of words extracted" },
+    has_handwriting: { type: "boolean", description: "Whether handwritten text was detected" },
+  },
+  required: ["extracted_text", "detected_language", "confidence", "word_count", "has_handwriting"],
+  additionalProperties: false,
+} as const;
 
 const ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -34,7 +60,7 @@ Rules:
 4. For handwritten text, transcribe your best reading and mark uncertain parts with [?].
 5. Include text from all areas: headers, footers, watermarks, captions, labels.
 6. Do NOT summarize, interpret, or add commentary — just extract the raw text.
-7. Detect the primary language of the document.
+7. Detect the primary language of the document. Any language and any script is possible (Arabic, Hebrew, Persian, Urdu, Hindi, Bengali, Chinese, Japanese, Korean, Cyrillic, Latin and others): transcribe it in its own script, keep right-to-left text in reading order, and never translate or transliterate.
 8. Return a confidence level: High / Medium / Low based on image quality.`;
 
 const SYSTEM_PROMPT_AR = `أنت محرك OCR متقدم (التعرف الضوئي على الحروف).
@@ -47,7 +73,7 @@ const SYSTEM_PROMPT_AR = `أنت محرك OCR متقدم (التعرف الضو�
 4. للخط اليدوي، انسخ أفضل قراءة وضع علامة [؟] على الأجزاء غير المؤكدة.
 5. اشمل النص من جميع المناطق: الرؤوس والتذييلات والعلامات المائية والتسميات التوضيحية.
 6. لا تلخص أو تفسر أو تضيف تعليقات — فقط استخرج النص الخام.
-7. اكتشف اللغة الأساسية للوثيقة.
+7. اكتشف اللغة الأساسية للوثيقة. قد تكون بأي لغة وأي خط: انسخ النص بخطه الأصلي ولا تترجمه ولا تحوّله إلى حروف أخرى.
 8. أعد مستوى الثقة: مرتفع / متوسط / منخفض بناءً على جودة الصورة.`;
 
 Deno.serve(async (req) => {
@@ -100,9 +126,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
-
     const { image, lang = "en", hint: rawHint } = await req.json();
     const hint = boundedText(rawHint, 500);
 
@@ -150,10 +173,6 @@ Deno.serve(async (req) => {
         );
       }
     }
-    const attachment = scannedPdf
-      ? { type: "file", file: { filename: "scan.pdf", file_data: image } }
-      : { type: "image_url", image_url: { url: image, detail: "high" } };
-
     const systemPrompt = lang === "ar" ? SYSTEM_PROMPT_AR : SYSTEM_PROMPT_EN;
     const userText = hint
       ? (lang === "ar"
@@ -163,86 +182,27 @@ Deno.serve(async (req) => {
           ? "استخرج جميع النصوص من هذه الصورة بدقة تامة."
           : "Extract all text from this image with maximum accuracy.");
 
-    const response = await meteredFetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userText },
-              attachment,
-            ],
-          },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "ocr_result",
-              description: "Structured OCR text extraction result",
-              parameters: {
-                type: "object",
-                properties: {
-                  extracted_text: {
-                    type: "string",
-                    description: "All text extracted from the image, preserving original layout",
-                  },
-                  detected_language: {
-                    type: "string",
-                    description: "Primary language detected (e.g. English, Arabic, Hindi)",
-                  },
-                  confidence: {
-                    type: "string",
-                    enum: ["High", "Medium", "Low"],
-                    description: "OCR confidence based on image quality",
-                  },
-                  word_count: {
-                    type: "number",
-                    description: "Approximate number of words extracted",
-                  },
-                  has_handwriting: {
-                    type: "boolean",
-                    description: "Whether handwritten text was detected",
-                  },
-                },
-                required: ["extracted_text", "detected_language", "confidence", "word_count", "has_handwriting"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "ocr_result" } },
-        max_tokens: 4000,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
+    let result: unknown;
+    try {
+      ({ result } = await structuredCompletionWithFallback({
+        targets: OCR_TARGETS,
+        system: systemPrompt,
+        userText,
+        ...(scannedPdf ? { pdf: image } : { image }),
+        schema: OCR_SCHEMA as unknown as Record<string, unknown>,
+        toolName: "ocr_result",
+        maxTokens: 4000,
+      }));
+    } catch (e) {
+      if (e instanceof ProviderError && e.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errText = await response.text();
-      console.error("OpenAI error:", response.status, providerErrorSummary(errText));
-      throw new Error(`AI gateway error: ${response.status}`);
+      console.error("ocr-scan providers:", e instanceof Error ? e.message : "failed");
+      throw new Error("The text could not be read right now. Please try again shortly.");
     }
-
-    const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-
-    if (!toolCall?.function?.arguments) {
-      throw new Error("No structured response from AI");
-    }
-
-    const result = JSON.parse(toolCall.function.arguments);
 
     return new Response(JSON.stringify({ result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

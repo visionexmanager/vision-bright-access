@@ -176,11 +176,17 @@ describe("call sites", () => {
 
   it("no function calls an OpenAI generation endpoint with bare fetch any more", () => {
     for (const fn of ["academy-chat", "analyze-meal", "analytics-insights", "enrich-product", "generate-diet-plan",
-      "news-generate", "radar-ai", "ocr-scan", "moderate-content", "image-generate"]) {
+      "news-generate", "radar-ai", "moderate-content", "image-generate"]) {
       const src = read(`${fn}/index.ts`);
       expect(src, fn).not.toMatch(/(?<!metered)[Ff]etch\(\s*"https:\/\/api\.openai\.com/);
       expect(src, fn).toMatch(/meteredFetch\("https:\/\/api\.openai\.com/);
     }
+  });
+
+  it("ocr-scan goes through the provider chain, never a bare OpenAI fetch", () => {
+    const src = read("ocr-scan/index.ts");
+    expect(src).not.toContain("api.openai.com");
+    expect(src).toContain("structuredCompletionWithFallback(");
   });
 
   it("speech, transcription and generated media default to meteredFetch", () => {

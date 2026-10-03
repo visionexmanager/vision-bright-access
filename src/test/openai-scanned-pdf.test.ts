@@ -105,8 +105,7 @@ describe("site OCR: a scanned PDF goes to the same OCR call as a photograph", ()
   it("refuses only a PDF that is not a scan; a scan falls through as a file part", () => {
     expect(ocr).toContain('if (!pdf.ok && pdf.reason !== "scanned") {');
     expect(ocr).toContain("scannedPdf = true;");
-    expect(ocr).toContain('? { type: "file", file: { filename: "scan.pdf", file_data: image } }');
-    expect(ocr).toMatch(/content: \[\s*\{ type: "text", text: userText \},\s*attachment,\s*\]/);
+    expect(ocr).toContain("...(scannedPdf ? { pdf: image } : { image })");
   });
   it("an image is still bounded exactly as before; a scan is bounded by decodePdfDataUrl", () => {
     expect(ocr).toMatch(/if \(!scannedPdf\) \{\s*const checked = checkImageDataUrl\(image\);/);
