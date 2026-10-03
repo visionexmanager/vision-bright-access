@@ -109,7 +109,6 @@ export function Navbar() {
     {
       label: t("nav.group.learning"),
       links: [
-        { to: "/library", label: t("nav.library") },
         { to: "/kids", label: t("nav.kids") },
       ],
     },
@@ -158,14 +157,12 @@ export function Navbar() {
         // submenu — File Converter used to be stranded in the "More" group.
         { to: "/services/ai-media-studio", label: t("nav.aiStudio") },
         { to: "/services/file-studio", label: t("nav.fileConverter") },
-        { to: "/assistive-products", label: t("nav.assistiveProducts") },
       ],
     },
     {
       label: t("nav.group.learning"),
       links: [
         { to: "/academy", label: t("home.feature.academy") },
-        { to: "/library", label: t("nav.library") },
         { to: "/kids", label: t("nav.kids") },
       ],
     },

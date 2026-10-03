@@ -33,7 +33,6 @@ export const MENU_TREE: MenuNode = {
       terms: ["product", "products", "shop", "buy", "منتج", "منتجات", "شراء", "تسوق"],
       children: [
         { id: "products.electronics", labelKey: "aiMenu.electronics", path: "/marketplace?category=electronics", terms: ["electronics", "إلكترونيات", "الكترونيات"] },
-        { id: "products.assistive", labelKey: "nav.assistiveProducts", path: "/assistive-products", terms: ["assistive", "accessibility", "braille", "مساعدة", "إتاحة", "برايل"] },
         { id: "products.phones", labelKey: "aiMenu.phones", path: "/marketplace?category=phones", terms: ["phone", "phones", "mobile", "هاتف", "جوال", "موبايل"] },
         { id: "products.computers", labelKey: "aiMenu.computers", path: "/marketplace?category=computers", terms: ["computer", "laptop", "pc", "حاسوب", "كمبيوتر", "لابتوب"] },
         { id: "products.appliances", labelKey: "aiMenu.appliances", path: "/marketplace?category=appliances", terms: ["appliance", "appliances", "home", "أجهزة منزلية", "منزلية"] },

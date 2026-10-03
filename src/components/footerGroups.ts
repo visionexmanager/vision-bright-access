@@ -16,7 +16,6 @@ export const FOOTER_GROUPS = [
       { to: "/services", labelKey: "footer.link.services" },
       { to: "/services/ai-media-studio", labelKey: "footer.link.aiStudio" },
       { to: "/services/file-studio", labelKey: "footer.link.fileConverter" },
-      { to: "/assistive-products", labelKey: "footer.link.assistiveProducts" },
     ],
   },
   {
@@ -24,7 +23,6 @@ export const FOOTER_GROUPS = [
     headingKey: "nav.group.learning",
     links: [
       { to: "/academy", labelKey: "footer.link.academy" },
-      { to: "/library", labelKey: "footer.link.library" },
       { to: "/kids", labelKey: "nav.kids" },
     ],
   },

@@ -64,7 +64,7 @@ describe("the site's menus", () => {
   const group = (id: string) => FOOTER_GROUPS.find((g) => g.id === id)!.links.map((link) => link.to);
 
   it("groups the footer by purpose", () => {
-    expect(group("learning")).toEqual(["/academy", "/library", "/kids"]);
+    expect(group("learning")).toEqual(["/academy", "/kids"]);
     expect(group("media")).toEqual(["/news", "/content", "/games"]);
     expect(group("work")).toEqual(["/careers", "/finance", "/professional-tools"]);
     expect(group("learning")).not.toContain("/news");
@@ -75,7 +75,7 @@ describe("the site's menus", () => {
     expect(new Set(all).size).toBe(all.length);
     for (const route of ["/", "/bazaar", "/services", "/finance", "/services/ai-media-studio", "/content", "/games",
       "/news", "/contact-us", "/professional-tools", "/services/file-studio", "/community", "/leaderboard",
-      "/assistive-products", "/academy", "/library"]) {
+      "/academy"]) {
       expect(all, route).toContain(route);
     }
   });

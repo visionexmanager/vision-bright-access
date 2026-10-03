@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  Award, BookOpen, GraduationCap, Home, Library, Map, Search, Sparkles,
+  Award, BookMarked, BookOpen, GraduationCap, Home, Library, Map, Search, Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -22,7 +22,8 @@ const ITEMS: readonly AcademyNavItem[] = [
   { path: "/academy/courses", en: "Courses", ar: "الدورات", icon: BookOpen },
   { path: "/academy/my-courses", en: "My learning", ar: "تعلّمي", icon: GraduationCap },
   { path: "/academy/paths", en: "Learning paths", ar: "المسارات", icon: Map },
-  { path: "/academy/library", en: "Digital library", ar: "المكتبة", icon: Library },
+  { path: "/academy/library", en: "Academy resources", ar: "موارد الأكاديمية", icon: Library },
+  { path: "/library", en: "Visionex Library", ar: "مكتبة فيجنكس", icon: BookMarked },
   { path: "/academy/scholarships", en: "Scholarships", ar: "المنح", icon: Sparkles },
   { path: "/academy/certificates", en: "Certificates", ar: "الشهادات", icon: Award },
   { path: "/academy/search", en: "Search", ar: "بحث", icon: Search },

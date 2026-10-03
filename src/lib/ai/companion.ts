@@ -40,7 +40,6 @@ const MAX_NOTES = 8;
 const routes = [
   { path: "/", section: "Home", terms: ["home", "main", "الرئيسية", "البداية"] },
   { path: "/marketplace", section: "Marketplace", terms: ["market", "marketplace", "store", "shop", "منتجات", "السوق", "المتجر"] },
-  { path: "/assistive-products", section: "Assistive Products", terms: ["assistive", "accessibility", "braille", "مساعدة", "إتاحة", "برايل"] },
   { path: "/content", section: "Content", terms: ["content", "courses", "articles", "learning", "محتوى", "دورات", "مقالات", "تعلم"] },
   { path: "/services", section: "Services", terms: ["services", "service", "خدمات", "خدمة"] },
   { path: "/community", section: "Community", terms: ["community", "voice room", "rooms", "مجتمع", "رومات", "فويس"] },
