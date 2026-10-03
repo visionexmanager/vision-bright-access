@@ -75,7 +75,7 @@ describe("ocr-scan's PDF path", () => {
 
   it("runs before the image check and before any model call", () => {
     expect(pdfBranch.length).toBeGreaterThan(0);
-    expect(handler.indexOf("if (isPdfDataUrl(image))")).toBeLessThan(handler.indexOf("meteredFetch("));
+    expect(handler.indexOf("if (isPdfDataUrl(image))")).toBeLessThan(handler.indexOf("structuredCompletionWithFallback("));
   });
 
   it("reads the text layer locally and never calls a provider", () => {

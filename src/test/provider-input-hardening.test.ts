@@ -235,7 +235,7 @@ describe("the wiring", () => {
       const handler = s.slice(s.indexOf("Deno.serve("));
       const check = handler.indexOf("checkImageDataUrl(image)");
       expect(check).toBeGreaterThan(0);
-      expect(check).toBeLessThan(handler.indexOf("meteredFetch("));
+      expect(check).toBeLessThan(handler.indexOf(fn === "ocr-scan" ? "structuredCompletionWithFallback(" : "meteredFetch("));
       expect(handler).toContain("status: checked.status");
       expect(handler).not.toContain('typeof image !== "string"');
     });
