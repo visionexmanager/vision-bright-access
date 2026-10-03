@@ -50,7 +50,7 @@ export const metMuseum: ContentProvider = {
   healthQuery: "sunflowers",
   async search(params, ctx) {
     const q = new URLSearchParams({ hasImages: "true", q: params.query });
-    const found = await getJson<{ objectIDs?: number[] | null }>(ctx, `https://collectionapi.metmuseum.org/public/collection/v1/search?${q}`);
+    const found = await getJson<{ objectIDs?: number[] | null }>(ctx, `https://collectionapi.metmuseum.org/public/collection/v1.1/search?${q}`);
     // The search returns ids only, and many objects are not public domain, so
     // read twice the page size and keep what qualifies.
     const window = params.limit * 2;
