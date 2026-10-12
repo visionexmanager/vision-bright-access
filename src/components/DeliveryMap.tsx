@@ -106,11 +106,11 @@ export default function DeliveryMap({ isTracking }: DeliveryMapProps) {
   }, [isTracking]);
 
   return (
-    <div className="relative w-full h-80 rounded-[30px] overflow-hidden border-4 border-card shadow-2xl">
+    <div role="region" aria-label={t("delivery.liveTracking")} className="relative w-full h-80 rounded-[30px] overflow-hidden border-4 border-card shadow-2xl">
       <div ref={mapRef} className="w-full h-full z-0" />
       {isTracking && (
-        <div className="absolute top-4 right-4 z-[1000] bg-card/90 backdrop-blur-md px-4 py-2 rounded-full font-black text-xs shadow-lg flex items-center gap-2 text-foreground border border-border">
-          <div className="w-2 h-2 bg-destructive rounded-full animate-ping" />
+        <div role="status" className="absolute top-4 right-4 z-[1000] bg-card/90 backdrop-blur-md px-4 py-2 rounded-full font-black text-xs shadow-lg flex items-center gap-2 text-foreground border border-border">
+          <div className="w-2 h-2 bg-destructive rounded-full animate-ping" aria-hidden="true" />
           {t("delivery.liveTracking")}
         </div>
       )}
