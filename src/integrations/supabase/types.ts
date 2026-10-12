@@ -1121,6 +1121,78 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_model_checks: {
+        Row: {
+          check_name: string
+          checked_at: string
+          id: number
+          model_id: string
+          passed: boolean
+          provider: string
+          run_url: string | null
+        }
+        Insert: {
+          check_name: string
+          checked_at?: string
+          id?: never
+          model_id: string
+          passed: boolean
+          provider: string
+          run_url?: string | null
+        }
+        Update: {
+          check_name?: string
+          checked_at?: string
+          id?: never
+          model_id?: string
+          passed?: boolean
+          provider?: string
+          run_url?: string | null
+        }
+        Relationships: []
+      }
+      ai_price_book: {
+        Row: {
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: number
+          model_id: string
+          notes: string | null
+          provider: string
+          rates: Json
+          source: string
+          unit: string
+          verified_on: string
+        }
+        Insert: {
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: never
+          model_id: string
+          notes?: string | null
+          provider: string
+          rates?: Json
+          source: string
+          unit: string
+          verified_on: string
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: never
+          model_id?: string
+          notes?: string | null
+          provider?: string
+          rates?: Json
+          source?: string
+          unit?: string
+          verified_on?: string
+        }
+        Relationships: []
+      }
       ai_quality_signals: {
         Row: {
           assistant_id: string
@@ -1189,6 +1261,102 @@ export type Database = {
           service?: string
         }
         Relationships: []
+      }
+      ai_subscription_gate_notices: {
+        Row: {
+          channel: string
+          notified_at: string
+          subject: string
+        }
+        Insert: {
+          channel: string
+          notified_at?: string
+          subject: string
+        }
+        Update: {
+          channel?: string
+          notified_at?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      ai_usage_events: {
+        Row: {
+          attempt: number | null
+          chain_id: string | null
+          cost_note: string | null
+          cost_status: string
+          error_code: string | null
+          function_name: string
+          id: number
+          model: string
+          occurred_at: string
+          operation: string
+          outcome: string
+          price_id: number | null
+          provider: string
+          provider_cost_usd: number | null
+          reservation_id: string | null
+          resolved_model: string | null
+          usage: Json
+          usage_source: string
+        }
+        Insert: {
+          attempt?: number | null
+          chain_id?: string | null
+          cost_note?: string | null
+          cost_status: string
+          error_code?: string | null
+          function_name: string
+          id?: never
+          model: string
+          occurred_at?: string
+          operation: string
+          outcome: string
+          price_id?: number | null
+          provider: string
+          provider_cost_usd?: number | null
+          reservation_id?: string | null
+          resolved_model?: string | null
+          usage?: Json
+          usage_source: string
+        }
+        Update: {
+          attempt?: number | null
+          chain_id?: string | null
+          cost_note?: string | null
+          cost_status?: string
+          error_code?: string | null
+          function_name?: string
+          id?: never
+          model?: string
+          occurred_at?: string
+          operation?: string
+          outcome?: string
+          price_id?: number | null
+          provider?: string
+          provider_cost_usd?: number | null
+          reservation_id?: string | null
+          resolved_model?: string | null
+          usage?: Json
+          usage_source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_events_price_id_fkey"
+            columns: ["price_id"]
+            isOneToOne: false
+            referencedRelation: "ai_price_book"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_events_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "vx_usage_ledger"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_usage_log: {
         Row: {
@@ -4536,8 +4704,10 @@ export type Database = {
           enabled: boolean
           free_limit: number
           max_daily_usage: number | null
+          max_reserve_vx: number | null
           notes: string | null
           plan_limits: Json
+          pricing_mode: string
           provider: string | null
           service_id: string
           updated_at: string
@@ -4550,8 +4720,10 @@ export type Database = {
           enabled?: boolean
           free_limit?: number
           max_daily_usage?: number | null
+          max_reserve_vx?: number | null
           notes?: string | null
           plan_limits?: Json
+          pricing_mode?: string
           provider?: string | null
           service_id: string
           updated_at?: string
@@ -4564,8 +4736,10 @@ export type Database = {
           enabled?: boolean
           free_limit?: number
           max_daily_usage?: number | null
+          max_reserve_vx?: number | null
           notes?: string | null
           plan_limits?: Json
+          pricing_mode?: string
           provider?: string | null
           service_id?: string
           updated_at?: string
@@ -5164,6 +5338,146 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      datahub_datasets: {
+        Row: {
+          active_version: string | null
+          created_at: string
+          enabled: boolean
+          group_name: string
+          license_name: string | null
+          license_url: string | null
+          slug: string
+          source_host: string | null
+          updated_at: string
+        }
+        Insert: {
+          active_version?: string | null
+          created_at?: string
+          enabled?: boolean
+          group_name: string
+          license_name?: string | null
+          license_url?: string | null
+          slug: string
+          source_host?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active_version?: string | null
+          created_at?: string
+          enabled?: boolean
+          group_name?: string
+          license_name?: string | null
+          license_url?: string | null
+          slug?: string
+          source_host?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      datahub_storage_snapshots: {
+        Row: {
+          asset_cache_bytes: number
+          budget_effective_gb: number
+          conversion_cache_bytes: number
+          datasets_bytes: number
+          disk_free_bytes: number
+          disk_total_bytes: number
+          disk_used_bytes: number
+          global_cache_bytes: number
+          id: number
+          indexes_bytes: number
+          measured_at: string
+          path: string
+          recorded_at: string
+          remaining_budget_bytes: number
+          reserve_gb: number
+          reserved_bytes: number
+          state: string
+          temporary_bytes: number
+          total_bytes: number
+        }
+        Insert: {
+          asset_cache_bytes: number
+          budget_effective_gb: number
+          conversion_cache_bytes: number
+          datasets_bytes: number
+          disk_free_bytes: number
+          disk_total_bytes: number
+          disk_used_bytes: number
+          global_cache_bytes: number
+          id?: number
+          indexes_bytes: number
+          measured_at: string
+          path: string
+          recorded_at?: string
+          remaining_budget_bytes: number
+          reserve_gb: number
+          reserved_bytes: number
+          state: string
+          temporary_bytes: number
+          total_bytes: number
+        }
+        Update: {
+          asset_cache_bytes?: number
+          budget_effective_gb?: number
+          conversion_cache_bytes?: number
+          datasets_bytes?: number
+          disk_free_bytes?: number
+          disk_total_bytes?: number
+          disk_used_bytes?: number
+          global_cache_bytes?: number
+          id?: number
+          indexes_bytes?: number
+          measured_at?: string
+          path?: string
+          recorded_at?: string
+          remaining_budget_bytes?: number
+          reserve_gb?: number
+          reserved_bytes?: number
+          state?: string
+          temporary_bytes?: number
+          total_bytes?: number
+        }
+        Relationships: []
+      }
+      datahub_versions: {
+        Row: {
+          dataset_slug: string
+          extracted_bytes: number | null
+          id: number
+          installed_at: string
+          payload_bytes: number | null
+          sha256: string | null
+          version: string
+        }
+        Insert: {
+          dataset_slug: string
+          extracted_bytes?: number | null
+          id?: number
+          installed_at?: string
+          payload_bytes?: number | null
+          sha256?: string | null
+          version: string
+        }
+        Update: {
+          dataset_slug?: string
+          extracted_bytes?: number | null
+          id?: number
+          installed_at?: string
+          payload_bytes?: number | null
+          sha256?: string | null
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "datahub_versions_dataset_slug_fkey"
+            columns: ["dataset_slug"]
+            isOneToOne: false
+            referencedRelation: "datahub_datasets"
+            referencedColumns: ["slug"]
+          },
+        ]
       }
       device_bans: {
         Row: {
@@ -23168,6 +23482,72 @@ export type Database = {
         }
         Relationships: []
       }
+      ph_provider_models: {
+        Row: {
+          available: boolean
+          capabilities: string[]
+          capability_source: string
+          display_name: string | null
+          first_seen_at: string | null
+          last_seen_at: string | null
+          model_id: string
+          notes: string | null
+          owned_by: string | null
+          pricing: Json | null
+          pricing_source: string | null
+          pricing_verified_on: string | null
+          provider: string
+          replacement_model_id: string | null
+          routing_enabled: boolean
+          shutdown_on: string | null
+          unavailable_since: string | null
+          updated_at: string
+          upstream_created_at: string | null
+        }
+        Insert: {
+          available?: boolean
+          capabilities?: string[]
+          capability_source?: string
+          display_name?: string | null
+          first_seen_at?: string | null
+          last_seen_at?: string | null
+          model_id: string
+          notes?: string | null
+          owned_by?: string | null
+          pricing?: Json | null
+          pricing_source?: string | null
+          pricing_verified_on?: string | null
+          provider: string
+          replacement_model_id?: string | null
+          routing_enabled?: boolean
+          shutdown_on?: string | null
+          unavailable_since?: string | null
+          updated_at?: string
+          upstream_created_at?: string | null
+        }
+        Update: {
+          available?: boolean
+          capabilities?: string[]
+          capability_source?: string
+          display_name?: string | null
+          first_seen_at?: string | null
+          last_seen_at?: string | null
+          model_id?: string
+          notes?: string | null
+          owned_by?: string | null
+          pricing?: Json | null
+          pricing_source?: string | null
+          pricing_verified_on?: string | null
+          provider?: string
+          replacement_model_id?: string | null
+          routing_enabled?: boolean
+          shutdown_on?: string | null
+          unavailable_since?: string | null
+          updated_at?: string
+          upstream_created_at?: string | null
+        }
+        Relationships: []
+      }
       ph_providers: {
         Row: {
           api_key_ref: string | null
@@ -23753,10 +24133,27 @@ export type Database = {
         }
         Relationships: []
       }
+      service_package_prices: {
+        Row: {
+          package_name: string
+          service_type: string
+          vx: number
+        }
+        Insert: {
+          package_name: string
+          service_type: string
+          vx: number
+        }
+        Update: {
+          package_name?: string
+          service_type?: string
+          vx?: number
+        }
+        Relationships: []
+      }
       service_requests: {
         Row: {
           attachment_url: string | null
-          vx_paid: number | null
           created_at: string
           department: string
           email: string
@@ -23768,10 +24165,10 @@ export type Database = {
           service_type: string
           status: string
           user_id: string | null
+          vx_paid: number | null
         }
         Insert: {
           attachment_url?: string | null
-          vx_paid?: number | null
           created_at?: string
           department?: string
           email: string
@@ -23783,10 +24180,10 @@ export type Database = {
           service_type: string
           status?: string
           user_id?: string | null
+          vx_paid?: number | null
         }
         Update: {
           attachment_url?: string | null
-          vx_paid?: number | null
           created_at?: string
           department?: string
           email?: string
@@ -23798,6 +24195,7 @@ export type Database = {
           service_type?: string
           status?: string
           user_id?: string | null
+          vx_paid?: number | null
         }
         Relationships: []
       }
@@ -24365,6 +24763,7 @@ export type Database = {
           status: string
           subscription_id: string | null
           user_id: string
+          vx_credits_monthly: number | null
           whatsapp_phone: string | null
         }
         Insert: {
@@ -24381,6 +24780,7 @@ export type Database = {
           status?: string
           subscription_id?: string | null
           user_id: string
+          vx_credits_monthly?: number | null
           whatsapp_phone?: string | null
         }
         Update: {
@@ -24397,6 +24797,7 @@ export type Database = {
           status?: string
           subscription_id?: string | null
           user_id?: string
+          vx_credits_monthly?: number | null
           whatsapp_phone?: string | null
         }
         Relationships: [
@@ -25715,6 +26116,47 @@ export type Database = {
         }
         Relationships: []
       }
+      vx_conversion_policy: {
+        Row: {
+          bill_failed_billable_attempts: boolean
+          id: number
+          min_charge_vx: number
+          multiplier: number
+          rounding: string
+          service_id: string | null
+          updated_at: string
+          vx_per_usd: number
+        }
+        Insert: {
+          bill_failed_billable_attempts?: boolean
+          id?: never
+          min_charge_vx?: number
+          multiplier?: number
+          rounding?: string
+          service_id?: string | null
+          updated_at?: string
+          vx_per_usd: number
+        }
+        Update: {
+          bill_failed_billable_attempts?: boolean
+          id?: never
+          min_charge_vx?: number
+          multiplier?: number
+          rounding?: string
+          service_id?: string | null
+          updated_at?: string
+          vx_per_usd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vx_conversion_policy_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "central_pricing_registry"
+            referencedColumns: ["service_id"]
+          },
+        ]
+      }
       vx_purchases: {
         Row: {
           amount: number
@@ -25741,6 +26183,24 @@ export type Database = {
           item_id?: string | null
           item_name?: string
           item_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vx_self_award_daily: {
+        Row: {
+          awarded: number
+          day: string
+          user_id: string
+        }
+        Insert: {
+          awarded?: number
+          day: string
+          user_id: string
+        }
+        Update: {
+          awarded?: number
+          day?: string
           user_id?: string
         }
         Relationships: []
@@ -26492,6 +26952,34 @@ export type Database = {
       }
     }
     Views: {
+      ai_model_readiness: {
+        Row: {
+          live_check_passed: boolean | null
+          model_id: string | null
+          ok_calls_7d: number | null
+          priced: boolean | null
+          production_ready: boolean | null
+          provider: string | null
+          reported_calls_7d: number | null
+          usage_reported: boolean | null
+        }
+        Relationships: []
+      }
+      ai_usage_cost_daily: {
+        Row: {
+          calls: number | null
+          day: string | null
+          failed_calls: number | null
+          function_name: string | null
+          model: string | null
+          provider: string | null
+          provider_cost_usd: number | null
+          unpriced_calls: number | null
+          usage_not_reported: number | null
+          usage_reported: number | null
+        }
+        Relationships: []
+      }
       arcade_device_analytics_daily: {
         Row: {
           day: string | null
@@ -26754,6 +27242,24 @@ export type Database = {
         }
         Relationships: []
       }
+      ph_provider_models_routable: {
+        Row: {
+          capabilities: string[] | null
+          model_id: string | null
+          provider: string | null
+        }
+        Insert: {
+          capabilities?: string[] | null
+          model_id?: string | null
+          provider?: string | null
+        }
+        Update: {
+          capabilities?: string[] | null
+          model_id?: string | null
+          provider?: string | null
+        }
+        Relationships: []
+      }
       radio_stations_public: {
         Row: {
           bitrate: string | null
@@ -26962,7 +27468,21 @@ export type Database = {
         }
         Returns: Json
       }
+      ai_eligible_plans: { Args: never; Returns: string[] }
       ai_learning_dashboard: { Args: { _days?: number }; Returns: Json }
+      ai_price_rates_valid: {
+        Args: { _rates: Json; _unit: string }
+        Returns: boolean
+      }
+      ai_subscription_gate: {
+        Args: { _channel: string; _subject: string; _user_id?: string }
+        Returns: string
+      }
+      ai_subscription_gate_whatsapp: {
+        Args: { _wa_phone: string }
+        Returns: string
+      }
+      ai_user_entitled: { Args: { _user_id: string }; Returns: boolean }
       ams_log_activity: {
         Args: {
           p_action: string
@@ -27003,6 +27523,7 @@ export type Database = {
           status: string
           subscription_id: string | null
           user_id: string
+          vx_credits_monthly: number | null
           whatsapp_phone: string | null
         }
         SetofOptions: {
@@ -27408,36 +27929,68 @@ export type Database = {
         }
         Returns: string
       }
-      create_subscription_order: {
-        Args: {
-          _months?: number
-          _payment_method: string
-          _plan_id: string
-          _whatsapp_phone?: string
-        }
-        Returns: {
-          admin_notes: string | null
-          created_at: string
-          id: string
-          months: number
-          payment_method: string
-          plan_id: string
-          price_usd: number
-          reference_code: string
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: string
-          subscription_id: string | null
-          user_id: string
-          whatsapp_phone: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "subscription_orders"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      create_subscription_order:
+        | {
+            Args: {
+              _months?: number
+              _payment_method: string
+              _plan_id: string
+            }
+            Returns: {
+              admin_notes: string | null
+              created_at: string
+              id: string
+              months: number
+              payment_method: string
+              plan_id: string
+              price_usd: number
+              reference_code: string
+              reviewed_at: string | null
+              reviewed_by: string | null
+              status: string
+              subscription_id: string | null
+              user_id: string
+              vx_credits_monthly: number | null
+              whatsapp_phone: string | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "subscription_orders"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              _months?: number
+              _payment_method: string
+              _plan_id: string
+              _whatsapp_phone?: string
+            }
+            Returns: {
+              admin_notes: string | null
+              created_at: string
+              id: string
+              months: number
+              payment_method: string
+              plan_id: string
+              price_usd: number
+              reference_code: string
+              reviewed_at: string | null
+              reviewed_by: string | null
+              status: string
+              subscription_id: string | null
+              user_id: string
+              vx_credits_monthly: number | null
+              whatsapp_phone: string | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "subscription_orders"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       create_vx_coin_order: {
         Args: {
           _coins: number
@@ -27468,6 +28021,9 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      datahub_admin_status: { Args: never; Returns: Json }
+      datahub_record_dataset: { Args: { _data: Json }; Returns: undefined }
+      datahub_record_snapshot: { Args: { _data: Json }; Returns: number }
       decide_content_proposal: {
         Args: {
           _actor_id: string
@@ -27561,6 +28117,7 @@ export type Database = {
         }[]
       }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
+      free_sections: { Args: never; Returns: string[] }
       fuzzy_search_library_books: {
         Args: { _match_count?: number; _query: string }
         Returns: {
@@ -28559,14 +29116,17 @@ export type Database = {
         Returns: boolean
       }
       leave_library_club: { Args: { _club_id: string }; Returns: undefined }
+      library_immutable_array_to_string: {
+        Args: { _arr: string[]; _sep: string }
+        Returns: string
+      }
       library_save_external_item: {
         Args: { _item: Json; _note?: string }
         Returns: string
       }
-      library_unsave_external_item: { Args: { _item_id: string }; Returns: boolean }
-      library_immutable_array_to_string: {
-        Args: { _arr: string[]; _sep: string }
-        Returns: string
+      library_unsave_external_item: {
+        Args: { _item_id: string }
+        Returns: boolean
       }
       like_kids_review: { Args: { _review_id: string }; Returns: Json }
       log_admin_action: {
@@ -28728,6 +29288,7 @@ export type Database = {
       }
       my_plan_access: { Args: never; Returns: Json }
       my_section_access: { Args: { _section: string }; Returns: boolean }
+      my_vx_summary: { Args: never; Returns: Json }
       my_vx_usage: {
         Args: { _limit?: number; _offset?: number }
         Returns: {
@@ -28758,6 +29319,7 @@ export type Database = {
         Args: { p_hours?: number; p_provider_id: string }
         Returns: Json
       }
+      ph_prune_registry_logs: { Args: never; Returns: Json }
       ph_record_metric: {
         Args: {
           p_cost_usd?: number
@@ -28791,6 +29353,7 @@ export type Database = {
           wa_phone: string
         }[]
       }
+      plan_for_user: { Args: { _user_id: string }; Returns: string }
       publish_scheduled_library_books: { Args: never; Returns: undefined }
       purchase_kids_product: { Args: { _product_id: string }; Returns: Json }
       question_fingerprint: { Args: { _text: string }; Returns: string }
@@ -28939,6 +29502,7 @@ export type Database = {
           status: string
           subscription_id: string | null
           user_id: string
+          vx_credits_monthly: number | null
           whatsapp_phone: string | null
         }
         SetofOptions: {
@@ -29317,18 +29881,6 @@ export type Database = {
         }
         Returns: Json
       }
-      submit_paid_service_request: {
-        Args: {
-          _email: string
-          _full_name: string
-          _message: string
-          _package_name: string
-          _phone: string
-          _service_type: string
-          _vx: number
-        }
-        Returns: string
-      }
       submit_kids_innovation: {
         Args: {
           _challenge_id: string
@@ -29359,6 +29911,18 @@ export type Database = {
           question_id: string
           score_percent: number
         }[]
+      }
+      submit_paid_service_request: {
+        Args: {
+          _email: string
+          _full_name: string
+          _message: string
+          _package_name: string
+          _phone: string
+          _service_type: string
+          _vx: number
+        }
+        Returns: string
       }
       subscribe_kids_plan: {
         Args: { _org_id?: string; _plan_slug: string }
@@ -29432,6 +29996,7 @@ export type Database = {
         }[]
       }
       trial_period_days: { Args: never; Returns: number }
+      trial_sections: { Args: never; Returns: string[] }
       tv_cleanup_expired: { Args: never; Returns: undefined }
       unban_device: { Args: { _device_id: string }; Returns: undefined }
       unban_user: { Args: { _user_id: string }; Returns: undefined }
@@ -29448,6 +30013,11 @@ export type Database = {
         Args: { _reliability: number; _source_id: string }
         Returns: undefined
       }
+      user_has_section: {
+        Args: { _section: string; _user_id: string }
+        Returns: boolean
+      }
+      user_sections: { Args: { _user_id: string }; Returns: string[] }
       verify_kids_certificate: {
         Args: { _certificate_number: string }
         Returns: {
@@ -29512,6 +30082,11 @@ export type Database = {
       }
       vx_account_parity_detail: { Args: { _user_id: string }; Returns: Json }
       vx_balance: { Args: { _user_id: string }; Returns: number }
+      vx_hold_points_row: { Args: { _ledger_id: string }; Returns: string }
+      vx_metered_charge: {
+        Args: { _cost_usd: number; _service_id: string }
+        Returns: number
+      }
       vx_migrate_wallet_balances: {
         Args: { _batch_size?: number; _dry_run?: boolean }
         Returns: Json
@@ -29555,9 +30130,24 @@ export type Database = {
         }
         Returns: Json
       }
+      vx_reserve_metered: {
+        Args: {
+          _idempotency_key: string
+          _max_cost_usd: number
+          _metadata?: Json
+          _service_id: string
+          _source: string
+          _user_id: string
+        }
+        Returns: Json
+      }
       vx_revert_wallet_migration: {
         Args: { _dry_run?: boolean }
         Returns: Json
+      }
+      vx_self_award_take: {
+        Args: { _amount: number; _user_id: string }
+        Returns: number
       }
       vx_settle: {
         Args: {
@@ -29569,6 +30159,7 @@ export type Database = {
         }
         Returns: Json
       }
+      vx_settle_metered: { Args: { _reservation_id: string }; Returns: Json }
       vx_usage_analytics: {
         Args: { _days?: number }
         Returns: {
