@@ -294,6 +294,7 @@ import {
   wantsSpokenReply,
 } from "../_shared/whatsappVoiceReply.ts";
 import { recordTtsInBackground } from "../_shared/ttsRecorder.ts";
+import { isRegisteredPhrase, localSpeechResolver } from "../_shared/localAudio.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
   bookAskNotice,
@@ -1568,8 +1569,17 @@ Deno.serve(async (req) => {
           },
           {
             sendText: (text) => sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text }),
-            speak: async (text) =>
-              speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, voice: await resolveSenderVoice(incoming.from), ops: { synthesise: (text, spoken) => synthesiseSpeech({ text, spoken, record: (execution) => recordTtsInBackground(execution, db) }) } }),
+            speak: async (text) => {
+              // Prerecorded phrases (off unless WHATSAPP_LOCAL_AUDIO=1 and the processing service is configured).
+              const local = localSpeechResolver((name) => Deno.env.get(name), {
+                preferred: answerLanguage,
+                report: (event) => log("local_audio", { reason: event.id, language: event.language, outcome: event.reason ?? event.outcome }),
+              });
+              const spoken = await speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, local, voice: await resolveSenderVoice(incoming.from), ops: { synthesise: (text, spoken) => synthesiseSpeech({ text, spoken, record: (execution) => recordTtsInBackground(execution, db) }) } });
+              if (spoken || !local || !isRegisteredPhrase(text)) return spoken;
+              // A registered phrase with no usable recording goes out as its written copy: never synthesised, never lost.
+              return sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text });
+            },
           },
         );
 

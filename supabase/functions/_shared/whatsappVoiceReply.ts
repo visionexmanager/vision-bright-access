@@ -498,6 +498,21 @@ export async function sendWhatsAppAudio(params: {
 }
 
 /**
+ * What a recording on our own disk says about one spoken segment.
+ *
+ *   audio - this exact phrase has a verified recording; use it, pay no synthesis
+ *   text  - this is a known phrase but no usable recording exists; the caller
+ *           sends the written copy instead of paying a provider to say it
+ *   null  - not a known phrase; the ordinary path (cache, then synthesis)
+ */
+export type LocalSpeech =
+  | { kind: "audio"; bytes: Uint8Array; mimeType: string; clip: string; sha256: string }
+  | { kind: "text" }
+  | null;
+
+export type LocalSpeechResolver = (segment: string) => Promise<LocalSpeech>;
+
+/**
  * The three calls one voice note costs, as a unit that can be substituted.
  *
  * A miss pays all three. A hit pays only `send`, which is the whole point of
@@ -575,6 +590,11 @@ export async function speakReply(params: {
    * trip that re-checks consent, and this function must stay free of one.
    */
   voice?: ResolvedVoice | null;
+  /**
+   * Prerecorded phrases. Omitted is exactly the behaviour before this existed:
+   * every segment goes through the cache and synthesis. See `localAudio.ts`.
+   */
+  local?: LocalSpeechResolver | null;
 }): Promise<boolean> {
   const ops: SpeechOperations = { ...DEFAULT_SPEECH_OPS, ...(params.ops ?? {}) };
   const chosenVoice = spokenVoiceOf(params.voice);
@@ -591,6 +611,47 @@ export async function speakReply(params: {
   let reused = 0;
 
   for (const segment of segments) {
+    // ── A phrase we hold the recording of ────────────────────────────────
+    //
+    // A fixed notice has an exact, verified recording on our own disk, so it is
+    // neither synthesised nor paid for. A known phrase with no usable recording
+    // is *not* handed to the synthesiser: the loop ends and the caller sends the
+    // written copy, which is the documented fallback and costs nothing. A
+    // resolver that throws is the ordinary path, never a lost answer.
+    const local = params.local ? await params.local(segment).catch(() => null) : null;
+    if (local?.kind === "text") break;
+    if (local?.kind === "audio") {
+      const localKey = store
+        ? await speechCacheKey({
+          phoneNumberId: params.phoneNumberId,
+          provider: "prerecorded",
+          voice: local.clip,
+          model: local.sha256,
+          text: segment,
+        })
+        : null;
+      let localId = localKey ? await store!.get(localKey) : null;
+      const localCached = localId !== null;
+      if (!localId) {
+        localId = await ops.upload(local.bytes, local.mimeType, params.phoneNumberId, params.token);
+        if (!localId) break;
+      }
+      let localSent = await ops.send(localId, params.phoneNumberId, params.token, params.to);
+      // The same single retry the synthesised path has for a media id Meta forgot.
+      if (!localSent && localCached && localKey) {
+        await store!.drop(localKey);
+        const fresh = await ops.upload(local.bytes, local.mimeType, params.phoneNumberId, params.token);
+        if (!fresh) break;
+        localId = fresh;
+        localSent = await ops.send(localId, params.phoneNumberId, params.token, params.to);
+      }
+      if (!localSent) break;
+      spoken += 1;
+      if (localCached) reused += 1;
+      if (localKey && !localCached) await store!.put(localKey, localId, new Date(Date.now() + SPEECH_CACHE_TTL_MS));
+      continue;
+    }
+
     // ── Has this exact sentence already been said? ─────────────────────
     //
     // The main menu, the twenty language names and every refusal notice are

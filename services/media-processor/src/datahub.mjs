@@ -26,6 +26,8 @@ export const TYPES = Object.freeze({
   csv: "text/csv; charset=utf-8", tsv: "text/tab-separated-values; charset=utf-8", tab: "text/plain; charset=utf-8",
   zi: "text/plain; charset=utf-8", dtd: "application/xml-dtd", ldml: "application/xml", ldmlbcp47: "application/xml", xsd: "application/xml",
   html: "text/plain; charset=utf-8",
+  // Prerecorded WhatsApp voice notes (dataset voice-prompts). Opus in an Ogg container, served as audio/ogg.
+  ogg: "audio/ogg",
 });
 
 export class DataHubError extends Error {
