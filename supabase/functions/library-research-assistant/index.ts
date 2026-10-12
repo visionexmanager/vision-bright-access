@@ -103,7 +103,7 @@ async function handleContentMode(
     if (!(await isAdmin())) return json({ error: "Forbidden" }, 403, cors);
     const health = await checkAllProviders({ fetch, env: readEnv });
     const { error } = await serviceClient.from("library_external_provider_health").upsert(
-      health.map((h) => ({
+      health.filter((h) => h.state !== "deferred_by_owner").map((h) => ({
         provider_id: h.provider, state: h.state, latency_ms: h.latencyMs, result_count: h.resultCount,
         error_code: h.errorCode, checked_at: h.checkedAt,
       })),

@@ -33,8 +33,10 @@ export const CONTENT_CATEGORIES: readonly ContentCategory[] = ["images", "audio"
  * ready                  — answers now: keyless, or its credentials are set.
  * configuration_required — the adapter exists; a server secret is missing.
  * unsupported            — no safe, legal and reliable way in today.
+ * deferred_by_owner      — the adapter and its secret are kept, but the owner has postponed it:
+ *                          it is never called, never health-checked, and is not a fault.
  */
-export type ProviderStatus = "ready" | "configuration_required" | "unsupported";
+export type ProviderStatus = "ready" | "configuration_required" | "unsupported" | "deferred_by_owner";
 
 export type ProviderAuth =
   | { kind: "none" }
@@ -76,6 +78,12 @@ export interface ProviderDescriptor {
    * search across every source cannot spend it by accident.
    */
   optIn?: boolean;
+  /**
+   * Set (to the reason) when the owner has postponed this provider. It is then
+   * skipped by search, item lookup and the health check, so a deferred source
+   * neither answers nor reports as down. Remove the property to bring it back.
+   */
+  deferredByOwner?: string;
 }
 
 export interface UnsupportedProvider {
@@ -196,7 +204,7 @@ export interface ProviderSummary extends ProviderDescriptor {
   missingEnv: string[];
 }
 
-export type HealthState = "healthy" | "degraded" | "down" | "not_configured";
+export type HealthState = "healthy" | "degraded" | "down" | "not_configured" | "deferred_by_owner";
 
 export interface ProviderHealth {
   provider: string;
