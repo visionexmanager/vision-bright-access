@@ -98,25 +98,9 @@ export function parseDoab(data: unknown): ExternalContentItem[] {
   });
 }
 
-export const doab: ContentProvider = {
-  id: "doab",
-  name: "Directory of Open Access Books",
-  homepage: "https://www.doabooks.org",
-  docs: "https://www.doabooks.org/en/resources/metadata-harvesting-and-content-dissemination",
-  categories: ["books", "documents", "education"],
-  auth: { kind: "none" },
-  capabilities: { search: true, preview: false, embed: false, download: false },
-  licenseNote: "Peer-reviewed open-access books; each record states its licence, usually Creative Commons.",
-  rateLimit: "No published quota; responses are large (about 25 KB per book).",
-  healthQuery: "climate",
-  async search(params, ctx) {
-    const q = new URLSearchParams({
-      query: params.query, expand: "metadata,bitstreams",
-      limit: String(params.limit), offset: String((params.page - 1) * params.limit),
-    });
-    return parseDoab(await getJson(ctx, `https://directory.doabooks.org/rest/search?${q}`));
-  },
-};
+// DOAB is not a registered provider: its search API refuses every address we
+// can reach it from (see UNSUPPORTED_PROVIDERS). `parseDoab` stays, tested, so
+// the adapter is a few lines if access is ever granted.
 
 // ─── OpenStax ──────────────────────────────────────────────────────────────
 
