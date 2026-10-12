@@ -3,6 +3,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useDocumentHead } from "@/hooks/useDocumentHead";
 import { useOpsReviews, useDecideReview } from "@/features/visionkids/hooks/ops/useOps";
 import { OpsHeader, AdminGate } from "@/features/visionkids/components/ops/OpsShell";
+import { ApprovedSourcesPanel } from "@/features/visionkids/components/ops/ApprovedSourcesPanel";
 
 export default function ContentReview() {
   const { t } = useLanguage();
@@ -46,6 +47,7 @@ export default function ContentReview() {
             ))}
           </ul>
         )}
+        <ApprovedSourcesPanel />
       </AdminGate>
     </div>
   );

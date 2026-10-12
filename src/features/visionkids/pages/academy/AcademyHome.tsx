@@ -13,6 +13,7 @@ import { useLearningRecommendations } from "@/features/visionkids/hooks/academy/
 import { SubjectCard } from "@/features/visionkids/components/academy/SubjectCard";
 import { partitionSubjects } from "@/features/visionkids/utils/subjectAvailability";
 import { CourseRail } from "@/features/visionkids/components/academy/CourseRail";
+import { ApprovedResourcesShelf } from "@/features/visionkids/components/ApprovedResourcesShelf";
 
 export default function AcademyHome() {
   const { t } = useLanguage();
@@ -100,6 +101,8 @@ export default function AcademyHome() {
       </section>
 
       <CourseRail title={t("kids.academy.featuredCourses")} courses={featured} />
+
+      <ApprovedResourcesShelf />
     </div>
   );
 }
