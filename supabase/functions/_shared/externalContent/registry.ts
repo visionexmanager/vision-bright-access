@@ -121,6 +121,7 @@ export function missingEnv(provider: ContentProvider, env: GetEnv): string[] {
 }
 
 export function providerStatus(provider: ContentProvider, env: GetEnv): ProviderStatus {
+  if (provider.deferredByOwner) return "deferred_by_owner";
   return missingEnv(provider, env).length === 0 ? "ready" : "configuration_required";
 }
 

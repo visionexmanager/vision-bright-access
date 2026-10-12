@@ -14,6 +14,7 @@ const STATUS_VARIANT: Record<ProviderSummary["status"], "default" | "secondary" 
   ready: "default",
   configuration_required: "outline",
   unsupported: "secondary",
+  deferred_by_owner: "outline",
 };
 
 const keyed = (rows: ProviderHealth[]) => Object.fromEntries(rows.map((h) => [h.provider, h]));
@@ -23,6 +24,7 @@ const HEALTH_VARIANT: Record<ProviderHealth["state"], "default" | "secondary" | 
   degraded: "secondary",
   down: "destructive",
   not_configured: "outline",
+  deferred_by_owner: "outline",
 };
 
 /**
@@ -104,7 +106,10 @@ export function ExternalSourcesAdminPanel() {
                 </TableHeader>
                 <TableBody>
                   {providers.map((p) => {
-                    const h = health[p.id];
+                    // A deferred provider is never checked, so a stored row from before the deferral is stale: show the deferral instead.
+                    const h = p.status === "deferred_by_owner"
+                      ? { provider: p.id, state: "deferred_by_owner" as const, latencyMs: null, resultCount: 0, errorCode: null, checkedAt: "" }
+                      : health[p.id];
                     const caps = (["search", "preview", "embed", "download"] as const).filter((c) => p.capabilities[c]);
                     const env = p.auth.kind === "none" ? [] : p.auth.env;
                     return (
@@ -141,7 +146,7 @@ export function ExternalSourcesAdminPanel() {
                                 {[
                                   h.latencyMs !== null ? `${h.latencyMs} ms` : "",
                                   h.errorCode && h.errorCode !== "not_configured" ? t(`library.admin.externalSources.error.${h.errorCode}`) : "",
-                                  when(h.checkedAt),
+                                  h.checkedAt ? when(h.checkedAt) : "",
                                 ].filter(Boolean).join(" · ")}
                               </div>
                             </div>
