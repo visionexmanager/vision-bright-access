@@ -17,6 +17,7 @@ import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { billedRequest, billingRefusalResponse, requestIdempotencyKey, streamWithEnd } from "../_shared/vx/billing.ts";
 import { chatUsageBound, utf8Bytes } from "../_shared/metering.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
+import { answerLocally, localIntentMetric } from "../_shared/localIntents.ts";
 
 installUsageMetering("ai-chat");
 
@@ -317,6 +318,31 @@ Deno.serve(async (req) => {
         );
       }
       messages = bounded.messages;
+    }
+
+    // ── Answered locally, before any provider ──────────────────────────
+    //
+    // A greeting, a thank-you, "what can you do", "open the library": fixed,
+    // public text that no model needs to write. This sits after the
+    // subscription gate, the budget and both rate limits, so a match changes
+    // what is *answered*, never who may ask. Only the default assistant: the
+    // domain assistants carry a persona and a safety context of their own.
+    // Anything not recognised outright falls straight through to the model.
+    if (!assistantId) {
+      const lastTurn = messages[messages.length - 1];
+      const local = lastTurn?.role === "user"
+        ? answerLocally(lastTurn.content, {
+          preferredLocale: context.language?.slice(0, 2).toLowerCase() ?? null,
+          links: !context.voiceMode,
+          format: "markdown",
+        })
+        : null;
+      if (local) {
+        const promptChars = SYSTEM_PROMPT.length + messages.reduce((n, m) => n + m.content.length, 0);
+        console.log(JSON.stringify(localIntentMetric("website", local, promptChars)));
+        const sse = `data: ${JSON.stringify({ choices: [{ delta: { content: local.reply } }] })}\n\ndata: [DONE]\n\n`;
+        return new Response(sse, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+      }
     }
 
     // ── Grading an IVX project ─────────────────────────────────────────
