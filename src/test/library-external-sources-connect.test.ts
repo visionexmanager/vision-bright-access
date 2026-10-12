@@ -400,7 +400,8 @@ describe("credentials stay on the server and are all accounted for", () => {
 
   it("the keyed providers stay dormant and never call out without their secret", async () => {
     for (const p of CONTENT_PROVIDERS.filter((x) => x.auth.kind === "api_key")) {
-      expect(providerStatus(p, noEnv), p.id).toBe("configuration_required");
+      // A provider the owner has deferred reports that, not "configuration_required"; its adapter still refuses to call out without a key.
+      expect(providerStatus(p, noEnv), p.id).toBe(p.deferredByOwner ? "deferred_by_owner" : "configuration_required");
       let called = false;
       await expect(p.search(params("anything"), { fetch: async () => { called = true; return ok("{}"); }, env: noEnv }), p.id).rejects.toMatchObject({ code: "not_configured" });
       expect(called, p.id).toBe(false);

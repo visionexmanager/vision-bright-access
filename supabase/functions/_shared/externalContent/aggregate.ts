@@ -269,6 +269,9 @@ const SLOW_MS = 5000;
 
 export async function checkProviderHealth(provider: ContentProvider, deps: { fetch: Fetch; env: GetEnv }, now = () => Date.now()): Promise<ProviderHealth> {
   const checkedAt = new Date(now()).toISOString();
+  if (provider.deferredByOwner) {
+    return { provider: provider.id, state: "deferred_by_owner", latencyMs: null, resultCount: 0, errorCode: null, checkedAt };
+  }
   if (providerStatus(provider, deps.env) !== "ready") {
     return { provider: provider.id, state: "not_configured", latencyMs: null, resultCount: 0, errorCode: "not_configured", checkedAt };
   }
