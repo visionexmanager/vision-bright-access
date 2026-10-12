@@ -11610,6 +11610,69 @@ export type Database = {
           },
         ]
       }
+      kids_approved_resources: {
+        Row: {
+          age_max: number
+          age_min: number
+          attribution: string
+          created_at: string
+          id: string
+          language: string
+          license_name: string
+          license_url: string | null
+          provider_item_id: string
+          review_notes: string | null
+          reviewed_by: string | null
+          source: string
+          status: string
+          subject: string
+          summary: string | null
+          title: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          age_max: number
+          age_min: number
+          attribution: string
+          created_at?: string
+          id?: string
+          language?: string
+          license_name: string
+          license_url?: string | null
+          provider_item_id: string
+          review_notes?: string | null
+          reviewed_by?: string | null
+          source: string
+          status?: string
+          subject: string
+          summary?: string | null
+          title: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          age_max?: number
+          age_min?: number
+          attribution?: string
+          created_at?: string
+          id?: string
+          language?: string
+          license_name?: string
+          license_url?: string | null
+          provider_item_id?: string
+          review_notes?: string | null
+          reviewed_by?: string | null
+          source?: string
+          status?: string
+          subject?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       kids_org_resources: {
         Row: {
           category: string | null
