@@ -22,7 +22,7 @@ export function showBrowserNotification(title: string, body: string, onClick?: (
   try {
     const n = new Notification(title, {
       body,
-      icon: "/favicon.ico",
+      icon: "/favicon.png",
       tag: "visionex-msg",
     });
     if (onClick) n.onclick = () => { window.focus(); onClick(); };
