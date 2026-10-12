@@ -11,7 +11,7 @@ import { artic, clevelandMuseum, metMuseum } from "./providers/museums.ts";
 import { core, dpla, europeana, flickr, freesound, googleBooks, jamendo, pexels, pixabay, podcastIndex, smithsonian, unsplash, vimeo, youtube } from "./providers/keyed.ts";
 import { applePodcasts, dailymotion, radioBrowser } from "./providers/media.ts";
 import { arxiv, openAlex } from "./providers/scholarly.ts";
-import { doab, openLibrary, openStax } from "./providers/books.ts";
+import { openLibrary, openStax } from "./providers/books.ts";
 import { gutenberg, standardEbooks } from "./providers/opds.ts";
 import { crossref, doaj, europePmc } from "./providers/science.ts";
 import { openFeeds } from "./providers/feeds.ts";
@@ -36,7 +36,6 @@ export const CONTENT_PROVIDERS: readonly ContentProvider[] = [
   gutenberg,
   standardEbooks,
   openStax,
-  doab,
   wikibooks,
   wikisource,
   wikiversity,
@@ -74,6 +73,8 @@ export const CONTENT_PROVIDERS: readonly ContentProvider[] = [
  * what was found, with the date where it was measured.
  */
 export const UNSUPPORTED_PROVIDERS: readonly UnsupportedProvider[] = [
+  { id: "doab", name: "Directory of Open Access Books", homepage: "https://www.doabooks.org", categories: ["books", "education"], status: "unsupported",
+    reason: "Its search API (directory.doabooks.org/rest) answers HTTP 403 \"address is not allowed to access this API\" from the Edge Functions, from GitHub Actions and from an ordinary workstation alike, measured on 2026-10-12; OAPEN has the same gate. Only the OAI-PMH harvest endpoint answers, and it cannot search. The record parser is kept in providers/books.ts, so if access is granted this becomes an adapter again." },
   { id: "library_of_congress", name: "Library of Congress", homepage: "https://www.loc.gov", categories: ["images", "books", "audio", "video"], status: "unsupported",
     reason: "The loc.gov JSON API answered with a Cloudflare bot challenge (HTTP 403) on 2026-09-29. Getting past a bot challenge is not something the Library will do." },
   { id: "data_gov", name: "Data.gov", homepage: "https://data.gov", categories: ["data"], status: "unsupported",

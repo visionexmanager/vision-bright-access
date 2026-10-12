@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { Search, Library, ArrowLeft, BookOpen, Bookmark, Heart, History } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { ResourceCard } from "@/components/academy/library/ResourceCard";
 import { CollectionCard } from "@/components/academy/library/CollectionCard";
 import { AcademySectionHeader } from "@/components/academy/ui/AcademySectionHeader";
@@ -30,6 +31,7 @@ const TYPE_OPTIONS: Array<{ value: string; label: string }> = [
 
 export default function AcademyLibrary() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const query = searchParams.get("q") ?? "";
@@ -109,6 +111,17 @@ export default function AcademyLibrary() {
             </SelectContent>
           </Select>
         </div>
+
+        <p className="text-sm text-muted-foreground">
+          <Link
+            to={`/library/open-sources?type=education${query ? `&q=${encodeURIComponent(query)}` : ""}`}
+            className="font-semibold text-primary underline underline-offset-4"
+          >
+            {t("library.openSources.title")}
+          </Link>
+          {" · "}
+          {t("library.openSources.category.education")}
+        </p>
 
         {categories.length > 0 && (
           <div className="flex flex-wrap gap-2">
