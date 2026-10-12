@@ -171,6 +171,75 @@ describe("loading a clip", () => {
   });
 });
 
+describe("reading the body", () => {
+  const deps = (fetchImpl: unknown) => ({ assets: ASSETS as never, read: ON, fetchImpl: fetchImpl as never });
+
+  it("stops reading once a body passes the limit, without buffering it all", async () => {
+    let pulled = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) { pulled += 1; controller.enqueue(new Uint8Array(100 * 1024)); if (pulled > 200) controller.close(); },
+    });
+    const f = vi.fn(async () => new Response(stream, { status: 200 }));
+    expect(await audio.loadClip("processing", "en", deps(f))).toEqual({ ok: false, reason: "too_large" });
+    // 512 KB is five and a bit pieces of 100 KB; it must not have drained the 20 MB the stream could offer.
+    expect(pulled).toBeLessThan(12);
+  });
+
+  it("accepts a body that arrives in several pieces", async () => {
+    const half = Math.floor(CLIP.length / 2);
+    const stream = new ReadableStream<Uint8Array>({ start(c) { c.enqueue(CLIP.slice(0, half)); c.enqueue(CLIP.slice(half)); c.close(); } });
+    const f = vi.fn(async () => new Response(stream, { status: 200 }));
+    expect((await audio.loadClip("processing", "en", deps(f))).ok).toBe(true);
+  });
+});
+
+describe("what can be asked of the server", () => {
+  it("builds every clip name from registered ids and supported languages only, and each is a legal Data Hub path", () => {
+    const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+    for (const id of Object.keys(manifest.LOCAL_RESPONSES)) {
+      for (const language of langs.SUPPORTED_LANGUAGES) {
+        const name = audio.clipName(id, language);
+        expect(name, name).toMatch(SEGMENT);
+        expect(name.includes("..") || name.includes("/") || name.includes("\\")).toBe(false);
+      }
+    }
+  });
+
+  it("never lets the text of a reply choose the path: an unmatched or hostile reply asks for nothing", async () => {
+    const f = vi.fn();
+    const resolver = audio.localSpeechResolver(ON, { assets: ASSETS as never, fetchImpl: f as never })!;
+    for (const text of ["../../etc/passwd", "processing.en.ogg/../../x", "/var/lib/visionex/data", "%2e%2e%2f"]) expect(await resolver(text)).toBeNull();
+    expect(f).not.toHaveBeenCalled();
+  });
+});
+describe("the first release", () => {
+  it("is English and Arabic, five fixed phrases, all of them registered and all of them fixed text", () => {
+    expect([...manifest.RELEASE_1.languages]).toEqual(["en", "ar"]);
+    expect(manifest.RELEASE_1.ids).toHaveLength(5);
+    for (const id of manifest.RELEASE_1.ids) {
+      expect(Object.keys(manifest.LOCAL_RESPONSES), id).toContain(id);
+      for (const language of manifest.RELEASE_1.languages) {
+        const text = strings.say(manifest.LOCAL_RESPONSES[id].uiKey as never, language);
+        expect(text.length, `${id}/${language}`).toBeGreaterThan(0);
+        expect(text, `${id}/${language}`).not.toMatch(/[{}]/);
+      }
+    }
+  });
+
+  it("counts what is missing today as ten clips, with none claimed", () => {
+    const report = audio.inspectRegistry();
+    expect(report.release1.expected).toBe(10);
+    expect(report.release1.active).toBe(0);
+    expect(report.release1.missing).toHaveLength(10);
+    expect(report.release1.missing).toContain("processing.en.ogg");
+    expect(report.release1.missing).toContain("ask_question.ar.ogg");
+  });
+
+  it("does not register a subscription, plan, link or welcome message as a recording", () => {
+    const keys = Object.values(manifest.LOCAL_RESPONSES).map((r) => r.uiKey);
+    for (const key of ["subscriptionRequired", "subscriptionRequiredShort", "planLimitReached", "planAlmostSpent", "planStatus"]) expect(keys).not.toContain(key);
+  });
+});
 // ── 4. The switch and the policy ────────────────────────────────────────────
 
 describe("the resolver", () => {

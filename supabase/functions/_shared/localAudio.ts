@@ -38,7 +38,7 @@
 // Logs carry a response id, a language and a reason. Never the text, a number, a
 // URL or a byte.
 
-import { LOCAL_AUDIO_ASSETS, LOCAL_AUDIO_DATASET, LOCAL_AUDIO_VERSION, LOCAL_RESPONSES } from "./localAudioManifest.ts";
+import { LOCAL_AUDIO_ASSETS, LOCAL_AUDIO_DATASET, LOCAL_AUDIO_VERSION, LOCAL_RESPONSES, RELEASE_1 } from "./localAudioManifest.ts";
 import { processorConfig, type EnvReader } from "./whatsappProcessor.ts";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "./whatsappLanguages.ts";
 import { UI_STRINGS } from "./whatsappStrings.ts";
@@ -138,6 +138,32 @@ export type ClipResult =
   | { ok: true; bytes: Uint8Array; entry: ClipEntry }
   | { ok: false; reason: FallbackReason };
 
+/**
+ * The body, or null once it passes `max` bytes. Reads in pieces and stops, so a
+ * server that sends more than it said (or says nothing) cannot make this buffer
+ * the processor's whole 20 MB cap.
+ */
+async function readAtMost(response: Response, max: number): Promise<Uint8Array | null> {
+  if (!response.body) {
+    const all = new Uint8Array(await response.arrayBuffer());
+    return all.length > max ? null : all;
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > max) { await reader.cancel().catch(() => undefined); return null; }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const chunk of chunks) { out.set(chunk, at); at += chunk.length; }
+  return out;
+}
+
 interface CacheRow { bytes: Uint8Array; sha256: string; expires: number }
 const clipCache = new Map<string, CacheRow>();
 export const clearClipCache = (): void => clipCache.clear();
@@ -176,7 +202,9 @@ export async function loadClip(id: string, language: string, deps: LoadDeps = {}
     if (!response.ok) return { ok: false, reason: "fetch_failed" };
     const declared = Number(response.headers.get("content-length") ?? "0");
     if (declared > MAX_CLIP_BYTES) return { ok: false, reason: "too_large" };
-    bytes = new Uint8Array(await response.arrayBuffer());
+    const limited = await readAtMost(response, MAX_CLIP_BYTES);
+    if (!limited) return { ok: false, reason: "too_large" };
+    bytes = limited;
   } catch {
     return { ok: false, reason: "fetch_failed" };
   } finally {
@@ -239,6 +267,8 @@ export interface RegistryReport {
   disabled: number;
   missing: string[];
   problems: RegistryProblem[];
+  /** The first release's clips: which exist, which do not. */
+  release1: { expected: number; active: number; missing: string[] };
 }
 
 /**
@@ -277,5 +307,11 @@ export function inspectRegistry(assets: Readonly<Record<string, ClipEntry>> = LO
   for (const name of Object.keys(assets)) {
     if (!seen.has(name)) problems.push({ id: name, problem: "entry_without_registered_phrase" });
   }
-  return { version: LOCAL_AUDIO_VERSION, responses: Object.keys(LOCAL_RESPONSES).length, expectedClips: expected, active, disabled, missing, problems };
+  const release1Names = RELEASE_1.ids.flatMap((id) => RELEASE_1.languages.map((language) => clipName(id, language)));
+  const release1 = {
+    expected: release1Names.length,
+    active: release1Names.filter((n) => assets[n]?.status === "active").length,
+    missing: release1Names.filter((n) => !assets[n]),
+  };
+  return { version: LOCAL_AUDIO_VERSION, responses: Object.keys(LOCAL_RESPONSES).length, expectedClips: expected, active, disabled, missing, problems, release1 };
 }

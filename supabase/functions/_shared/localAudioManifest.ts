@@ -49,6 +49,18 @@ export const LOCAL_RESPONSES: Readonly<Record<string, LocalResponse>> = {
   language_set: { uiKey: "languageSet", purpose: "confirmation" },
 };
 
+/**
+ * What the first rollout needs, and nothing more: five fixed phrases in English
+ * and Arabic. The registry above covers every language; a language with no clip
+ * simply keeps the written copy. Greeting is not here: on WhatsApp a greeting is
+ * answered with the menu, which is not a fixed sentence, so there is nothing
+ * registered to record until the owner decides on one.
+ */
+export const RELEASE_1 = {
+  languages: ["en", "ar"],
+  ids: ["processing", "request_failed", "empty_question", "unavailable", "ask_question"],
+} as const;
+
 export interface ClipRecord {
   bytes: number;
   sha256: string;
