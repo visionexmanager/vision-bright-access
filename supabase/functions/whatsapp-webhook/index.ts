@@ -383,6 +383,7 @@ import {
 } from "../_shared/whatsappReliability.ts";
 import { createTelemetry, newCorrelationId, trace } from "../_shared/whatsappTelemetry.ts";
 import { localCategory } from "../_shared/whatsappClassifier.ts";
+import { answerLocally, localIntentMetric } from "../_shared/localIntents.ts";
 import { inspectImage } from "../_shared/whatsappFileSafety.ts";
 import {
   cached as geoCached,
@@ -5515,6 +5516,34 @@ Deno.serve(async (req) => {
           }
         }
         if (!bazaarFellThrough) continue;
+      }
+
+      // ── Answered locally, before any provider ───────────────────────────
+      //
+      // "thanks", "bye", "what can you do", "open the library": fixed public
+      // text, the same for every sender, that no model needs to write. Only for
+      // plain text (a voice note keeps its spoken reply path) and only for a
+      // sender the plan allows to ask at all, so a match changes what is
+      // answered and never who may be answered. Anything not recognised
+      // outright falls through to exactly what ran before.
+      if (!spokenInput && !incoming.media) {
+        const local = answerLocally(questionText, {
+          preferredLocale: answerLanguage,
+          format: "plain",
+          baseUrl: "https://visionex.app",
+        });
+        if (local && (await entitlement()).allowed) {
+          const metric = localIntentMetric("whatsapp", local, 0);
+          log("local_intent", {
+            reason: metric.intent,
+            language: metric.locale,
+            outcome: metric.method,
+            ms: Math.round(metric.ms),
+            status: Math.round(metric.confidence * 100),
+          });
+          await reply(local.reply, "reply");
+          continue;
+        }
       }
 
       // ── Triage ────────────────────────────────────────────────────────
