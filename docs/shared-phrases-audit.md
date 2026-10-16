@@ -30,10 +30,24 @@ Production behaviour is unchanged by this work.
 
 ## 3. Modules actually integrated and tested
 
-**None in production.** A test asserts the webhook and the web speech helper do not
-import `sharedPhrases`. The only runtime paths using the registry remain the two
-WhatsApp ones above, unchanged except that the greeting path now also needs `reviewed`.
-Reason, from inspection:
+Three WhatsApp runtime paths now consult the shared library, each with a test in
+`src/test/shared-phrases-wiring.test.ts`. Everything else is listed below as not
+integrated, with the reason.
+
+| Path | What the shared library decides | Proven by |
+| --- | --- | --- |
+| Clip loader `loadClip` (the one place a clip is read) | A clip must be `reviewed`, not just `active`; otherwise `not_reviewed`, no fetch | loader tests, source check |
+| Voice-reply resolver `localSpeechResolver` and the webhook `speak` fallback | Phrase **context**: an ordinary reply matches only `fixed_reply` phrases, so an AI answer of exactly "Hello." is synthesised as it was before #423 | resolver tests, webhook source checks |
+| Spoken-greeting path `ackFor` | Exact words, `voice_pleasantry` context and `approved` clip state come from `findPhrase` / `audioState` | state tests, source check |
+
+The webhook tells the resolver the context through one variable, set to
+`voice_pleasantry` only inside the greeting block. Entitlement, metering, history and
+the duplicate-reply guard are untouched. The new `VX_SHARED_*` flags are **not** read
+by these paths (the WhatsApp flags keep their meaning), so they gate nothing yet.
+Nothing changes in production today because every clip is disabled and the flags
+are unset.
+
+Not integrated, from inspection:
 
 | Area | What it does today | Fit for fixed phrases |
 | --- | --- | --- |

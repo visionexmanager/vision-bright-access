@@ -295,6 +295,7 @@ import {
 } from "../_shared/whatsappVoiceReply.ts";
 import { recordTtsInBackground } from "../_shared/ttsRecorder.ts";
 import { isRegisteredPhrase, localSpeechResolver } from "../_shared/localAudio.ts";
+import type { PhraseContext } from "../_shared/sharedPhrases.ts";
 import { ackFor } from "../_shared/localAck.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
@@ -1522,6 +1523,9 @@ Deno.serve(async (req) => {
       /** The words that went out last, so the same ones cannot go out twice. */
       let lastSentBody: string | null = null;
 
+      /** Where the next reply is being said: ordinary fixed replies, or a spoken pleasantry (see localAck.ts). */
+      let phraseContext: PhraseContext = "fixed_reply";
+
       const reply = async (body: string, kind: string) => {
         // ── Two things that must never be sent ──────────────────────────────
         //
@@ -1574,10 +1578,11 @@ Deno.serve(async (req) => {
               // Prerecorded phrases (off unless WHATSAPP_LOCAL_AUDIO=1 and the processing service is configured).
               const local = localSpeechResolver((name) => Deno.env.get(name), {
                 preferred: answerLanguage,
+                context: phraseContext,
                 report: (event) => log("local_audio", { reason: event.id, language: event.language, outcome: event.reason ?? event.outcome }),
               });
               const spoken = await speakReply({ phoneNumberId, token, to: incoming.from, text, trace: correlationId, cache: speechCache, local, voice: await resolveSenderVoice(incoming.from), ops: { synthesise: (text, spoken) => synthesiseSpeech({ text, spoken, record: (execution) => recordTtsInBackground(execution, db) }) } });
-              if (spoken || !local || !isRegisteredPhrase(text)) return spoken;
+              if (spoken || !local || !isRegisteredPhrase(text, phraseContext)) return spoken;
               // A registered phrase with no usable recording goes out as its written copy: never synthesised, never lost.
               return sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text });
             },
@@ -5568,6 +5573,7 @@ Deno.serve(async (req) => {
         const ack = ackFor(questionText, (name) => Deno.env.get(name));
         if (ack && (await entitlement()).allowed) {
           log("local_ack", { reason: ack.id, language: ack.language, outcome: "audio" });
+          phraseContext = "voice_pleasantry";
           await reply(ack.reply, "reply");
           continue;
         }

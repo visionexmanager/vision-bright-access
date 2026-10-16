@@ -138,9 +138,14 @@ describe("the registry", () => {
   });
 });
 
-describe("no production path uses it yet", () => {
-  it("is not imported by the webhook or the web speech helper", () => {
-    expect(readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8")).not.toContain("sharedPhrases");
+describe("where it is and is not used", () => {
+  it("is not used by the web speech helper (free browser speech, user content)", () => {
     expect(readFileSync("src/lib/audio/speech.ts", "utf8")).not.toContain("sharedPhrases");
+  });
+
+  it("reaches the webhook only as a type; the live decisions go through the loader, resolver and greeting path (see shared-phrases-wiring.test.ts)", () => {
+    const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
+    expect(webhook).toContain('import type { PhraseContext } from "../_shared/sharedPhrases.ts";');
+    expect(webhook.split(/\r?\n/).filter((l) => l.startsWith("import {") && l.includes("_shared/sharedPhrases.ts"))).toEqual([]);
   });
 });

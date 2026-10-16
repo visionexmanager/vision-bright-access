@@ -65,7 +65,7 @@ export const phraseAllowedIn = (id: string, context: PhraseContext): boolean => 
  * text would also be a different phrase's words.
  */
 export function findPhrase(text: string, locale: string, context: PhraseContext): { id: string; text: string } | null {
-  const hit = matchPhrase(text, locale);
+  const hit = matchPhrase(text, locale, context);
   if (!hit || hit.language !== locale) return null;
   if (!phraseAllowedIn(hit.id, context)) return null;
   const words = phraseText(hit.id, locale);

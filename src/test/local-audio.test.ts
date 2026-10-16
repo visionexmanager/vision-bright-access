@@ -51,7 +51,7 @@ function opusOgg(seconds: number): Uint8Array {
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 const CLIP = opusOgg(1.5);
 const entry = (bytes = CLIP, over: Record<string, unknown> = {}) =>
-  ({ bytes: bytes.length, sha256: sha(bytes), durationMs: 1500, status: "active", verifiedAt: "2026-10-12", ...over }) as never;
+  ({ bytes: bytes.length, sha256: sha(bytes), durationMs: 1500, status: "active", verifiedAt: "2026-10-12", reviewed: true, ...over }) as never;
 const ON = (name: string) => ({ MEDIA_PROCESSOR_URL: "https://visionex.example/internal/media", MEDIA_PROCESSOR_TOKEN: "t0ken", WHATSAPP_LOCAL_AUDIO: "1" } as Record<string, string>)[name];
 const NO_ASSET_ID = "processing";
 const ENGLISH = strings.say("processing", "en");
@@ -380,7 +380,7 @@ describe("the WhatsApp webhook", () => {
   it("wires the resolver into the reply path only, inside the delivery, with a written fallback", () => {
     expect(speakAt).toBeGreaterThan(0);
     expect(block).toContain("localSpeechResolver((name) => Deno.env.get(name)");
-    expect(block).toContain("isRegisteredPhrase(text)");
+    expect(block).toContain("isRegisteredPhrase(text, phraseContext)");
     expect(block).toContain("sendWhatsAppText(");
     expect(webhook.split("local: null").length + webhook.split("local,").length).toBeGreaterThan(1);
     // The menu path is untouched.
