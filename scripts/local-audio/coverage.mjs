@@ -38,8 +38,8 @@ export function coverage(assets = LOCAL_AUDIO_ASSETS, responses = LOCAL_RESPONSE
   const perLanguage = {};
   for (const language of languages) {
     const row = { approved: 0, withAudio: 0, textOnly: 0, disabled: 0, missing: [] };
-    for (const [id, { uiKey }] of Object.entries(responses)) {
-      if (!strings[uiKey]?.[language]) continue;
+    for (const [id, response] of Object.entries(responses)) {
+      if (!(response.text ?? strings[response.uiKey])?.[language]) continue;
       row.approved += 1;
       const clip = assets[`${id}.${language}.ogg`];
       if (clip?.status === "active") row.withAudio += 1;
@@ -56,7 +56,7 @@ export function coverage(assets = LOCAL_AUDIO_ASSETS, responses = LOCAL_RESPONSE
  * Ranking never reorders on a guess: unranked candidates keep key order and say so.
  */
 export function candidates(usage = null, responses = LOCAL_RESPONSES, strings = UI_STRINGS) {
-  const registered = new Set(Object.values(responses).map((r) => r.uiKey));
+  const registered = new Set(Object.values(responses).map((r) => r.uiKey).filter(Boolean));
   const rows = [];
   for (const [key, text] of Object.entries(strings)) {
     if (registered.has(key)) continue;
