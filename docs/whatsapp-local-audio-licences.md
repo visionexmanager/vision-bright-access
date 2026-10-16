@@ -59,3 +59,37 @@ With the flag on, a voice-reply whose text is exactly one of these phrases and w
 clip is unusable goes out as text, not synthesised (the existing rule for registered
 phrases). While the clips are `disabled`, an AI answer of exactly "Yes." or "No."
 to a voice sender would therefore be text. With the flag off, nothing changes.
+
+## The first use: mirroring a spoken greeting (flag `WHATSAPP_LOCAL_ACK`)
+
+`supabase/functions/_shared/localAck.ts`, wired once in `whatsapp-webhook/index.ts`
+after the plan check and the typed-message local answers, before triage.
+
+- **Off** unless `WHATSAPP_LOCAL_ACK` **and** `WHATSAPP_LOCAL_AUDIO` are both `1`.
+  Neither is set by this change.
+- **Voice notes only, no caption.** Typed messages keep today's path.
+- **Whole transcript must be one pleasantry**: hello / hi / hey, goodbye / bye /
+  bye bye (English); سلام / مرحبا (Arabic). "hello, what are your prices" and
+  "السلام عليكم" do not match. "Thanks" is not handled (no natural reply).
+- **Only when the clip is `active`**, i.e. a person approved it. All clips are
+  `disabled`, so today this never fires even with both flags on.
+- **Reuses the ordinary `reply()`**: history, plan check, metering and the
+  no-duplicate guard are the existing ones. If the clip then cannot be read, the
+  existing speaking path sends the written word instead.
+- No Arabic farewell: no CC0 recording exists.
+
+## Still needing a person to listen (all 10, nothing is approved)
+
+en: `ack_thanks`, `ack_sorry`, `ack_hello`, `ack_goodbye`, `ack_okay`, `ack_yes`,
+`ack_no`. ar: `ack_thanks` (شكرا), `ack_hello` (سلام: also judge it as a greeting),
+`ack_no` (لا). Only `ack_hello` (en, ar) and `ack_goodbye` (en) can be used by the
+flag above; the others are registered for later use.
+
+## Complete-sentence search (2026-10-16)
+
+Commons / Lingua Libre searched for the registered sentences and their parts
+("try again", "not available", "your question", "go ahead", حاول مرة أخرى, اكتب
+سؤالك, غير متاحة, …): **no recording of any registered sentence exists.** Only
+unrelated phrases turned up ("one moment, please", لحظة), neither a registered
+reply and the Arabic one not CC0. Common Voice's sentence corpus does not contain
+them either.
