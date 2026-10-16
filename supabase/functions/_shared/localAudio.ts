@@ -38,7 +38,7 @@
 // Logs carry a response id, a language and a reason. Never the text, a number, a
 // URL or a byte.
 
-import { LOCAL_AUDIO_ASSETS, LOCAL_AUDIO_DATASET, LOCAL_AUDIO_VERSION, LOCAL_RESPONSES, RELEASE_1 } from "./localAudioManifest.ts";
+import { LOCAL_AUDIO_ASSETS, LOCAL_AUDIO_DATASET, LOCAL_AUDIO_VERSION, LOCAL_RESPONSES, RELEASE_1, type PhraseContext } from "./localAudioManifest.ts";
 import { processorConfig, type EnvReader } from "./whatsappProcessor.ts";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "./whatsappLanguages.ts";
 import { UI_STRINGS } from "./whatsappStrings.ts";
@@ -72,6 +72,7 @@ export interface ClipEntry {
 export type FallbackReason =
   | "not_listed"
   | "disabled"
+  | "not_reviewed"
   | "service_off"
   | "fetch_failed"
   | "too_large"
@@ -118,8 +119,10 @@ function index(): Map<string, PhraseMatch[]> {
  * Which registered phrase, in which language, this exact text is — or null.
  * `preferred` only breaks a tie between languages that write the same words.
  */
-export function matchPhrase(text: string, preferred?: string | null): PhraseMatch | null {
-  const hits = index().get(compare(text));
+export function matchPhrase(text: string, preferred?: string | null, context?: PhraseContext): PhraseMatch | null {
+  const all = index().get(compare(text));
+  // A phrase meant for one situation (a spoken pleasantry) is not a match in another.
+  const hits = context ? all?.filter((h) => (LOCAL_RESPONSES[h.id]?.contexts ?? ["fixed_reply"]).includes(context)) : all;
   if (!hits || hits.length === 0) return null;
   const ids = new Set(hits.map((h) => h.id));
   if (ids.size > 1) return null;
@@ -127,7 +130,7 @@ export function matchPhrase(text: string, preferred?: string | null): PhraseMatc
 }
 
 /** True when the text is one of the registered phrases, whatever the state of its recording. */
-export const isRegisteredPhrase = (text: string): boolean => matchPhrase(text) !== null;
+export const isRegisteredPhrase = (text: string, context?: PhraseContext): boolean => matchPhrase(text, undefined, context) !== null;
 
 // ── The one place a clip is read ────────────────────────────────────────────
 
@@ -189,6 +192,8 @@ export async function loadClip(id: string, language: string, deps: LoadDeps = {}
   const entry = (deps.assets ?? LOCAL_AUDIO_ASSETS)[name];
   if (!entry) return { ok: false, reason: "not_listed" };
   if (entry.status !== "active") return { ok: false, reason: "disabled" };
+  // A recording nobody has listened to is never sent, whatever the manifest says.
+  if (entry.reviewed !== true) return { ok: false, reason: "not_reviewed" };
   if (entry.bytes > MAX_CLIP_BYTES) return { ok: false, reason: "too_large" };
 
   const now = (deps.now ?? Date.now)();
@@ -239,6 +244,8 @@ export function localAudioEnabled(read: EnvReader): boolean {
 export interface ResolverOptions extends LoadDeps {
   /** The sender's language, for a tie between languages that write a phrase identically. */
   preferred?: string | null;
+  /** Where the phrase is being used. Default "fixed_reply": a spoken pleasantry does not match here. */
+  context?: PhraseContext;
   /** Called once per decision: a response id, a language and an outcome. Never the text. */
   report?: (event: { id: string; language: string; outcome: "audio" | "text"; reason?: FallbackReason }) => void;
 }
@@ -251,7 +258,7 @@ export interface ResolverOptions extends LoadDeps {
 export function localSpeechResolver(read: EnvReader, options: ResolverOptions = {}): LocalSpeechResolver | null {
   if (!localAudioEnabled(read) || processorConfig(read) === null) return null;
   return async (segment: string): Promise<LocalSpeech> => {
-    const match = matchPhrase(segment, options.preferred);
+    const match = matchPhrase(segment, options.preferred, options.context ?? "fixed_reply");
     if (!match) return null;
     const clip = await loadClip(match.id, match.language, { ...options, read });
     if ("reason" in clip) {

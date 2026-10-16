@@ -20,8 +20,9 @@
 // "Thanks" is deliberately absent: replying "Thanks." to someone's thanks is not
 // natural, and no "you're welcome" recording exists.
 
-import { LOCAL_AUDIO_ASSETS, LOCAL_RESPONSES } from "./localAudioManifest.ts";
-import { clipName, localAudioEnabled } from "./localAudio.ts";
+import { LOCAL_RESPONSES } from "./localAudioManifest.ts";
+import { localAudioEnabled } from "./localAudio.ts";
+import { audioState, findPhrase } from "./sharedPhrases.ts";
 import type { EnvReader } from "./whatsappProcessor.ts";
 
 export const ACK_FLAG = "WHATSAPP_LOCAL_ACK";
@@ -62,11 +63,13 @@ export function matchAck(transcript: string | null | undefined): AckMatch | null
   return null;
 }
 
-/** Whether a person has approved the clip for this match. A disabled, unreviewed or absent clip is not usable. */
-export const ackClipActive = (match: AckMatch): boolean => {
-  const clip = LOCAL_AUDIO_ASSETS[clipName(match.id, match.language)];
-  return clip?.status === "active" && clip.reviewed === true;
-};
+/**
+ * Whether this match is a registered pleasantry whose recording a person has approved,
+ * decided by the shared phrase library: context, exact words, and clip state.
+ * A disabled, unreviewed or absent clip is not usable.
+ */
+export const ackClipActive = (match: AckMatch): boolean =>
+  findPhrase(match.reply, match.language, "voice_pleasantry")?.id === match.id && audioState(match.id, match.language) === "approved";
 
 /** The one decision the webhook asks: the match to answer with, or null to carry on as before. */
 export function ackFor(transcript: string | null | undefined, read: EnvReader): AckMatch | null {
