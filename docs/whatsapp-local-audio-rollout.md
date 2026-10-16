@@ -7,11 +7,11 @@ needed to turn it on safely, and what is true today. Measured 2026-10-12.
 
 | Item | State |
 | --- | --- |
-| Code (PR #421) | Open, CI green, **not merged**, auto-merge off |
+| Code (PR #421) | **Merged 2026-10-12** (7819b7aa); media processor redeployed same day (4 successful runs) |
 | Feature flag `WHATSAPP_LOCAL_AUDIO` | Not set. With it unset, behaviour is unchanged |
 | Audio clips | **None exist.** `LOCAL_AUDIO_ASSETS` is empty |
 | `voice-prompts` dataset on the server | **Not installed** |
-| Media processor | Needs a redeploy for `.ogg` to be served (see below) |
+| Media processor | Redeployed 2026-10-12 after merge; `.ogg` route not yet proven with a real clip |
 
 ## Existing assets (inspected, none usable)
 
