@@ -295,6 +295,7 @@ import {
 } from "../_shared/whatsappVoiceReply.ts";
 import { recordTtsInBackground } from "../_shared/ttsRecorder.ts";
 import { isRegisteredPhrase, localSpeechResolver } from "../_shared/localAudio.ts";
+import { ackFor } from "../_shared/localAck.ts";
 import { speechCacheStore } from "../_shared/whatsappSpeechCache.ts";
 import {
   bookAskNotice,
@@ -5552,6 +5553,22 @@ Deno.serve(async (req) => {
             status: Math.round(metric.confidence * 100),
           });
           await reply(local.reply, "reply");
+          continue;
+        }
+      }
+
+      // ── A spoken greeting or farewell, answered by its own recording ─────
+      //
+      // Off unless WHATSAPP_LOCAL_ACK and WHATSAPP_LOCAL_AUDIO are both "1", and
+      // only for a voice note whose whole transcript is one pleasantry whose clip a
+      // person has approved. Placed after every flow, gate and the entitlement
+      // check above, so it changes what an allowed sender hears and nothing else.
+      // Anything else falls through to exactly what ran before. See localAck.ts.
+      if (spokenInput && incoming.media && !incoming.media.caption) {
+        const ack = ackFor(questionText, (name) => Deno.env.get(name));
+        if (ack && (await entitlement()).allowed) {
+          log("local_ack", { reason: ack.id, language: ack.language, outcome: "audio" });
+          await reply(ack.reply, "reply");
           continue;
         }
       }
