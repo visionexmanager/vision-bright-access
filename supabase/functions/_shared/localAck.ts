@@ -62,9 +62,11 @@ export function matchAck(transcript: string | null | undefined): AckMatch | null
   return null;
 }
 
-/** Whether a person has approved the clip for this match. A disabled or absent clip is not usable. */
-export const ackClipActive = (match: AckMatch): boolean =>
-  LOCAL_AUDIO_ASSETS[clipName(match.id, match.language)]?.status === "active";
+/** Whether a person has approved the clip for this match. A disabled, unreviewed or absent clip is not usable. */
+export const ackClipActive = (match: AckMatch): boolean => {
+  const clip = LOCAL_AUDIO_ASSETS[clipName(match.id, match.language)];
+  return clip?.status === "active" && clip.reviewed === true;
+};
 
 /** The one decision the webhook asks: the match to answer with, or null to carry on as before. */
 export function ackFor(transcript: string | null | undefined, read: EnvReader): AckMatch | null {

@@ -10,10 +10,10 @@ const env = (vars: Record<string, string>) => (name: string) => vars[name];
 const BOTH = { [ACK_FLAG]: "1", WHATSAPP_LOCAL_AUDIO: "1" };
 
 // The shipped clips are disabled, so to exercise the active path a test marks one active and always restores it.
-const assets = LOCAL_AUDIO_ASSETS as Record<string, { status: string }>;
-const saved = new Map<string, string>();
-const activate = (...names: string[]) => names.forEach((n) => { saved.set(n, assets[n].status); assets[n].status = "active"; });
-afterEach(() => { for (const [n, s] of saved) assets[n].status = s; saved.clear(); });
+const assets = LOCAL_AUDIO_ASSETS as Record<string, { status: string; reviewed?: boolean }>;
+const saved = new Map<string, { status: string; reviewed?: boolean }>();
+const activate = (...names: string[]) => names.forEach((n) => { saved.set(n, { ...assets[n] }); assets[n].status = "active"; assets[n].reviewed = true; });
+afterEach(() => { for (const [n, s] of saved) { assets[n].status = s.status; if (s.reviewed === undefined) delete assets[n].reviewed; else assets[n].reviewed = s.reviewed; } saved.clear(); });
 
 describe("matching", () => {
   it("matches only a whole-message pleasantry, whatever the case or punctuation", () => {
