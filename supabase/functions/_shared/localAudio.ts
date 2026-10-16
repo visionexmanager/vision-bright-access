@@ -78,6 +78,12 @@ export type FallbackReason =
   | "not_ogg";
 
 /** Same sentence, however it was spaced or punctuated by whoever wrote the string. */
+/** The words of a registered response, by language: an interface string, or the phrase's own curated text. */
+function localizedText(response: { uiKey?: string; text?: Readonly<Record<string, string>> }): Record<string, string | undefined> | undefined {
+  if (response.text) return response.text;
+  return response.uiKey ? (UI_STRINGS[response.uiKey as keyof typeof UI_STRINGS] as Record<string, string | undefined> | undefined) : undefined;
+}
+
 const compare = (text: string): string => speakableText(text).replace(/\s+/g, " ").trim().toLowerCase();
 
 export const clipName = (id: string, language: string): string => `${id}.${language}.ogg`;
@@ -90,8 +96,8 @@ let phraseIndex: Map<string, PhraseMatch[]> | null = null;
 function index(): Map<string, PhraseMatch[]> {
   if (phraseIndex) return phraseIndex;
   const built = new Map<string, PhraseMatch[]>();
-  for (const [id, { uiKey }] of Object.entries(LOCAL_RESPONSES)) {
-    const localized = UI_STRINGS[uiKey as keyof typeof UI_STRINGS] as Record<string, string | undefined> | undefined;
+  for (const [id, response] of Object.entries(LOCAL_RESPONSES)) {
+    const localized = localizedText(response);
     for (const language of SUPPORTED_LANGUAGES) {
       const text = localized?.[language];
       if (!text) continue;
@@ -284,11 +290,12 @@ export function inspectRegistry(assets: Readonly<Record<string, ClipEntry>> = LO
   let disabled = 0;
   const seen = new Set<string>();
 
-  for (const [id, { uiKey }] of Object.entries(LOCAL_RESPONSES)) {
-    const localized = UI_STRINGS[uiKey as keyof typeof UI_STRINGS] as Record<string, string | undefined> | undefined;
+  for (const [id, response] of Object.entries(LOCAL_RESPONSES)) {
+    const localized = localizedText(response);
     if (!localized) { problems.push({ id, problem: "no_such_string" }); continue; }
     for (const language of SUPPORTED_LANGUAGES) {
       const text = localized[language];
+      if (!text && response.text) continue;
       if (!text) { problems.push({ id, language, problem: "no_text_in_language" }); continue; }
       expected += 1;
       if (/[{}]/.test(text)) problems.push({ id, language, problem: "has_variables" });

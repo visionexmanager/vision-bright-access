@@ -57,7 +57,7 @@ export function describeFolder(folder) {
   const rows = [];
   for (const file of readdirSync(folder).sort()) {
     const path = join(folder, file);
-    if (!statSync(path).isFile()) continue;
+    if (!statSync(path).isFile() || file === "provenance.json") continue;
     const m = NAME.exec(file);
     if (!m) { rows.push({ file, problem: "name_is_not_id.language.ogg" }); continue; }
     const bytes = readFileSync(path);

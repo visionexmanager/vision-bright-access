@@ -1,0 +1,15 @@
+{
+  "note": "Every entry is a Lingua Libre recording hosted on Wikimedia Commons. The licence is re-read from the Commons API at acquisition time and must be on the allow-list in acquire.mjs. `transcript` is the title word the recording was filed under; it has NOT been confirmed by listening (see `reviewed`).",
+  "clips": [
+    { "id": "ack_thanks",  "language": "en", "transcript": "Thanks.",  "commons": "File:LL-Q1860 (eng)-Wodencafe-thanks.wav" },
+    { "id": "ack_sorry",   "language": "en", "transcript": "Sorry.",   "commons": "File:LL-Q1860 (eng)-Wodencafe-sorry.wav" },
+    { "id": "ack_hello",   "language": "en", "transcript": "Hello.",   "commons": "File:LL-Q1860 (eng)-Wodencafe-hello.wav" },
+    { "id": "ack_goodbye", "language": "en", "transcript": "Goodbye.", "commons": "File:LL-Q1860 (eng)-Wodencafe-goodbye.wav" },
+    { "id": "ack_okay",    "language": "en", "transcript": "Okay.",    "commons": "File:LL-Q1860 (eng)-Wodencafe-okay.wav" },
+    { "id": "ack_yes",     "language": "en", "transcript": "Yes.",     "commons": "File:LL-Q1860 (eng)-Wodencafe-yes.wav" },
+    { "id": "ack_no",      "language": "en", "transcript": "No.",      "commons": "File:LL-Q1860 (eng)-Wodencafe-no.wav" },
+    { "id": "ack_thanks",  "language": "ar", "transcript": "شكرا.",    "commons": "File:LL-Q13955 (ara)-AlNatiq-شكرا.wav" },
+    { "id": "ack_no",      "language": "ar", "transcript": "لا.",      "commons": "File:LL-Q13955 (ara)-Besma05-لا.wav" },
+    { "id": "ack_hello",   "language": "ar", "transcript": "سلام.",    "commons": "File:LL-Q13955 (ara)-Shahjina-سلام.wav" }
+  ]
+}

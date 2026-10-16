@@ -68,7 +68,8 @@ describe("the registry", () => {
     const report = audio.inspectRegistry();
     expect(report.problems).toEqual([]);
     expect(report.responses).toBe(Object.keys(manifest.LOCAL_RESPONSES).length);
-    expect(report.expectedClips).toBe(report.responses * langs.SUPPORTED_LANGUAGES.length);
+    const expected = Object.values(manifest.LOCAL_RESPONSES).reduce((n, r) => n + (r.text ? Object.keys(r.text).length : langs.SUPPORTED_LANGUAGES.length), 0);
+    expect(report.expectedClips).toBe(expected);
   });
 
   it("is honest about what does not exist yet: no clip is claimed", () => {
@@ -78,7 +79,7 @@ describe("the registry", () => {
   });
 
   it("registers only fixed sentences: no variables, nothing unspeakable, one spoken segment each", () => {
-    for (const [id, { uiKey }] of Object.entries(manifest.LOCAL_RESPONSES)) {
+    for (const [id, { uiKey }] of Object.entries(manifest.LOCAL_RESPONSES).filter(([, r]) => r.uiKey)) {
       for (const language of langs.SUPPORTED_LANGUAGES) {
         const text = strings.say(uiKey as never, language);
         expect(text, `${id}/${language}`).not.toMatch(/[{}]/);
