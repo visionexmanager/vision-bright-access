@@ -38,7 +38,16 @@ export interface LocalResponse {
    */
   text?: Readonly<Record<string, string>>;
   purpose: "progress" | "guidance" | "error" | "confirmation";
+  /**
+   * Where this phrase may be used. Omitted = ["fixed_reply"]: a system reply the
+   * platform has already decided to send. A phrase meant for one narrow situation
+   * (a spoken pleasantry) names only that, so it can never be returned as an
+   * arbitrary reply because its text happens to match. See sharedPhrases.ts.
+   */
+  contexts?: readonly PhraseContext[];
 }
+
+export type PhraseContext = "fixed_reply" | "voice_pleasantry";
 
 export const LOCAL_RESPONSES: Readonly<Record<string, LocalResponse>> = {
   processing: { uiKey: "processing", purpose: "progress" },
@@ -56,13 +65,13 @@ export const LOCAL_RESPONSES: Readonly<Record<string, LocalResponse>> = {
   // One-word acknowledgements that exist as CC0 human recordings, written only in the
   // languages a recording exists for. Nothing sends them yet: a reply path has to choose
   // them (see docs/whatsapp-local-audio-licences.md).
-  ack_thanks: { text: { en: "Thanks.", ar: "شكرا." }, purpose: "confirmation" },
-  ack_sorry: { text: { en: "Sorry.", ar: "آسف." }, purpose: "confirmation" },
-  ack_hello: { text: { en: "Hello.", ar: "سلام." }, purpose: "confirmation" },
-  ack_goodbye: { text: { en: "Goodbye.", ar: "مع السلامة." }, purpose: "confirmation" },
-  ack_okay: { text: { en: "Okay.", ar: "حسنا." }, purpose: "confirmation" },
-  ack_yes: { text: { en: "Yes.", ar: "نعم." }, purpose: "confirmation" },
-  ack_no: { text: { en: "No.", ar: "لا." }, purpose: "confirmation" },
+  ack_thanks: { text: { en: "Thanks.", ar: "شكرا." }, purpose: "confirmation", contexts: ["voice_pleasantry"] },
+  ack_sorry: { text: { en: "Sorry.", ar: "آسف." }, purpose: "confirmation", contexts: ["voice_pleasantry"] },
+  ack_hello: { text: { en: "Hello.", ar: "سلام." }, purpose: "confirmation", contexts: ["voice_pleasantry"] },
+  ack_goodbye: { text: { en: "Goodbye.", ar: "مع السلامة." }, purpose: "confirmation", contexts: ["voice_pleasantry"] },
+  ack_okay: { text: { en: "Okay.", ar: "حسنا." }, purpose: "confirmation", contexts: ["voice_pleasantry"] },
+  ack_yes: { text: { en: "Yes.", ar: "نعم." }, purpose: "confirmation", contexts: ["voice_pleasantry"] },
+  ack_no: { text: { en: "No.", ar: "لا." }, purpose: "confirmation", contexts: ["voice_pleasantry"] },
 };
 
 /**
@@ -83,6 +92,12 @@ export interface ClipRecord {
   durationMs: number;
   status: "active" | "disabled";
   verifiedAt: string;
+  /**
+   * True only once a person has listened to this clip and approved what it says.
+   * Absent means NOT reviewed. A clip may not be `active` without it (the registry
+   * check reports it, and the shared-phrase and greeting paths refuse it).
+   */
+  reviewed?: boolean;
 }
 
 /** `<response id>.<language>.ogg` → what was measured when the clip was prepared. */

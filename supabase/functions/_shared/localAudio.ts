@@ -65,6 +65,8 @@ export interface ClipEntry {
   status: ClipStatus;
   /** ISO date the clip was last checked against its text and format. */
   verifiedAt: string;
+  /** True only once a person has listened to the clip and approved it. Absent = not reviewed. */
+  reviewed?: boolean;
 }
 
 export type FallbackReason =
@@ -305,6 +307,7 @@ export function inspectRegistry(assets: Readonly<Record<string, ClipEntry>> = LO
       const entry = assets[name];
       if (!entry) { missing.push(name); continue; }
       if (entry.status === "active") active += 1; else disabled += 1;
+      if (entry.status === "active" && entry.reviewed !== true) problems.push({ id, language, problem: "active_without_review" });
       if (!/^[0-9a-f]{64}$/.test(entry.sha256)) problems.push({ id, language, problem: "bad_checksum_format" });
       if (!Number.isInteger(entry.bytes) || entry.bytes <= 0 || entry.bytes > MAX_CLIP_BYTES) problems.push({ id, language, problem: "bad_size" });
       if (!Number.isFinite(entry.durationMs) || entry.durationMs <= 0 || entry.durationMs > 60_000) problems.push({ id, language, problem: "bad_duration" });
