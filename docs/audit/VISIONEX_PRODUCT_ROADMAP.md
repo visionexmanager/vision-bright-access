@@ -1,14 +1,10 @@
-# Roadmap from this pass — all zero recurring cost
+# Roadmap
 
-| # | Item | Impact | Effort |
-|---|---|---|---|
-| 1 | Leaked-password protection: needs Supabase **Pro plan** (API returns 402). After upgrading run the Supabase Auth hardening workflow with mode=apply. Optionally raise minimum password length from 6 | High for account safety | Owner decision (recurring cost) |
-| 2 | Re-probe `ph_get_provider_stats` as anon after the migration deploys (expect 401/403) and re-run axe | Verifies this PR | Minutes |
-| 3 | Scheduled **live RLS/RPC probe** (anon key) as a read-only workflow, using the pattern in `docs/audit/VISIONEX_SECURITY_REPORT.md` | High | Medium |
-| 4 | Revoke anon EXECUTE from org/research RPCs that already check the caller (defence in depth), one caller-verified batch at a time | Medium | Medium |
-| 5 | Fix home-page CLS (reserve section height) and LCP; run Lighthouse | Medium | Low–Medium |
-| 6 | CI: lint the whole repo (currently changed files only) | Medium | Low |
-| 7 | Real CSP with `script-src` (report-only first) | Medium | Medium |
-| 8 | Remaining a11y: `#898e97` text, Bazaar nested-interactive, i18n for new Bazaar labels, manual screen-reader pass, authenticated-route axe run | High for the audience | Medium |
-| 9 | Sanitise admin email preview | Low | Low |
-| 10 | Make file-walking tests timeout-safe; make workflow-text tests CRLF-proof (they fail only on Windows checkouts) | Low | Low |
+Superseded in detail by **`VISIONEX_PHASE2_ASSESSMENT_AND_PLAN.md`** (2026-10-17), which classifies each proposal against the code and production, and gives per-task value, effort, cost, risks and acceptance criteria. Summary of order:
+
+1. **Phase A — safeguards:** T-A1 database backup + restore drill (production has none; Supabase org is on the free plan) · T-A2 CRLF `.gitattributes` · T-A3 payment-webhook idempotency + tests · T-A4 browser axe in CI · T-A5 finish Bazaar a11y · T-A6 password policy (server-side protection needs Pro) · T-A7 rollback runbook.
+2. **Phase B — authorization proof:** T-B1 cross-user RLS tests · T-B2 Provider Hub admin test · T-B3 live admin smoke.
+3. **Phase C — cost and visibility:** T-C1 replace fabricated `AdminInfra` data · T-C2 alerting v2 · T-C3 Lighthouse + CLS/LCP · T-C4 admin AI cost panel · T-C5 keep VX metering off until approved.
+4. **Phase D — revenue (after A–C, scope needs approval):** funnel events, WhatsApp→web activation, Academy/Library, Bazaar seed-or-hide, games investigation, checkout rehearsal.
+
+Decisions waiting on the owner are listed in section 4 of the plan. Paid plans: none changed or approved.
