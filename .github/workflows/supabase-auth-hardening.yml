@@ -1,0 +1,79 @@
+name: Supabase Auth hardening
+
+# Manual only. Turns on leaked-password protection (HaveIBeenPwned check) for
+# the production project through the Management API, using the same
+# SUPABASE_ACCESS_TOKEN the deploy already holds. It changes exactly one field
+# and re-reads the config to prove it took. The log is public, so only
+# non-sensitive booleans and numbers are printed.
+#
+# plan  = read-only: report the current values.
+# apply = set password_hibp_enabled=true, then verify.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "plan reads only; apply enables leaked-password protection."
+        type: choice
+        default: plan
+        options:
+          - plan
+          - apply
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-auth-hardening
+  cancel-in-progress: false
+
+jobs:
+  auth-hardening:
+    name: Leaked-password protection
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read current Auth settings
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o cfg.json -w '%{http_code}' \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/config/auth")
+          echo "GET auth config: HTTP $code"
+          [ "$code" = "200" ] || { echo "Could not read Auth config."; exit 1; }
+          jq '{password_hibp_enabled, password_min_length}' cfg.json
+
+      - name: Enable leaked-password protection
+        if: ${{ inputs.mode == 'apply' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o patch.json -w '%{http_code}' -X PATCH \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"password_hibp_enabled": true}' \
+            "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/config/auth")
+          echo "PATCH auth config: HTTP $code"
+          if [ "$code" != "200" ]; then
+            # The error body names the problem (for example a plan that does not
+            # include the feature) and carries no secret.
+            jq -r '.message // .error // "no message"' patch.json | head -c 400
+            exit 1
+          fi
+
+      - name: Verify
+        if: ${{ inputs.mode == 'apply' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          curl -sS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/config/auth" > after.json
+          jq '{password_hibp_enabled}' after.json
+          test "$(jq -r '.password_hibp_enabled' after.json)" = "true"
