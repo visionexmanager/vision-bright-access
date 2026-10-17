@@ -16,6 +16,7 @@ export type Script =
   | "thai" | "hangul" | "kana" | "han" | "latin";
 
 const SCRIPTS: ReadonlyArray<[Script, RegExp]> = [
+  // eslint-disable-next-line no-irregular-whitespace -- the range deliberately spans Arabic presentation forms
   ["arabic", /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/],
   ["hebrew", /[֐-׿]/],
   ["cyrillic", /[Ѐ-ӿ]/],

@@ -119,6 +119,7 @@ export function safeFileName(name: string | undefined, mime: string, base = "vis
   const extension = own && rule?.extensions.includes(own) ? own : rule?.extensions[0] ?? "bin";
   let stem = leaf;
   // deno-lint-ignore no-control-regex
+  // eslint-disable-next-line no-control-regex -- stripping control characters from a filename is the point
   stem = stem.replace(/[\u0000-\u001f\u007f<>:"|?*]/g, "").replace(/\.[^.]*$/, "").replace(/^[.\s]+|[.\s]+$/g, "");
   if (!stem) stem = base;
   const chars = [...stem];
