@@ -141,6 +141,7 @@ export const translations: Record<string, string> = {
   "auth.updatePassword": "به‌روزرسانی رمز عبور",
   "auth.passwordsMismatch": "رمزهای عبور یکسان نیستند",
   "auth.passwordTooShort": "رمز عبور باید حداقل 6 کاراکتر باشد",
+  "auth.passwordBreached": "این گذرواژه در یک نشت اطلاعات شناخته‌شده دیده شده است. لطفاً گذرواژه دیگری انتخاب کنید.",
   "auth.passwordUpdated": "رمز عبور با موفقیت به‌روزرسانی شد!",
   "auth.verifyingLink": "در حال تأیید لینک بازیابی…",
   "auth.sending": "در حال ارسال…",

@@ -2,7 +2,7 @@
 
 | # | Item | Impact | Effort |
 |---|---|---|---|
-| 1 | Enable Supabase **leaked-password protection** (dashboard toggle) | High for account safety | Minutes — owner action |
+| 1 | Leaked-password protection: needs Supabase **Pro plan** (API returns 402). After upgrading run the Supabase Auth hardening workflow with mode=apply. Optionally raise minimum password length from 6 | High for account safety | Owner decision (recurring cost) |
 | 2 | Re-probe `ph_get_provider_stats` as anon after the migration deploys (expect 401/403) and re-run axe | Verifies this PR | Minutes |
 | 3 | Scheduled **live RLS/RPC probe** (anon key) as a read-only workflow, using the pattern in `docs/audit/VISIONEX_SECURITY_REPORT.md` | High | Medium |
 | 4 | Revoke anon EXECUTE from org/research RPCs that already check the caller (defence in depth), one caller-verified batch at a time | Medium | Medium |

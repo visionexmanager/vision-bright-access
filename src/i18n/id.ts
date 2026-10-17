@@ -141,6 +141,7 @@ export const translations: Record<string, string> = {
   "auth.updatePassword": "Perbarui Kata Sandi",
   "auth.passwordsMismatch": "Kata sandi tidak cocok",
   "auth.passwordTooShort": "Kata sandi harus minimal 6 karakter",
+  "auth.passwordBreached": "Kata sandi ini pernah muncul dalam kebocoran data yang diketahui. Silakan pilih yang lain.",
   "auth.passwordUpdated": "Kata sandi berhasil diperbarui!",
   "auth.verifyingLink": "Memverifikasi tautan reset…",
   "auth.sending": "Mengirim…",

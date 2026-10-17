@@ -141,6 +141,7 @@ export const translations: Record<string, string> = {
   "auth.updatePassword": "パスワードを更新",
   "auth.passwordsMismatch": "パスワードが一致しません",
   "auth.passwordTooShort": "パスワードは最低6文字以上である必要があります",
+  "auth.passwordBreached": "このパスワードは既知のデータ漏えいで確認されています。別のパスワードを選んでください。",
   "auth.passwordUpdated": "パスワードを正常に更新しました！",
   "auth.verifyingLink": "再設定リンクを確認中…",
   "auth.sending": "送信中…",

@@ -141,6 +141,7 @@ export const translations: Record<string, string> = {
   "auth.updatePassword": "Wachtwoord bijwerken",
   "auth.passwordsMismatch": "Wachtwoorden komen niet overeen",
   "auth.passwordTooShort": "Wachtwoord moet minimaal 6 tekens bevatten",
+  "auth.passwordBreached": "Dit wachtwoord is aangetroffen in een bekend datalek. Kies een ander wachtwoord.",
   "auth.passwordUpdated": "Wachtwoord succesvol bijgewerkt!",
   "auth.verifyingLink": "Resetlink controleren…",
   "auth.sending": "Bezig met verzenden…",

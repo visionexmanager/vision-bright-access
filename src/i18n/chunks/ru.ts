@@ -136,6 +136,7 @@ export const translationsPart: Record<string, string> = {
   "auth.updatePassword": "Обновить пароль",
   "auth.passwordsMismatch": "Пароли не совпадают",
   "auth.passwordTooShort": "Пароль должен содержать минимум 6 символов",
+  "auth.passwordBreached": "Этот пароль встречался в известной утечке данных. Выберите другой.",
   "auth.passwordUpdated": "Пароль успешно обновлён!",
   "auth.verifyingLink": "Проверка ссылки для сброса…",
   "auth.sending": "Отправка…",
