@@ -767,12 +767,12 @@ export default function VXBazaar() {
                   <Input value={shopSearch} onChange={event => setShopSearch(event.target.value)}
                     placeholder="Search shops" aria-label="Search shops" className="border-white/15 bg-black/30 ps-9 text-white" />
                 </div>
-                <select value={shopTierFilter} onChange={event => setShopTierFilter(event.target.value as "all" | Tier)}
+                <select aria-label="Filter shops by size" value={shopTierFilter} onChange={event => setShopTierFilter(event.target.value as "all" | Tier)}
                   className="rounded-md border border-white/15 bg-stone-950 px-3 text-sm text-white">
                   <option value="all">All shop sizes</option>
                   {(Object.keys(TIER_CONFIG) as Tier[]).map(tier => <option key={tier} value={tier}>{tierLabel(tier)}</option>)}
                 </select>
-                <select value={shopCountryFilter} onChange={event => setShopCountryFilter(event.target.value)}
+                <select aria-label="Filter shops by country" value={shopCountryFilter} onChange={event => setShopCountryFilter(event.target.value)}
                   className="rounded-md border border-white/15 bg-stone-950 px-3 text-sm text-white">
                   <option value="all">All countries</option>
                   {COUNTRIES.map(country => <option key={country.code} value={country.code}>{country.name}</option>)}
@@ -989,12 +989,12 @@ export default function VXBazaar() {
                       <Input value={productSearch} onChange={event => setProductSearch(event.target.value)}
                         placeholder="Search products" className="border-white/20 bg-black/50 ps-9 text-white" />
                     </div>
-                    <select value={productCategoryFilter} onChange={event => setProductCategoryFilter(event.target.value)}
+                    <select aria-label="Filter products by category" value={productCategoryFilter} onChange={event => setProductCategoryFilter(event.target.value)}
                       className="rounded-md border border-white/20 bg-stone-950 px-3 text-sm">
                       <option value="all">All categories</option>
                       {PRODUCT_CATEGORIES.map(category => <option key={category.key} value={category.key}>{category.label}</option>)}
                     </select>
-                    <select value={productTypeFilter} onChange={event => setProductTypeFilter(event.target.value as "all" | ProductType)}
+                    <select aria-label="Filter products by type" value={productTypeFilter} onChange={event => setProductTypeFilter(event.target.value as "all" | ProductType)}
                       className="rounded-md border border-white/20 bg-stone-950 px-3 text-sm">
                       <option value="all">All types</option>
                       {PRODUCT_TYPES.map(type => <option key={type.key} value={type.key}>{type.label}</option>)}
@@ -1262,11 +1262,11 @@ export default function VXBazaar() {
                     </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <select value={productForm.category} onChange={e => setProductForm(p => ({ ...p, category: e.target.value }))}
+                    <select aria-label="Product category" value={productForm.category} onChange={e => setProductForm(p => ({ ...p, category: e.target.value }))}
                       className="rounded-md border border-white/20 bg-stone-900 px-3 py-2 text-sm text-white">
                       {PRODUCT_CATEGORIES.map(category => <option key={category.key} value={category.key}>{category.label}</option>)}
                     </select>
-                    <select value={productForm.product_type} onChange={e => setProductForm(p => ({ ...p, product_type: e.target.value as ProductType }))}
+                    <select aria-label="Product type" value={productForm.product_type} onChange={e => setProductForm(p => ({ ...p, product_type: e.target.value as ProductType }))}
                       className="rounded-md border border-white/20 bg-stone-900 px-3 py-2 text-sm text-white">
                       {PRODUCT_TYPES.map(type => <option key={type.key} value={type.key}>{type.label}</option>)}
                     </select>
@@ -1275,7 +1275,7 @@ export default function VXBazaar() {
                       placeholder="Stock" className="bg-white/10 border-white/20 text-white" />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <select value={productForm.shelf_position} onChange={e => setProductForm(p => ({ ...p, shelf_position: e.target.value }))}
+                    <select aria-label="Shelf position" value={productForm.shelf_position} onChange={e => setProductForm(p => ({ ...p, shelf_position: e.target.value }))}
                       className="rounded-md border border-white/20 bg-stone-900 px-3 py-2 text-sm text-white">
                       {SHELF_POSITIONS.map(pos => <option key={pos} value={pos}>{shelfLabel(pos)}</option>)}
                     </select>
@@ -1473,7 +1473,7 @@ export default function VXBazaar() {
                 {/* Country */}
                 <div>
                   <label className="mb-1.5 block text-sm font-semibold text-stone-300">{t("bazaar.shopCountry")}</label>
-                  <select
+                  <select aria-label="Shop country"
                     value={createForm.country}
                     onChange={e => setCreateForm(p => ({ ...p, country: e.target.value }))}
                     className="w-full rounded-md border border-white/20 bg-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 [&>option]:bg-stone-900 [&>option]:text-white"
@@ -1664,7 +1664,7 @@ export default function VXBazaar() {
                     </div>
                     {user && !isOwner && (
                       <div className="space-y-2">
-                        <select value={reviewForm.rating} onChange={event => setReviewForm(form => ({ ...form, rating: Number(event.target.value) }))}
+                        <select aria-label="Review rating" value={reviewForm.rating} onChange={event => setReviewForm(form => ({ ...form, rating: Number(event.target.value) }))}
                           className="w-full rounded-md border border-white/20 bg-stone-900 px-3 py-2 text-sm">
                           {[5, 4, 3, 2, 1].map(rating => <option key={rating} value={rating}>{rating} stars</option>)}
                         </select>
@@ -1680,7 +1680,7 @@ export default function VXBazaar() {
                         <Flag className="me-2 inline h-4 w-4" /> Open buyer support case
                       </summary>
                       <div className="mt-3 space-y-2">
-                        <select value={disputeForm.reason}
+                        <select aria-label="Dispute reason" value={disputeForm.reason}
                           onChange={event => setDisputeForm(form => ({ ...form, reason: event.target.value }))}
                           className="w-full rounded-md border border-white/20 bg-stone-900 px-3 py-2 text-sm">
                           {DISPUTE_REASONS.map(reason => <option key={reason} value={reason}>{reason}</option>)}

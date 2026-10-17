@@ -1,14 +1,16 @@
 # Feature matrix — 2026-10-17
 
-This pass did **not** exercise features in a browser or against live backends, so nothing here is marked "verified end-to-end" by this audit. Status below = what this pass established.
+No feature was exercised end-to-end with an account in this pass. "Verified" below means only what is stated.
 
 | Area | Evidence this pass | Status |
 |---|---|---|
-| Type safety, build | typecheck 0 errors; build succeeds | Verified |
-| Unit/integration suite | 6805/6815 pass under load; remaining 10 explained (9 timeouts, 1 local CRLF) | Verified (local) |
-| Database RLS (static) | every created table enables RLS | Verified statically; live probe not run |
-| Edge Function JWT config | lists reconciled and test-guarded | Verified statically |
-| Org report export (CSV/XLSX/PDF) | CSV hardened and tested | Fixed |
-| Production site, `/robots.txt`, `/sitemap.xml` | HTTP 200 | Reachable only |
-| AI platform, VX/plans, Bazaar, Academy/VisionKids, Library, WhatsApp, community, admin, notifications | Covered by prior documented audits and the unit suite | Not re-verified here |
-| Server/Hetzner, backups, monitoring | Not accessed | Not tested |
+| Typecheck, lint, build, unit suite | see Full audit | Verified (local + PR CI) |
+| Database RLS | Live: all 629 public tables enable RLS; anonymous reads of sensitive tables denied or empty | Verified (anonymous only) |
+| SECURITY DEFINER functions | Live: 539, all pin `search_path`; 9 risky-looking ones read; 1 defect fixed | Verified |
+| Provider hub / AI metrics | Cost leak found and fixed | Fixed, pending deploy; live admin flow not exercised |
+| Org reports (CSV/XLSX/PDF) | CSV hardened | Fixed |
+| Home, services, library, login, signup, pricing, community, travel, contact, privacy, arcade | Load, one `h1`, axe run | Reachable; contrast fixed in PR |
+| Bazaar | Page loads; selects labelled | Partially verified; transactions not tested |
+| Academy | Redirects to login when signed out | Gated by design; not entered |
+| VX wallet/plans, AI routing/metering, WhatsApp, VisionKids, Library parsing/export, notifications, admin, community, payments | Prior audits and unit suite only | Not re-verified here |
+| Hetzner server, backups, monitoring | Not accessed | Not tested |

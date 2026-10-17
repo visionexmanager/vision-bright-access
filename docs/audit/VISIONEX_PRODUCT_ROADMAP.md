@@ -1,12 +1,14 @@
-# Product and engineering roadmap — from this pass
+# Roadmap from this pass — all zero recurring cost
 
-Ranked by impact / effort. All items are zero recurring cost.
-
-1. **CI: lint the whole repo (or at least fail on unlinted drift)** — CI lints changed files only, which hid 3 errors. Low effort.
-2. **Live RLS and authorization probe** as a scheduled read-only job (anon + authenticated keys). Medium effort, high value.
-3. **Real CSP with `script-src`** (report-only first). Medium effort.
-4. **Sanitise admin email preview** (DOMPurify). Low effort.
-5. **Browser + axe pass** on the main routes and an NVDA/VoiceOver manual check. Medium.
-6. **Split the two ~540 kB entry chunks** and measure with Lighthouse before/after. Medium.
-7. **Make the file-walking tests timeout-safe** (several use the 5 s default and time out when the full suite runs under load). Low.
-8. **CRLF-proof workflow tests** (`ai-route-report-workflow` fails on Windows checkouts). Low.
+| # | Item | Impact | Effort |
+|---|---|---|---|
+| 1 | Enable Supabase **leaked-password protection** (dashboard toggle) | High for account safety | Minutes — owner action |
+| 2 | Re-probe `ph_get_provider_stats` as anon after the migration deploys (expect 401/403) and re-run axe | Verifies this PR | Minutes |
+| 3 | Scheduled **live RLS/RPC probe** (anon key) as a read-only workflow, using the pattern in `docs/audit/VISIONEX_SECURITY_REPORT.md` | High | Medium |
+| 4 | Revoke anon EXECUTE from org/research RPCs that already check the caller (defence in depth), one caller-verified batch at a time | Medium | Medium |
+| 5 | Fix home-page CLS (reserve section height) and LCP; run Lighthouse | Medium | Low–Medium |
+| 6 | CI: lint the whole repo (currently changed files only) | Medium | Low |
+| 7 | Real CSP with `script-src` (report-only first) | Medium | Medium |
+| 8 | Remaining a11y: `#898e97` text, Bazaar nested-interactive, i18n for new Bazaar labels, manual screen-reader pass, authenticated-route axe run | High for the audience | Medium |
+| 9 | Sanitise admin email preview | Low | Low |
+| 10 | Make file-walking tests timeout-safe; make workflow-text tests CRLF-proof (they fail only on Windows checkouts) | Low | Low |

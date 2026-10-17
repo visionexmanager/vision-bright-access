@@ -88,7 +88,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
             {FOOTER_GROUPS.map((group) => (
               <nav key={group.id} aria-labelledby={`footer-${group.id}-heading`}>
-                <h2 id={`footer-${group.id}-heading`} className="mb-4 text-xs font-bold uppercase tracking-widest text-foreground/50">{t(group.headingKey)}</h2>
+                <h2 id={`footer-${group.id}-heading`} className="mb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">{t(group.headingKey)}</h2>
                 <ul className="space-y-2.5">
                   {group.links.map((l) => (
                     <li key={l.to}>
