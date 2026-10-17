@@ -141,6 +141,7 @@ export const translations: Record<string, string> = {
   "auth.updatePassword": "Cập nhật mật khẩu",
   "auth.passwordsMismatch": "Mật khẩu không khớp",
   "auth.passwordTooShort": "Mật khẩu phải có ít nhất 6 ký tự",
+  "auth.passwordBreached": "Mật khẩu này đã xuất hiện trong một vụ rò rỉ dữ liệu đã biết. Vui lòng chọn mật khẩu khác.",
   "auth.passwordUpdated": "Cập nhật mật khẩu thành công!",
   "auth.verifyingLink": "Đang xác minh liên kết đặt lại…",
   "auth.sending": "Đang gửi…",

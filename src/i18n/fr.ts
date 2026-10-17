@@ -141,6 +141,7 @@ export const translations: Record<string, string> = {
   "auth.updatePassword": "Mettre à jour le mot de passe",
   "auth.passwordsMismatch": "Les mots de passe ne correspondent pas",
   "auth.passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères",
+  "auth.passwordBreached": "Ce mot de passe figure dans une fuite de données connue. Veuillez en choisir un autre.",
   "auth.passwordUpdated": "Mot de passe mis à jour avec succès !",
   "auth.verifyingLink": "Vérification du lien de réinitialisation…",
   "auth.sending": "Envoi…",

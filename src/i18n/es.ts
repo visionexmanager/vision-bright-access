@@ -141,6 +141,7 @@ export const translations: Record<string, string> = {
   "auth.updatePassword": "Actualizar contraseña",
   "auth.passwordsMismatch": "Las contraseñas no coinciden",
   "auth.passwordTooShort": "La contraseña debe tener al menos 6 caracteres",
+  "auth.passwordBreached": "Esta contraseña apareció en una filtración de datos conocida. Elige otra distinta.",
   "auth.passwordUpdated": "¡Contraseña actualizada correctamente!",
   "auth.verifyingLink": "Verificando enlace de restablecimiento…",
   "auth.sending": "Enviando…",

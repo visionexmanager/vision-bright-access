@@ -19,3 +19,8 @@ Revert #427 (`git revert f8e77ceb` via PR). The migration is a grant change only
 
 ## Not done
 Authenticated journeys, manual screen-reader pass, Lighthouse, server audit. Owner action: enable leaked-password protection in the Supabase dashboard.
+
+## Addendum — follow-up PRs
+- #428 (squash `b1986997`): this report + `supabase-auth-hardening.yml` (manual; plan/apply).
+- Workflow `plan` run `39052428262`: success; HIBP off, min length 6. `apply` run `39052467400`: **failed with HTTP 402** (Pro plan required); no setting was changed.
+- Password-policy PR (browser-side breached-password check): see its PR description for the checks and deploy run.

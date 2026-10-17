@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { KeyRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { isPasswordBreached } from "@/lib/pwnedPassword";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -58,6 +59,11 @@ export default function ResetPassword() {
       return;
     }
     setLoading(true);
+    if (await isPasswordBreached(password)) {
+      setLoading(false);
+      toast.error(t("auth.passwordBreached"));
+      return;
+    }
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {

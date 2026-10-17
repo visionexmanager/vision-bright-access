@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { isPasswordBreached } from "@/lib/pwnedPassword";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SocialAuthButtons } from "@/components/SocialAuthButtons";
@@ -87,6 +88,7 @@ export default function Signup() {
     if (!email.trim())       errs.email    = t("auth.emailRequired") || "Email is required";
     if (password.length < 6) errs.password = t("auth.passwordTooShort") || "Min 6 characters";
     if (Object.keys(errs).length) { setFieldErrors(errs); return; }
+    if (await isPasswordBreached(password)) { setFieldErrors({ password: t("auth.passwordBreached") }); return; }
     setFieldErrors({});
     if (!agreed) {
       toast.error(t("signup.mustAgree"));
@@ -223,7 +225,8 @@ export default function Signup() {
               </div>
               <div>
                 <Label htmlFor="password" className="text-base">{t("auth.password")}</Label>
-                <Input id="password" type="password" required minLength={6} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-12 text-base" aria-required="true" aria-describedby="password-strength" />
+                <Input id="password" type="password" required minLength={6} autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); if (fieldErrors.password) setFieldErrors(p => ({...p, password: undefined})); }} className={`mt-1 h-12 text-base ${fieldErrors.password ? "border-destructive" : ""}`} aria-required="true" aria-invalid={fieldErrors.password ? true : undefined} aria-describedby={fieldErrors.password ? "su-password-err password-strength" : "password-strength"} />
+                {fieldErrors.password && <p id="su-password-err" className="mt-1 text-xs text-destructive" role="alert">{fieldErrors.password}</p>}
                 {password.length > 0 && (
                   <div id="password-strength" className="mt-2 space-y-1" aria-live="polite">
                     <div className="flex gap-1" role="presentation">

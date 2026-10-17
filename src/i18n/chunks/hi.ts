@@ -136,6 +136,7 @@ export const translationsPart: Record<string, string> = {
   "auth.updatePassword": "पासवर्ड अपडेट करें",
   "auth.passwordsMismatch": "पासवर्ड मेल नहीं खाते",
   "auth.passwordTooShort": "पासवर्ड कम से कम 6 अक्षरों का होना चाहिए",
+  "auth.passwordBreached": "यह पासवर्ड एक ज्ञात डेटा लीक में पाया गया है। कृपया कोई दूसरा चुनें।",
   "auth.passwordUpdated": "पासवर्ड सफलतापूर्वक अपडेट हो गया!",
   "auth.verifyingLink": "रीसेट लिंक की पुष्टि हो रही है…",
   "auth.sending": "भेजा जा रहा है…",

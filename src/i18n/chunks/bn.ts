@@ -136,6 +136,7 @@ export const translationsPart: Record<string, string> = {
   "auth.updatePassword": "পাসওয়ার্ড আপডেট করুন",
   "auth.passwordsMismatch": "পাসওয়ার্ড মিলছে না",
   "auth.passwordTooShort": "পাসওয়ার্ড কমপক্ষে ৬টি অক্ষরের হতে হবে",
+  "auth.passwordBreached": "এই পাসওয়ার্ডটি একটি পরিচিত ডেটা ফাঁসে পাওয়া গেছে। অনুগ্রহ করে অন্য একটি বেছে নিন।",
   "auth.passwordUpdated": "পাসওয়ার্ড সফলভাবে আপডেট হয়েছে!",
   "auth.verifyingLink": "রিসেট লিংক যাচাই করা হচ্ছে…",
   "auth.sending": "পাঠানো হচ্ছে…",

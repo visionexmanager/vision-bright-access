@@ -141,6 +141,7 @@ export const translations: Record<string, string> = {
   "auth.updatePassword": "Şifreyi Güncelle",
   "auth.passwordsMismatch": "Şifreler eşleşmiyor",
   "auth.passwordTooShort": "Şifre en az 6 karakter olmalıdır",
+  "auth.passwordBreached": "Bu parola bilinen bir veri sızıntısında yer aldı. Lütfen başka bir parola seçin.",
   "auth.passwordUpdated": "Şifre başarıyla güncellendi!",
   "auth.verifyingLink": "Sıfırlama bağlantısı doğrulanıyor…",
   "auth.sending": "Gönderiliyor…",

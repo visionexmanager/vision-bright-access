@@ -141,6 +141,7 @@ export const translations: Record<string, string> = {
   "auth.updatePassword": "更新密码",
   "auth.passwordsMismatch": "两次输入的密码不一致",
   "auth.passwordTooShort": "密码至少需要 6 个字符",
+  "auth.passwordBreached": "此密码已出现在已知的数据泄露中，请选择其他密码。",
   "auth.passwordUpdated": "密码更新成功！",
   "auth.verifyingLink": "正在验证重置链接…",
   "auth.sending": "正在发送…",

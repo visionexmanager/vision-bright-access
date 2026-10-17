@@ -141,6 +141,7 @@ export const translations: Record<string, string> = {
   "auth.updatePassword": "پاس ورڈ اپ ڈیٹ کریں",
   "auth.passwordsMismatch": "پاس ورڈز میل نہیں کھاتے",
   "auth.passwordTooShort": "پاس ورڈ کم از کم 6 حروف کا ہونا چاہیے",
+  "auth.passwordBreached": "یہ پاس ورڈ ایک معروف ڈیٹا لیک میں پایا گیا ہے۔ براہ کرم کوئی دوسرا منتخب کریں۔",
   "auth.passwordUpdated": "پاس ورڈ کامیابی سے اپ ڈیٹ ہو گیا!",
   "auth.verifyingLink": "ری سیٹ لنک کی تصدیق کی جا رہی ہے…",
   "auth.sending": "بھیجا جا رہا ہے…",
