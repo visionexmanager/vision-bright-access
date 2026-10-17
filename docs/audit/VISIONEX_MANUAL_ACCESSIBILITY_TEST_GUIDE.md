@@ -36,3 +36,15 @@ Use a clean profile, English first, then Arabic (RTL) and one other locale. Test
 
 ## Record
 Date · tester · AT + version + browser · page · pass/fail per numbered step · defect link. Any fail on steps 1, 6 or 7 blocks the release.
+
+## Run automation first (cheap, catches regressions before a human spends time)
+1. axe-core in the browser console on each page: load `https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.2/axe.min.js`, run `axe.run(document, {runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag22aa']}})`. This is how the 2026-10-17 audit found the contrast and `select-name` failures.
+2. Lighthouse accessibility category (2026-10-17 baseline, mobile preset: home 97, services 97, library 96, pricing 97, signup 95, bazaar 95). A Lighthouse score is not WCAG conformance; it covers a subset of rules.
+3. Unit guards that already exist: `src/test/primary-colour-contrast.test.ts`, `bazaar-select-labels.test.ts`, `plans-accessibility.test.ts`, `ai-result-accessibility.test.tsx`.
+
+## Locale and direction pass (once per release that changes copy)
+- Switch to Arabic and Urdu (RTL) and one LTR non-Latin locale (Hindi or Chinese). Confirm: `dir="rtl"` on `<html>`, mirrored layout, no clipped text at 200% zoom, forms and error messages announced in that language, numerals and punctuation readable.
+- `LanguageContext` rewrites rendered text by matching English strings (see `AGENTS.md`): verify in a real browser, not only in dictionary files.
+
+## What this guide does not cover
+Mobile gestures beyond swipe navigation, captioning/transcripts of media, cognitive-load review, and games' own audio descriptions — each needs its own protocol (`accessible-game-qa` skill for games).

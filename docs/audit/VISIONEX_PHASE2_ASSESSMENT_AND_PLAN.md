@@ -23,7 +23,7 @@ These mean: protect the data first, make the operator screens honest, then fix t
 | 1.1 | Bazaar contrast + nested-interactive | Partially fixed | PR #427 labelled the selects and fixed primary contrast; production axe on `/bazaar` after deploy still reported 1 contrast node (`#898e97` on white, 3.29:1) and 1 `nested-interactive` — a clickable `div` card (`src/pages/VXBazaar.tsx:852`, `cursor-pointer … h-[400px]`) containing interactive children. The grey source was not located (`grep 898e97 src` empty; likely a `text-stone-500`/opacity utility, e.g. VXBazaar.tsx:766, 794, 796) | T-A5 |
 | 1.2 | Authenticated and cross-user authorization tests | **Missing** | No test runs SQL as a role: `grep "set role\|request.jwt.claim" src/test scripts` → none. PGlite is already used for behaviour tests (`src/test/kids-membership-policy-recursion.test.ts`, `ivx-award-allowance.test.ts`, `ai-subscription-gate.test.ts`), so the harness exists; `src/test/billing-rls-hardening.test.ts` and `rpc-privilege-isolation.test.ts` check migration text, not behaviour. Live: only anonymous probes were done | T-B1 |
 | 1.3 | Provider Hub with an authorized admin | Unverified | `supabase/functions/provider-hub/index.ts` admin gate (`has_role` via `roleDb`) and the two `ph_get_provider_stats` calls now use the service client; no test calls `get_metrics`. `scripts/e2e/function-harness.ts` + `.github/workflows/e2e-function-harness.yml` run functions against a stub Supabase, so a no-credential test is possible | T-B2 |
-| 1.4 | Manual screen-reader / keyboard testing | **Missing** (automation only) | `playwright.config.ts` has `testDir: "./tests"` but **`tests/` does not exist** and no workflow runs Playwright; the only axe-style checks in CI are the static tests added in #427. Guidance: `docs/audit/VISIONEX_MANUAL_A11Y_TEST_GUIDE.md` (added in this PR) | T-A4 |
+| 1.4 | Manual screen-reader / keyboard testing | **Missing** (automation only) | `playwright.config.ts` has `testDir: "./tests"` but **`tests/` does not exist** and no workflow runs Playwright; the only axe-style checks in CI are the static tests added in #427. Guidance: `docs/audit/VISIONEX_MANUAL_ACCESSIBILITY_TEST_GUIDE.md` (added in this PR) | T-A4 |
 | 1.5 | Lighthouse | **Missing** | No Lighthouse config or workflow (`ls .github/workflows` has none). Home page measured by Performance API: LCP 3.3 s, CLS 0.254 (see PERFORMANCE report) | T-C3 |
 | 1.6 | Server access, backups, recovery | **Backups missing**; server probe exists, unrun | Backup gap in section 0. Server: `.github/workflows/server-probe.yml` (read-only SSH check) and `spa-deploy-doctor.yml` exist; the Data Hub store is on the Hetzner disk (`scripts/datahub/datahub.sh`). No restore drill exists anywhere | T-A1 |
 | 1.7 | Payment + webhook end-to-end | Signatures verified; replay/idempotency **unverified**; no behavioural tests | All five payment webhooks verify signatures: `bazaar-stripe-webhook`, `library-stripe-webhook` (HMAC over `t.body`, 300 s tolerance, line 36), `library-paypal-webhook` (`verifyPayPalWebhookSignature`), `library-crypto-webhook` (`verifyCoinbaseSignature`), `career-billing-webhook`. Only a static test asserts they log signature failures (`src/test/security-hardening.test.ts:113-115`). **Confirmed gap:** `library-stripe-webhook/index.ts:66-70` inserts into `library_donations` with no event/session key, so a redelivered `checkout.session.completed` double-counts a donation; lines 84/88 (`library_borrowed_books`, `library_licenses`) have no visible idempotency either (a unique constraint may exist; not found in the migrations I grepped). `subscription_orders`: 0 rows, so nothing has ever been paid through the site | T-A3 |
@@ -58,7 +58,7 @@ These mean: protect the data first, make the operator screens honest, then fix t
 
 ### 2.4 Automated accessibility + practical NVDA/VoiceOver/keyboard — **Missing** (partial static checks)
 - Exists: static regression tests `src/test/primary-colour-contrast.test.ts`, `bazaar-select-labels.test.ts`; `docs/accessibility-validation.md`; `visionex-accessibility-reviewer` agent; Playwright installed (`package.json`) with config but no tests.
-- Gap: no browser-driven axe in CI, no manual protocol. Added: `VISIONEX_MANUAL_A11Y_TEST_GUIDE.md`.
+- Gap: no browser-driven axe in CI, no manual protocol. Added: `VISIONEX_MANUAL_ACCESSIBILITY_TEST_GUIDE.md`.
 
 ### 2.5 Safe deployment, post-deploy verification, rollback — **Implemented for deploy/verify; rollback missing for the real stack**
 - Exists and verified in this session: `deploy.yml` records the previous build, waits for the new bundle (`Last-Modified`/entry hash — "still the previous build" loop, lines ~125–233), then smoke-checks 200; migrations job lists applied files; `deploy-changed-supabase-functions.sh` deploys only changed functions with retries; `reconcile-release.yml`; `spa-deploy-doctor.yml`; `vx-deploy-verify.yml`; `edge-function-jwt-lists.test.ts`.
@@ -131,3 +131,14 @@ Semantic caching for `ai-chat`; new AI providers; enabling VX billing; GKE/Grafa
 
 ## 5. Not verified in this assessment
 Row-level security as an authenticated user, Supabase usage/limit figures (plan limits were not queried), backup availability beyond the plan lookup, Hetzner server state, live payment flows, Lighthouse scores, and screen-reader behaviour. The statements in section 0 marked [live-ro] are single-moment aggregate counts.
+
+## Addendum 2026-10-17 (later the same day) — new evidence, new tasks
+Evidence gathered after this plan was first written (details and sources in `VISIONEX_REMAINING_RISKS.md`):
+- **T-A8** (new): `AdBanner` loads Google AdSense with no consent check; a fresh Lighthouse profile fetched the ad request and a third-party cookie.
+- **T-A9** (new): the home page's 51 first-party requests are served over HTTP/1.1.
+- **T-A10** (new): `cron.job_run_details` is 58 MB of a 134 MB database and unpruned.
+- **T-A11** (new): sign-up message reveals existing emails; no CAPTCHA; production auth settings unread.
+- **T-C6** (new): `check_ai_budget` fails open silently.
+- **T-C3 baseline now exists:** Lighthouse mobile performance 29–49, LCP 9–27 s, CLS up to 0.645.
+- Remaining a11y sources located: `src/components/Layout.tsx:119` (`text-muted-foreground/70`) and the `text-amber-600`/`cyan-600`/`sky-600`/`emerald-600` category colours on `/services`.
+- Ordering and gates are now maintained in `VISIONEX_PRODUCT_ROADMAP.md`; this document remains the per-task detail.
