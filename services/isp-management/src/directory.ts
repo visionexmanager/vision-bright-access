@@ -32,6 +32,7 @@ export class Directory {
   /** Wildcards and very short terms would turn search into a dump of the customer base. */
   static cleanQuery(q: string): string {
     const t = q.normalize("NFKC").trim();
+    // eslint-disable-next-line no-control-regex -- rejecting control characters is the point
     if (t.length < 3 || t.length > 64 || /[%_*\\]/.test(t) || /[\u0000-\u001f]/.test(t)) throw badRequest("Enter at least 3 characters (no wildcards).");
     return t;
   }

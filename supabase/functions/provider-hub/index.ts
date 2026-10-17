@@ -511,7 +511,7 @@ serve(async (req) => {
     const { provider_id, hours = 24 } = body as { provider_id?: string; hours?: number };
 
     if (provider_id) {
-      const { data } = await (db as any).rpc("ph_get_provider_stats", {
+      const { data } = await (roleDb as any).rpc("ph_get_provider_stats", {
         p_provider_id: provider_id,
         p_hours:       hours,
       });
@@ -525,7 +525,7 @@ serve(async (req) => {
     const allStats: Record<string, unknown> = {};
     await Promise.all(
       (providers ?? []).map(async (p: { id: string; slug: string }) => {
-        const { data } = await (db as any).rpc("ph_get_provider_stats", {
+        const { data } = await (roleDb as any).rpc("ph_get_provider_stats", {
           p_provider_id: p.id,
           p_hours:       hours,
         });

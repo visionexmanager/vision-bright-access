@@ -36,9 +36,16 @@ function triggerDownload(content: string | Blob, filename: string, mimeType?: st
   URL.revokeObjectURL(url);
 }
 
-function escapeCsvCell(value: string | number): string {
-  const str = String(value);
-  return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+/**
+ * A text cell that starts with = + - @ (or a tab / carriage return) is run as a
+ * formula when the file is opened in Excel or Sheets (CSV injection). Member- and
+ * organisation-supplied text reaches these reports, so such cells get a leading
+ * apostrophe. Real numbers, and strings that are plain numbers, are left alone.
+ */
+export function escapeCsvCell(value: string | number): string {
+  let str = String(value);
+  if (typeof value === "string" && /^[=+\-@\t\r]/.test(str) && !/^[+-]?\d+(\.\d+)?$/.test(str)) str = `'${str}`;
+  return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
 function toCsv(payload: OrganizationReportPayload): string {
