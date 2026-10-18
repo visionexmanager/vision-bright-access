@@ -95,3 +95,34 @@ GitHub's summary counts 5; the check list shows these five plus no others skippe
 - Authenticated screens, shop owner management view, checkout, create-shop form, other locales and RTL were not scanned. Toast visual appearance after the `div` change was not compared against the old one (the animation classes are unchanged).
 - Project checks on this tree: lint 0 errors (7 existing warnings), typecheck clean, build OK, tests 6831 pass / 1 fail (`ai-route-report-workflow`, CRLF on this Windows checkout, unrelated, same as round 1).
 - axe does not replace manual NVDA / JAWS / VoiceOver / TalkBack and keyboard testing.
+
+# Round 3 — 2026-10-18 (verification of rounds 1-2, remaining states)
+
+## Corrections to round 2
+- "The cookie banner was present on the later scans" is only confirmed for the signup scan and for the product-dialog scan (where the `role=dialog` found first was the cookie banner). Other scans may or may not have included it.
+- Round 2 said a signup submit "showed no error". That was my test input: `abc` is blocked by the field's native `minLength=6`. See below for the real run.
+- `ai-route-report-workflow`: CI evidence for commit `6a2f2317` (CI run 39148051646, job "Unit tests (Vitest)"): that test file ran, 3 tests passed, "Test Files 329 passed (329)". `git ls-files --eol` reports the file as `i/lf w/crlf` locally and `.gitattributes` has no `eol=lf` rule for `.yml`. So it passes on Linux CI and fails only on this Windows checkout, where the working copy is CRLF.
+
+## Method (same as round 2)
+Local dev server plus the local Supabase mock (synthetic data only). For authenticated screens a **synthetic session** (unsigned token, user `axe.local@example.test`) was placed in the browser's localStorage and the mock answers `/auth/v1/user`; the app treated it as signed in (header showed Dashboard/Profile, dashboard greeted "Axe Local"). No real account or credential was involved.
+
+## New scans and results (WCAG 2.0/2.1 A+AA)
+| Route / state | Result before fix | After fix |
+|---|---|---|
+| `/bazaar` product detail dialog (synthetic product with image; dialog opened, focus moved into a dialog) | 0 | 0 |
+| `/bazaar` Arabic (`dir=rtl`): street, inside shop, after Add to cart, chat | 0 in every state | 0 |
+| `/signup` breached-password error state (`password123`, via the public HIBP range API; error text shown, `aria-invalid`, `aria-describedby` wired) | 0 | 0 |
+| `/bazaar` signed in, no plan (mock): plan gate page | 0 | 0 |
+| `/dashboard` signed in | 0 | 0 |
+| `/profile` signed in | `aria-progressbar-name` (serious) x1: XP progress bar | 0 |
+| `/settings` signed in | `button-name` (critical): two switches and two select triggers had no accessible name | 0 |
+
+## Fixes in this round
+- `Profile.tsx`: XP `Progress` gets `aria-label` ("Lv.N x / 5,000 XP", built from the existing `profile.levelPrefix` key).
+- `Settings.tsx`: notification and sound switches now have `id`, a `Label htmlFor` and `aria-describedby` to their descriptions; language and currency select triggers have `id` matching their existing labels.
+
+## Still not verified
+- Shop owner screens (manage shop, create shop, checkout, orders): the signed-in `/bazaar` is plan-gated in the mock, and no plan data was synthesised.
+- Other signed-in screens beyond `/dashboard`, `/profile`, `/settings`; other 18 locales (Arabic only); dark and high-contrast themes; mobile widths; Lighthouse.
+- Noted, not fixed: the wishlist button's `aria-label` is the hard-coded English "Save to wishlist" and stays English in Arabic (a localisation gap on `VXBazaar.tsx`; axe cannot see it).
+- Manual testing with NVDA, JAWS, VoiceOver, TalkBack and keyboard-only has not been done; axe finds only part of the problems.
