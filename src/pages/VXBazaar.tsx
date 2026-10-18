@@ -851,10 +851,6 @@ export default function VXBazaar() {
                         <div
                           className="relative min-w-[300px] h-[400px] snap-center flex-shrink-0 cursor-pointer md:min-w-[360px] transition-transform hover:-translate-y-1.5 hover:scale-[1.01]"
                           onClick={() => enterShop(shop)}
-                          role="button"
-                          aria-label={t("bazaar.enterShop").replace("{shop}", shop.name)}
-                          tabIndex={0}
-                          onKeyDown={e => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), enterShop(shop))}
                         >
                           {/* Shop building */}
                           <div
@@ -882,12 +878,12 @@ export default function VXBazaar() {
                               <div className={`w-full text-center bg-black/80 px-3 py-2 border rounded ${sign}`}>
                                 <span className="font-black uppercase tracking-tight">{shop.name}</span>
                                 {shop.description && (
-                                  <p className="mt-0.5 text-[10px] opacity-70 line-clamp-1">{shop.description}</p>
+                                  <p className="mt-0.5 text-[10px] opacity-90 line-clamp-1">{shop.description}</p>
                                 )}
                                 {shop.country && (() => {
                                   const c = getCountry(shop.country);
                                   return c ? (
-                                    <p className="mt-1 text-[10px] opacity-60">{countryLabel(shop.country)}</p>
+                                    <p className="mt-1 text-[10px] opacity-90">{countryLabel(shop.country)}</p>
                                   ) : null;
                                 })()}
                               </div>
@@ -901,6 +897,7 @@ export default function VXBazaar() {
                                 <button
                                   className="rounded-full px-7 py-2 text-sm font-bold text-black transition-all"
                                   style={{ backgroundColor: shop.theme_color }}
+                                  aria-label={t("bazaar.enterShop").replace("{shop}", shop.name)}
                                   onClick={e => { e.stopPropagation(); enterShop(shop); }}
                                 >
                                   {t("bazaar.stepInside")}
