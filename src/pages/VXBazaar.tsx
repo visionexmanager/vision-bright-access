@@ -566,7 +566,7 @@ export default function VXBazaar() {
     void supabase.functions.invoke("bazaar-notify-seller", {
       body: { shopId: product.shop_id, productId: product.id, eventType: "wishlist" },
     });
-    toast({ title: "Saved to wishlist" });
+    toast({ title: t("wishlist.added").replace("{name}", product.name) });
   };
 
   const submitReview = async () => {
@@ -851,10 +851,6 @@ export default function VXBazaar() {
                         <div
                           className="relative min-w-[300px] h-[400px] snap-center flex-shrink-0 cursor-pointer md:min-w-[360px] transition-transform hover:-translate-y-1.5 hover:scale-[1.01]"
                           onClick={() => enterShop(shop)}
-                          role="button"
-                          aria-label={t("bazaar.enterShop").replace("{shop}", shop.name)}
-                          tabIndex={0}
-                          onKeyDown={e => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), enterShop(shop))}
                         >
                           {/* Shop building */}
                           <div
@@ -882,12 +878,12 @@ export default function VXBazaar() {
                               <div className={`w-full text-center bg-black/80 px-3 py-2 border rounded ${sign}`}>
                                 <span className="font-black uppercase tracking-tight">{shop.name}</span>
                                 {shop.description && (
-                                  <p className="mt-0.5 text-[10px] opacity-70 line-clamp-1">{shop.description}</p>
+                                  <p className="mt-0.5 text-[10px] opacity-90 line-clamp-1">{shop.description}</p>
                                 )}
                                 {shop.country && (() => {
                                   const c = getCountry(shop.country);
                                   return c ? (
-                                    <p className="mt-1 text-[10px] opacity-60">{countryLabel(shop.country)}</p>
+                                    <p className="mt-1 text-[10px] opacity-90">{countryLabel(shop.country)}</p>
                                   ) : null;
                                 })()}
                               </div>
@@ -901,6 +897,7 @@ export default function VXBazaar() {
                                 <button
                                   className="rounded-full px-7 py-2 text-sm font-bold text-black transition-all"
                                   style={{ backgroundColor: shop.theme_color }}
+                                  aria-label={t("bazaar.enterShop").replace("{shop}", shop.name)}
                                   onClick={e => { e.stopPropagation(); enterShop(shop); }}
                                 >
                                   {t("bazaar.stepInside")}
@@ -1014,7 +1011,7 @@ export default function VXBazaar() {
                           : 0;
                         return (
                         <div key={item.id} className="relative rounded-lg bg-white/10 border border-white/20 backdrop-blur-md p-4 text-center transition-transform hover:-translate-y-1">
-                          <button onClick={() => toggleWishlist(item)} aria-label="Save to wishlist"
+                          <button onClick={() => toggleWishlist(item)} aria-label={`${t("wishlist.title")}: ${item.name}`}
                             className="absolute end-2 top-2 z-10 rounded-full bg-black/60 p-2 text-white hover:text-rose-400">
                             <Heart className="h-4 w-4" />
                           </button>
@@ -1378,6 +1375,7 @@ export default function VXBazaar() {
               <div
                 className="flex-1 overflow-y-auto space-y-3 p-5"
                 role="log"
+                tabIndex={0}
                 aria-label={t("bazaar.chatWithShop").replace("{shop}", activeShop.name)}
                 aria-live="polite"
                 aria-relevant="additions"
@@ -1410,7 +1408,7 @@ export default function VXBazaar() {
                   placeholder={t("bazaar.askProductPlaceholder")}
                   className="rounded-xl"
                 />
-                <Button onClick={sendMessage} disabled={chatLoading} className="rounded-xl bg-amber-500 text-black hover:bg-amber-400 px-4">
+                <Button onClick={sendMessage} disabled={chatLoading} aria-label={t("msg.send")} className="rounded-xl bg-amber-500 text-black hover:bg-amber-400 px-4">
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
