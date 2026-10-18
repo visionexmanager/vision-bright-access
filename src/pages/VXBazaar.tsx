@@ -1375,6 +1375,7 @@ export default function VXBazaar() {
               <div
                 className="flex-1 overflow-y-auto space-y-3 p-5"
                 role="log"
+                tabIndex={0}
                 aria-label={t("bazaar.chatWithShop").replace("{shop}", activeShop.name)}
                 aria-live="polite"
                 aria-relevant="additions"
@@ -1407,7 +1408,7 @@ export default function VXBazaar() {
                   placeholder={t("bazaar.askProductPlaceholder")}
                   className="rounded-xl"
                 />
-                <Button onClick={sendMessage} disabled={chatLoading} className="rounded-xl bg-amber-500 text-black hover:bg-amber-400 px-4">
+                <Button onClick={sendMessage} disabled={chatLoading} aria-label={t("msg.send")} className="rounded-xl bg-amber-500 text-black hover:bg-amber-400 px-4">
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
