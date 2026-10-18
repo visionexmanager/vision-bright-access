@@ -64,10 +64,13 @@ Deno.serve(async (req) => {
           { onConflict: "user_id" }
         );
       } else if (pricingModel === "donation") {
-        await service.from("library_donations").insert({
+        // Keyed by the checkout session so a redelivered event cannot count twice.
+        const { error } = await service.from("library_donations").upsert({
           book_id: metadata.book_id, donor_id: metadata.buyer_id || null,
           amount_usd: (session.amount_total ?? 0) / 100, message: metadata.message || null,
-        });
+          stripe_checkout_session_id: session.id,
+        }, { onConflict: "stripe_checkout_session_id", ignoreDuplicates: true });
+        if (error) throw error;
       } else {
         // paid / rental / bundle — flip the pending purchase row(s) created
         // by library-checkout-session, matched by the checkout session id.
@@ -81,17 +84,27 @@ Deno.serve(async (req) => {
         if (pricingModel === "rental" && purchases?.[0]) {
           const periodDays = Number(metadata.rental_period_days ?? 14);
           const dueAt = new Date(Date.now() + periodDays * 86_400_000).toISOString();
-          await service.from("library_borrowed_books").insert({ user_id: purchases[0].buyer_id, book_id: purchases[0].book_id, due_at: dueAt });
+          // A BEFORE INSERT trigger checks lending availability and would reject a
+          // replay for a fully lent book, so look for this purchase first instead of
+          // relying on ON CONFLICT alone. The unique index is the backstop (23505).
+          const { data: existingBorrow } = await service.from("library_borrowed_books").select("id").eq("purchase_id", purchases[0].id).maybeSingle();
+          if (!existingBorrow) {
+            const { error: rentalError } = await service.from("library_borrowed_books").insert(
+              { user_id: purchases[0].buyer_id, book_id: purchases[0].book_id, due_at: dueAt, purchase_id: purchases[0].id },
+            );
+            if (rentalError && rentalError.code !== "23505") throw rentalError;
+          }
         }
 
         if (pricingModel === "license" && purchases?.[0]) {
-          await service.from("library_licenses").insert({
+          const { error: licenseError } = await service.from("library_licenses").upsert({
             book_id: purchases[0].book_id,
             purchaser_id: purchases[0].buyer_id,
             license_type: metadata.license_type || "individual",
             seat_count: Number(metadata.seat_count ?? 1),
             purchase_id: purchases[0].id,
-          });
+          }, { onConflict: "purchase_id", ignoreDuplicates: true });
+          if (licenseError) throw licenseError;
         }
 
         if (metadata.coupon_id && purchases?.[0]) {
