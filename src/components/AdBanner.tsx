@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useAdEligibility } from "@/features/ads/useAdEligibility";
 
 const AD_CLIENT = "ca-pub-6897088904832302";
 
@@ -23,18 +24,27 @@ interface Props {
 /**
  * Reusable AdSense display banner.
  * Usage: <AdBanner slot="XXXXXXXXXX" format="horizontal" />
+ *
+ * Loads nothing, and renders nothing, until the visitor has accepted advertising
+ * cookies and the route is ad-eligible (same gate as AdSenseSlot). Before this
+ * check the script and its third-party cookie loaded on first paint.
  */
 export function AdBanner({ slot, format = "auto", className = "" }: Props) {
   const pushedSlot = useRef<string | null>(null);
+  const { advertisingConsent, routeEligible } = useAdEligibility();
+  const allowed = advertisingConsent && routeEligible;
 
   useEffect(() => {
+    if (!allowed) return;
     ensureAdsense();
     if (pushedSlot.current === slot) return;
     pushedSlot.current = slot;
     try {
       (window.adsbygoogle = window.adsbygoogle || []).push({});
     } catch { /* already initialised */ }
-  }, [slot]);
+  }, [slot, allowed]);
+
+  if (!allowed) return null;
 
   return (
     <div
