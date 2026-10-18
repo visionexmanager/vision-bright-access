@@ -356,7 +356,7 @@ export default function Profile() {
                     <span>{t("profile.levelPrefix")}{level}</span>
                     <span>{pointsInLevel.toLocaleString()} / 5,000 XP</span>
                   </div>
-                  <Progress value={xpProgress} className="h-2.5" />
+                  <Progress value={xpProgress} className="h-2.5" aria-label={`${t("profile.levelPrefix")}${level} ${pointsInLevel.toLocaleString()} / 5,000 XP`} />
                 </div>
               </div>
 

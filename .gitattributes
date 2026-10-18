@@ -24,6 +24,11 @@
 # not a bug in the migration or the test, just the same checkout mismatch.
 *.sql  text eol=lf
 
+# Workflow files are asserted on as LF-joined text by tests (for example
+# ai-route-report-workflow.test.ts); a CRLF Windows checkout failed that test
+# locally while Linux CI passed. Same cause as the SQL rule above.
+*.yml  text eol=lf
+
 # The same rule, for the files that are copied to the server and run there.
 #
 # `site-block.awk` is executed by awk on the VPS and its output is written back
