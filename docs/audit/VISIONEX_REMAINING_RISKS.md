@@ -76,3 +76,10 @@ Available alternatives and cost: (a) Supabase Pro (recurring cost, approval need
 
 ## 7. Items waiting for the owner
 Backup decisions and the 1-minute dashboard looks (DR report §7); Pro-plan decision; test-mode payment keys and disposable test accounts; an admin session for T-B3; permission to dispatch the read-only server probe; approval to extend the read-only auth-settings probe (to read `mailer_autoconfirm`, rate limits, site URL so N7/N8 can be settled).
+
+## 8. Status update — 2026-10-18 (PR #430, commits after the assessment)
+- Item 4 (contrast): the `Layout.tsx` footer node is fixed (`text-muted-foreground`); the `/services` colour-600-on-white nodes were **not** touched in this PR.
+- Item 5 (`nested-interactive`): fixed on the shop card (outer `div` no longer a button; inner button named). Verified with axe on a rendered card (local mock backend).
+- Item 11 (CRLF): `.gitattributes` now has `*.yml text eol=lf`; the test passes locally after re-checkout, and passed on Linux CI (run 39148051646).
+- Additional axe findings fixed: toast, chat, XP bar, settings controls. See `VISIONEX_AXE_SCAN_REPORT.md`.
+- All other rows unchanged. Progress and next actions: `VISIONEX_PROGRESS_LOG.md`.

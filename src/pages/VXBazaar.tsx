@@ -566,7 +566,7 @@ export default function VXBazaar() {
     void supabase.functions.invoke("bazaar-notify-seller", {
       body: { shopId: product.shop_id, productId: product.id, eventType: "wishlist" },
     });
-    toast({ title: "Saved to wishlist" });
+    toast({ title: t("wishlist.added").replace("{name}", product.name) });
   };
 
   const submitReview = async () => {
@@ -1011,7 +1011,7 @@ export default function VXBazaar() {
                           : 0;
                         return (
                         <div key={item.id} className="relative rounded-lg bg-white/10 border border-white/20 backdrop-blur-md p-4 text-center transition-transform hover:-translate-y-1">
-                          <button onClick={() => toggleWishlist(item)} aria-label="Save to wishlist"
+                          <button onClick={() => toggleWishlist(item)} aria-label={`${t("wishlist.title")}: ${item.name}`}
                             className="absolute end-2 top-2 z-10 rounded-full bg-black/60 p-2 text-white hover:text-rose-400">
                             <Heart className="h-4 w-4" />
                           </button>
