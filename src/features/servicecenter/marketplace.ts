@@ -74,11 +74,11 @@ export const ORDER_STATUS_HINT: Record<OrderStatus, LocalizedText> = {
 
 export const ORDER_STATUS_CLASS: Record<OrderStatus, string> = {
   pending: "bg-muted text-muted-foreground border-border",
-  reviewing: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/25",
+  reviewing: "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/25",
   quoted: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/25",
-  in_progress: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25",
-  delivered: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/25",
-  completed: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25",
+  in_progress: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25",
+  delivered: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/25",
+  completed: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25",
   cancelled: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25",
 };
 
