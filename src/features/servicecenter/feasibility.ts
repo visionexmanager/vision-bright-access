@@ -137,8 +137,8 @@ export const RISK_BAND_LABEL: Record<RiskBand, { en: string; ar: string }> = {
 };
 
 export const RISK_BAND_CLASS: Record<RiskBand, string> = {
-  low: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25",
-  moderate: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25",
+  low: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25",
+  moderate: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25",
   elevated: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/25",
   high: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25",
 };
