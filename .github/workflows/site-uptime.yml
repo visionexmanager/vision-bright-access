@@ -1,0 +1,45 @@
+# Is the public site up? Every 15 minutes, anonymously and read-only.
+#
+# There was no external availability check: nothing told the owner that
+# visionex.app was down, serving a broken build, or about to lose its certificate
+# (finding in docs/audit/VISIONEX_REMAINING_RISKS.md). A failed scheduled run is
+# what notifies the owner here, the same convention as security-monitor.yml.
+#
+# It never changes anything and needs no secret. scripts/site-uptime-check.sh
+# fails when the home page is not HTTP 200 HTML with the SPA root, when the main
+# JavaScript bundle it names is not served as JavaScript (a missing asset on this
+# site answers 200 with index.html), or when the TLS certificate has fewer than
+# 14 days left. It prints status codes only, never a response body.
+#
+# Limits: GitHub may delay scheduled runs by several minutes, and scheduled
+# workflows pause after 60 days without repository activity.
+#
+# If it fails: open the run, read which line says FAIL, then follow
+# docs/audit/VISIONEX_BACKUP_RESTORE_RUNBOOK.md for the server side.
+
+name: Site uptime
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: site-uptime
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check visionex.app
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/site-uptime-check.sh
+          sparse-checkout-cone-mode: false
+      - name: Run the availability check
+        run: bash scripts/site-uptime-check.sh
