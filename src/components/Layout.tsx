@@ -116,7 +116,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 {t("cookie.label")}
               </button>
             </div>
-            <small className="text-xs text-muted-foreground/70">
+            <small className="text-xs text-muted-foreground">
               {t("footer.text").replace("{year}", new Date().getFullYear().toString())}
             </small>
           </div>
