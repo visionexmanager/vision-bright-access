@@ -103,10 +103,10 @@ export default function Settings() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base font-medium">{t("settings.browserNotif")}</Label>
-                    <p className="text-sm text-muted-foreground">{t("settings.browserNotifDesc")}</p>
+                    <Label htmlFor="settings-browser-notif" className="text-base font-medium">{t("settings.browserNotif")}</Label>
+                    <p id="settings-browser-notif-desc" className="text-sm text-muted-foreground">{t("settings.browserNotifDesc")}</p>
                   </div>
-                  <Switch checked={notifEnabled} onCheckedChange={handleNotifToggle} />
+                  <Switch id="settings-browser-notif" aria-describedby="settings-browser-notif-desc" checked={notifEnabled} onCheckedChange={handleNotifToggle} />
                 </div>
                 {notifRevokeTip && (
                   <div className="flex items-start gap-2 rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
@@ -117,10 +117,10 @@ export default function Settings() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base font-medium">{t("settings.sounds")}</Label>
-                  <p className="text-sm text-muted-foreground">{t("settings.soundsDesc")}</p>
+                  <Label htmlFor="settings-sounds" className="text-base font-medium">{t("settings.sounds")}</Label>
+                  <p id="settings-sounds-desc" className="text-sm text-muted-foreground">{t("settings.soundsDesc")}</p>
                 </div>
-                <Switch checked={soundEnabled} onCheckedChange={handleSoundToggle} />
+                <Switch id="settings-sounds" aria-describedby="settings-sounds-desc" checked={soundEnabled} onCheckedChange={handleSoundToggle} />
               </div>
             </CardContent>
           </Card>
@@ -134,9 +134,9 @@ export default function Settings() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Label className="mb-2 block text-base font-medium">{t("settings.selectLang")}</Label>
+              <Label htmlFor="settings-language" className="mb-2 block text-base font-medium">{t("settings.selectLang")}</Label>
               <Select value={lang} onValueChange={(v) => setLang(v as Lang)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="settings-language" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -160,9 +160,9 @@ export default function Settings() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Label className="mb-2 block text-base font-medium">{t("settings.selectCurrency") || "Display prices in your local currency"}</Label>
+              <Label htmlFor="settings-currency" className="mb-2 block text-base font-medium">{t("settings.selectCurrency") || "Display prices in your local currency"}</Label>
               <Select value={currency.code} onValueChange={setCurrency}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="settings-currency" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

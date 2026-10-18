@@ -1,26 +1,24 @@
-# Release report — 2026-10-17
+# Release report
 
-| Item | Value |
-|---|---|
-| PR | #427, squash-merged as `f8e77ceb` (head before merge `aec85ca9`) |
-| PR checks (own head) | all passing: ESLint, Type check, Unit tests (Vitest), Tests, Security Scan, Trivy, deno check ×2, ISP management, gate SQL, "Unsubscribed callers reach no provider". GKE/image jobs skipped (not enabled) |
-| Main after merge | CI, Edge Functions deno check, WhatsApp deno check, ISP CI, AMS pipeline: success |
-| Deploy run `39033910785` | success: Run DB migrations, Deploy SPA → VPS, Deploy → Supabase Edge Functions (`provider-hub`) |
-| Migration applied | `20261069000000_ph_provider_stats_service_only.sql` named in the migrations job log |
+## Merged and deployed (verified against GitHub records on 2026-10-17)
+| PR | Merge commit | Merged (UTC) | Deploy evidence |
+|---|---|---|---|
+| #427 fix: CSV injection, provider-stats cost leak, AA contrast, labelled Bazaar selects, audit reports | `f8e77ceb` | 12:43 | Deploy run `39033910785` success — Run DB migrations (`20261069000000_ph_provider_stats_service_only.sql` applied), Deploy SPA → VPS, Deploy Edge Functions (`provider-hub`) |
+| #428 release report + manual `Supabase Auth hardening` workflow | `b1986997` | 17:07 | CI green; workflow `plan` run 39052428262 succeeded |
+| #429 breached-password check, accessible password error | `f7265be2` | 17:25 | Deploy success; live bundle contains the check; HaveIBeenPwned reachable from the site origin |
+| #430 phase-2/3 assessment, DR report, risks, matrix, roadmap, guides | open | — | docs only; CI green on the previous head |
 
-## Production verification (after deploy)
-- Anonymous `POST /rest/v1/rpc/ph_get_provider_stats`: before HTTP 200 with the metrics object; after **HTTP 401, "permission denied for function"**.
-- `https://visionex.app/` returns 200 and serves a new bundle (`index-DvBBsIOS.js`).
-- axe on `/bazaar`: computed `--primary` is `172 66% 28%`; `select-name` (critical) gone; `color-contrast` 12 nodes → 1 (`#898e97` on white, 3.29:1); `nested-interactive` (1) remains.
-- Not verified after deploy: the admin Provider Hub metrics screen with an admin session (no admin credentials used). It now calls the RPC with the service-role client; if it shows empty metrics, check `provider-hub` logs.
+## Post-deploy production checks performed (read-only)
+- Anonymous `POST /rest/v1/rpc/ph_get_provider_stats`: before HTTP 200 with metrics; after HTTP 401 "permission denied for function". Catalogue: anon=false, authenticated=false, service_role=true.
+- `https://visionex.app/` 200; served bundle changed; computed `--primary` = `172 66% 28%`.
+- axe on `/bazaar`: `select-name` gone; contrast 12 nodes → 1; `nested-interactive` 1 remains.
+- Lighthouse (2026-10-17, mobile preset, run from the owner's PC, one run per route): home 32 / services 49 / library 40 / pricing 29 / signup 48 / bazaar 39 performance; accessibility 95–97; SEO 100. Details and caveats: `VISIONEX_REMAINING_RISKS.md` §3.
+
+## Not performed
+Authenticated journeys, admin Provider Hub smoke, live payment flows, server probe, backup/restore (no backup exists), manual screen-reader run.
 
 ## Rollback
-Revert #427 (`git revert f8e77ceb` via PR). The migration is a grant change only; to restore the old grants manually: `GRANT EXECUTE ON FUNCTION public.ph_get_provider_stats(uuid, integer) TO anon, authenticated;` (not recommended — it re-opens the leak).
+Reverting a merge means a revert PR through CI (`deploy.yml` deploys `main` only). The #427 migration is a grant change; the old grants can be restored with `GRANT EXECUTE ON FUNCTION public.ph_get_provider_stats(uuid, integer) TO anon, authenticated;` — not recommended (it re-opens the cost leak). Full rollback runbook is task T-A7.
 
-## Not done
-Authenticated journeys, manual screen-reader pass, Lighthouse, server audit. Owner action: enable leaked-password protection in the Supabase dashboard.
-
-## Addendum — follow-up PRs
-- #428 (squash `b1986997`): this report + `supabase-auth-hardening.yml` (manual; plan/apply).
-- Workflow `plan` run `39052428262`: success; HIBP off, min length 6. `apply` run `39052467400`: **failed with HTTP 402** (Pro plan required); no setting was changed.
-- Password-policy PR (browser-side breached-password check): see its PR description for the checks and deploy run.
+## Recurring costs introduced by any of the above
+None. Pending decisions that *would* add cost are listed in `VISIONEX_PRODUCT_ROADMAP.md` ("Approvals required").
