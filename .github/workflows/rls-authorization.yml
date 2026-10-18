@@ -1,0 +1,32 @@
+name: RLS authorization matrix
+
+# Replays every migration in PGlite and drives the sensitive tables as anonymous,
+# two ordinary users and an admin, then mutates a policy at a time and requires
+# the matrix to go red. Synthetic users only; no network, no credential.
+# See scripts/sql/rls-authorization-scenarios.mjs.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - supabase/migrations/**
+      - scripts/sql/rls-authorization-scenarios.mjs
+      - .github/workflows/rls-authorization.yml
+
+permissions:
+  contents: read
+
+jobs:
+  rls:
+    name: Who can read and write which rows
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install the test-only database (not saved to package.json)
+        run: npm i --no-save @electric-sql/pglite
+      - name: Run the matrix
+        run: node scripts/sql/rls-authorization-scenarios.mjs
