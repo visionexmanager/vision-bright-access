@@ -2,6 +2,12 @@
 
 Durable checkpoint for the autonomous mission. Newest entry first. Update after each milestone. A new session should read this file, then `VISIONEX_REMAINING_RISKS.md` and `VISIONEX_PHASE2_ASSESSMENT_AND_PLAN.md`.
 
+## 2026-10-19 — merged and verified
+Merged to main (squash, auto-merge, in order): #430 docs and accessibility, #431 AdBanner consent, #432 library webhook idempotency, #433 cron history prune, #434 uptime check, #435 RLS authorization matrix; #436 (/services contrast) was waiting on CI when this was written — check its state, do not assume.
+Production evidence (read-only): the Deploy run for #432 applied `20261070000000_library_webhook_idempotency.sql` and the three unique indexes exist; the `cron-run-history-prune` job is scheduled at `40 3 * * *` and `cron.job_run_details` held 60,366 rows (oldest 2026-07-23) before its first run, so check the row count after 03:40 UTC. The `Site uptime` workflow has not yet run: dispatch it once from the Actions tab to confirm it.
+RLS matrix (#435): 38 checks and 4 mutation proofs pass on seven tables; no defect found; it runs in CI on PRs that touch migrations.
+Not started: restore rehearsal, provider/VX audit (check_ai_budget fail-open needs an owner decision), admin dashboard, Lighthouse remediation, other locales/RTL axe beyond /bazaar in Arabic, manual NVDA/VoiceOver/keyboard testing.
+
 ## 2026-10-18 (later) — focused PRs opened from main (all open, none merged)
 | PR | Change | Verification |
 |---|---|---|
