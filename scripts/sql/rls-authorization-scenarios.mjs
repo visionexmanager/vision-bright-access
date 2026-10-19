@@ -13,6 +13,25 @@
 // `USING (true)`, or hands the write privilege to `authenticated`) and requires
 // the matrix to go red, so a pass cannot be vacuous.
 //
+// FUNCTION COVERAGE (this is not full authorization coverage). SECURITY DEFINER
+// functions that write user_points / credit_wallets / user_subscriptions and that
+// anon or authenticated can still EXECUTE after the hardening migrations:
+//   exercised here:  admin_adjust_vx, admin_grant_points, award_points, spend_vx,
+//                    settle_file_conversion, refund_stale_file_conversions
+//   privilege only:  system_deduct_vx, billing_grant_credits/consume/refund,
+//                    arcade_append_vx, vx_balance (no EXECUTE for anon/authenticated)
+//   NOT exercised:   approve_subscription_order, approve_vx_coin_order,
+//                    charge_file_conversion, subscribe_radio, subscribe_tv,
+//                    award_academy_xp, award_library_xp, award_kids_xp,
+//                    award_kids_coins, buy_kids_item, claim_kids_gift,
+//                    purchase_kids_product, kids_coin_balance, get_leaderboard,
+//                    get_kids_world_stats, vx_account_parity_detail,
+//                    vx_wallet_migration_report, vx_wallet_parity_report
+//   Also not exercised: the vx_reserve / vx_settle / vx_release family and
+//   ivx_*, plan_for_user (no EXECUTE for the public roles; not asserted), the
+//   Edge Functions that call these with the service role, and every function
+//   that lives only in a migration PGlite cannot replay.
+//
 // Not every migration replays in PGlite (no pg_cron, pgvector, pgcrypto, a
 // realtime publication). Those files fail and are skipped; the tables this script
 // depends on are checked to exist, and the count of skipped files is printed.
@@ -39,12 +58,43 @@ await db.exec(`
   alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
 `);
 
+// The two privilege-hardening migrations are what take EXECUTE away from anon and
+// authenticated on the money and admin functions. They name functions that live in
+// migrations PGlite cannot replay, so on their own they abort and the replayed
+// database would keep Supabase's default "everyone may execute". Without them the
+// function checks below would test a schema production does not have. For these
+// two files only, create a do-nothing stand-in for each function they name and
+// retry. The stand-ins are never called; they exist so the REVOKE statements run.
+const HARDENING = /^(20260906000000_rpc_execute_isolation|20261017000000_rpc_and_storage_least_privilege)\.sql$/;
+async function standIn(msg) {
+  let m = msg.match(/no function named public\.(\w+) exists/);
+  if (m) { await db.exec(`create function public.${m[1]}() returns void language sql as 'select 1'`); return m[1]; }
+  m = msg.match(/function public\.(\w+)\(([^)]*)\) does not exist/);
+  if (m) {
+    const args = m[2].split(",").map((s, i) => `a${i} ${s.trim()}`).join(",");
+    await db.exec(`create function public.${m[1]}(${args}) returns void language sql as 'select 1'`);
+    return m[1];
+  }
+  return null;
+}
+
 let applied = 0;
 let skipped = 0;
+const hardeningApplied = [];
 for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql")).sort()) {
-  try { await db.exec(readFileSync(`${dir}/${f}`, "utf8")); applied++; } catch { skipped++; }
+  const sql = readFileSync(`${dir}/${f}`, "utf8");
+  for (let attempt = 0; attempt < 50; attempt++) {
+    try { await db.exec(sql); applied++; if (HARDENING.test(f)) hardeningApplied.push(f); break; } catch (e) {
+      const stub = HARDENING.test(f) ? await standIn(String(e.message).split("\n")[0]) : null;
+      if (!stub) { skipped++; break; }
+    }
+  }
 }
 console.log(`migrations replayed: ${applied} applied, ${skipped} skipped (PGlite lacks pg_cron/pgvector/pgcrypto/realtime)`);
+if (hardeningApplied.length !== 2) {
+  console.log(`FAIL  the privilege-hardening migrations did not both replay (${hardeningApplied.length}/2); the function checks would test the wrong schema`);
+  process.exit(1);
+}
 
 const REQUIRED = ["user_points", "credit_wallets", "user_subscriptions", "notifications", "profiles", "user_roles", "whatsapp_conversations"];
 for (const t of REQUIRED) {
@@ -83,8 +133,8 @@ async function seed() {
 // Run one statement as a role; returns { rows } or { error }. Writes are
 // rolled back so every probe starts from the seed.
 async function as(who, sql) {
-  const role = who === "anon" ? "anon" : "authenticated";
-  const sub = who === "anon" ? "" : { A, B, ADMIN }[who];
+  const role = who === "anon" ? "anon" : who === "SERVICE" ? "service_role" : "authenticated";
+  const sub = who === "anon" || who === "SERVICE" ? "" : { A, B, ADMIN }[who];
   await db.exec("begin");
   try {
     await db.exec(`set local role ${role}; select set_config('request.jwt.claim.sub','${sub}',true), set_config('request.jwt.claim.role','${role}',true);`);
@@ -96,6 +146,29 @@ async function as(who, sql) {
     await db.exec("rollback");
   }
 }
+
+// Call one statement as a role, then read the state back as the table owner in
+// the same transaction, then roll everything back. This is what separates "the
+// call was refused" from "the call ran and changed someone's balance": a refusal
+// that still moved points would show in `after`.
+async function probe(who, callSql, stateSql) {
+  const role = who === "anon" ? "anon" : who === "SERVICE" ? "service_role" : "authenticated";
+  const sub = who === "anon" || who === "SERVICE" ? "" : { A, B, ADMIN }[who];
+  let call;
+  await db.exec("begin");
+  try {
+    await db.exec(`set local role ${role}; select set_config('request.jwt.claim.sub','${sub}',true), set_config('request.jwt.claim.role','${role}',true);`);
+    await db.exec("savepoint probe_call");
+    try { call = { rows: (await db.query(callSql)).rows }; } catch (e) { call = { error: e.message.split("\n")[0] }; await db.exec("rollback to savepoint probe_call"); }
+    await db.exec("reset role");
+    const state = (await db.query(stateSql)).rows[0]?.v;
+    return { ...call, state: Number(state) };
+  } finally {
+    await db.exec("rollback");
+  }
+}
+const sumPoints = (id) => `select coalesce(sum(points),0) v from public.user_points where user_id='${id}'`;
+const canExec = async (who, sig) => (await db.query(`select has_function_privilege('${who}', '${sig}', 'execute') v`)).rows[0].v;
 
 async function matrix() {
   const out = [];
@@ -120,6 +193,73 @@ async function matrix() {
   check("user_subscriptions: A cannot upgrade own plan", !(await wrote("A", `update public.user_subscriptions set plan_id='business' where user_id='${A}' returning 1`)));
   check("user_subscriptions: A cannot grant self a subscription", !(await wrote("A", `insert into public.user_subscriptions(user_id, plan_id, status) values ('${U(9)}','pro','active') returning 1`)));
   check("user_subscriptions: anonymous cannot write", !(await wrote("anon", `update public.user_subscriptions set status='active' returning 1`)));
+
+  // Other people's rows: refused for writes, not just invisible for reads.
+  check("user_points: A cannot edit B's points", !(await wrote("A", `update public.user_points set points = 0 where user_id='${B}' returning 1`)));
+  check("user_points: A cannot delete B's history", !(await wrote("A", `delete from public.user_points where user_id='${B}' returning 1`)));
+  check("user_points: A cannot insert a row for B", !(await wrote("A", `insert into public.user_points(user_id, points, reason) values ('${B}', -20, 'x') returning 1`)));
+  check("credit_wallets: A cannot edit B's balance", !(await wrote("A", `update public.credit_wallets set balance_vx = 0 where user_id='${B}' returning 1`)));
+  check("credit_wallets: A cannot delete B's wallet", !(await wrote("A", `delete from public.credit_wallets where user_id='${B}' returning 1`)));
+  check("user_subscriptions: A cannot cancel B's plan", !(await wrote("A", `update public.user_subscriptions set status='cancelled' where user_id='${B}' returning 1`)));
+  check("user_subscriptions: A cannot delete B's plan", !(await wrote("A", `delete from public.user_subscriptions where user_id='${B}' returning 1`)));
+  check("user_subscriptions: A cannot delete own plan", !(await wrote("A", `delete from public.user_subscriptions where user_id='${A}' returning 1`)));
+  // Anonymous writes, on every table the matrix covers.
+  for (const [table, ins, upd] of [
+    ["user_points", `insert into public.user_points(user_id, points, reason) values ('${A}', 5, 'x') returning 1`, `update public.user_points set points = 0 returning 1`],
+    ["credit_wallets", `insert into public.credit_wallets(user_id, balance_vx) values ('${U(9)}', 5) returning 1`, `update public.credit_wallets set balance_vx = 0 returning 1`],
+    ["user_subscriptions", `insert into public.user_subscriptions(user_id, plan_id, status) values ('${U(9)}','pro','active') returning 1`, `update public.user_subscriptions set status='active' returning 1`],
+  ]) {
+    check(`${table}: anonymous cannot insert`, !(await wrote("anon", ins)));
+    check(`${table}: anonymous cannot update`, !(await wrote("anon", upd)));
+    check(`${table}: anonymous cannot delete`, !(await wrote("anon", `delete from public.${table} returning 1`)));
+  }
+
+  // SECURITY DEFINER functions are the real write path for money. Table policies
+  // do not apply inside them, so each one needs its own proof.
+  // 1. Functions that act on ANY user are not callable by the public roles at all.
+  for (const sig of ["system_deduct_vx(uuid,integer,text)", "billing_grant_credits(uuid,integer,text,text)", "billing_consume(uuid,text,text,uuid,text,text,jsonb)", "billing_refund(uuid,text,text)", "arcade_append_vx(uuid,integer,text,text,text,text)", "vx_balance(uuid)"]) {
+    check(`${sig.split("(")[0]}: no EXECUTE for anon`, !(await canExec("anon", `public.${sig}`)));
+    check(`${sig.split("(")[0]}: no EXECUTE for authenticated`, !(await canExec("authenticated", `public.${sig}`)));
+  }
+  const deduct = `select public.system_deduct_vx('${B}', 5, 'probe')`;
+  const asA = await probe("A", deduct, sumPoints(B));
+  check("system_deduct_vx: A cannot deduct from B (refused, balance untouched)", !!asA.error && asA.state === 20);
+  const asAnon = await probe("anon", deduct, sumPoints(B));
+  check("system_deduct_vx: anonymous cannot deduct from B (refused, balance untouched)", !!asAnon.error && asAnon.state === 20);
+  const asService = await probe("SERVICE", deduct, sumPoints(B));
+  check("system_deduct_vx: the service role can (the intended server path works)", !asService.error && asService.state === 15);
+  // 2. Admin functions: refused for ordinary users and anonymous, work for an admin.
+  const grant = `select public.admin_grant_points('${B}', 1000, 'probe')`;
+  const adjust = `select public.admin_adjust_vx('b@example.test', 1000, 'probe')`;
+  const grantA = await probe("A", grant, sumPoints(B));
+  check("admin_grant_points: A refused, B untouched", !!grantA.error && grantA.state === 20);
+  const grantAnon = await probe("anon", grant, sumPoints(B));
+  check("admin_grant_points: anonymous refused, B untouched", !!grantAnon.error && grantAnon.state === 20);
+  const adjA = await probe("A", adjust, sumPoints(B));
+  check("admin_adjust_vx: A refused, B untouched", adjA.state === 20 && (adjA.error || adjA.rows?.[0]?.admin_adjust_vx?.success === false));
+  check("admin_grant_points: an admin can (positive control)", (await probe("ADMIN", grant, sumPoints(B))).state === 1020);
+  // 3. Self-service functions: they act on auth.uid() and nobody else.
+  const spend = (n) => `select public.spend_vx(${n}, 'probe item', 'item', 'probe')`;
+  const spendA = await probe("A", spend(4), sumPoints(A));
+  check("spend_vx: A can spend own VX (positive control)", !spendA.error && spendA.state === 6);
+  check("spend_vx: B's balance is not touched by A spending", (await probe("A", spend(4), sumPoints(B))).state === 20);
+  const over = await probe("A", spend(11), sumPoints(A));
+  check("spend_vx: A cannot overspend (refused, balance untouched)", !!over.error && over.state === 10);
+  const neg = await probe("A", spend(-5), sumPoints(A));
+  check("spend_vx: a negative amount cannot mint points", !!neg.error && neg.state === 10);
+  const spendAnon = await probe("anon", spend(1), sumPoints(A));
+  check("spend_vx: anonymous refused", !!spendAnon.error && spendAnon.state === 10);
+  const award = (p, r) => `select public.award_points(${p}, '${r}')`;
+  const big = await probe("A", award(1000000, "Daily login bonus"), sumPoints(A));
+  check("award_points: A cannot award above the cap", !!big.error && big.state === 10);
+  const forged = await probe("A", award(5, "made up reason"), sumPoints(A));
+  check("award_points: an unknown reason is refused", !!forged.error && forged.state === 10);
+  const anonAward = await probe("anon", award(5, "Daily login bonus"), sumPoints(A));
+  check("award_points: anonymous refused", !!anonAward.error && anonAward.state === 10);
+  const fcA = await probe("A", `select public.settle_file_conversion('${U(77)}'::uuid, false)`, sumPoints(A));
+  check("settle_file_conversion: A cannot refund a charge that is not theirs", !!fcA.error && fcA.state === 10);
+  const fcAnon = await probe("anon", `select public.refund_stale_file_conversions()`, sumPoints(A));
+  check("refund_stale_file_conversions: anonymous refused", !!fcAnon.error && fcAnon.state === 10);
 
   // Roles.
   check("user_roles: A cannot make self admin", !(await wrote("A", `insert into public.user_roles(user_id, role) values ('${A}','admin') returning 1`)));
@@ -150,13 +290,18 @@ const base = await matrix();
 for (const r of base) { if (!r.ok) fail++; console.log(`${r.ok ? "PASS" : "FAIL"}  ${r.label}`); }
 
 // Mutation proof: each change below must turn at least one check red.
+const grantDef = (await db.query(`select pg_get_functiondef('public.admin_grant_points(uuid,integer,text)'::regprocedure) d`)).rows[0].d;
 const mutations = [
+  ["system_deduct_vx executable by authenticated", `grant execute on function public.system_deduct_vx(uuid,integer,text) to authenticated`, `revoke execute on function public.system_deduct_vx(uuid,integer,text) from authenticated`],
+  ["user_subscriptions readable by everyone", `drop policy sub_owner_select on public.user_subscriptions; create policy zz_s on public.user_subscriptions for select using (true)`, `drop policy zz_s on public.user_subscriptions; create policy sub_owner_select on public.user_subscriptions for select using (user_id = auth.uid())`],
+  ["admin_grant_points loses its admin check", grantDef.replace(/IF NOT public\.has_role\(auth\.uid\(\), 'admin'(::\w+)?\) THEN\s+RAISE EXCEPTION 'Admin access required';\s+END IF;/i, ""), grantDef],
   ["user_points readable by everyone", `drop policy "Users can view their own points" on public.user_points; create policy zz_open on public.user_points for select using (true)`, `drop policy zz_open on public.user_points; create policy "Users can view their own points" on public.user_points for select using (auth.uid() = user_id)`],
   ["credit_wallets writable by authenticated", `grant update on public.credit_wallets to authenticated; create policy zz_w on public.credit_wallets for update using (true) with check (true)`, `drop policy zz_w on public.credit_wallets; revoke update on public.credit_wallets from authenticated`],
   ["user_roles insertable by authenticated", `create policy zz_r on public.user_roles for insert with check (true)`, `drop policy zz_r on public.user_roles`],
   ["whatsapp_conversations readable by everyone", `create policy zz_wa on public.whatsapp_conversations for select using (true)`, `drop policy zz_wa on public.whatsapp_conversations`],
 ];
 for (const [name, apply, undo] of mutations) {
+  if (apply === undo) { fail++; console.log(`FAIL  mutation "${name}" changed nothing (its pattern no longer matches)`); continue; }
   await db.exec(apply);
   const red = (await matrix()).filter((r) => !r.ok).length;
   await db.exec(undo);
