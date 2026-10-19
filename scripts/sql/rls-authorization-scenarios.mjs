@@ -13,6 +13,25 @@
 // `USING (true)`, or hands the write privilege to `authenticated`) and requires
 // the matrix to go red, so a pass cannot be vacuous.
 //
+// FUNCTION COVERAGE (this is not full authorization coverage). SECURITY DEFINER
+// functions that write user_points / credit_wallets / user_subscriptions and that
+// anon or authenticated can still EXECUTE after the hardening migrations:
+//   exercised here:  admin_adjust_vx, admin_grant_points, award_points, spend_vx,
+//                    settle_file_conversion, refund_stale_file_conversions
+//   privilege only:  system_deduct_vx, billing_grant_credits/consume/refund,
+//                    arcade_append_vx, vx_balance (no EXECUTE for anon/authenticated)
+//   NOT exercised:   approve_subscription_order, approve_vx_coin_order,
+//                    charge_file_conversion, subscribe_radio, subscribe_tv,
+//                    award_academy_xp, award_library_xp, award_kids_xp,
+//                    award_kids_coins, buy_kids_item, claim_kids_gift,
+//                    purchase_kids_product, kids_coin_balance, get_leaderboard,
+//                    get_kids_world_stats, vx_account_parity_detail,
+//                    vx_wallet_migration_report, vx_wallet_parity_report
+//   Also not exercised: the vx_reserve / vx_settle / vx_release family and
+//   ivx_*, plan_for_user (no EXECUTE for the public roles; not asserted), the
+//   Edge Functions that call these with the service role, and every function
+//   that lives only in a migration PGlite cannot replay.
+//
 // Not every migration replays in PGlite (no pg_cron, pgvector, pgcrypto, a
 // realtime publication). Those files fail and are skipped; the tables this script
 // depends on are checked to exist, and the count of skipped files is printed.
