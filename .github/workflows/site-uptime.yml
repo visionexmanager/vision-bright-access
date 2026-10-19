@@ -11,8 +11,15 @@
 # site answers 200 with index.html), or when the TLS certificate has fewer than
 # 14 days left. It prints status codes only, never a response body.
 #
-# Limits: GitHub may delay scheduled runs by several minutes, and scheduled
-# workflows pause after 60 days without repository activity.
+# Limits (observed, not hypothetical): GitHub drops most scheduled runs on this
+# repository. Between 2026-10-18 22:13Z and 2026-10-19 09:47Z this workflow ran
+# twice (00:13Z, 04:47Z) instead of ~46 times, and the other scheduled workflows
+# fire every 3-5 hours whatever their cron says. Treat the real cadence as hours,
+# not 15 minutes, and do not rely on this alone to catch a short outage. Scheduled
+# workflows also pause after 60 days without repository activity. Notification of
+# a failed run goes to whoever last edited the cron line, if their GitHub
+# notification settings allow it; that has not been verified. Options for a
+# reliable check are in docs/audit/VISIONEX_REMAINING_RISKS.md (section 9).
 #
 # If it fails: open the run, read which line says FAIL, then follow
 # docs/audit/VISIONEX_BACKUP_RESTORE_RUNBOOK.md for the server side.
