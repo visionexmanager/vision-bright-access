@@ -2,7 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 // Automated accessibility scan (axe-core, WCAG 2.0/2.1 A and AA rules) of public
-// routes in English, Arabic (right-to-left) and Spanish, against the built app.
+// routes in English, Spanish, Hindi and the three right-to-left languages (Arabic,
+// Persian, Urdu), against the built app.
 //
 // What this is: a regression net for the rules axe can decide. What it is not:
 // proof of accessibility. Reading order, announcements, meaning of text and real
@@ -17,6 +18,9 @@ const LOCALES = [
   { code: "en", dir: "ltr" },
   { code: "ar", dir: "rtl" },
   { code: "es", dir: "ltr" },
+  { code: "fa", dir: "rtl" },
+  { code: "ur", dir: "rtl" },
+  { code: "hi", dir: "ltr" },
 ] as const;
 
 const ROUTES = ["/", "/login", "/signup", "/forgot-password", "/services", "/pricing", "/contact-us", "/games", "/library", "/travel", "/bazaar"];
