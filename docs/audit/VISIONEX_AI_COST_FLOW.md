@@ -53,3 +53,42 @@ Every service in `central_pricing_registry` is disabled today [C: migration defa
 
 ## 6. Test coverage that exists
 `ai-usage-metering`, `vx-unified-billing`, `vx-usage-ui`, `vx-hide-reservations`, `ai-chat-limits`, `ai-subscription-gate` and the metered-request tests drive the above with stubs. They do not execute `check_ai_budget` against rows written by `ai-chat`, which is why G1 is invisible to them.
+
+## 7. Source of truth, per fact (2026-10-19, second pass)
+Writers and readers found by searching `supabase/functions`, `supabase/migrations` and `src`; "live today" assumes every `central_pricing_registry` row is disabled (migration default; production rows **not** read).
+
+| Fact | Where it lives | Written by | Read by | Live today? |
+|---|---|---|---|---|
+| Each provider call: provider, model, attempt, chain, outcome, tokens/units, usage source, provider dollars, cost status | `ai_usage_events` | `usageRecording.ts` (via `installUsageMetering`, background) for every `aiProvider`/`meteredFetch` call | `vx_settle_metered`; view `ai_usage_cost_daily` (service role); **no admin page, function or workflow** | yes, for functions that call `installUsageMetering` |
+| Which model answered, whether a fallback happened, failures | `ph_logs`, `ph_metrics` (30-day retention for logs) | `chatRecorder.ts` → `providerRecording.ts` per attempt | Provider Hub admin (`provider-hub` function, polls 60–120 s) | yes |
+| Quality signals (`fallback`, `failed_request`) | `record_ai_signal` store | `ai-chat` | AI Learning panel | yes |
+| VX held / consumed / refunded for a request | `vx_usage_ledger` + hold/refund rows in `user_points` | `vx_reserve*`, `vx_settle*`, `vx_release`, reaper | `check_ai_budget` (reserved, not refunded/expired), `my_vx_summary`, `vx_usage_analytics` | **no rows for `ai-chat`** (shadow mode) |
+| User's balance | `user_points` (sum) | awards, spends, holds, refunds | `vx_balance`, admin user list (summed in the browser) | yes |
+| Global daily budget | `ai_budgets` (one `global` row) | seed migration | `check_ai_budget` only | seed row exists in the migration; production row [U] |
+| Token/request counts for the budget | `ai_interactions` | Career AI code only | `check_ai_budget`, Career analytics | Career AI only |
+| Per-user request cap | `check_ai_rate_limit` counter | `ai-chat` | `ai-chat` | yes (60/day) |
+
+## 8. The seven questions
+1. **Where is each `ai-chat` request recorded?** Per provider attempt in `ai_usage_events` (reservation id set only when metered) and `ph_logs`/`ph_metrics`; per quality signal in the AI-signal store; the request itself in `vx_usage_ledger` **only when the service is enabled** (not today). `ai_interactions` gets nothing.
+2. **Is provider cost captured?** *Captured when the response reports usage and the model is in `ai_price_book` (`cost_status` priced/free); estimated from UTF-8 byte counts when the stream carries none (`usage_source = 'estimated'`, still priced); missing for a call that failed before a body (`missing`, `no_usage`); `unpriced` for models the price book omits.* The Provider Hub's own `total_cost_usd` is **always 0 for chat**: `chatRecorder` passes no `cost_usd` (`p_cost_usd: params.cost_usd ?? 0`), so that figure is "not recorded", displayed as zero.
+3. **Can one request be charged twice?** Not in the code reviewed, for a metered or fixed-price service: the key is unique in `vx_usage_ledger`, `vx_reserve_metered` returns the first hold for a replay, `vx_settle`/`vx_release` return a replay on a closed row, the ledger CHECKs `consumed + refunded ≤ reserved`, and the client sends one `Idempotency-Key` per attempt with no automatic retry. Demonstrated by 23 checks and 3 mutation proofs in PR #448. A user who presses send twice creates two requests with two keys, and is charged twice, as intended. Not covered: real concurrency (see the existing gate-SQL job) and `ai-chat` running with a service enabled (it never has).
+4. **Can fallback or timeout cause duplicate usage or VX entries?** Duplicate: no — all attempts share one reservation and each attempt writes one event (tested in #449). Missing: yes, one case — an HTTP open that never answers is abandoned with **no** event (#449, "CURRENT BEHAVIOUR"). Late events after settlement or after the reaper are never billed (#448).
+5. **Failed and cancelled requests vs the documented policy?** The policy is in `vx_settle_metered` and `vx_conversion_policy.bill_failed_billable_attempts` (default false): nothing billable releases the hold; a failed attempt is billed only if the flag is on **and** it reported usage. A cancelled stream is recorded as an error `stream_cancelled` with the partial usage, so it is billable only under that flag. This matches what #448 asserts. I found no written product policy beyond the migration comments, so "consistent with the documented policy" can only be checked against those.
+6. **Why does the global budget miss `ai-chat`?** `check_ai_budget` reads `ai_interactions` (Career AI only) and, if `daily_vx_limit` is set, `vx_usage_ledger.reserved_vx` (empty in shadow mode). `ai-chat`'s events go to `ai_usage_events`, which it does not read. Also true: no production `ai_budgets` row was read.
+7. **Dashboard values** —
+
+| Dashboard value | Source | Status |
+|---|---|---|
+| Provider Hub request counts, success rate, latency | `ph_metrics` / `ph_logs` via `provider-hub` | accurate for chat attempts recorded; `ph_logs` is 30-day; refreshed every 60–120 s (hooks), so up to ~2 min stale |
+| Provider Hub **cost** (`total_cost_usd`) | same | **unavailable, shown as 0** for chat: not recorded (see 2) |
+| Provider dollars by day/function/model | `ai_usage_cost_daily` | **no screen reads it** — unavailable to admins |
+| Admin user list: VX balance per user | `user_points` summed in the browser | **partial** once `user_points` or `profiles` passes the API's per-request row cap (default 1000, silent); fixed in PR #450; production size and `max_rows` not verified |
+| VX per user/service for the user | `my_vx_summary` / `my_vx_usage` | accurate for ledger rows; empty while services are disabled |
+| Global AI budget used | none shown | not exposed |
+
+## 9. Blind spots, ranked
+1. Global spend ceiling does not see `ai-chat` (G1); no dollar ceiling exists anywhere (G3).
+2. Provider dollars are recorded but invisible (G2); Provider Hub cost is 0 for chat.
+3. An attempt that never opens leaves no record; late/reaped events are never billed (under-billing paths, all documented in #448/#449).
+4. Production state never read: registry rows, `ai_budgets`, `bill_failed_billable_attempts`, `max_rows`, table sizes.
+5. Decisions that are not mine: a dollar ceiling, whether the four under-billing paths should bill, whether `missing` attempts should be recorded.
