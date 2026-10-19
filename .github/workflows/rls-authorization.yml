@@ -11,6 +11,7 @@ on:
     paths:
       - supabase/migrations/**
       - scripts/sql/rls-authorization-scenarios.mjs
+      - scripts/sql/vx-accounting-scenarios.mjs
       - .github/workflows/rls-authorization.yml
 
 permissions:
@@ -30,3 +31,5 @@ jobs:
         run: npm i --no-save @electric-sql/pglite
       - name: Run the matrix
         run: node scripts/sql/rls-authorization-scenarios.mjs
+      - name: VX accounting invariants (hold, settle, release, reap)
+        run: node scripts/sql/vx-accounting-scenarios.mjs
