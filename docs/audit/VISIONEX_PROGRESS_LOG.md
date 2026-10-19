@@ -2,7 +2,14 @@
 
 Durable checkpoint for the autonomous mission. Newest entry first. Update after each milestone. A new session should read this file, then `VISIONEX_REMAINING_RISKS.md` and `VISIONEX_PHASE2_ASSESSMENT_AND_PLAN.md`.
 
-## 2026-10-19 (later) — status audit, then three PRs opened (none merged)
+## 2026-10-19 (final) — everything below merged and deployed
+Owner instructed "complete to the end including the merge". Merged (squash, each after CI on its head; branches updated one at a time because the base branch is protected "up to date"): #438 `0246ff42`, #439 `dd22aea5`, #440 `b044449a`, #441 `8b8128e6`, #442 `2904954b`, #443 `2ce339b3`, #444 `73cdfe08`, #445 `008ab483`, #446 `dcf6b2f5` (its branch had to be merged with main locally: add/add conflict in `tests/a11y/axe.spec.ts` after #445 was squashed; resolved by keeping the branch version, diff against main checked = Navbar.tsx + the emptied baseline).
+- Deploy workflow: success for every merge commit including `dcf6b2f5`. No migration in any of these PRs.
+- Live check (anonymous GET, 2026-10-19): `https://visionex.app/` returns 200 HTML containing the fonts `<link>` and preconnects; the served `index-*.css` contains no font `@import`; the main bundle is served as JavaScript.
+- New CI: `Accessibility (axe)` — 33 scans (11 routes × en/ar/es) + a keyboard test, empty baseline, green on `dcf6b2f5`. First finding (nav contrast over a dark hero on `/games`) fixed in #446. This job only covers public routes with a stub backend.
+- Still true: the earlier lines of this entry about #438–#441 "none merged" are superseded by this paragraph. Open decisions for the owner: `check_ai_budget` / dollar ceiling (see `VISIONEX_AI_COST_FLOW.md`), sign-up enumeration wording, CAPTCHA, Supabase Pro, an outside uptime monitor (`VISIONEX_REMAINING_RISKS.md` §9), TipTap major bump. Not verified: the 03:40 UTC cron prune run (needs a production query), GitHub e-mail on a failed uptime run, real Supabase backup/restore.
+
+## 2026-10-19 (later) — status audit, then three PRs opened (since merged, see above)
 Verified from GitHub: main is `1598cca9`; #430–#437 merged by the owner, each head commit green, each merge commit has a successful Deploy run. #432 and #433 migrations were applied (Deploy logs).
 
 | PR | Change | Evidence |
