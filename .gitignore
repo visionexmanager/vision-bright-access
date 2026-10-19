@@ -53,3 +53,7 @@ set-supabase-secret.sh
 
 # Untracked nested repo clone (accidental duplicate; has its own .git) — never commit
 /vision-bright-access/
+
+# Playwright output
+test-results/
+playwright-report/
