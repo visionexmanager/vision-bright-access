@@ -22,7 +22,8 @@
     "test:whatsapp:static": "vitest run src/test/whatsapp-assistant.test.ts",
     "claude:validate": "node .claude/scripts/validate-skills.mjs",
     "whatsapp:profile": "node scripts/whatsapp-profile.mjs",
-    "test:whatsapp:medium": "vitest run src/test/whatsapp-reply-medium.test.ts"
+    "test:whatsapp:medium": "vitest run src/test/whatsapp-reply-medium.test.ts",
+    "test:a11y": "playwright test -c playwright.a11y.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -95,6 +96,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.57.0",
     "@tailwindcss/typography": "^0.5.16",
