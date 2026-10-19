@@ -39,3 +39,22 @@ List — **names and where to re-issue, never values** — of every secret: the 
 ## E. Incident decisions
 - Suspected compromise: do not restore over production; rotate keys first, preserve evidence, restore into a new project.
 - Accidental deletion: restore the affected table(s) into a scratch DB, export only those rows, apply deliberately.
+
+## F. Synthetic rehearsal — run 2026-10-19 (in memory, no production contact)
+`node scripts/dr/synthetic-restore-rehearsal.mjs` (needs `npm i --no-save @electric-sql/pglite @electric-sql/pglite-tools`).
+
+| Step | Result | Measured |
+|---|---|---|
+| Replay migrations into a source database | 285 applied, 61 skipped (pg_cron / pgvector / realtime and dependents) | ~5 s |
+| Insert invented users, points, wallets, subscriptions | 2 users, 3 point rows, 2 wallets, 2 plans | — |
+| Data-only dump of those tables plus `auth.users` | 2.4 kB | 0.3 s |
+| Encrypt (AES-256-GCM, throwaway key) and decrypt | identical to the original | — |
+| Flip one ciphertext byte | rejected on decrypt | — |
+| Restore into a second database built from the same migrations | ok; per-table counts, content hashes, RLS / policy / function counts identical | ~6 s |
+| Known-bad control (delete one restored row) | fingerprints differ, run fails | — |
+
+**What this does and does not show.** It shows the *procedure* in section C (schema from migrations, data loaded afterwards, fingerprint compared against the source) is sound and that the comparison can fail. It does not show that `pg_dump` through the Supabase pooler, the Storage export, or the restore of real `auth.users` columns work, and it is not a recovery time for production. A whole-schema `pg_dump` of the 445 replayed tables did not finish in PGlite within 280 s, so only data is dumped; do not read that as a statement about Postgres 17.
+
+**Objectives (targets, not measurements).** RPO ≤ 24 h and RTO 2–4 h are Option 1 targets from the DR report. Assumptions: a daily job exists (it does not today), the owner holds the private key, a new Supabase project can be created (free plan project limit: verify), the 41 secrets can be re-issued from their providers. The first real number is the time of the first real drill into a scratch project.
+
+**Needs the owner:** the `age` key pair, the backup SSH user, creating a scratch Supabase project, any plan change, and the first real backup run. Nothing in this section was done on production.

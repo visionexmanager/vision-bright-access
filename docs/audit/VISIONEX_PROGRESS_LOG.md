@@ -2,6 +2,21 @@
 
 Durable checkpoint for the autonomous mission. Newest entry first. Update after each milestone. A new session should read this file, then `VISIONEX_REMAINING_RISKS.md` and `VISIONEX_PHASE2_ASSESSMENT_AND_PLAN.md`.
 
+## 2026-10-19 (later) — status audit, then three PRs opened (none merged)
+Verified from GitHub: main is `1598cca9`; #430–#437 merged by the owner, each head commit green, each merge commit has a successful Deploy run. #432 and #433 migrations were applied (Deploy logs).
+
+| PR | Change | Evidence |
+|---|---|---|
+| #438 | RLS matrix: 38 → 84 checks, 4 → 7 mutation proofs | CI check "Who can read and write which rows" green. Found and fixed a fidelity gap: the two privilege-hardening migrations aborted in PGlite, so the old matrix ran against default grants |
+| #439 | Synthetic restore rehearsal script + runbook §F | Local run: dump → encrypt → tamper detected → restore → fingerprints identical; known-bad control fails. Not the real platform; whole-schema pg_dump hung in PGlite |
+| #440 | Google Fonts linked from index.html, not a CSS @import | Lighthouse ×3 each, local builds: FCP −0.5 s; LCP unchanged (~16 s); score change is TBT noise |
+
+Findings (no change made):
+- **Uptime monitor cadence.** "Site uptime" ran twice in ~11 h (00:13Z, 04:47Z) against ~44 scheduled; GitHub drops scheduled runs. Effective cadence is hours, not 15 minutes. Failure alerting = the failed run only (GitHub emails the person who last edited the cron line; owner's notification setting not verified). A reliable alert needs an outside monitor (owner account/decision).
+- **Cron prune.** Migration applied 22:11Z. Whether the 03:40 UTC run happened and what it deleted: unable to verify without a production query.
+- **`check_ai_budget`.** Only `ai-chat` calls it, and it counts `ai_interactions` (Career AI only) and `vx_usage_ledger` (metering off); `ai-chat` writes to neither (it writes provider usage to `ai_usage_events`, which the budget does not read; correction of an earlier wording), so the global budget does not see the main assistant's spend. Fail-open on error is deliberate; a missing active `ai_budgets` row also allows everything (production row not checked). Changing this is a charging/enforcement decision — not made. Full trace, five confirmed gaps and hypotheses: `VISIONEX_AI_COST_FLOW.md` (#443). The VX reserve/settle/idempotency path itself reviewed as sound; no service is enabled, so nothing is charged today.
+- Uptime wording and options: #442. Not reviewed yet: locale/RTL/authenticated axe coverage, remaining security items (N7, N8, N9, advisories).
+
 ## 2026-10-19 — merged and verified
 Merged to main (squash, auto-merge, in order): #430 docs and accessibility, #431 AdBanner consent, #432 library webhook idempotency, #433 cron history prune, #434 uptime check, #435 RLS authorization matrix; #436 (/services contrast) was waiting on CI when this was written — check its state, do not assume.
 Production evidence (read-only): the Deploy run for #432 applied `20261070000000_library_webhook_idempotency.sql` and the three unique indexes exist; the `cron-run-history-prune` job is scheduled at `40 3 * * *` and `cron.job_run_details` held 60,366 rows (oldest 2026-07-23) before its first run, so check the row count after 03:40 UTC. The `Site uptime` workflow has not yet run: dispatch it once from the Actions tab to confirm it.
