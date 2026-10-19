@@ -82,9 +82,9 @@ export default function AdminUsers() {
     // the API's row cap without any error, which made balances (a sum over
     // user_points) and the user list quietly wrong once either table passed it.
     const [profiles, { data: roles }, pointsData, { data: featuresData }, { data: deviceData }] = await Promise.all([
-      fetchAllRows((from, to) => supabase.from("profiles").select("*").order("created_at", { ascending: false }).order("user_id").range(from, to)),
+      fetchAllRows((from, to) => supabase.from("profiles").select("*").order("created_at", { ascending: false }).order("user_id").range(from, to), 1000, 200, (r) => r.user_id),
       supabase.from("user_roles").select("user_id, role"),
-      fetchAllRows((from, to) => supabase.from("user_points").select("user_id, points").order("created_at").order("id").range(from, to)),
+      fetchAllRows((from, to) => supabase.from("user_points").select("id, user_id, points").order("created_at").order("id").range(from, to), 1000, 200, (r) => r.id),
       supabase.from("user_features").select("user_id, feature_key, enabled"),
       supabase.from("device_fingerprints").select("user_id, device_id"),
     ]);

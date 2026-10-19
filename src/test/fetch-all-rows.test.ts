@@ -56,6 +56,28 @@ describe("fetchAllRows", () => {
     expect(rows).toHaveLength(5);
   });
 
+  it("a row inserted at the top between two pages repeats one row; keyOf drops the repeat", async () => {
+    // Newest-first table, 1500 rows. After page 1 is read a new row arrives at the
+    // top, so every offset moves down by one and page 2 starts with the row page 1
+    // ended on.
+    const all = Array.from({ length: 1500 }, (_, i) => ({ id: 1500 - i }));
+    let served = 0;
+    const page = async (from: number, to: number) => {
+      const data = all.slice(from, to + 1);
+      if (++served === 1) all.unshift({ id: 9999 });
+      return { data, error: null };
+    };
+    const plain = await fetchAllRows(page);
+    const ids = plain.map((r) => r.id);
+    expect(ids.length - new Set(ids).size).toBe(1); // one duplicate
+
+    all.splice(0, 1); served = 0; // back to the original table
+    const keyed = await fetchAllRows(page, 1000, 200, (r) => String(r.id));
+    const kept = keyed.map((r) => r.id);
+    expect(kept.length).toBe(new Set(kept).size);
+    expect(kept).toHaveLength(1500);
+  });
+
   it("the old single request would have lost rows (control)", async () => {
     const t = table(2500);
     const single = await t.page(0, 99999);

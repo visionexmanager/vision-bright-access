@@ -8,6 +8,11 @@
  * one page with `.range(from, to)` on a query with a stable, total `.order()`
  * (a tie on the sort column can skip or repeat a row between pages).
  *
+ * Offset paging can repeat a row when another row is inserted ahead of the cursor
+ * between two pages (a newest-first list gaining a row at the top). Pass `keyOf`
+ * to drop a row already seen; it cannot recover a row skipped by a deletion, which
+ * is why the orderings used by callers put new rows last where they can.
+ *
  * Stops at the first short page. `maxPages` is a guard against a loop, not a limit
  * anyone should reach. A failed page ends the read and returns what was read, which
  * is what the callers did before for a failed single request (they treated it as
@@ -17,8 +22,10 @@ export async function fetchAllRows<T>(
   page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
   pageSize = 1000,
   maxPages = 200,
+  keyOf?: (row: T) => string,
 ): Promise<T[]> {
   const rows: T[] = [];
+  const seen = new Set<string>();
   for (let i = 0; i < maxPages; i++) {
     const from = i * pageSize;
     const { data, error } = await page(from, from + pageSize - 1);
@@ -27,7 +34,14 @@ export async function fetchAllRows<T>(
       break;
     }
     const got = data ?? [];
-    rows.push(...got);
+    for (const row of got) {
+      if (keyOf) {
+        const key = keyOf(row);
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+      rows.push(row);
+    }
     if (got.length < pageSize) break;
   }
   return rows;
