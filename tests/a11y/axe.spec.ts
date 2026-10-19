@@ -26,16 +26,7 @@ const ROUTES = ["/", "/login", "/signup", "/forgot-password", "/services", "/pri
  * value: axe rule ids. The test fails on any violation NOT listed here, and also on a
  * listed one that no longer occurs, so this list can only shrink.
  */
-const KNOWN: Record<string, string[]> = {
-  // Found by this suite on its first run, not fixed here and not explained yet: the
-  // active nav link "Games" (teal text on a 10% teal wash, class "bg-primary/10
-  // text-primary" in Navbar.tsx) is measured by axe at 3.06:1 against #bbc5c6, a
-  // colour that is not what the sticky nav's own background resolves to. Needs a
-  // person to look at what sits under the nav on /games. Not a rule exemption:
-  // every other route and the Arabic /games page pass.
-  "en /games": ["color-contrast"],
-  "es /games": ["color-contrast"],
-};
+const KNOWN: Record<string, string[]> = {};
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
