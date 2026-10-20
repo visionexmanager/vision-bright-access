@@ -95,3 +95,19 @@ Options, simplest reliable first (none done; each marked for cost/approval):
 3. **`pg_cron` + `pg_net` in Supabase** calling the site and writing a row/notification: reliable cadence, stays inside what is already paid for (free plan), but sees nothing if Supabase itself is down and needs a migration (a deploy).
 4. **Keep GitHub Actions as a secondary check** (current) and add a "last successful run is older than 6 h" check — still depends on the same scheduler, so it only helps a human who looks.
 Recommendation: option 1 for detection plus the current workflow as a second opinion. Until then, do not describe the monitor as "every 15 minutes".
+
+### 9b. The actual limits of scheduled GitHub Actions, and free options (no account created, nothing dispatched)
+**Observed on this repository (read-only run history, 2026-10-19):** `Site uptime` (`*/15`) ran at 00:13Z, 04:47Z, 10:30Z and 17:10Z, i.e. 4 runs in 18 hours against about 72 scheduled; `Security monitor`, `Plan Expiry Reminders` and `TV Stream Health Check` show the same 3 to 6 hour spacing. The scheduler is the limit, not the workflow.
+
+**Documented by GitHub, not re-verified here [D]:** scheduled runs can be delayed or dropped under load, with the heaviest load at the start of each hour; the shortest interval is 5 minutes; they run only from the default branch; in a public repository they are switched off after 60 days without repository activity; the notification for a failed scheduled run goes to the user who last edited the cron line, subject to that user's notification settings.
+
+**What a failed run does and does not prove:** a red run proves the check ran and failed. It does not prove anyone was told, and a missing run looks identical to a healthy quiet period. Nothing in the repository detects "the monitor has not run for six hours".
+
+Free options, in order of how reliably they would catch a short outage (all unverified claims about third-party terms: check the vendor's current page before relying on any of them):
+1. **A hosted free-tier uptime monitor** (UptimeRobot, Better Stack, Freshping-style services) checking `https://visionex.app/` every 1 to 5 minutes with e-mail alerts. Cost $0 at the free tier; needs an account (your decision). Independent of GitHub and of the server.
+2. **A second, independent scheduler:** an existing free cron service calling a `workflow_dispatch` or the site, or the Hetzner server's own cron. The server's cron cannot report its own host being down.
+3. **Database-side:** `pg_cron` + `pg_net` in the existing Supabase project calling the site and writing an alert row. Reliable cadence, no new vendor, but blind if Supabase itself is down, and it needs a migration (a deploy). No migration mentions `pg_net` today other than comments.
+4. **Experiment inside GitHub (free, unproven):** move the cron to minutes away from the top of the hour (for example `7,22,37,52 * * * *`) and watch whether more runs fire. This is a hypothesis about load, not a fix; it also changes the cron line, so alerts would go to whoever commits it.
+5. **A dead-man's-switch check** ("no successful run in the last N hours") cannot live in the same scheduler; it needs option 1 or 2 to poll it.
+
+Recommendation unchanged: option 1 for detection, the GitHub workflow as a second opinion, and stop describing the GitHub schedule as "every 15 minutes".
