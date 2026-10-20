@@ -3848,6 +3848,8 @@ export const translations: Record<string, string> = {
   "common.cancel": "لغو",
   "admin.users.title": "مدیریت کاربران",
   "admin.users.total": "{count} کاربر",
+  "admin.users.listIncomplete": "ممکن است فهرست کاربران ناقص باشد: بارگذاری برخی صفحه‌ها ممکن نشد. برای تلاش دوباره صفحه را بازخوانی کنید.",
+  "admin.users.balancesUnavailable": "موجودی سایر کاربران در حال حاضر در دسترس نیست. فقط موجودی خودتان نمایش داده می‌شود.",
   "admin.users.searchPlaceholder": "جستجو بر اساس نام یا شناسه...",
   "admin.users.user": "کاربر",
   "admin.users.role": "نقش",

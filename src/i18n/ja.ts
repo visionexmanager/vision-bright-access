@@ -3848,6 +3848,8 @@ export const translations: Record<string, string> = {
   "common.cancel": "キャンセル",
   "admin.users.title": "ユーザーを管理",
   "admin.users.total": "{count} 人のユーザー",
+  "admin.users.listIncomplete": "ユーザー一覧が不完全な可能性があります。一部のページを読み込めませんでした。再読み込みしてもう一度お試しください。",
+  "admin.users.balancesUnavailable": "他のユーザーの残高は現在利用できません。表示されているのはご自身の残高のみです。",
   "admin.users.searchPlaceholder": "名前またはIDで検索...",
   "admin.users.user": "ユーザー",
   "admin.users.role": "ロール",

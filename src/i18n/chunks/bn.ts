@@ -3843,6 +3843,8 @@ export const translationsPart: Record<string, string> = {
   "common.cancel": "বাতিল",
   "admin.users.title": "ব্যবহারকারী পরিচালনা করুন",
   "admin.users.total": "{count} জন ব্যবহারকারী",
+  "admin.users.listIncomplete": "ব্যবহারকারীর তালিকা অসম্পূর্ণ হতে পারে: কিছু পৃষ্ঠা লোড করা যায়নি। আবার চেষ্টা করতে পুনরায় লোড করুন।",
+  "admin.users.balancesUnavailable": "অন্য ব্যবহারকারীদের ব্যালেন্স এখন পাওয়া যাচ্ছে না। শুধু আপনার নিজের ব্যালেন্স দেখানো হচ্ছে।",
   "admin.users.searchPlaceholder": "নাম বা আইডি দিয়ে খুঁজুন...",
   "admin.users.user": "ব্যবহারকারী",
   "admin.users.role": "ভূমিকা",

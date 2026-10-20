@@ -3853,6 +3853,8 @@ export const translations: Record<string, string> = {
   "common.cancel": "Cancelar",
   "admin.users.title": "Gerir utilizadores",
   "admin.users.total": "{count} utilizadores",
+  "admin.users.listIncomplete": "A lista de utilizadores pode estar incompleta: algumas páginas não puderam ser carregadas. Recarregue para tentar novamente.",
+  "admin.users.balancesUnavailable": "Os saldos dos outros utilizadores não estão disponíveis neste momento. Apenas o seu saldo é mostrado.",
   "admin.users.searchPlaceholder": "Pesquisar por nome ou ID...",
   "admin.users.user": "Usuário",
   "admin.users.role": "Função",
