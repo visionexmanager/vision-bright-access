@@ -59,6 +59,45 @@ export async function priceBook(db: UsageDb, now: number = Date.now()): Promise<
   return loading;
 }
 
+// A lost event is a lost cost record, so it has to be observable. What is logged is
+// deliberately thin: Postgres puts the failing row's values into an error's message
+// and details, and a row can carry counts but also model names the caller chose, so
+// neither field is ever logged. Only the SQLSTATE-style code and values this module
+// already validated are. One line per (function, code) per minute per isolate keeps
+// an outage from flooding the log; the counter still counts every failure.
+export const FAILURE_LOG_INTERVAL_MS = 60_000;
+const SAFE_TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$/;
+let writeFailures = 0;
+const lastLogged = new Map<string, number>();
+
+/** How many event writes failed in this isolate since it started (or since reset). */
+export function usageWriteFailures(): number {
+  return writeFailures;
+}
+
+/** For tests. */
+export function resetUsageFailureState(): void {
+  writeFailures = 0;
+  lastLogged.clear();
+}
+
+function errorCode(err: unknown): string {
+  const code = err && typeof err === "object" ? (err as { code?: unknown }).code : undefined;
+  return typeof code === "string" && /^[A-Za-z0-9_]{1,16}$/.test(code) ? code : "unknown";
+}
+
+function noteWriteFailure(functionName: string, event: UsageEvent, code: string, now: number): void {
+  writeFailures++;
+  const key = `${functionName}:${code}`;
+  const last = lastLogged.get(key);
+  if (last !== undefined && now - last < FAILURE_LOG_INTERVAL_MS) return;
+  lastLogged.set(key, now);
+  const safe = (v: unknown) => (typeof v === "string" && SAFE_TOKEN.test(v) ? v : "?");
+  console.error("[usage] ai_usage_events write failed; the cost record for this call is lost", {
+    function: functionName, provider: safe(event.provider), model: safe(event.model), code, failures: writeFailures,
+  });
+}
+
 /** Price one event and write it to ai_usage_events. Never throws. */
 export async function recordUsageEventIn(
   db: UsageDb,
@@ -71,7 +110,7 @@ export async function recordUsageEventIn(
     const occurredAt = new Date(now).toISOString();
     const row = priceFor(await priceBook(db, now), event.provider, event.model, event.resolved_model, occurredAt);
     const cost = costOf(event.usage, row);
-    await db.from("ai_usage_events").insert({
+    const { error } = await db.from("ai_usage_events").insert({
       occurred_at: occurredAt,
       function_name: functionName,
       operation: event.operation,
@@ -90,7 +129,10 @@ export async function recordUsageEventIn(
       cost_status: cost.status,
       cost_note: cost.status === "unpriced" ? cost.reason : null,
     });
-  } catch {
+    // One attempt only: a retry here could store the same call twice.
+    if (error) noteWriteFailure(functionName, event, errorCode(error), now);
+  } catch (err) {
     // Metering never reaches the request.
+    if (FUNCTION_NAME.test(functionName)) noteWriteFailure(functionName, event, errorCode(err) === "unknown" ? "exception" : errorCode(err), now);
   }
 }
