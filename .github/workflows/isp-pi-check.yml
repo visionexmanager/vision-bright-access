@@ -85,6 +85,8 @@ jobs:
           PROBE: ${{ inputs.probe }}
         run: |
           set -uo pipefail
+          # The step shell is bash -e and the runner exits non-zero on a FAIL result; we must still read it.
+          set +e
           # The only two command words the server will accept. Nothing is interpolated.
           if [ "$PROBE" = "true" ]; then MODE=probe; else MODE=check; fi
           # stderr is discarded; stdout is captured to a file and never shown unfiltered.
