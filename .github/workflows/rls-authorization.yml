@@ -14,6 +14,8 @@ on:
       - scripts/sql/vx-accounting-scenarios.mjs
       - scripts/sql/ai-budget-scenarios.mjs
       - scripts/sql/ai-cost-reconciliation-scenarios.mjs
+      - scripts/sql/page-events-retention-scenarios.mjs
+      - scripts/sql/page-events-export-restore-rehearsal.mjs
       - .github/workflows/rls-authorization.yml
 
 permissions:
@@ -39,3 +41,7 @@ jobs:
         run: node scripts/sql/ai-budget-scenarios.mjs
       - name: Admin AI cost and reconciliation functions
         run: node scripts/sql/ai-cost-reconciliation-scenarios.mjs
+      - name: page_events retention command (synthetic rows only)
+        run: node scripts/sql/page-events-retention-scenarios.mjs
+      - name: page_events export and scratch-restore rehearsal (synthetic rows only)
+        run: node scripts/sql/page-events-export-restore-rehearsal.mjs

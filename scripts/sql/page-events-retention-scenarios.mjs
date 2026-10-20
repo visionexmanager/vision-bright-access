@@ -1,0 +1,168 @@
+// page_events 365-day retention: dry-run report and delete behaviour on SYNTHETIC rows,
+// executed in PGlite. Nothing here deletes anything anywhere else, and the delete is
+// not part of any migration: docs/audit/PAGE_EVENTS_RETENTION_PROPOSAL.md is the proposal.
+//
+//   npm i --no-save @electric-sql/pglite
+//   node scripts/sql/page-events-retention-scenarios.mjs
+//
+// It asserts: exactly which rows the predicate selects, the strict boundary, that the
+// cutoff does not move with the session time zone (it is 8760 absolute hours, not
+// "365 calendar days"), batching, idempotence, that nothing else is touched, that no
+// foreign key or view depends on the table, and that the SQL text in the proposal is
+// the SQL tested here. Ends by mutating the predicate and requiring a red result.
+import { PGlite } from "@electric-sql/pglite";
+import { readdirSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const dir = resolve(process.argv[2] ?? "supabase/migrations");
+const db = new PGlite();
+await db.exec(`
+  create role anon nologin; create role authenticated nologin; create role service_role nologin; create role supabase_admin nologin;
+  create schema auth; create schema extensions; create schema storage; create schema realtime; create schema vault;
+  create table auth.users(id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb default '{}', created_at timestamptz default now(), email_confirmed_at timestamptz, phone text, raw_app_meta_data jsonb default '{}', last_sign_in_at timestamptz);
+  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true),'')::uuid $$;
+  create function auth.role() returns text language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claim.role', true),''),'anon') $$;
+  create function auth.jwt() returns jsonb language sql stable as $$ select '{}'::jsonb $$;
+  create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+  create table storage.objects(id uuid primary key default gen_random_uuid(), bucket_id text, name text, owner uuid, metadata jsonb);
+  create function storage.foldername(name text) returns text[] language sql as $$ select string_to_array(name,'/') $$;
+  create function storage.filename(name text) returns text language sql as $$ select name $$;
+  grant usage on schema public, auth, extensions, storage to anon, authenticated, service_role;
+  alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+  alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+  alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+`);
+let applied = 0, skipped = 0;
+for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql")).sort()) {
+  try { await db.exec(readFileSync(`${dir}/${f}`, "utf8")); applied++; } catch { skipped++; }
+}
+console.log(`migrations replayed: ${applied} applied, ${skipped} skipped (PGlite lacks pg_cron/pgvector/pgcrypto/realtime)`);
+
+// The exact command the scheduled job runs, read from the migration, not retyped here.
+const MIGRATION = "supabase/migrations/20261074000000_page_events_retention.sql";
+const migrationText = readFileSync(MIGRATION, "utf8").replace(/\r\n/g, "\n");
+const cronMatch = migrationText.match(/\$cron\$([\s\S]*?)\$cron\$/);
+if (!cronMatch) { console.log("FAIL  no $cron$ command found in the migration"); process.exit(1); }
+const CRON_COMMAND = cronMatch[1];
+const BATCH = Number(CRON_COMMAND.match(/LIMIT (\d+)/)[1]);
+// The same command without the two SET LOCAL guards, for places that need RETURNING.
+const DELETE_ONLY = CRON_COMMAND.replace(/SET LOCAL [^;]*;\s*/g, "");
+// db.exec runs a multi-statement string; the last result is the DELETE.
+const run = async (cmd = CRON_COMMAND) => { const res = await db.exec(cmd); return res[res.length - 1]; };
+// The read-only dry run: the same predicate, no DELETE.
+const DRY_RUN_SQL = `SELECT count(*)::int AS would_delete,
+       min(created_at) AS oldest, max(created_at) AS newest_that_would_go,
+       now() - interval '8760 hours' AS cutoff
+  FROM public.page_events WHERE created_at < now() - interval '8760 hours'`;
+
+let fail = 0, total = 0;
+const check = (name, ok) => { total++; if (!ok) fail++; console.log(`${ok ? "PASS" : "FAIL"}  ${name}`); };
+const one = async (sql, args) => (await db.query(sql, args)).rows[0];
+const ids = async () => (await db.query("select page_path p from public.page_events order by page_path")).rows.map((r) => r.p);
+const insertAged = (label, interval) =>
+  db.query("insert into public.page_events(event_type, page_path, created_at) values ('page_view', $1, now() + $2::interval)", [label, interval]);
+
+const proposal = readFileSync("docs/audit/PAGE_EVENTS_RETENTION_PROPOSAL.md", "utf8").replace(/\r\n/g, "\n").replace(/\s+/g, " ");
+check("the SQL in the proposal is the SQL in the migration (and so the SQL tested here)", proposal.includes(DELETE_ONLY.replace(/\s+/g, " ")) && proposal.includes("statement_timeout"));
+
+// ── Which rows ───────────────────────────────────────────────────────────────
+await db.exec("delete from public.page_events");
+const FIX = [
+  ["new-now", "0 seconds", true], ["1d", "-1 day", true], ["364d", "-364 days", true],
+  ["just-inside-365d", "-8759 hours -59 minutes", true], ["just-past-365d", "-8760 hours -1 minute", false],
+  ["400d", "-400 days", false], ["800d", "-800 days", false], ["future-clock-skew", "2 days", true],
+];
+for (const [l, i] of FIX) await insertAged(l, i);
+const dry = await one(DRY_RUN_SQL);
+check("dry run: 3 of 8 synthetic rows would be deleted (just past 365 days, 400 days, 800 days)", dry.would_delete === 3);
+check("dry run changed nothing", (await ids()).length === 8);
+console.log(`INFO  dry-run report on synthetic data: would_delete=${dry.would_delete} oldest=${dry.oldest.toISOString()} cutoff=${dry.cutoff.toISOString()}`);
+
+const other = async () => JSON.stringify(await one(`select (select count(*) from public.user_points)::int up, (select count(*) from public.ai_budgets)::int ab, (select count(*) from public.profiles)::int pr, (select count(*) from public.notifications)::int nt`));
+const beforeOther = await other();
+const del1 = await run();
+const kept = await ids();
+check("the delete removes exactly the rows the dry run counted", del1.affectedRows === 3);
+check("the command returns no rows: only the command tag leaves the table (an aggregate result)", Array.isArray(del1.rows) && del1.rows.length === 0 && !/RETURNING/i.test(migrationText.replace(/--[^\n]*/g, "")));
+check("scope: the command names only public.page_events", [...CRON_COMMAND.matchAll(/(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_.]+)/gi)].every((m) => m[1] === "public.page_events"));
+check("bounded: one 10,000-row batch with a statement timeout and a lock timeout", BATCH === 10000 && /statement_timeout = '60s'/.test(CRON_COMMAND) && /lock_timeout = '5s'/.test(CRON_COMMAND));
+check("rows inside 365 days (including 364 days and a minute inside the line) and future-dated rows are kept", ["1d", "364d", "future-clock-skew", "just-inside-365d", "new-now"].every((l) => kept.includes(l)) && kept.length === 5);
+check("a second run deletes nothing (idempotent)", (await run()).affectedRows === 0);
+check("no other table was touched", (await other()) === beforeOther);
+
+// ── Boundary and time zones ─────────────────────────────────────────────────
+await db.exec("delete from public.page_events");
+await db.exec("begin");
+await db.exec("insert into public.page_events(event_type, page_path, created_at) values ('page_view', 'exactly-cutoff', now() - interval '8760 hours')");
+const edge = await run();
+await db.exec("rollback");
+check("a row exactly on the cutoff instant is kept (strictly older rows only)", edge.affectedRows === 0);
+
+const deletedUnder = async (tz) => {
+  await db.exec("delete from public.page_events");
+  for (const [l, i] of FIX) await insertAged(l, i);
+  await db.exec("begin");
+  await db.exec(`set local timezone = '${tz}'`);
+  const r = await db.query(`${DELETE_ONLY} RETURNING page_path`);
+  await db.exec("rollback");
+  return r.rows.map((x) => x.page_path).sort().join(",");
+};
+const utc = await deletedUnder("UTC");
+check("the deleted set is identical under UTC, America/New_York and Pacific/Auckland", utc === await deletedUnder("America/New_York") && utc === await deletedUnder("Pacific/Auckland") && utc.split(",").length === 3);
+// Why 8760 hours and not "365 days": when the window starts and ends in different DST states the two differ by an hour.
+await db.exec("begin");
+await db.exec("set local timezone = 'America/New_York'");
+const dstGap = await one(`select extract(epoch from ((timestamptz '2026-03-08 12:00:00-04') - interval '365 days') - ((timestamptz '2026-03-08 12:00:00-04') - interval '8760 hours'))/3600 as hours`);
+await db.exec("rollback");
+console.log(`INFO  in America/New_York, "365 days" and 8760 hours differ by ${dstGap.hours} h when the window starts just after the March DST change and ends before it; the proposal uses 8760 hours so the cutoff never depends on the time zone`);
+check("calendar-day arithmetic would have moved the cutoff by an hour in a DST zone (why 8760 hours is used)", Math.abs(Number(dstGap.hours)) === 1);
+
+// ── Batching ─────────────────────────────────────────────────────────────────
+await db.exec("delete from public.page_events");
+await db.exec(`insert into public.page_events(event_type, page_path, created_at)
+  select 'page_view', 'old-' || g, now() - interval '500 days' - (g || ' seconds')::interval from generate_series(1, 25000) g`);
+await insertAged("recent", "-1 day");
+const runs = [];
+for (let i = 0; i < 6; i++) { const r = await run(); runs.push(r.affectedRows); if (!r.affectedRows) break; }
+check("a 25,000-row backlog drains in batches of 10,000 over three runs, then stops", JSON.stringify(runs) === JSON.stringify([10000, 10000, 5000, 0]));
+check("the recent row survives the whole drain", (await ids()).join() === "recent");
+
+// ── The migration itself replays cleanly, twice (pg_cron is absent here, so it must say so and stop)
+let replayOk = true;
+try { await db.exec(migrationText); await db.exec(migrationText); } catch { replayOk = false; }
+check("the migration can be applied twice without error", replayOk);
+
+// ── Failure and partial runs ────────────────────────────────────────────────
+await db.exec("delete from public.page_events");
+await db.exec(`insert into public.page_events(event_type, page_path, created_at)
+  select 'page_view', 'old-' || g, now() - interval '500 days' - (g || ' seconds')::interval from generate_series(1, 12000) g`);
+await db.exec("insert into public.page_events(event_type, page_path, created_at) values ('page_view', 'poison', now() - interval '600 days')");
+await db.exec(`create function public.tmp_page_events_poison() returns trigger language plpgsql as $$ begin if old.page_path = 'poison' then raise exception 'injected failure'; end if; return old; end $$;
+  create trigger tmp_page_events_poison before delete on public.page_events for each row execute function public.tmp_page_events_poison()`);
+let failed = false;
+try { await run(); } catch (e) { failed = /injected failure/.test(e.message); }
+const afterFail = Number((await one("select count(*)::int n from public.page_events")).n);
+check("a run that fails part-way deletes nothing (atomic): no partial batch to repair", failed && afterFail === 12001);
+await db.exec("drop trigger tmp_page_events_poison on public.page_events; drop function public.tmp_page_events_poison()");
+const retry = [];
+for (let i = 0; i < 4; i++) { const r = await run(); retry.push(r.affectedRows); if (!r.affectedRows) break; }
+check("once the cause is fixed the next runs finish the same work (retry is safe)", JSON.stringify(retry) === JSON.stringify([10000, 2001, 0]) && Number((await one("select count(*)::int n from public.page_events")).n) === 0);
+
+// ── Dependencies ─────────────────────────────────────────────────────────────
+const fks = await one("select count(*)::int n from pg_constraint where confrelid = 'public.page_events'::regclass");
+const deps = await one(`select count(*)::int n from pg_depend d join pg_rewrite r on r.oid = d.objid where d.refobjid = 'public.page_events'::regclass and d.deptype = 'n'`);
+check("no foreign key references page_events", fks.n === 0);
+check("no view or rule depends on page_events", deps.n === 0);
+const idx = await one("select count(*)::int n from pg_indexes where tablename='page_events' and indexdef ilike '%(created_at DESC)%'");
+check("created_at is indexed (the batch sub-select does not scan the table)", idx.n === 1);
+
+// ── Mutation proof ───────────────────────────────────────────────────────────
+await db.exec("delete from public.page_events");
+for (const [l, i] of FIX) await insertAged(l, i);
+const mutated = CRON_COMMAND.replace("8760 hours", "876 hours");
+const n = (await run(mutated)).affectedRows;
+console.log(`${n !== 3 ? "PASS" : "FAIL"}  mutation "cutoff 876 hours instead of 8760" deletes ${n} rows, so the 3-row check above would go red`);
+if (n === 3) fail++;
+
+console.log(fail ? `\n${fail} failure(s)` : `\nall ${total} checks and 1 mutation proof passed`);
+process.exit(fail ? 1 : 0);
