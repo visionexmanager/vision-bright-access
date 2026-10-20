@@ -24,6 +24,21 @@ export async function fetchAllRows<T>(
   maxPages = 200,
   keyOf?: (row: T) => string,
 ): Promise<T[]> {
+  return (await fetchAllRowsChecked(page, pageSize, maxPages, keyOf)).rows;
+}
+
+/**
+ * Same read, but says whether it is the whole table. `complete` is false when a
+ * page failed or when `maxPages` ran out while pages were still full; the rows
+ * are then only a prefix. Anything that adds the rows up (a balance) must check it
+ * and must not present the sum as verified when it is false.
+ */
+export async function fetchAllRowsChecked<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  pageSize = 1000,
+  maxPages = 200,
+  keyOf?: (row: T) => string,
+): Promise<{ rows: T[]; complete: boolean }> {
   const rows: T[] = [];
   const seen = new Set<string>();
   for (let i = 0; i < maxPages; i++) {
@@ -31,7 +46,7 @@ export async function fetchAllRows<T>(
     const { data, error } = await page(from, from + pageSize - 1);
     if (error) {
       console.error("[fetchAllRows] page failed; returning the rows read so far", { page: i });
-      break;
+      return { rows, complete: false };
     }
     const got = data ?? [];
     for (const row of got) {
@@ -42,7 +57,7 @@ export async function fetchAllRows<T>(
       }
       rows.push(row);
     }
-    if (got.length < pageSize) break;
+    if (got.length < pageSize) return { rows, complete: true };
   }
-  return rows;
+  return { rows, complete: false };
 }

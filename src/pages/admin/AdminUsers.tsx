@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { fetchAllRows } from "@/lib/fetchAllRows";
-import { balancesFromRows, balancesFromTotals } from "@/lib/adminBalances";
+import { fetchAllRowsChecked } from "@/lib/fetchAllRows";
+import { balanceOf, balancesFromRows, balancesFromTotals, type BalanceSource } from "@/lib/adminBalances";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,12 +82,15 @@ export default function AdminUsers() {
     // profiles (and user_points, in the fallback below) are read in pages: a single
     // request is cut off at the API's row cap without any error, which made the user
     // list and any sum over user_points quietly wrong once a table passed it.
-    const [profiles, { data: roles }, { data: featuresData }, { data: deviceData }] = await Promise.all([
-      fetchAllRows((from, to) => supabase.from("profiles").select("*").order("created_at", { ascending: false }).order("user_id").range(from, to), 1000, 200, (r) => r.user_id),
+    const [profilesRead, { data: roles }, { data: featuresData }, { data: deviceData }] = await Promise.all([
+      fetchAllRowsChecked((from, to) => supabase.from("profiles").select("*").order("created_at", { ascending: false }).order("user_id").range(from, to), 1000, 200, (r) => r.user_id),
       supabase.from("user_roles").select("user_id, role"),
       supabase.from("user_features").select("user_id, feature_key, enabled"),
       supabase.from("device_fingerprints").select("user_id, device_id"),
     ]);
+
+    const profiles = profilesRead.rows;
+    if (!profilesRead.complete) console.error("[AdminUsers] the profile list is incomplete: a page failed or the page limit was reached");
 
     const adminIds = new Set((roles ?? []).filter(r => r.role === "admin").map(r => r.user_id));
 
@@ -96,12 +99,14 @@ export default function AdminUsers() {
     // is not there yet or fails, fall back to summing what the session can read:
     // correct for the viewer's own rows only, which is what this screen showed before.
     const { data: totals, error: totalsError } = await supabase.rpc("admin_user_balances");
-    let pointsMap = totalsError ? null : balancesFromTotals(totals);
-    const balancesComplete = pointsMap !== null;
-    if (!pointsMap) {
+    const totalsMap = totalsError ? null : balancesFromTotals(totals);
+    let source: BalanceSource;
+    if (totalsMap) {
+      source = { kind: "full", map: totalsMap };
+    } else {
       console.error("[AdminUsers] admin_user_balances unavailable; other users' balances are not shown", totalsError?.message);
-      const pointsData = await fetchAllRows((from, to) => supabase.from("user_points").select("id, user_id, points").order("created_at").order("id").range(from, to), 1000, 200, (r) => r.id);
-      pointsMap = balancesFromRows(pointsData);
+      const own = await fetchAllRowsChecked((from, to) => supabase.from("user_points").select("id, user_id, points").order("created_at").order("id").range(from, to), 1000, 200, (r) => r.id);
+      source = { kind: "own", map: balancesFromRows(own.rows), viewerId: currentUser?.id, viewerRead: own.complete };
     }
 
     const featuresMap: Record<string, Record<string, boolean>> = {};
@@ -121,8 +126,7 @@ export default function AdminUsers() {
       status: p.status || "active",
       is_verified: p.is_verified || false,
       isAdmin: adminIds.has(p.user_id),
-      // Without the function only the viewer's own rows are readable: any other balance is unknown, not 0.
-      points: balancesComplete || p.user_id === currentUser?.id ? pointsMap[p.user_id] || 0 : undefined,
+      points: balanceOf(source, p.user_id),
       features: featuresMap[p.user_id] || {},
       device_ids: deviceMap[p.user_id] || [],
     })));

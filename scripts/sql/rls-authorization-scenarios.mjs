@@ -265,7 +265,9 @@ async function matrix() {
   // read other users' user_points rows (no admin policy), which is why it exists.
   check("user_points: an admin session reads none of the rows (the reason admin_user_balances exists)", (await as("ADMIN", "select 1 from public.user_points")).rows?.length === 0);
   check("admin_user_balances: no EXECUTE for anon", !(await canExec("anon", "public.admin_user_balances()")));
-  check("admin_user_balances: the service role can execute it", await canExec("service_role", "public.admin_user_balances()"));
+  // service_role holds EXECUTE (the grant list matches the other admin RPCs) but has no
+  // auth.uid(), so the admin check inside refuses it: the totals are for an admin session only.
+  check("admin_user_balances: the service role holds EXECUTE but is refused by the admin check", await canExec("service_role", "public.admin_user_balances()") && (await as("SERVICE", "select public.admin_user_balances() b")).error === "Admin access required");
   const balAnon = await as("anon", "select public.admin_user_balances() b");
   check("admin_user_balances: anonymous refused", !!balAnon.error);
   const balA = await as("A", "select public.admin_user_balances() b");

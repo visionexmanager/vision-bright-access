@@ -23,3 +23,18 @@ export function balancesFromRows(rows: ReadonlyArray<{ user_id: string; points: 
   for (const r of rows) out[r.user_id] = (out[r.user_id] || 0) + (r.points || 0);
   return out;
 }
+
+/**
+ * Where the balances came from. `full`: the admin function, every user. `own`: the
+ * paged read of user_points, which an admin session can only read for its own
+ * rows; `viewerRead` says whether even that read finished.
+ */
+export type BalanceSource =
+  | { kind: "full"; map: Record<string, number> }
+  | { kind: "own"; map: Record<string, number>; viewerId: string | null | undefined; viewerRead: boolean };
+
+/** A user's balance, or undefined when it is not known (shown as unavailable, never as 0). */
+export function balanceOf(src: BalanceSource, userId: string): number | undefined {
+  if (src.kind === "full") return src.map[userId] || 0;
+  return src.viewerRead && userId === src.viewerId ? src.map[userId] || 0 : undefined;
+}
