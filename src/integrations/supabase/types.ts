@@ -27530,6 +27530,8 @@ export type Database = {
         Args: { _points: number; _reason: string; _user_id: string }
         Returns: undefined
       }
+      admin_ai_cost_daily: { Args: { _days?: number }; Returns: Json }
+      admin_ai_reconciliation: { Args: { _days?: number }; Returns: Json }
       admin_user_balances: { Args: never; Returns: Json }
       admin_set_service_pricing: {
         Args: {
