@@ -2,6 +2,13 @@
 
 Durable checkpoint for the autonomous mission. Newest entry first. Update after each milestone. A new session should read this file, then `VISIONEX_REMAINING_RISKS.md` and `VISIONEX_PHASE2_ASSESSMENT_AND_PLAN.md`.
 
+## 2026-10-20 (later) — dependency patch, live-build check, register status
+- **#459** `2d58e709` — lockfile-only patch bumps (dompurify 3.4.17, markdown-it 14.3.3, fast-glob 3.3.3); `npm audit --omit=dev` 47 → 45. Deploy succeeded. The 6 highs (tailwindcss chain, xlsx) are unchanged and documented; the fix is a major upgrade or does not exist.
+- **Live build check (public static assets only, no API/database call):** the deployed `AdminUsers` chunk contains `admin_user_balances` and `admin.users.listIncomplete`, so the #456/#457 client code is being served. This does not verify the database function or any admin balance.
+- **Uptime cadence, observed:** 7 scheduled `site-uptime` runs between 2026-10-19 00:13Z and 2026-10-20 05:20Z (gaps 4–7 h), all successful. Not a minute-level monitor.
+- **Register status:** N1 (#431) and N5 (#433) are fixed in code and merged; marked in `VISIONEX_REMAINING_RISKS.md`. Open and needing an owner decision or large work: N2–N4 (performance/CLS), N6 (`check_ai_budget`), N7 (sign-up enumeration), N8 (CAPTCHA, needs a provider account), N9 (`page_events` retention is a data-deletion policy).
+- No production queries, balance, billing or permission changes.
+
 ## 2026-10-20 — admin balances shipped; remaining PR queue cleared
 Main `95105782` after the merges below. Each was squash-merged only after every required check was green on the exact head; the verified facts are the GitHub check runs and Deploy logs, not this file.
 - **#450** `3203deed` — admin lists read `profiles` / `user_points` in pages. Deploy run 39387850598 succeeded; no migration.
