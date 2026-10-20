@@ -38,20 +38,35 @@ Searched `src`, `supabase/functions`, `scripts` and every migration:
 ## Dry run
 **Synthetic (done, in the tests):** rows aged from "now" to 800 days, plus one a minute inside and one a minute past the line → report `would_delete = 3`; running the command deletes exactly those 3.
 
-**Production count (NOT obtained — blocker).** The only database connection available to this session is the Supabase connector's `execute_sql`, a general raw-SQL tool that sits beside write tools (`apply_migration`, `deploy_edge_function`, …). It is not a read-only connection, and no read-only credential, `psql` or `pg_dump` is present on this machine. Your instruction was to query only over a clearly read-only connection, so **I ran no SQL against production and the number of `page_events` rows older than 365 days is unknown.** The `page_events` table is also read-protected for the public key (admins only), so it could not be counted from outside either. To obtain it, run this once yourself in the Supabase SQL editor (it reads only and deletes nothing):
+**Production dry run (MEASURED, read-only, 2026-10-20).** Environment: the one Supabase project in the account, `nnyxtaftwispowolajpl` (`visionexmanager's Project`, region eu-west-1, Postgres 17, created 2026-04-17, status ACTIVE_HEALTHY), which is the project the live site `visionex.app` calls (its REST host is `nnyxtaftwispowolajpl.supabase.co`). The only connection available was the Supabase connector's `execute_sql`, which is a general raw-SQL tool and is **not** read-only by itself, so the query was wrapped in `BEGIN READ ONLY; … COMMIT;` and returned `current_setting('transaction_read_only')` in the same row: the database itself refused any write inside that transaction, and it reported `on`. The statement was the aggregate below and nothing else; no row was selected, no data left the database except these six values.
+
+| Value | Result |
+|---|---|
+| `transaction_read_only` (verification) | `on` |
+| `would_delete` (rows older than 8,760 elapsed hours) | **0** |
+| `oldest` | NULL (no eligible row) |
+| `newest_that_would_go` | NULL (no eligible row) |
+| `cutoff` | `2025-10-20 16:28:00.916304+00` |
+| `table_total` | **7,970** |
+
+Query executed at about 2026-10-20 16:28:00Z (the cutoff is the execution instant minus 8,760 hours); the tool did not report a duration. The result agrees with the independent fact that the project itself was created on 2026-04-17, 186 days earlier, so no row can be older than 365 days. **The job, if applied, would delete nothing until rows reach a year of age (earliest around 2027-04-17 for the oldest rows, depending on when collection began).**
+
+To repeat it yourself (reads only, deletes nothing):
 ```sql
-SELECT count(*)                       AS would_delete,
+BEGIN READ ONLY;
+SELECT current_setting('transaction_read_only') AS txn_read_only,
+       count(*)                       AS would_delete,
        min(created_at)                AS oldest,
        max(created_at)                AS newest_that_would_go,
        now() - interval '8760 hours'  AS cutoff,
        (SELECT count(*) FROM public.page_events) AS table_total
   FROM public.page_events
  WHERE created_at < now() - interval '8760 hours';
+COMMIT;
 ```
-**The answer is probably 0, but that is an inference, not a measurement.** The migration that creates `page_events` is dated 2026-03-31 (`20260331114241_…sql`), about 203 days before 2026-10-20, and a row cannot be older than its table. If production applied that migration near its date (not verified: the table could have been created earlier by another route), nothing is older than 365 days, the job would delete nothing until rows reach a year of age (around 2027-03-31), and no export would be needed first.
 
 ## Export and restore: what exists, what was proven
-**Real export mechanism available to this session: none that is safe.** `execute_sql` could return rows, but they would pass through this conversation's transcript, which is the "ordinary log" your instructions prohibit for production data; `pg_dump`/`psql` are not installed and no database credential is held here. So **no production export was made, and no production data is stored anywhere by this work.**
+**A production export was NOT needed and was NOT made:** the dry run found 0 eligible rows, so there is nothing to export, and making an export of rows that will not be deleted would only create an unnecessary copy of production data. For the record, the mechanism that was available to this session was unsafe for exports anyway. `execute_sql` could return rows, but they would pass through this conversation's transcript, which is the "ordinary log" your instructions prohibit for production data; `pg_dump`/`psql` are not installed and no database credential is held here. So **no production export was made, and no production data is stored anywhere by this work.**
 
 **Mechanisms you can use** (all need your access, none costs anything): (a) Supabase dashboard → SQL editor → run the `SELECT * … WHERE created_at < <cutoff>` query → *Export → CSV*; (b) `psql "<connection string>" -c "\copy (SELECT * FROM public.page_events WHERE created_at < now() - interval '8760 hours' ORDER BY id) TO 'page_events_eligible.csv' CSV HEADER"`; (c) `pg_dump --data-only --table=public.page_events` (dumps the whole table, not only eligible rows).
 
@@ -78,13 +93,13 @@ SELECT count(*)                       AS would_delete,
 | A restore ever tested on production | No runbook run, workflow, test or report records one | **Verified: no evidence** |
 | Hetzner snapshots | Not queried | **Unknown** |
 
-**Consequence.** On the evidence available there is **no usable backup of the production database**. Rows deleted by the job would be **irrecoverable** unless a verified export was taken first. The recommendation therefore stands: **a verified export must precede any retention job** — (1) run the count query above and record it; (2) if it is greater than 0, export the eligible rows to a private, encrypted file; (3) check the row count and SHA-256, and reload the file into a scratch database (the rehearsal script is the procedure); (4) only then approve the migration. If the count is 0, no export is needed and the first runs will delete nothing.
+**Consequence.** On the evidence available there is **no usable backup of the production database**, and no restore has been tested on production. Rows deleted by the job would be **irrecoverable** unless a verified export was taken first. Today that has no effect, because **0 rows are eligible** and the job would delete nothing. The rule for later is unchanged: **before the first night on which the count becomes greater than 0** (re-run the query above), export the eligible rows to a private, encrypted file, check its row count and SHA-256, and reload it into a scratch database (the rehearsal script is the procedure). A cheap guard is to run the dry run again shortly before approving the merge, and to re-check it periodically afterwards.
 
 ## What I need from you
-1. Run the count query (or authorise a genuinely read-only credential), and tell me the number.
-2. Confirm 365 days = 8,760 elapsed hours.
-3. If the count is above 0: make and verify the export as above.
+1. Confirm 365 days = 8,760 elapsed hours.
+2. Decide whether to merge a job that currently deletes nothing, or to hold the migration until the count is above 0 (holding avoids a job whose behaviour in real pg_cron is unverified; merging early means the guard rails are in place before the first rows age out).
+3. Either way, run the dry run again right before approving, and make a verified export if it is then above 0.
 4. Explicit approval to merge. Until then this PR stays a draft and no deletion exists in production.
 
 ## Not covered
-The privacy-policy wording (not reviewed or changed); the dashboard Backups page and Hetzner snapshots (not read); the production `page_events` count (**unknown**); behaviour of `SET LOCAL` and `return_message` inside real pg_cron (not testable here).
+The privacy-policy wording (not reviewed or changed); the dashboard Backups page and Hetzner snapshots (not read); behaviour of `SET LOCAL` and `return_message` inside real pg_cron (not testable here).
