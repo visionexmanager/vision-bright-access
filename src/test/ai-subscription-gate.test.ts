@@ -107,6 +107,9 @@ function fakeDb(w: World): GateDb {
         if (phone === w.ownerPhone) return Promise.resolve({ data: "authorized", error: null });
         return Promise.resolve({ data: gateSql(w, "whatsapp", phone, w.linkedPhones[phone] ?? null), error: null });
       }
+      if (fn === "ai_subscription_gate_meta") {
+        return Promise.resolve({ data: gateSql(w, "meta", args._sender_id as string, null), error: null });
+      }
       return Promise.resolve({ data: null, error: { code: "42883" } });
     },
   };
