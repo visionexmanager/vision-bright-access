@@ -35,3 +35,26 @@ Reading order and meaning, announcements of dynamic updates, whether alt text an
 | RLS / authorization | 84-check matrix (#438, open); money/admin functions listed there as exercised vs not | Not full coverage |
 
 **Recommended order:** (1) decide N7/CAPTCHA/Pro together (they are one auth-hardening decision); (2) approve the Playwright+axe job; (3) plan the TipTap 3.x bump as its own PR with the library-studio tests, since it is a major version; (4) add a `page_events` retention job modeled on #433.
+
+## 5. Second pass (2026-10-19, later)
+
+### The six high-severity advisories, one by one (`npm audit --omit=dev`, run today)
+| Package | In `package.json` | Advisory | Ships to browsers or servers? | Reachable? |
+|---|---|---|---|---|
+| `braces` (transitive) | via tailwindcss → chokidar/micromatch | GHSA-vfj7-8cjw-p6xm, stack exhaustion on deeply nested brace patterns | No: only in `node_modules` of the build | Only if an attacker controls a glob pattern given to the build. Tailwind's globs come from `tailwind.config` [C] |
+| `micromatch`, `chokidar`, `fast-glob` (transitive) | via tailwindcss | via `braces` | No (build/dev watcher) | same |
+| `tailwindcss` 3.4.x | **devDependency** [C] | the four above plus `postcss-nested`/`postcss-selector-parser` | No: CSS is compiled at build time; nothing runs it at request time | Build-time only. The fix is Tailwind 4 (breaking migration) |
+| `xlsx` 0.18.5 | **dependency** | GHSA-4r6h-8v6p-xvw6 (prototype pollution), GHSA-5pgg-2g8v-p4x9 (ReDoS) | **Yes**, in the lazy chunk `LibraryOrganizationAnalytics-*.js` [C: built output] | The code calls only `book_new`, `aoa_to_sheet`, `book_append_sheet`, `write` (`organizationReports.ts:63-70`); nothing reads or parses a workbook [C]. The advisories' titles describe parsing; whether the write path with user-supplied cell text is affected is [I: not expected], not tested. npm `latest` for `xlsx` is 0.18.5 (the project ships fixed builds from its own CDN, not npm) [C], so there is no `npm audit fix` |
+
+### TipTap (38 moderate)
+Root advisory GHSA-cp6q-959q-f8rh (`mergeAttributes` and an own `__proto__` key). Facts gathered before any upgrade:
+- Installed `@tiptap/*` 2.27.3 is the **latest 2.x** [C: npm]; the fix exists only in 3.x (`@tiptap/core` 3.32.0, peer `@tiptap/pm` 3.32.0), so the upgrade is a major one across 13 packages used in the Library Studio (7 files) and one **custom extension** that calls `mergeAttributes` itself (`footnoteExtension.ts`).
+- Content enters the editor in one place: `useChapterEditor.ts:84`, `editor.commands.setContent(chapter.content_json)`. That JSON is authored by a chapter's owner or collaborators, so an attacker would need write access to a chapter [C: code; I: collaborator roles not enumerated].
+- I could **not** reproduce the advisory on 2.27.3: `mergeAttributes({}, JSON.parse('{"__proto__":{"onclick":"alert(1)"}}'))` returns an object whose `__proto__` is an own key and `onclick` is `undefined` [C: ran]. The end-to-end render path was not tested. So: advisory range applies, exploitability **not demonstrated**.
+- Recommendation: do not upgrade yet. Plan a 3.x migration as its own PR with the Library Studio tests as the safety net (there are none specific to the editor today), or, if the risk matters sooner, strip `__proto__` keys from `content_json` before `setContent` (one function, no behavior change for legitimate documents). Neither was done.
+
+### RLS function coverage still untested
+Named in the header of `scripts/sql/rls-authorization-scenarios.mjs` (#438): `approve_subscription_order`, `approve_vx_coin_order`, `charge_file_conversion`, `subscribe_radio`, `subscribe_tv`, the `award_*` family except `award_points`, `buy_kids_item`, `claim_kids_gift`, `purchase_kids_product`, `kids_coin_balance`, `get_leaderboard`, `vx_account_parity_detail`, `vx_wallet_*_report`, plus the `vx_reserve/settle/release` family at the *privilege* level (the money behavior is now covered by `vx-accounting-scenarios.mjs`, #448). Next safe step: add the admin-approval pair (`approve_*`) and `charge_file_conversion`, since they move VX on someone's say-so.
+
+### Uptime monitor, refreshed
+`Site uptime` runs on record now: 00:13Z, 04:47Z, 10:30Z on 2026-10-19 (3 in 16 h against ~64 scheduled). GitHub's scheduler is the limit; the options are in `VISIONEX_REMAINING_RISKS.md` §9. Whether a failure e-mail would reach anyone cannot be checked from here (it depends on the notification settings of the account that last edited the cron line). The branch-protection required checks are: Type check, Unit tests (Vitest), ESLint, Lint & Type Check, Tests, Security Scan, with "up to date" enforced; the axe and RLS jobs are **not** required.

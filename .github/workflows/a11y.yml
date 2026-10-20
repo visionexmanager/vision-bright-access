@@ -1,7 +1,7 @@
 name: Accessibility (axe)
 
 # Builds the app with a dummy backend URL and scans public routes with axe-core
-# in English, Arabic (RTL) and Spanish. No secret, no production access: the
+# in English, Spanish, Hindi and the RTL languages (Arabic, Persian, Urdu). No secret, no production access: the
 # tests answer the dummy Supabase URL themselves and block every other origin.
 # See tests/a11y/axe.spec.ts for what this does and does not prove.
 
@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   axe:
-    name: axe (WCAG A/AA, en / ar / es)
+    name: axe (WCAG A/AA, en es hi ar fa ur)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

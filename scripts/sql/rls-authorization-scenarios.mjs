@@ -16,7 +16,7 @@
 // FUNCTION COVERAGE (this is not full authorization coverage). SECURITY DEFINER
 // functions that write user_points / credit_wallets / user_subscriptions and that
 // anon or authenticated can still EXECUTE after the hardening migrations:
-//   exercised here:  admin_adjust_vx, admin_grant_points, award_points, spend_vx,
+//   exercised here:  admin_adjust_vx, admin_grant_points, admin_user_balances, award_points, spend_vx,
 //                    settle_file_conversion, refund_stale_file_conversions
 //   privilege only:  system_deduct_vx, billing_grant_credits/consume/refund,
 //                    arcade_append_vx, vx_balance (no EXECUTE for anon/authenticated)
@@ -261,6 +261,34 @@ async function matrix() {
   const fcAnon = await probe("anon", `select public.refund_stale_file_conversions()`, sumPoints(A));
   check("refund_stale_file_conversions: anonymous refused", !!fcAnon.error && fcAnon.state === 10);
 
+  // admin_user_balances: the totals the admin user list shows. An admin session cannot
+  // read other users' user_points rows (no admin policy), which is why it exists.
+  check("user_points: an admin session reads none of the rows (the reason admin_user_balances exists)", (await as("ADMIN", "select 1 from public.user_points")).rows?.length === 0);
+  check("admin_user_balances: no EXECUTE for anon", !(await canExec("anon", "public.admin_user_balances()")));
+  // service_role holds EXECUTE (the grant list matches the other admin RPCs) but has no
+  // auth.uid(), so the admin check inside refuses it: the totals are for an admin session only.
+  check("admin_user_balances: the service role holds EXECUTE but is refused by the admin check", await canExec("service_role", "public.admin_user_balances()") && (await as("SERVICE", "select public.admin_user_balances() b")).error === "Admin access required");
+  const balAnon = await as("anon", "select public.admin_user_balances() b");
+  check("admin_user_balances: anonymous refused", !!balAnon.error);
+  const balA = await as("A", "select public.admin_user_balances() b");
+  check("admin_user_balances: an ordinary user is refused and gets no data", !!balA.error && !balA.rows?.length);
+  const balAdmin = await as("ADMIN", "select public.admin_user_balances() b");
+  const totals = balAdmin.rows?.[0]?.b;
+  check("admin_user_balances: an admin gets each seeded user's balance, keyed by the right user", !balAdmin.error && totals?.[A] === 10 && totals?.[B] === 20 && Object.keys(totals ?? {}).length === 2);
+  // Several rows per user, including a negative one, are summed; a user with no rows is absent.
+  await db.exec("begin");
+  try {
+    await db.exec(`insert into public.user_points(user_id, points, reason) values ('${B}', -5, 't1'), ('${B}', 30, 't2')`);
+    // vx_balance is the definition of a balance; read it as the owner, before dropping to the admin role.
+    const ref = Object.fromEntries(await Promise.all([A, B, ADMIN].map(async (u) => [u, (await db.query(`select public.vx_balance('${u}') v`)).rows[0].v])));
+    await db.exec(`set local role authenticated; select set_config('request.jwt.claim.sub','${ADMIN}',true), set_config('request.jwt.claim.role','authenticated',true)`);
+    const multi = (await db.query("select public.admin_user_balances() b")).rows[0].b;
+    check("admin_user_balances: equals vx_balance() for every user (a user with no rows is absent where vx_balance is 0)", [A, B, ADMIN].every((u) => (multi[u] ?? 0) === ref[u]) && ref[B] === 45);
+    check("admin_user_balances: sums several rows per user, negatives included, and omits users with none", multi[B] === 45 && multi[A] === 10 && !(ADMIN in multi));
+  } finally { await db.exec("rollback"); }
+  const writes = await db.query("select count(*)::int n from public.user_points");
+  check("admin_user_balances: read-only, no row was written", writes.rows[0].n === 2);
+
   // Roles.
   check("user_roles: A cannot make self admin", !(await wrote("A", `insert into public.user_roles(user_id, role) values ('${A}','admin') returning 1`)));
   check("user_roles: A cannot promote an existing row", !(await wrote("A", `update public.user_roles set role='admin' where user_id='${ADMIN}' returning 1`)));
@@ -291,7 +319,10 @@ for (const r of base) { if (!r.ok) fail++; console.log(`${r.ok ? "PASS" : "FAIL"
 
 // Mutation proof: each change below must turn at least one check red.
 const grantDef = (await db.query(`select pg_get_functiondef('public.admin_grant_points(uuid,integer,text)'::regprocedure) d`)).rows[0].d;
+const balancesDef = (await db.query(`select pg_get_functiondef('public.admin_user_balances()'::regprocedure) d`)).rows[0].d;
 const mutations = [
+  ["admin_user_balances loses its admin check", balancesDef.replace(/IF NOT public\.has_role\(auth\.uid\(\), 'admin'(::\w+)?\) THEN\s+RAISE EXCEPTION 'Admin access required';\s+END IF;/i, ""), balancesDef],
+  ["admin_user_balances executable by anon", `grant execute on function public.admin_user_balances() to anon`, `revoke execute on function public.admin_user_balances() from anon`],
   ["system_deduct_vx executable by authenticated", `grant execute on function public.system_deduct_vx(uuid,integer,text) to authenticated`, `revoke execute on function public.system_deduct_vx(uuid,integer,text) from authenticated`],
   ["user_subscriptions readable by everyone", `drop policy sub_owner_select on public.user_subscriptions; create policy zz_s on public.user_subscriptions for select using (true)`, `drop policy zz_s on public.user_subscriptions; create policy sub_owner_select on public.user_subscriptions for select using (user_id = auth.uid())`],
   ["admin_grant_points loses its admin check", grantDef.replace(/IF NOT public\.has_role\(auth\.uid\(\), 'admin'(::\w+)?\) THEN\s+RAISE EXCEPTION 'Admin access required';\s+END IF;/i, ""), grantDef],

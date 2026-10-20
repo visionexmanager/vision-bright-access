@@ -2,6 +2,22 @@
 
 Durable checkpoint for the autonomous mission. Newest entry first. Update after each milestone. A new session should read this file, then `VISIONEX_REMAINING_RISKS.md` and `VISIONEX_PHASE2_ASSESSMENT_AND_PLAN.md`.
 
+## 2026-10-19 (third pass) — open PRs, none merged, nothing deployed
+Main at `d20d1ae3` when started. Opened (each its own branch; CI result is on the PR, not here):
+| PR | What | Evidence |
+|---|---|---|
+| #448 | VX accounting invariants in PGlite (duplicate delivery, settle/release/reap idempotency, fallback attempts, malformed cost rows, clamp, conservation) | 23 checks + 3 mutation proofs, local; four "CURRENT BEHAVIOUR" under-billing paths recorded, none changed |
+| #449 | Chain timeout / silent open / throwing sink / malformed stream usage / one event per attempt | 8 tests; found that an open that never answers leaves no usage event |
+| #450 | Admin user list reads `profiles` and `user_points` in pages (API row cap made balances partial) | 7 tests; production size and `max_rows` not verified |
+| #451 | AI cost flow: source-of-truth table, answers to the seven questions, dashboard accuracy | docs; Provider Hub cost is 0 for chat, `ai_usage_cost_daily` unread, budget blind to `ai-chat` |
+| #452 | `/pricing` footer jump (CLS) | production 0.244 → local 0.272/0.108 → 0/0.023 (mobile/desktop, synthetic delayed plans, 3 runs) |
+| #453 | axe job: + Persian, Urdu, Hindi | 67 passed locally |
+| this PR | second-pass security/uptime notes | six advisories one by one, TipTap migration facts, RLS gaps |
+
+Production Lighthouse (public GET, mobile): `/` score 47–48, FCP ~6.9–7.1 s, LCP 9.9–10.0 s, CLS 0; `/pricing` 23, CLS 0.244; `/bazaar` 16, CLS 0.439 (shifts in `div.animate-in > div.relative`, not reproducible without data, not fixed). LCP element on `/` is `h1#hero-heading`. `/favicon.png` is 1.27 MB and doubles as the WhatsApp profile picture source, so it was not shrunk (see #452).
+Uptime: `Site uptime` ran 3 times in 16 h; alert delivery unverifiable from here.
+No production queries, merges, deploys, charges, secrets or paid services in this pass.
+
 ## 2026-10-19 (final) — everything below merged and deployed
 Owner instructed "complete to the end including the merge". Merged (squash, each after CI on its head; branches updated one at a time because the base branch is protected "up to date"): #438 `0246ff42`, #439 `dd22aea5`, #440 `b044449a`, #441 `8b8128e6`, #442 `2904954b`, #443 `2ce339b3`, #444 `73cdfe08`, #445 `008ab483`, #446 `dcf6b2f5` (its branch had to be merged with main locally: add/add conflict in `tests/a11y/axe.spec.ts` after #445 was squashed; resolved by keeping the branch version, diff against main checked = Navbar.tsx + the emptied baseline).
 - Deploy workflow: success for every merge commit including `dcf6b2f5`. No migration in any of these PRs.
