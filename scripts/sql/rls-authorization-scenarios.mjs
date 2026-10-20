@@ -277,8 +277,11 @@ async function matrix() {
   await db.exec("begin");
   try {
     await db.exec(`insert into public.user_points(user_id, points, reason) values ('${B}', -5, 't1'), ('${B}', 30, 't2')`);
+    // vx_balance is the definition of a balance; read it as the owner, before dropping to the admin role.
+    const ref = Object.fromEntries(await Promise.all([A, B, ADMIN].map(async (u) => [u, (await db.query(`select public.vx_balance('${u}') v`)).rows[0].v])));
     await db.exec(`set local role authenticated; select set_config('request.jwt.claim.sub','${ADMIN}',true), set_config('request.jwt.claim.role','authenticated',true)`);
     const multi = (await db.query("select public.admin_user_balances() b")).rows[0].b;
+    check("admin_user_balances: equals vx_balance() for every user (a user with no rows is absent where vx_balance is 0)", [A, B, ADMIN].every((u) => (multi[u] ?? 0) === ref[u]) && ref[B] === 45);
     check("admin_user_balances: sums several rows per user, negatives included, and omits users with none", multi[B] === 45 && multi[A] === 10 && !(ADMIN in multi));
   } finally { await db.exec("rollback"); }
   const writes = await db.query("select count(*)::int n from public.user_points");

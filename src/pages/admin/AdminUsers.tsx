@@ -97,7 +97,9 @@ export default function AdminUsers() {
     // correct for the viewer's own rows only, which is what this screen showed before.
     const { data: totals, error: totalsError } = await supabase.rpc("admin_user_balances");
     let pointsMap = totalsError ? null : balancesFromTotals(totals);
+    const balancesComplete = pointsMap !== null;
     if (!pointsMap) {
+      console.error("[AdminUsers] admin_user_balances unavailable; other users' balances are not shown", totalsError?.message);
       const pointsData = await fetchAllRows((from, to) => supabase.from("user_points").select("id, user_id, points").order("created_at").order("id").range(from, to), 1000, 200, (r) => r.id);
       pointsMap = balancesFromRows(pointsData);
     }
@@ -119,7 +121,8 @@ export default function AdminUsers() {
       status: p.status || "active",
       is_verified: p.is_verified || false,
       isAdmin: adminIds.has(p.user_id),
-      points: pointsMap[p.user_id] || 0,
+      // Without the function only the viewer's own rows are readable: any other balance is unknown, not 0.
+      points: balancesComplete || p.user_id === currentUser?.id ? pointsMap[p.user_id] || 0 : undefined,
       features: featuresMap[p.user_id] || {},
       device_ids: deviceMap[p.user_id] || [],
     })));
@@ -307,7 +310,7 @@ export default function AdminUsers() {
                       </TableCell>
                       <TableCell>
                         <span className="flex items-center gap-1 font-mono text-sm">
-                          <Coins className="h-3 w-3 text-yellow-500" />{u.points}
+                          <Coins className="h-3 w-3 text-yellow-500" />{u.points ?? t("aiResults.unavailable")}
                         </span>
                       </TableCell>
                       <TableCell>
