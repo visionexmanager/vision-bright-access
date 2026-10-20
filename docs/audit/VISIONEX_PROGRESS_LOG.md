@@ -2,6 +2,18 @@
 
 Durable checkpoint for the autonomous mission. Newest entry first. Update after each milestone. A new session should read this file, then `VISIONEX_REMAINING_RISKS.md` and `VISIONEX_PHASE2_ASSESSMENT_AND_PLAN.md`.
 
+## 2026-10-20 — admin balances shipped; remaining PR queue cleared
+Main `95105782` after the merges below. Each was squash-merged only after every required check was green on the exact head; the verified facts are the GitHub check runs and Deploy logs, not this file.
+- **#450** `3203deed` — admin lists read `profiles` / `user_points` in pages. Deploy run 39387850598 succeeded; no migration.
+- **#456** `781579f0` — `admin_user_balances()` (migration `20261072000000_admin_user_balances.sql`). Deploy run 39389401718 succeeded and its "Run DB migrations" log shows that file as the only one applied. Verified in PGlite (93 RLS checks, 9 mutation proofs): equals `vx_balance()` per user, anon/ordinary user refused, service_role holds EXECUTE but the admin check refuses it. NOT verified: a real admin session in a browser on production, the function owner in production, any extra production `user_points` policy.
+- **#452** `056bb860` — pricing page reserves space while plans load (CLS).
+- **#455** `9d692e2a` — audit docs (billing decision table, cost-measurement proposal, risks).
+- **#457** `52448663` — the admin user list tells the admin on screen (role=alert, 20 locales) when the profile list is incomplete or other users' balances are unavailable; the fallback never shows 0 for an unknown balance (`balanceOf`, `fetchAllRowsChecked`).
+- **#415** `95105782` — Supabase types regenerated from the production schema; type check clean.
+- **`check_ai_budget` re-confirmed from code** (`20261028000000_ai_budget_counts_the_ledger.sql`, caller `supabase/functions/ai-chat/index.ts:261`): the token and request legs read `ai_interactions` (Career AI only), so `ai-chat` is invisible to them; the VX leg reads `vx_usage_ledger` and only helps once metering is on; any error returns true. Unchanged: a dollar leg or fail-closed is the owner's decision (N6).
+Not started in this pass: financial-accounting audit, dependency audit, restore rehearsal, uptime frequency re-check, accessibility manual testing (no NVDA/VoiceOver run has been performed by this session), product-completion review.
+No production queries, balance changes, billing changes or manual deploys.
+
 ## 2026-10-19 (fourth pass) — review of #450 and #452, billing decision table
 Main `85b5ff91` (the five approved PRs #448, #449, #451, #453, #454 were merged by the owner's instruction; Deploy succeeded for each). #450 and #452 are open, behind main, unmerged.
 - **#450 reviewed.** Orderings are total (`profiles.user_id` is UNIQUE; `user_points.id` is the primary key). Added `keyOf` dedupe after reproducing a repeat when a row arrives at the top of a newest-first read; 8 tests, tsc/ESLint/build clean locally. **Finding that changes its value:** under the schema defined by the migrations an admin session reads 0 rows of `user_points` (one owner-only SELECT policy, no admin policy; executed in PGlite, `profiles` readable, `credit_wallets` 0), so `AdminUsers` balances are wrong for everyone but the viewer regardless of the row cap. Production not verified. PR description corrected. The real fix is an admin-only balance function (migration; not written; needs approval).
