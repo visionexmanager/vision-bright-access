@@ -80,9 +80,7 @@ export async function requireActiveSubscription(db: GateDb, subject: GateSubject
     }
     const [key, userId] = subject.channel === "web"
       ? [subject.userId, subject.userId]
-      : subject.channel === "web_anon"
-      ? [subject.callerId, null]
-      : [subject.senderId, null];
+      : [subject.callerId, null];
     if (!key?.trim()) return "blocked_silent";
     const { data, error } = await db.rpc("ai_subscription_gate", {
       _channel: subject.channel,
