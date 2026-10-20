@@ -54,7 +54,7 @@ jobs:
             exit 1
           fi
           # Add the expected non-secret key comment for easier auditing.
-          printf '%s isp-pi-check-ci\n' "$(cat "$RUNNER_TEMP/isp-pi-check.pub")" > "$RUNNER_TEMP/isp-pi-check-commented.pub"
+          awk 'NF >= 2 { print $1, $2, "isp-pi-check-ci"; exit }' "$RUNNER_TEMP/isp-pi-check.pub" > "$RUNNER_TEMP/isp-pi-check-commented.pub"
 
           cat > ~/.ssh/config <<CONF
           Host target
