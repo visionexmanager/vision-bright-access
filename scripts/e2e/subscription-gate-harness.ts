@@ -74,7 +74,7 @@ async function stub(req: Request): Promise<Response> {
       if (mode === "error") return json({ message: "boom" }, 500);
       if (mode === "blocked_first_notice" && atomicNotices) {
         const args = await req.json().catch(() => ({}));
-        const subject = String(args._subject ?? args._wa_phone ?? "");
+        const subject = String(args._subject ?? args._wa_phone ?? args._sender_id ?? "");
         if (firstNoticeTaken.has(subject)) return json("blocked_silent");
         firstNoticeTaken.add(subject);
       }
