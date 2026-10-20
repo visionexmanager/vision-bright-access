@@ -1,12 +1,12 @@
--- page_events retention: delete rows older than 2,160 elapsed hours, nightly, in batches.
+-- page_events retention: delete rows older than 8,760 elapsed hours (365 days), nightly, in batches.
 --
 -- PROPOSAL, NOT APPROVED FOR DEPLOYMENT. Merging this file runs it in production
 -- (`supabase db push`) and starts permanent deletion at the next 03:25 UTC. See
 -- docs/audit/PAGE_EVENTS_RETENTION_PROPOSAL.md.
 --
--- Policy, defined once: "90 days" here means exactly 2,160 elapsed hours (90 x 24),
+-- Policy, defined once: "365 days" here means exactly 8,760 elapsed hours (365 x 24),
 -- measured on `created_at` (timestamptz, an absolute instant) against `now()` when the
--- job runs. It is NOT 90 calendar days: across a daylight-saving change the two differ
+-- job runs. It is NOT 365 calendar days: across a daylight-saving change the two can differ
 -- by an hour, and a retention cutoff must not depend on a time zone. A row exactly on
 -- the cutoff instant is kept (strict `<`); a row dated in the future is kept.
 --
@@ -46,7 +46,7 @@ BEGIN
     $cron$SET LOCAL statement_timeout = '60s'; SET LOCAL lock_timeout = '5s';
 DELETE FROM public.page_events
  WHERE id IN (SELECT id FROM public.page_events
-               WHERE created_at < now() - interval '2160 hours'
+               WHERE created_at < now() - interval '8760 hours'
                ORDER BY created_at LIMIT 10000)$cron$
   );
 END

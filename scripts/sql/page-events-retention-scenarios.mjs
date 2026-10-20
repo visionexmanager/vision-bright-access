@@ -1,4 +1,4 @@
-// page_events 90-day retention: dry-run report and delete behaviour on SYNTHETIC rows,
+// page_events 365-day retention: dry-run report and delete behaviour on SYNTHETIC rows,
 // executed in PGlite. Nothing here deletes anything anywhere else, and the delete is
 // not part of any migration: docs/audit/PAGE_EVENTS_RETENTION_PROPOSAL.md is the proposal.
 //
@@ -6,8 +6,8 @@
 //   node scripts/sql/page-events-retention-scenarios.mjs
 //
 // It asserts: exactly which rows the predicate selects, the strict boundary, that the
-// cutoff does not move with the session time zone (it is 2160 absolute hours, not
-// "90 calendar days"), batching, idempotence, that nothing else is touched, that no
+// cutoff does not move with the session time zone (it is 8760 absolute hours, not
+// "365 calendar days"), batching, idempotence, that nothing else is touched, that no
 // foreign key or view depends on the table, and that the SQL text in the proposal is
 // the SQL tested here. Ends by mutating the predicate and requiring a red result.
 import { PGlite } from "@electric-sql/pglite";
@@ -52,8 +52,8 @@ const run = async (cmd = CRON_COMMAND) => { const res = await db.exec(cmd); retu
 // The read-only dry run: the same predicate, no DELETE.
 const DRY_RUN_SQL = `SELECT count(*)::int AS would_delete,
        min(created_at) AS oldest, max(created_at) AS newest_that_would_go,
-       now() - interval '2160 hours' AS cutoff
-  FROM public.page_events WHERE created_at < now() - interval '2160 hours'`;
+       now() - interval '8760 hours' AS cutoff
+  FROM public.page_events WHERE created_at < now() - interval '8760 hours'`;
 
 let fail = 0, total = 0;
 const check = (name, ok) => { total++; if (!ok) fail++; console.log(`${ok ? "PASS" : "FAIL"}  ${name}`); };
@@ -68,13 +68,13 @@ check("the SQL in the proposal is the SQL in the migration (and so the SQL teste
 // ── Which rows ───────────────────────────────────────────────────────────────
 await db.exec("delete from public.page_events");
 const FIX = [
-  ["new-now", "0 seconds", true], ["1d", "-1 day", true], ["89d", "-89 days", true],
-  ["just-inside-90d", "-2159 hours -59 minutes", true], ["just-past-90d", "-2160 hours -1 minute", false],
-  ["120d", "-120 days", false], ["400d", "-400 days", false], ["future-clock-skew", "2 days", true],
+  ["new-now", "0 seconds", true], ["1d", "-1 day", true], ["364d", "-364 days", true],
+  ["just-inside-365d", "-8759 hours -59 minutes", true], ["just-past-365d", "-8760 hours -1 minute", false],
+  ["400d", "-400 days", false], ["800d", "-800 days", false], ["future-clock-skew", "2 days", true],
 ];
 for (const [l, i] of FIX) await insertAged(l, i);
 const dry = await one(DRY_RUN_SQL);
-check("dry run: 3 of 8 synthetic rows would be deleted (just past 90 days, 120 days, 400 days)", dry.would_delete === 3);
+check("dry run: 3 of 8 synthetic rows would be deleted (just past 365 days, 400 days, 800 days)", dry.would_delete === 3);
 check("dry run changed nothing", (await ids()).length === 8);
 console.log(`INFO  dry-run report on synthetic data: would_delete=${dry.would_delete} oldest=${dry.oldest.toISOString()} cutoff=${dry.cutoff.toISOString()}`);
 
@@ -86,14 +86,14 @@ check("the delete removes exactly the rows the dry run counted", del1.affectedRo
 check("the command returns no rows: only the command tag leaves the table (an aggregate result)", Array.isArray(del1.rows) && del1.rows.length === 0 && !/RETURNING/i.test(migrationText.replace(/--[^\n]*/g, "")));
 check("scope: the command names only public.page_events", [...CRON_COMMAND.matchAll(/(?:FROM|JOIN|UPDATE|INTO)\s+([a-z_.]+)/gi)].every((m) => m[1] === "public.page_events"));
 check("bounded: one 10,000-row batch with a statement timeout and a lock timeout", BATCH === 10000 && /statement_timeout = '60s'/.test(CRON_COMMAND) && /lock_timeout = '5s'/.test(CRON_COMMAND));
-check("rows inside 90 days (including 89 days and a minute inside the line) and future-dated rows are kept", ["1d", "89d", "future-clock-skew", "just-inside-90d", "new-now"].every((l) => kept.includes(l)) && kept.length === 5);
+check("rows inside 365 days (including 364 days and a minute inside the line) and future-dated rows are kept", ["1d", "364d", "future-clock-skew", "just-inside-365d", "new-now"].every((l) => kept.includes(l)) && kept.length === 5);
 check("a second run deletes nothing (idempotent)", (await run()).affectedRows === 0);
 check("no other table was touched", (await other()) === beforeOther);
 
 // ── Boundary and time zones ─────────────────────────────────────────────────
 await db.exec("delete from public.page_events");
 await db.exec("begin");
-await db.exec("insert into public.page_events(event_type, page_path, created_at) values ('page_view', 'exactly-cutoff', now() - interval '2160 hours')");
+await db.exec("insert into public.page_events(event_type, page_path, created_at) values ('page_view', 'exactly-cutoff', now() - interval '8760 hours')");
 const edge = await run();
 await db.exec("rollback");
 check("a row exactly on the cutoff instant is kept (strictly older rows only)", edge.affectedRows === 0);
@@ -109,18 +109,18 @@ const deletedUnder = async (tz) => {
 };
 const utc = await deletedUnder("UTC");
 check("the deleted set is identical under UTC, America/New_York and Pacific/Auckland", utc === await deletedUnder("America/New_York") && utc === await deletedUnder("Pacific/Auckland") && utc.split(",").length === 3);
-// Why 2160 hours and not "90 days": across a DST change the two differ by an hour.
+// Why 8760 hours and not "365 days": when the window starts and ends in different DST states the two differ by an hour.
 await db.exec("begin");
 await db.exec("set local timezone = 'America/New_York'");
-const dstGap = await one(`select extract(epoch from ((timestamptz '2026-04-20 12:00:00-04') - interval '90 days') - ((timestamptz '2026-04-20 12:00:00-04') - interval '2160 hours'))/3600 as hours`);
+const dstGap = await one(`select extract(epoch from ((timestamptz '2026-03-08 12:00:00-04') - interval '365 days') - ((timestamptz '2026-03-08 12:00:00-04') - interval '8760 hours'))/3600 as hours`);
 await db.exec("rollback");
-console.log(`INFO  in America/New_York, "90 days" and 2160 hours differ by ${dstGap.hours} h when the 90 days cross the March DST change; the proposal uses 2160 hours so the cutoff never depends on the time zone`);
-check("calendar-day arithmetic would have moved the cutoff by an hour in a DST zone (why 2160 hours is used)", Math.abs(Number(dstGap.hours)) === 1);
+console.log(`INFO  in America/New_York, "365 days" and 8760 hours differ by ${dstGap.hours} h when the window starts just after the March DST change and ends before it; the proposal uses 8760 hours so the cutoff never depends on the time zone`);
+check("calendar-day arithmetic would have moved the cutoff by an hour in a DST zone (why 8760 hours is used)", Math.abs(Number(dstGap.hours)) === 1);
 
 // ── Batching ─────────────────────────────────────────────────────────────────
 await db.exec("delete from public.page_events");
 await db.exec(`insert into public.page_events(event_type, page_path, created_at)
-  select 'page_view', 'old-' || g, now() - interval '200 days' - (g || ' seconds')::interval from generate_series(1, 25000) g`);
+  select 'page_view', 'old-' || g, now() - interval '500 days' - (g || ' seconds')::interval from generate_series(1, 25000) g`);
 await insertAged("recent", "-1 day");
 const runs = [];
 for (let i = 0; i < 6; i++) { const r = await run(); runs.push(r.affectedRows); if (!r.affectedRows) break; }
@@ -135,8 +135,8 @@ check("the migration can be applied twice without error", replayOk);
 // ── Failure and partial runs ────────────────────────────────────────────────
 await db.exec("delete from public.page_events");
 await db.exec(`insert into public.page_events(event_type, page_path, created_at)
-  select 'page_view', 'old-' || g, now() - interval '200 days' - (g || ' seconds')::interval from generate_series(1, 12000) g`);
-await db.exec("insert into public.page_events(event_type, page_path, created_at) values ('page_view', 'poison', now() - interval '300 days')");
+  select 'page_view', 'old-' || g, now() - interval '500 days' - (g || ' seconds')::interval from generate_series(1, 12000) g`);
+await db.exec("insert into public.page_events(event_type, page_path, created_at) values ('page_view', 'poison', now() - interval '600 days')");
 await db.exec(`create function public.tmp_page_events_poison() returns trigger language plpgsql as $$ begin if old.page_path = 'poison' then raise exception 'injected failure'; end if; return old; end $$;
   create trigger tmp_page_events_poison before delete on public.page_events for each row execute function public.tmp_page_events_poison()`);
 let failed = false;
@@ -159,9 +159,9 @@ check("created_at is indexed (the batch sub-select does not scan the table)", id
 // ── Mutation proof ───────────────────────────────────────────────────────────
 await db.exec("delete from public.page_events");
 for (const [l, i] of FIX) await insertAged(l, i);
-const mutated = CRON_COMMAND.replace("2160 hours", "216 hours");
+const mutated = CRON_COMMAND.replace("8760 hours", "876 hours");
 const n = (await run(mutated)).affectedRows;
-console.log(`${n !== 3 ? "PASS" : "FAIL"}  mutation "cutoff 216 hours instead of 2160" deletes ${n} rows, so the 3-row check above would go red`);
+console.log(`${n !== 3 ? "PASS" : "FAIL"}  mutation "cutoff 876 hours instead of 8760" deletes ${n} rows, so the 3-row check above would go red`);
 if (n === 3) fail++;
 
 console.log(fail ? `\n${fail} failure(s)` : `\nall ${total} checks and 1 mutation proof passed`);
