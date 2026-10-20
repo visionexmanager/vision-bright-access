@@ -13,6 +13,7 @@ on:
       - scripts/sql/rls-authorization-scenarios.mjs
       - scripts/sql/vx-accounting-scenarios.mjs
       - scripts/sql/ai-budget-scenarios.mjs
+      - scripts/sql/ai-cost-reconciliation-scenarios.mjs
       - .github/workflows/rls-authorization.yml
 
 permissions:
@@ -36,3 +37,5 @@ jobs:
         run: node scripts/sql/vx-accounting-scenarios.mjs
       - name: check_ai_budget against the rows ai-chat and Career AI really write
         run: node scripts/sql/ai-budget-scenarios.mjs
+      - name: Admin AI cost and reconciliation functions
+        run: node scripts/sql/ai-cost-reconciliation-scenarios.mjs
