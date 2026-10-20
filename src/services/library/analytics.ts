@@ -10,6 +10,7 @@
 
 import { jsonPayload } from "@/integrations/supabase/json";
 import { supabase } from "@/integrations/supabase/client";
+import { readConsent } from "@/features/ads/consent";
 
 const SESSION_KEY = "library:analytics-session-id";
 
@@ -45,7 +46,15 @@ interface LogEventOptions {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * Every Library analytics event goes through this one function (a test fails if
+ * another file writes library_analytics_events), so this is the one consent gate:
+ * nothing is sent, and no per-tab session id is stored, unless the visitor accepted
+ * analytics in the cookie banner. The record is read on every call, so granting or
+ * withdrawing consent takes effect immediately, in this tab and across tabs.
+ */
 export async function logLibraryAnalyticsEvent(eventType: LibraryAnalyticsEventType, options: LogEventOptions = {}): Promise<void> {
+  if (readConsent()?.analytics !== true) return;
   try {
     const { error } = await supabase.from("library_analytics_events").insert({
       user_id: options.userId ?? null,
