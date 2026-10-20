@@ -85,7 +85,8 @@ for (const sig of ["public.admin_ai_cost_daily(integer)", "public.admin_ai_recon
   const ordinary = await as("A", `select public.${name}() r`);
   check(`${name}: an ordinary user is refused and gets no data`, ordinary.error === "Admin access required" && !ordinary.rows);
   const service = await as("SERVICE", `select public.${name}() r`);
-  check(`${name}: the service role holds EXECUTE but the admin check refuses it (no admin identity)`, (await canExec("service_role", sig)) && service.error === "Admin access required");
+  check(`${name}: the service role has no EXECUTE (it has no admin identity, so it could never pass the check)`, !(await canExec("service_role", sig)) && /permission denied/i.test(service.error ?? ""));
+  check(`${name}: authenticated holds EXECUTE (the admin check inside is the gate)`, await canExec("authenticated", sig));
   check(`${name}: an admin session is allowed`, !(await as("ADMIN", `select public.${name}() r`)).error);
 }
 

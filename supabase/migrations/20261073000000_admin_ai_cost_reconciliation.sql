@@ -17,8 +17,10 @@
 -- provider names. Never a prompt, an answer, a user id, an email or a row.
 --
 -- Access. SECURITY DEFINER (the tables are not readable by an admin session), so each
--- function refuses everyone who is not an admin inside the function, anon has no
--- EXECUTE at all, and the search_path is fixed with every object schema-qualified.
+-- function refuses everyone who is not an admin inside the function. EXECUTE is held by
+-- `authenticated` only: anon has none, and service_role has none either because it has
+-- no admin identity (auth.uid() is null) and would be refused by the check anyway. The
+-- search_path is fixed and every object is schema-qualified.
 -- The result is one jsonb value, not a row set, so the REST row cap cannot silently
 -- cut it off; the one potentially large list is bounded and says so (`rows_truncated`).
 
@@ -95,8 +97,8 @@ $$;
 COMMENT ON FUNCTION public.admin_ai_cost_daily(integer) IS
   'Admin only. Per day, function, provider and model: calls, failures, unpriced / no-usage / estimated / missing-usage calls, and the recorded provider dollars. Read-only aggregates; not an invoice (verified_invoice_total is always false).';
 
-REVOKE ALL ON FUNCTION public.admin_ai_cost_daily(integer) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.admin_ai_cost_daily(integer) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.admin_ai_cost_daily(integer) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_ai_cost_daily(integer) TO authenticated;
 
 
 CREATE OR REPLACE FUNCTION public.admin_ai_reconciliation(_days integer DEFAULT 7)
@@ -280,5 +282,5 @@ $$;
 COMMENT ON FUNCTION public.admin_ai_reconciliation(integer) IS
   'Admin only. Read-only aggregates lining provider usage records up against the VX ledger, plan allowance grants and the global budget, with named flags for missing, unpriced, duplicate and late records. Changes nothing.';
 
-REVOKE ALL ON FUNCTION public.admin_ai_reconciliation(integer) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.admin_ai_reconciliation(integer) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.admin_ai_reconciliation(integer) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_ai_reconciliation(integer) TO authenticated;
