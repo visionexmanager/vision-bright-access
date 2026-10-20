@@ -29,7 +29,7 @@ Latest definitions (one per function; `git grep` over `supabase/migrations`): `v
 
 **Gaps (all inherited from the cost-flow doc; re-confirmed against current source [C]):**
 1. **Priced coverage is partial.** The seeded price book (`20261053…`, `20261054…`) has OpenAI and Groq rows only. The per-assistant chains in `assistants.ts` use `LUNA` (OpenAI), `GROQ`, `GEMINI`, `GEMINI_LITE` and `MISTRAL`; the file's own comments route education, research and long-context work to Gemini and multilingual/writing work to Mistral. **Gemini and Mistral models have no price-book row, so any answer from them is recorded `unpriced`** — for those assistants that is the *primary* path, not just a fallback. Dollars are under-counted, and a *metered* request for them would be refused (`unpriced_model`). How much traffic each assistant gets: [U]. Whether production has extra price rows added by data: [U].
-2. **Events are written fire-and-forget and failures are silent.** `recordUsageEventIn` ends `try { … await db.from("ai_usage_events").insert(…) } catch {}` and **never inspects the `{ error }` the insert returns**, so a rejected insert (constraint, RLS, outage) is not logged and not counted [C: `usageRecording.ts:74-94`]. Tests assert "never throws" (`ai-usage-metering.test.ts:290`) but nothing signals loss. Under-recording is invisible.
+2. **[Fixed by #462, `e230a639`; this paragraph describes the code before it.] Events are written fire-and-forget and failures were silent.** `recordUsageEventIn` ends `try { … await db.from("ai_usage_events").insert(…) } catch {}` and **never inspects the `{ error }` the insert returns**, so a rejected insert (constraint, RLS, outage) is not logged and not counted [C: `usageRecording.ts:74-94`]. Tests assert "never throws" (`ai-usage-metering.test.ts:290`) but nothing signals loss. Under-recording is invisible.
 3. **No uniqueness on an event** (`(chain_id, attempt)` is not unique), so a double delivery would double-count dollars [E: `ai-budget-scenarios.mjs`]. The code has no retry path that does this today [C], so this is a hardening item, not an active bug.
 4. **Four under-billing paths** (late event, reaped hold, unpriced model, missing event) are documented with reconciliation queries in cost-flow §10. Each favours the customer; each needs a product decision to change.
 5. **While every `central_pricing_registry` row is disabled, `ai-chat` runs in shadow mode: nothing is held or charged** [C migration defaults; U production rows]. All provider spend is therefore uncharged by design today.
@@ -106,7 +106,7 @@ New: `scripts/sql/ai-budget-scenarios.mjs` (wired into the "RLS authorization ma
 ## 8. Plan
 
 **Low risk — can be done without further approval, each as its own PR**
-1. Log (rate-limited, payload-free) a failed `ai_usage_events` insert + unit test.
+1. ~~Log (rate-limited, payload-free) a failed `ai_usage_events` insert + unit test.~~ Done in #462 (`e230a639`, `src/test/usage-recording-failures.test.ts`).
 2. `admin_ai_cost_daily(days)` read function + admin card, with an RLS-matrix block like #456's (anon refused, ordinary user refused, admin allowed, nothing written).
 3. A read-only "late event / expired-with-events / unpriced share" report query set in `docs/` or an admin RPC.
 
