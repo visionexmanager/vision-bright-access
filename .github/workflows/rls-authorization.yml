@@ -12,6 +12,7 @@ on:
       - supabase/migrations/**
       - scripts/sql/rls-authorization-scenarios.mjs
       - scripts/sql/vx-accounting-scenarios.mjs
+      - scripts/sql/ai-budget-scenarios.mjs
       - scripts/sql/ai-cost-reconciliation-scenarios.mjs
       - .github/workflows/rls-authorization.yml
 
@@ -34,5 +35,7 @@ jobs:
         run: node scripts/sql/rls-authorization-scenarios.mjs
       - name: VX accounting invariants (hold, settle, release, reap)
         run: node scripts/sql/vx-accounting-scenarios.mjs
+      - name: check_ai_budget against the rows ai-chat and Career AI really write
+        run: node scripts/sql/ai-budget-scenarios.mjs
       - name: Admin AI cost and reconciliation functions
         run: node scripts/sql/ai-cost-reconciliation-scenarios.mjs
