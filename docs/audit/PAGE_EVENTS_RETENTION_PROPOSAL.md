@@ -59,10 +59,25 @@ SELECT count(*)                      AS would_delete,
 | Policy was wrong (deleted too much) | Deleted rows are gone from the live table | See recovery; **stop the job first** with `SELECT cron.unschedule('page-events-retention');` |
 | `SET LOCAL` not applied by pg_cron | Only a warning is raised; the 10,000-row batch bound still holds, the two timeouts do not | **Unverified here** (PGlite has no pg_cron); check the first run's `return_message` and duration |
 
+## What backups actually exist (evidence, 2026-10-20) — and what that means
+| Question | Evidence | Status |
+|---|---|---|
+| Supabase plan | `get_organization` (account metadata, no database query), 2026-10-20: `plan: free`, `tier: tier_free`. Same as the 2026-10-17 lookup in `VISIONEX_DISASTER_RECOVERY_REPORT.md` | **Verified** |
+| Managed Supabase backups | Supabase documents scheduled backups for paid plans only; the dashboard page *Database → Backups* is the authority and has **not been read** | **Not verified in this account** (documentation says none on Free) |
+| A backup job in this repo | None: `.github/workflows` has no backup/dump/restore workflow (listed 2026-10-20); the DR report grep found only the unrelated ISP-service script | **Verified: none** |
+| A restore ever tested | No runbook run, workflow, test or report records one (DR report, still true) | **Verified: no evidence** |
+| Hetzner snapshots | Not queried | **Unknown** |
+
+**Consequence.** On the evidence available, there is **no usable backup of the production database**, and no restore has ever been demonstrated. Rows deleted by the job would be **irrecoverable**: every `page_events` row older than the cutoff (path, title, random session id, event type, timestamp, any `metadata`, optional user id) would be gone with no way back except an export taken *before* the first run. Nothing else is touched. Which rows those are is not known: the production count has not been read.
+
+**How rows could be restored.** Only from (a) an export made before deletion (re-insert with `INSERT … SELECT` / `COPY` into `public.page_events` — safe because the table has no foreign keys and ids are uuids), or (b) a platform backup if one turns out to exist: restore it into a *scratch* project and copy the rows back, because a whole-project restore would also roll back every other table. A synthetic restore (what the DR report calls a "drill") proves the procedure but is not proof that a particular backup is restorable.
+
+**Recommendation: a verified export should precede any retention job.** Concretely: (1) owner runs the dry-run query below and records the count; (2) exports the eligible rows to a private file (CSV from the SQL editor, or `pg_dump --data-only --table public.page_events` limited by the same `WHERE` via `COPY (SELECT … ) TO`); (3) verifies the export by comparing the row count and re-loading it into a scratch database; (4) only then approves the migration. A shorter route that costs nothing is to start with a longer window (for example 365 days) so the first runs delete little or nothing.
+
 ## Backup and recovery options (deleting is permanent in the live table)
-I did not read the project's backup settings, so none of these is verified:
+Options, none of which exists today (see the evidence above):
 1. **Before enabling:** the owner can export the eligible rows (the dry-run `WHERE`, as CSV from the SQL editor or `pg_dump --table public.page_events`) and keep the file somewhere private. These rows hold page paths, titles and a random per-tab session id, so the file is personal-adjacent data and should be treated and expired accordingly.
-2. **Platform backups:** if the Supabase plan includes daily backups or point-in-time recovery, deleted rows remain in backups until that backup's own retention expires. Restoring one table selectively is not supported by a whole-project restore; it would mean restoring into a scratch project and copying rows back. Deletion from the live table does **not** remove rows from older backups, which matters if the aim is erasure.
+2. **Platform backups (not available on the Free plan per Supabase documentation; paid plan = recurring cost, not chosen here):** if a plan includes daily backups or point-in-time recovery, deleted rows remain in backups until that backup's own retention expires. Restoring one table selectively is not supported by a whole-project restore; it would mean restoring into a scratch project and copying rows back. Deletion from the live table does **not** remove rows from older backups, which matters if the aim is erasure.
 3. **Keep aggregates:** if long-term trends matter, a daily aggregate table (`day, page_path, event_type, views, sessions`) written before the delete would preserve them without raw rows. Not built; it adds a table and a writer, so it is a separate decision.
 4. **Phase in:** start with a longer window (for example 365 days) and shorten later, which makes a mistake cheaper.
 
@@ -72,4 +87,4 @@ I did not read the project's backup settings, so none of these is verified:
 3. Explicit approval to merge. Until then this PR stays a draft and no deletion exists in production.
 
 ## Not covered
-The privacy-policy wording (not reviewed or changed); backups (not read); behaviour of `SET LOCAL` and `return_message` inside real pg_cron (not testable here).
+The privacy-policy wording (not reviewed or changed); the dashboard Backups page and Hetzner snapshots (not read); the production `page_events` count (**unknown**: no approved read-only database access was used, no SQL was run against production); behaviour of `SET LOCAL` and `return_message` inside real pg_cron (not testable here).
