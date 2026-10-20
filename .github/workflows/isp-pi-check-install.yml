@@ -1,0 +1,115 @@
+name: ISP PI restricted SSH installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply the isolated isp-ci installer after its dry-run output is reviewed"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: isp-pi-restricted-install
+  cancel-in-progress: false
+
+jobs:
+  install:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out approved installer files
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Validate keys and prepare a temporary transfer
+        env:
+          ADMIN_HOST: ${{ secrets.SERVER_HOST }}
+          ADMIN_USER: ${{ secrets.SERVER_USER }}
+          ADMIN_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          CI_KEY: ${{ secrets.ISP_PI_CHECK_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "$ADMIN_HOST" ] && [ -n "$ADMIN_USER" ] && [ -n "$ADMIN_KEY" ] || { echo "::error::Existing admin SSH secrets are missing"; exit 1; }
+          [ -n "$CI_KEY" ] || { echo "::error::ISP_PI_CHECK_SSH_KEY is missing"; exit 1; }
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$ADMIN_KEY" > ~/.ssh/id_admin
+          printf '%s\n' "$CI_KEY" > ~/.ssh/id_isp_ci
+          chmod 600 ~/.ssh/id_admin ~/.ssh/id_isp_ci
+
+          # Verify the dedicated private key matches the public key created for this task.
+          ssh-keygen -y -f ~/.ssh/id_isp_ci > "$RUNNER_TEMP/isp-pi-check.pub"
+          actual="$(ssh-keygen -lf "$RUNNER_TEMP/isp-pi-check.pub" -E sha256 | awk '{print $2}')"
+          expected='SHA256:0pKnfJGRWq17yUwT9bP4X/d70KGuGJq63lXK8M/SE8s'
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::ISP_PI_CHECK_SSH_KEY does not match the approved dedicated public key; no server changes made"
+            exit 1
+          fi
+          # Add the expected non-secret key comment for easier auditing.
+          printf '%s isp-pi-check-ci\n' "$(cat "$RUNNER_TEMP/isp-pi-check.pub")" > "$RUNNER_TEMP/isp-pi-check-commented.pub"
+
+          cat > ~/.ssh/config <<CONF
+          Host target
+            HostName $ADMIN_HOST
+            User $ADMIN_USER
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_admin
+            ConnectTimeout 15
+            BatchMode yes
+            RequestTTY no
+            ForwardAgent no
+            ForwardX11 no
+            ClearAllForwardings yes
+          CONF
+          chmod 600 ~/.ssh/config
+          ssh target 'id; sudo -n true'
+          tar -czf "$RUNNER_TEMP/ci-pi-check.tar.gz" services/isp-management/deploy/ci-pi-check
+          echo "Key validation: PASS (fingerprint matched)"
+          echo "Installer bundle prepared from main; private key contents were not printed."
+
+      - name: Transfer the approved installer bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_dir="/tmp/visionex-isp-pi-install-${GITHUB_RUN_ID}"
+          ssh target "umask 077; mkdir -p '$remote_dir'; chmod 700 '$remote_dir'"
+          scp "$RUNNER_TEMP/ci-pi-check.tar.gz" "target:$remote_dir/ci-pi-check.tar.gz"
+          scp "$RUNNER_TEMP/isp-pi-check-commented.pub" "target:$remote_dir/isp-pi-check.pub"
+          ssh target "tar -xzf '$remote_dir/ci-pi-check.tar.gz' -C '$remote_dir'"
+
+      - name: Dry-run the restricted installer
+        env:
+          APPLY: ${{ inputs.apply }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_dir="/tmp/visionex-isp-pi-install-${GITHUB_RUN_ID}"
+          installer="$remote_dir/services/isp-management/deploy/ci-pi-check/install.sh"
+          if [ "$APPLY" = "true" ]; then
+            ssh target "sudo -n bash '$installer' --pubkey-file '$remote_dir/isp-pi-check.pub'"
+            echo "Dry-run review completed; applying only the isolated isp-ci access path."
+            ssh target "sudo -n bash '$installer' --pubkey-file '$remote_dir/isp-pi-check.pub' --apply"
+          else
+            ssh target "sudo -n bash '$installer' --pubkey-file '$remote_dir/isp-pi-check.pub'"
+            echo "DRY RUN ONLY: no persistent server changes were requested."
+          fi
+
+      - name: Clean temporary files
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          remote_dir="/tmp/visionex-isp-pi-install-${GITHUB_RUN_ID}"
+          ssh target "rm -rf '$remote_dir'" 2>/dev/null || true
+          rm -f ~/.ssh/id_admin ~/.ssh/id_isp_ci ~/.ssh/config ~/.ssh/known_hosts
+          rm -f "$RUNNER_TEMP/isp-pi-check.pub" "$RUNNER_TEMP/isp-pi-check-commented.pub" "$RUNNER_TEMP/ci-pi-check.tar.gz"

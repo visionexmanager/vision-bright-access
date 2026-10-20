@@ -1,0 +1,92 @@
+name: ISP PI access-path diagnosis
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: isp-pi-access-diagnosis
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect restricted PI-check installation (read-only)
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [ -n "$HOST" ] && [ -n "$USER" ] && [ -n "$KEY" ] || { echo "::error::Admin SSH secrets missing"; exit 1; }
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_probe
+          chmod 600 ~/.ssh/id_probe
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_probe
+            ConnectTimeout 15
+            BatchMode yes
+            RequestTTY no
+            ForwardAgent no
+            ForwardX11 no
+            ClearAllForwardings yes
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'bash -s' <<'REMOTE'
+          set -u
+          say() { printf '%s\n' "$*"; }
+
+          if id isp-ci >/dev/null 2>&1; then
+            say "isp-ci account: PRESENT"
+            say "isp-ci groups: $(id -nG isp-ci)"
+          else
+            say "isp-ci account: MISSING"
+          fi
+
+          for f in /var/lib/isp-ci/.ssh/authorized_keys /usr/local/sbin/isp-pi-check-entry /usr/local/sbin/isp-pi-check-run /usr/local/lib/isp-pi-check/pi-check.mjs /etc/sudoers.d/isp-pi-check; do
+            if [ -e "$f" ]; then
+              say "$f: PRESENT ($(stat -c '%U:%G:%a' "$f" 2>/dev/null || echo 'metadata unavailable'))"
+            else
+              say "$f: MISSING"
+            fi
+          done
+
+          if [ -r /var/lib/isp-ci/.ssh/authorized_keys ]; then
+            fp=$(awk '{for(i=1;i<=NF;i++) if($i=="ssh-ed25519" && $(i+1)!="") {print "ssh-ed25519 " $(i+1) " " ($(i+2) ? $(i+2) : ""); exit}}' /var/lib/isp-ci/.ssh/authorized_keys | ssh-keygen -lf /dev/stdin -E sha256 2>/dev/null | awk '{print $2}')
+            say "installed CI public-key fingerprint: ${fp:-UNREADABLE}"
+          fi
+
+          if [ -x /usr/local/sbin/isp-pi-check-run ] && [ -r /usr/local/lib/isp-pi-check/pi-check.mjs ]; then
+            want=$(grep -E '^EXPECTED_SHA256=' /usr/local/sbin/isp-pi-check-run | head -n1 | cut -d= -f2)
+            have=$(sha256sum /usr/local/lib/isp-pi-check/pi-check.mjs | awk '{print $1}')
+            [ -n "$want" ] && [ "$want" = "$have" ] && say "installed bundle hash pin: PASS" || say "installed bundle hash pin: FAIL"
+          else
+            say "installed bundle hash pin: SKIP (runner/bundle missing)"
+          fi
+
+          if [ -f /etc/sudoers.d/isp-pi-check ]; then
+            if sudo -n /usr/sbin/visudo -cf /etc/sudoers.d/isp-pi-check >/dev/null 2>&1; then say "sudoers syntax: PASS"; else say "sudoers syntax: FAIL (or admin sudo unavailable)"; fi
+            n=$(sudo -n -l -U isp-ci 2>/dev/null | grep -c 'isp-pi-check-run' || true)
+            say "sudo grants for PI runner: $n matching line(s)"
+          else
+            say "sudoers syntax: SKIP (file missing)"
+            say "sudo grants for PI runner: 0 matching line(s)"
+          fi
+
+          if [ -f /etc/visionex-isp/isp.env ]; then
+            say "PI environment file: PRESENT ($(stat -c '%U:%G:%a' /etc/visionex-isp/isp.env 2>/dev/null || echo 'metadata unavailable'))"
+          else
+            say "PI environment file: MISSING"
+          fi
+          REMOTE
+          rm -f ~/.ssh/id_probe ~/.ssh/config ~/.ssh/known_hosts
