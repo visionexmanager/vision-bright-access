@@ -2,7 +2,15 @@
 
 Durable checkpoint for the autonomous mission. Newest entry first. Update after each milestone. A new session should read this file, then `VISIONEX_REMAINING_RISKS.md` and `VISIONEX_PHASE2_ASSESSMENT_AND_PLAN.md`.
 
-## 2026-10-19 (third pass) — open PRs, none merged, nothing deployed
+## 2026-10-19 (fourth pass) — review of #450 and #452, billing decision table
+Main `85b5ff91` (the five approved PRs #448, #449, #451, #453, #454 were merged by the owner's instruction; Deploy succeeded for each). #450 and #452 are open, behind main, unmerged.
+- **#450 reviewed.** Orderings are total (`profiles.user_id` is UNIQUE; `user_points.id` is the primary key). Added `keyOf` dedupe after reproducing a repeat when a row arrives at the top of a newest-first read; 8 tests, tsc/ESLint/build clean locally. **Finding that changes its value:** under the schema defined by the migrations an admin session reads 0 rows of `user_points` (one owner-only SELECT policy, no admin policy; executed in PGlite, `profiles` readable, `credit_wallets` 0), so `AdminUsers` balances are wrong for everyone but the viewer regardless of the row cap. Production not verified. PR description corrected. The real fix is an admin-only balance function (migration; not written; needs approval).
+- **#452 reviewed.** CLS before → after, local, synthetic delayed plans: en 0.272 → 0 (mobile) and 0.108 → 0.023 (desktop); ar 0.289 → 0 / 0.116 → 0.007; fa 0.308 → 0 / 0.115 → 0.007; hi 0.250 → 0 / 0.108 → 0.023. RTL text stays right-aligned in the loading state (screenshot checked). Visible cost: about 1 s of empty space under "Loading…". Lab numbers only; no real-user data exists in this repository.
+- **Docs (separate PR):** four-scenario billing decision table, cost-measurement proposal and ceiling evidence list (`VISIONEX_AI_COST_FLOW.md` §10–12), advisory fixes, and the real limits of scheduled GitHub Actions. Notable evidence: 3 of the 6 default `ai-chat` chain models have no price row, so metered billing would refuse almost every request today.
+- Uptime run history now: 00:13Z, 04:47Z, 10:30Z, 17:10Z on 2026-10-19 (4 runs in 18 h; checked 18:46Z).
+No production changes, merges (this pass), deploys or costs.
+
+## 2026-10-19 (third pass) — open PRs, none merged, nothing deployed (all except #450 and #452 later merged, see above)
 Main at `d20d1ae3` when started. Opened (each its own branch; CI result is on the PR, not here):
 | PR | What | Evidence |
 |---|---|---|
