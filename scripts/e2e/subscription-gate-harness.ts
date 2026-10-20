@@ -47,7 +47,7 @@ const providerPaths: string[] = [];
 
 const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status, headers: { "Content-Type": "application/json" } });
 // The gate, and identity/authorization questions that spend nothing.
-const GATE_ONLY = new Set(["ai_subscription_gate", "ai_subscription_gate_whatsapp", "has_role", "is_organization_admin"]);
+const GATE_ONLY = new Set(["ai_subscription_gate", "ai_subscription_gate_whatsapp", "ai_subscription_gate_meta", "has_role", "is_organization_admin"]);
 
 // Bodies for the functions that validate their input before they authenticate.
 const BODIES: Record<string, unknown> = {
@@ -74,7 +74,7 @@ async function stub(req: Request): Promise<Response> {
       if (mode === "error") return json({ message: "boom" }, 500);
       if (mode === "blocked_first_notice" && atomicNotices) {
         const args = await req.json().catch(() => ({}));
-        const subject = String(args._subject ?? args._wa_phone ?? "");
+        const subject = String(args._subject ?? args._wa_phone ?? args._sender_id ?? "");
         if (firstNoticeTaken.has(subject)) return json("blocked_silent");
         firstNoticeTaken.add(subject);
       }

@@ -73,11 +73,14 @@ export async function requireActiveSubscription(db: GateDb, subject: GateSubject
       const { data, error } = await db.rpc("ai_subscription_gate_whatsapp", { _wa_phone: subject.waPhone });
       return readGateVerdict(data, error);
     }
+    if (subject.channel === "meta") {
+      if (!subject.senderId?.trim()) return "blocked_silent";
+      const { data, error } = await db.rpc("ai_subscription_gate_meta", { _sender_id: subject.senderId });
+      return readGateVerdict(data, error);
+    }
     const [key, userId] = subject.channel === "web"
       ? [subject.userId, subject.userId]
-      : subject.channel === "web_anon"
-      ? [subject.callerId, null]
-      : [subject.senderId, null];
+      : [subject.callerId, null];
     if (!key?.trim()) return "blocked_silent";
     const { data, error } = await db.rpc("ai_subscription_gate", {
       _channel: subject.channel,

@@ -16,3 +16,12 @@ describe("WhatsApp subscription gate never goes silent for good", () => {
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.ai_subscription_gate_whatsapp\(text\) TO service_role/);
   });
 });
+
+describe("Messenger and Instagram use the same bounded re-notice", () => {
+  const meta = readFileSync("supabase/migrations/20261076000000_meta_gate_renotice.sql", "utf8");
+  it("wraps the shared gate without changing it", () => {
+    expect(meta).toMatch(/ai_subscription_gate\('meta', _sender_id, NULL\)/);
+    expect(meta).toMatch(/notified_at < now\(\) - interval '10 minutes'/);
+    expect(meta).toMatch(/GRANT EXECUTE ON FUNCTION public\.ai_subscription_gate_meta\(text\) TO service_role/);
+  });
+});
