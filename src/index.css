@@ -4,9 +4,11 @@
    • Inter          — latin body text
    • Cairo          — Arabic UI + headings (excellent Arabic rendering)
    • Noto Sans Devanagari — Hindi/Urdu script support
-   All fonts are display=swap so text shows immediately with fallback
+   All fonts are display=swap so text shows immediately with fallback.
+   The stylesheet is linked from index.html, not @imported here: an @import
+   makes the browser download this file first and only then discover the font
+   stylesheet, a serial round trip on the critical path.
    ──────────────────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Cairo:wght@400;500;600;700;900&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;

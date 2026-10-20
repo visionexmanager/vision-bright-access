@@ -2,6 +2,44 @@
 
 Durable checkpoint for the autonomous mission. Newest entry first. Update after each milestone. A new session should read this file, then `VISIONEX_REMAINING_RISKS.md` and `VISIONEX_PHASE2_ASSESSMENT_AND_PLAN.md`.
 
+## 2026-10-19 (third pass) — open PRs, none merged, nothing deployed
+Main at `d20d1ae3` when started. Opened (each its own branch; CI result is on the PR, not here):
+| PR | What | Evidence |
+|---|---|---|
+| #448 | VX accounting invariants in PGlite (duplicate delivery, settle/release/reap idempotency, fallback attempts, malformed cost rows, clamp, conservation) | 23 checks + 3 mutation proofs, local; four "CURRENT BEHAVIOUR" under-billing paths recorded, none changed |
+| #449 | Chain timeout / silent open / throwing sink / malformed stream usage / one event per attempt | 8 tests; found that an open that never answers leaves no usage event |
+| #450 | Admin user list reads `profiles` and `user_points` in pages (API row cap made balances partial) | 7 tests; production size and `max_rows` not verified |
+| #451 | AI cost flow: source-of-truth table, answers to the seven questions, dashboard accuracy | docs; Provider Hub cost is 0 for chat, `ai_usage_cost_daily` unread, budget blind to `ai-chat` |
+| #452 | `/pricing` footer jump (CLS) | production 0.244 → local 0.272/0.108 → 0/0.023 (mobile/desktop, synthetic delayed plans, 3 runs) |
+| #453 | axe job: + Persian, Urdu, Hindi | 67 passed locally |
+| this PR | second-pass security/uptime notes | six advisories one by one, TipTap migration facts, RLS gaps |
+
+Production Lighthouse (public GET, mobile): `/` score 47–48, FCP ~6.9–7.1 s, LCP 9.9–10.0 s, CLS 0; `/pricing` 23, CLS 0.244; `/bazaar` 16, CLS 0.439 (shifts in `div.animate-in > div.relative`, not reproducible without data, not fixed). LCP element on `/` is `h1#hero-heading`. `/favicon.png` is 1.27 MB and doubles as the WhatsApp profile picture source, so it was not shrunk (see #452).
+Uptime: `Site uptime` ran 3 times in 16 h; alert delivery unverifiable from here.
+No production queries, merges, deploys, charges, secrets or paid services in this pass.
+
+## 2026-10-19 (final) — everything below merged and deployed
+Owner instructed "complete to the end including the merge". Merged (squash, each after CI on its head; branches updated one at a time because the base branch is protected "up to date"): #438 `0246ff42`, #439 `dd22aea5`, #440 `b044449a`, #441 `8b8128e6`, #442 `2904954b`, #443 `2ce339b3`, #444 `73cdfe08`, #445 `008ab483`, #446 `dcf6b2f5` (its branch had to be merged with main locally: add/add conflict in `tests/a11y/axe.spec.ts` after #445 was squashed; resolved by keeping the branch version, diff against main checked = Navbar.tsx + the emptied baseline).
+- Deploy workflow: success for every merge commit including `dcf6b2f5`. No migration in any of these PRs.
+- Live check (anonymous GET, 2026-10-19): `https://visionex.app/` returns 200 HTML containing the fonts `<link>` and preconnects; the served `index-*.css` contains no font `@import`; the main bundle is served as JavaScript.
+- New CI: `Accessibility (axe)` — 33 scans (11 routes × en/ar/es) + a keyboard test, empty baseline, green on `dcf6b2f5`. First finding (nav contrast over a dark hero on `/games`) fixed in #446. This job only covers public routes with a stub backend.
+- Still true: the earlier lines of this entry about #438–#441 "none merged" are superseded by this paragraph. Open decisions for the owner: `check_ai_budget` / dollar ceiling (see `VISIONEX_AI_COST_FLOW.md`), sign-up enumeration wording, CAPTCHA, Supabase Pro, an outside uptime monitor (`VISIONEX_REMAINING_RISKS.md` §9), TipTap major bump. Not verified: the 03:40 UTC cron prune run (needs a production query), GitHub e-mail on a failed uptime run, real Supabase backup/restore.
+
+## 2026-10-19 (later) — status audit, then three PRs opened (since merged, see above)
+Verified from GitHub: main is `1598cca9`; #430–#437 merged by the owner, each head commit green, each merge commit has a successful Deploy run. #432 and #433 migrations were applied (Deploy logs).
+
+| PR | Change | Evidence |
+|---|---|---|
+| #438 | RLS matrix: 38 → 84 checks, 4 → 7 mutation proofs | CI check "Who can read and write which rows" green. Found and fixed a fidelity gap: the two privilege-hardening migrations aborted in PGlite, so the old matrix ran against default grants |
+| #439 | Synthetic restore rehearsal script + runbook §F | Local run: dump → encrypt → tamper detected → restore → fingerprints identical; known-bad control fails. Not the real platform; whole-schema pg_dump hung in PGlite |
+| #440 | Google Fonts linked from index.html, not a CSS @import | Lighthouse ×3 each, local builds: FCP −0.5 s; LCP unchanged (~16 s); score change is TBT noise |
+
+Findings (no change made):
+- **Uptime monitor cadence.** "Site uptime" ran twice in ~11 h (00:13Z, 04:47Z) against ~44 scheduled; GitHub drops scheduled runs. Effective cadence is hours, not 15 minutes. Failure alerting = the failed run only (GitHub emails the person who last edited the cron line; owner's notification setting not verified). A reliable alert needs an outside monitor (owner account/decision).
+- **Cron prune.** Migration applied 22:11Z. Whether the 03:40 UTC run happened and what it deleted: unable to verify without a production query.
+- **`check_ai_budget`.** Only `ai-chat` calls it, and it counts `ai_interactions` (Career AI only) and `vx_usage_ledger` (metering off); `ai-chat` writes to neither (it writes provider usage to `ai_usage_events`, which the budget does not read; correction of an earlier wording), so the global budget does not see the main assistant's spend. Fail-open on error is deliberate; a missing active `ai_budgets` row also allows everything (production row not checked). Changing this is a charging/enforcement decision — not made. Full trace, five confirmed gaps and hypotheses: `VISIONEX_AI_COST_FLOW.md` (#443). The VX reserve/settle/idempotency path itself reviewed as sound; no service is enabled, so nothing is charged today.
+- Uptime wording and options: #442. Not reviewed yet: locale/RTL/authenticated axe coverage, remaining security items (N7, N8, N9, advisories).
+
 ## 2026-10-19 — merged and verified
 Merged to main (squash, auto-merge, in order): #430 docs and accessibility, #431 AdBanner consent, #432 library webhook idempotency, #433 cron history prune, #434 uptime check, #435 RLS authorization matrix; #436 (/services contrast) was waiting on CI when this was written — check its state, do not assume.
 Production evidence (read-only): the Deploy run for #432 applied `20261070000000_library_webhook_idempotency.sql` and the three unique indexes exist; the `cron-run-history-prune` job is scheduled at `40 3 * * *` and `cron.job_run_details` held 60,366 rows (oldest 2026-07-23) before its first run, so check the row count after 03:40 UTC. The `Site uptime` workflow has not yet run: dispatch it once from the Actions tab to confirm it.

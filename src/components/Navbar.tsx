@@ -201,7 +201,7 @@ export function Navbar() {
 
   return (
     <nav
-      className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+      className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur"
       role="navigation"
       aria-label={t("nav.mainNavigation")}
     >
@@ -228,7 +228,7 @@ export function Navbar() {
                 aria-current={location.pathname === link.to ? "page" : undefined}
                 className={`rounded-lg px-2.5 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 2xl:px-3.5 2xl:text-base ${
                   location.pathname === link.to
-                    ? "bg-primary/10 text-primary"
+                    ? "bg-primary/5 text-primary"
                     : "text-foreground"
                 }`}
                 onKeyDown={handleMenubarKeyDown}
@@ -276,7 +276,7 @@ export function Navbar() {
                 data-nav-item
                 onKeyDown={handleMenubarKeyDown}
                 className={`flex items-center gap-1 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-2 2xl:px-3.5 2xl:text-base ${
-                  moreMenuIsActive ? "bg-primary/10 text-primary" : "text-foreground"
+                  moreMenuIsActive ? "bg-primary/5 text-primary" : "text-foreground"
                 }`}
               >
                 {t("nav.more")}
@@ -451,7 +451,7 @@ export function Navbar() {
                   onClick={() => setMenuOpen(false)}
                   className={`block rounded-lg px-4 py-3 text-lg font-medium transition-colors hover:bg-muted ${
                     location.pathname === link.to
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-primary/5 text-primary"
                       : "text-foreground"
                   }`}
                 >

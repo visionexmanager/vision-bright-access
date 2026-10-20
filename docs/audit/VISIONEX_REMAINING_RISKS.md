@@ -83,3 +83,15 @@ Backup decisions and the 1-minute dashboard looks (DR report §7); Pro-plan deci
 - Item 11 (CRLF): `.gitattributes` now has `*.yml text eol=lf`; the test passes locally after re-checkout, and passed on Linux CI (run 39148051646).
 - Additional axe findings fixed: toast, chat, XP bar, settings controls. See `VISIONEX_AXE_SCAN_REPORT.md`.
 - All other rows unchanged. Progress and next actions: `VISIONEX_PROGRESS_LOG.md`.
+
+## 9. Uptime monitoring — what is real (2026-10-19)
+Measured from GitHub run history (read-only): `Site uptime` (cron `*/15`) ran at 00:13Z and 04:47Z between 22:13Z on 10-18 and 09:47Z on 10-19 — 2 runs where ~46 were scheduled. The other scheduled workflows are throttled the same way (e.g. `Security monitor` 05:59, 11:18, 15:56, 18:40, 21:33 on 10-18; `Plan Expiry Reminders` is "hourly" and fires every 3–5 h). GitHub documents that scheduled runs can be delayed or dropped under load; here it is the normal case. **Effective detection time for an outage is hours, not minutes.**
+
+Alerting: a failed run is the only signal. GitHub emails the user who last modified the cron line when "Actions → failed workflows" notifications are on for them. **Not verified** for this account; no failure has occurred to observe. One red run is also easy to miss among other failing scheduled jobs.
+
+Options, simplest reliable first (none done; each marked for cost/approval):
+1. **Outside free-tier monitor** (UptimeRobot, Better Stack, etc.) pointed at `https://visionex.app/` with e-mail/SMS alerts: $0 at the free tier but needs an account — your decision. Gives 1–5 minute checks independent of GitHub.
+2. **Cron on the existing Hetzner server** (`curl` + mail/WhatsApp to the owner): no new vendor, but a server outage silences it, so it cannot see its own host going down; needs SSH access from you.
+3. **`pg_cron` + `pg_net` in Supabase** calling the site and writing a row/notification: reliable cadence, stays inside what is already paid for (free plan), but sees nothing if Supabase itself is down and needs a migration (a deploy).
+4. **Keep GitHub Actions as a secondary check** (current) and add a "last successful run is older than 6 h" check — still depends on the same scheduler, so it only helps a human who looks.
+Recommendation: option 1 for detection plus the current workflow as a second opinion. Until then, do not describe the monitor as "every 15 minutes".
