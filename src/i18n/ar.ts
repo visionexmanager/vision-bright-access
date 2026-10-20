@@ -3877,6 +3877,8 @@ export const translations: Record<string, string> = {
   "common.cancel": "إلغاء",
   "admin.users.title": "إدارة المستخدمين",
   "admin.users.total": "{count} مستخدم",
+  "admin.users.listIncomplete": "قد تكون قائمة المستخدمين غير مكتملة: تعذّر تحميل بعض الصفحات. أعد تحميل الصفحة للمحاولة مجددًا.",
+  "admin.users.balancesUnavailable": "أرصدة المستخدمين الآخرين غير متاحة حاليًا. يظهر رصيدك أنت فقط.",
   "admin.users.searchPlaceholder": "بحث بالاسم أو الـ ID...",
   "admin.users.user": "المستخدم",
   "admin.users.role": "الدور",

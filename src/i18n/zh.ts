@@ -3848,6 +3848,8 @@ export const translations: Record<string, string> = {
   "common.cancel": "取消",
   "admin.users.title": "管理用户",
   "admin.users.total": "{count} 位用户",
+  "admin.users.listIncomplete": "用户列表可能不完整：部分页面未能加载。请重新加载后再试。",
+  "admin.users.balancesUnavailable": "暂时无法获取其他用户的余额，仅显示您自己的余额。",
   "admin.users.searchPlaceholder": "按名称或 ID 搜索…",
   "admin.users.user": "用户",
   "admin.users.role": "角色",

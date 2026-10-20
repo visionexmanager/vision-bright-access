@@ -3853,6 +3853,8 @@ export const translations: Record<string, string> = {
   "common.cancel": "İptal",
   "admin.users.title": "Kullanıcıları Yönet",
   "admin.users.total": "{count} kullanıcı",
+  "admin.users.listIncomplete": "Kullanıcı listesi eksik olabilir: bazı sayfalar yüklenemedi. Yeniden denemek için sayfayı yenileyin.",
+  "admin.users.balancesUnavailable": "Diğer kullanıcıların bakiyeleri şu anda kullanılamıyor. Yalnızca kendi bakiyeniz gösteriliyor.",
   "admin.users.searchPlaceholder": "Ad veya ID ile ara...",
   "admin.users.user": "Kullanıcı",
   "admin.users.role": "Rol",

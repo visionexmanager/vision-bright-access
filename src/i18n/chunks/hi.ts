@@ -3843,6 +3843,8 @@ export const translationsPart: Record<string, string> = {
   "common.cancel": "रद्द करें",
   "admin.users.title": "यूज़र्स प्रबंधित करें",
   "admin.users.total": "{count} यूज़र",
+  "admin.users.listIncomplete": "उपयोगकर्ता सूची अधूरी हो सकती है: कुछ पृष्ठ लोड नहीं हो सके। दोबारा कोशिश के लिए पुनः लोड करें।",
+  "admin.users.balancesUnavailable": "अन्य उपयोगकर्ताओं की शेष राशि अभी उपलब्ध नहीं है। केवल आपकी अपनी शेष राशि दिखाई जा रही है।",
   "admin.users.searchPlaceholder": "नाम या ID से खोजें...",
   "admin.users.user": "उपयोगकर्ता",
   "admin.users.role": "भूमिका",

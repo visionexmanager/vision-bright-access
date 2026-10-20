@@ -3843,6 +3843,8 @@ export const translationsPart: Record<string, string> = {
   "common.cancel": "Отмена",
   "admin.users.title": "Управление пользователями",
   "admin.users.total": "{count} пользователей",
+  "admin.users.listIncomplete": "Список пользователей может быть неполным: некоторые страницы не удалось загрузить. Перезагрузите, чтобы повторить попытку.",
+  "admin.users.balancesUnavailable": "Балансы других пользователей сейчас недоступны. Показан только ваш собственный баланс.",
   "admin.users.searchPlaceholder": "Поиск по имени или ID...",
   "admin.users.user": "Пользователь",
   "admin.users.role": "Роль",

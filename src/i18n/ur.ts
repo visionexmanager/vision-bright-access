@@ -3848,6 +3848,8 @@ export const translations: Record<string, string> = {
   "common.cancel": "منسوخ کریں",
   "admin.users.title": "یوزرز مینیج کریں",
   "admin.users.total": "{count} یوزرز",
+  "admin.users.listIncomplete": "صارفین کی فہرست نامکمل ہو سکتی ہے: کچھ صفحات لوڈ نہیں ہو سکے۔ دوبارہ کوشش کے لیے ری لوڈ کریں۔",
+  "admin.users.balancesUnavailable": "دوسرے صارفین کے بیلنس ابھی دستیاب نہیں ہیں۔ صرف آپ کا اپنا بیلنس دکھایا جا رہا ہے۔",
   "admin.users.searchPlaceholder": "نام یا آئی ڈی سے تلاش کریں...",
   "admin.users.user": "صارف",
   "admin.users.role": "کردار",
