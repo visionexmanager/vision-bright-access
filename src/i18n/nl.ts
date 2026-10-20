@@ -3853,6 +3853,8 @@ export const translations: Record<string, string> = {
   "common.cancel": "Annuleren",
   "admin.users.title": "Gebruikers beheren",
   "admin.users.total": "{count} gebruikers",
+  "admin.users.listIncomplete": "De gebruikerslijst is mogelijk onvolledig: sommige pagina's konden niet worden geladen. Laad opnieuw om het nog eens te proberen.",
+  "admin.users.balancesUnavailable": "De saldi van andere gebruikers zijn momenteel niet beschikbaar. Alleen je eigen saldo wordt getoond.",
   "admin.users.searchPlaceholder": "Zoeken op naam of ID...",
   "admin.users.user": "Gebruiker",
   "admin.users.role": "Rol",

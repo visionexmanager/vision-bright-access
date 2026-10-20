@@ -3848,6 +3848,8 @@ export const translations: Record<string, string> = {
   "common.cancel": "Batal",
   "admin.users.title": "Kelola Pengguna",
   "admin.users.total": "{count} pengguna",
+  "admin.users.listIncomplete": "Daftar pengguna mungkin tidak lengkap: beberapa halaman gagal dimuat. Muat ulang untuk mencoba lagi.",
+  "admin.users.balancesUnavailable": "Saldo pengguna lain sedang tidak tersedia. Hanya saldo Anda sendiri yang ditampilkan.",
   "admin.users.searchPlaceholder": "Cari berdasarkan nama atau ID...",
   "admin.users.user": "Pengguna",
   "admin.users.role": "Peran",

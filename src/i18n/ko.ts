@@ -3848,6 +3848,8 @@ export const translations: Record<string, string> = {
   "common.cancel": "취소",
   "admin.users.title": "사용자 관리",
   "admin.users.total": "{count}명 사용자",
+  "admin.users.listIncomplete": "사용자 목록이 불완전할 수 있습니다. 일부 페이지를 불러오지 못했습니다. 다시 불러와 주세요.",
+  "admin.users.balancesUnavailable": "다른 사용자의 잔액을 지금은 사용할 수 없습니다. 본인 잔액만 표시됩니다.",
   "admin.users.searchPlaceholder": "이름 또는 ID로 검색...",
   "admin.users.user": "사용자",
   "admin.users.role": "역할",

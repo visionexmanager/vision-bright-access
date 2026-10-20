@@ -3848,6 +3848,8 @@ export const translations: Record<string, string> = {
   "common.cancel": "Hủy",
   "admin.users.title": "Quản lý người dùng",
   "admin.users.total": "{count} người dùng",
+  "admin.users.listIncomplete": "Danh sách người dùng có thể chưa đầy đủ: không tải được một số trang. Hãy tải lại để thử lại.",
+  "admin.users.balancesUnavailable": "Hiện không có số dư của những người dùng khác. Chỉ hiển thị số dư của bạn.",
   "admin.users.searchPlaceholder": "Tìm theo tên hoặc ID...",
   "admin.users.user": "Người dùng",
   "admin.users.role": "Vai trò",

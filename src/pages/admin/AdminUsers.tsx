@@ -65,6 +65,9 @@ export default function AdminUsers() {
   const [selected, setSelected] = useState<UserProfile | null>(null);
   const [dialog, setDialog] = useState<DialogType>(null);
   const [loading, setLoading] = useState(false);
+  // What the last load could not read in full; shown to the admin, not only logged.
+  const [listIncomplete, setListIncomplete] = useState(false);
+  const [balancesUnavailable, setBalancesUnavailable] = useState(false);
 
   // Form states
   const [banReason, setBanReason] = useState("");
@@ -121,6 +124,8 @@ export default function AdminUsers() {
       deviceMap[d.user_id].push(d.device_id);
     }
 
+    setListIncomplete(!profilesRead.complete);
+    setBalancesUnavailable(source.kind !== "full");
     setUsers((profiles ?? []).map(p => ({
       ...p,
       status: p.status || "active",
@@ -272,6 +277,13 @@ export default function AdminUsers() {
           <h1 className="text-3xl font-bold">{t("admin.users.title")}</h1>
           <Badge variant="secondary">{t("admin.users.total").replace("{count}", String(users.length))}</Badge>
         </div>
+
+        {(listIncomplete || balancesUnavailable) && (
+          <div role="alert" className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm">
+            {listIncomplete && <p>{t("admin.users.listIncomplete")}</p>}
+            {balancesUnavailable && <p>{t("admin.users.balancesUnavailable")}</p>}
+          </div>
+        )}
 
         <div className="mb-4 flex items-center gap-2">
           <Search className="h-4 w-4 text-muted-foreground" />
