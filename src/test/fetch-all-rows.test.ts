@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchAllRows } from "@/lib/fetchAllRows";
+import { fetchAllRows, fetchAllRowsChecked } from "@/lib/fetchAllRows";
 
 // A fake table that behaves like PostgREST with max_rows = 1000: it returns at
 // most 1000 rows per request however wide the requested range is.
@@ -82,5 +82,34 @@ describe("fetchAllRows", () => {
     const t = table(2500);
     const single = await t.page(0, 99999);
     expect(single.data).toHaveLength(1000);
+  });
+});
+
+describe("fetchAllRowsChecked", () => {
+  it("reports complete for a table read to its short last page", async () => {
+    const t = table(2500);
+    const r = await fetchAllRowsChecked(t.page);
+    expect(r.complete).toBe(true);
+    expect(r.rows).toHaveLength(2500);
+  });
+
+  it("reports incomplete, with the rows read so far, when a later page fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const t = table(2500);
+    let n = 0;
+    const r = await fetchAllRowsChecked(async (from, to) => (n++ === 1 ? { data: null, error: new Error("boom") } : t.page(from, to)));
+    expect(r.complete).toBe(false);
+    expect(r.rows).toHaveLength(1000);
+  });
+
+  it("reports incomplete when the page limit runs out while pages are still full", async () => {
+    const t = table(5000);
+    const r = await fetchAllRowsChecked(t.page, 1000, 3);
+    expect(r.complete).toBe(false);
+    expect(r.rows).toHaveLength(3000);
+  });
+
+  it("fetchAllRows still returns just the rows", async () => {
+    expect(await fetchAllRows(table(10).page)).toHaveLength(10);
   });
 });
