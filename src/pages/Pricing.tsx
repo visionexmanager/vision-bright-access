@@ -89,7 +89,13 @@ export default function Pricing() {
         </section>
 
         {isLoading ? (
-          <p className="mt-10" role="status">{t("common.loading")}</p>
+          // One line of text used to stand in for the plan cards, so the footer sat
+          // inside the first screen and jumped down when they arrived (CLS 0.24 on
+          // production). Reserving most of a screen keeps the footer below the fold
+          // before and after.
+          <div className="mt-10 min-h-[70vh]">
+            <p role="status">{t("common.loading")}</p>
+          </div>
         ) : (
           <ul className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" role="list">
             {plans.map((plan) => {
