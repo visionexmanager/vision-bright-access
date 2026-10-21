@@ -42,5 +42,7 @@ export const STUBS = `
 export const MIGRATIONS = [
   "supabase/migrations/20261062000000_ai_subscription_gate.sql",
   "supabase/migrations/20261063000000_trial_is_not_full_access.sql",
+  "supabase/migrations/20261075000000_whatsapp_gate_renotice.sql",
   "supabase/migrations/20261078000000_trial_local_sections.sql",
+  "supabase/migrations/20261079000000_whatsapp_no_notice_for_free_week.sql",
 ];

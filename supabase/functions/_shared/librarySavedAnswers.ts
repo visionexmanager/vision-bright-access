@@ -10,9 +10,11 @@
 //                                        -> (miss: gate -> limit -> provider)
 //
 // A hit never reaches the gate, the rate limit, the VX meter or a provider, and
-// nothing here can: the only thing this file talks to is the caller's own
-// database session. It is read through that session (not the service role), so
-// the tables' row-level security still decides what the caller may see.
+// nothing here can: it only reads two tables. Stored summaries are read through
+// the caller's own session, so the table's row-level security (the caller may
+// access the book) still decides what they see. The translate/explain cache has
+// no read policy at all (20261080, so it cannot be listed); it is read with the
+// service role, by the exact hash of the request and nothing else.
 //
 // Pure: no `Deno`, no npm client. The caller passes its client and, for the
 // explain modes, the instruction table, so the suite drives every branch with a
@@ -96,6 +98,8 @@ export async function findSavedResponse(
   body: SavedLookupBody,
   readingMode: string,
   explainInstructions: Record<string, string>,
+  /** Client for library_ai_content_cache (service role: the table has no read policy). Defaults to `client`. */
+  cacheClient: SavedLookupClient = client,
 ): Promise<SavedResponse | null> {
   try {
     if (body.mode === "smart-summary") {
@@ -118,7 +122,7 @@ export async function findSavedResponse(
 
     const key = await textModeCacheKey(body, readingMode, explainInstructions);
     if (!key) return null;
-    const { data } = await client
+    const { data } = await cacheClient
       .from("library_ai_content_cache")
       .select("result_text, created_at")
       .eq("content_hash", key)

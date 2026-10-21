@@ -420,7 +420,7 @@ const EXEMPT: Record<string, string> = {
   "library-process-background-jobs": "cron secret; no end-user caller",
   "health-check": "public model-list probes that generate nothing; generation probes are admin-gated",
   "moderate-content": "safety control, not an AI service: free OpenAI moderation endpoint (no VX); every client caller fails open on refusal, so gating would publish unmoderated kids/library content. JWT required, 8000-char cap",
-  "career-system-health": "configuration presence check; calls no provider",
+  "career-system-health": "admin/cron-only diagnostics; its one provider call is the free Gemini models listing, never a generation",
   "career-gdpr-request": "data deletion; calls no provider",
 };
 

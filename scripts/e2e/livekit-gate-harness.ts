@@ -53,18 +53,29 @@ async function call(auth = true) {
   return { status: res.status, body };
 }
 
+// What ai_user_entitled answers for each account state is proven in the database
+// scenarios (scripts/sql/trial-entitlement-scenarios.mjs, "LiveKit:" lines); here the
+// stub returns exactly those answers and the REAL handler is judged on what it does.
+const STATES: [string, boolean | "error", number, boolean][] = [
+  ["free week", false, 403, false],
+  ["expired subscription", false, 403, false],
+  ["no plan", false, 403, false],
+  ["Kids, active", true, 200, true],
+  ["Basic/Pro/Business, active", true, 200, true],
+  ["admin", true, 200, true],
+  ["plan lookup failing", "error", 503, false],
+];
+let r: { status: number; body: any };
+for (const [label, answer, status, token] of STATES) {
+  entitled = answer;
+  r = await call();
+  check(`${label} → ${status}${token ? " with a signed token" : " and no token"}`,
+    r.status === status && (token ? typeof r.body?.token === "string" && r.body.token.split(".").length === 3 : !r.body?.token));
+  check(`${label}: the plan was asked server-side before anything was signed`, rpcs.includes("ai_user_entitled"));
+}
 entitled = false;
-let r = await call();
-check("signed in but not on a paid plan (trial, expired, free) → 403, no token", r.status === 403 && !r.body?.token && r.body?.error === "subscription_required");
-check("…the plan was asked server-side", rpcs.includes("ai_user_entitled"));
-
-entitled = "error";
 r = await call();
-check("the entitlement lookup failing → 503 and no token (fails closed)", r.status === 503 && !r.body?.token);
-
-entitled = true;
-r = await call();
-check("an active paid plan (or an admin) → 200 with a token", r.status === 200 && typeof r.body?.token === "string" && r.body.token.split(".").length === 3);
+check("a refusal names no vendor, no price and no plan the caller is on", r.status === 403 && !/livekit|price|usd|free_trial|basic|business/i.test(JSON.stringify(r.body)));
 
 r = await call(false);
 check("no Authorization header → 401 before any plan lookup", r.status === 401 && rpcs.length === 0);

@@ -74,6 +74,32 @@ try {
   expect("100 rounds x 10 simultaneous WhatsApp requests: each round exactly 1 notice", badWa === 0);
   expect("100 whatsapp notice rows, no duplicates", wa === 100);
 
+  // The 10-minute renotice under concurrency (20261075): once the clock has run out,
+  // ten simultaneous messages win exactly ONE notice between them, then it restarts.
+  let badRenotice = 0;
+  for (let i = 0; i < 50; i++) {
+    const phone = `+96279${String(80000000 + i)}`;
+    await admin.query("UPDATE public.ai_subscription_gate_notices SET notified_at = now() - interval '11 minutes' WHERE channel='whatsapp' AND subject=$1", [phone]);
+    const t = tally(await race((c) => c.query("select public.ai_subscription_gate_whatsapp($1) as v", [phone])));
+    const again = tally(await race((c) => c.query("select public.ai_subscription_gate_whatsapp($1) as v", [phone])));
+    if (t.first !== 1 || t.silent !== CONNS - 1 || again.first !== 0) badRenotice++;
+  }
+  expect("50 rounds x 10 simultaneous WhatsApp requests after the 10 minutes: exactly 1 renotice each, none on the next burst", badRenotice === 0);
+
+  // A linked account in its free week (20261079) is never sent the notice, however they race.
+  let badFreeWeek = 0;
+  for (let i = 0; i < 50; i++) {
+    const id = `00000000-0000-4000-8000-${String(7000 + i).padStart(12, "0")}`;
+    const phone = `+96278${String(10000000 + i)}`;
+    await admin.query("INSERT INTO public.profiles VALUES ($1, now() + interval '5 days')", [id]);
+    await admin.query("INSERT INTO public.whatsapp_identities VALUES ($1, $2)", [phone, id]);
+    const vs = await race((c) => c.query("select public.ai_subscription_gate_whatsapp($1) as v", [phone]));
+    if (!vs.every((v) => v === "blocked_silent")) badFreeWeek++;
+  }
+  const fwRows = (await admin.query("select count(*)::int n from public.ai_subscription_gate_notices where channel='whatsapp' and subject like '+96278%'")).rows[0].n;
+  expect("50 rounds x 10 simultaneous WhatsApp requests from free-week accounts: all silent, never a notice", badFreeWeek === 0);
+  expect("…and not one notice row was written for them", fwRows === 0);
+
   // The free week under concurrency: ten simultaneous requests from accounts that
   // are ON the trial can never win an "authorized", however they interleave.
   let trialBad = 0;

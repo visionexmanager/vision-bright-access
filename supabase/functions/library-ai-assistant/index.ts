@@ -371,7 +371,7 @@ Deno.serve(async (req: Request) => {
   // VX and cannot reach a provider: the lookup runs through the caller's own
   // session and nothing below it executes on a hit. A miss, or a failed lookup,
   // falls through to the gate exactly as before.
-  const saved = await findSavedResponse(userClient, body, resolveReadingMode(body.readingMode), EXPLAIN_INSTRUCTIONS);
+  const saved = await findSavedResponse(userClient, body, resolveReadingMode(body.readingMode), EXPLAIN_INSTRUCTIONS, serviceClient);
   if (saved) {
     console.log(JSON.stringify({ fn: "library-ai-assistant", event: "saved_hit", mode: body.mode, provider_called: false }));
     if (saved.kind === "summary" && body.book_id) {

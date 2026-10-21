@@ -9,6 +9,7 @@
 // that had the obsolete rule and was then migrated. Exit status 1 on any failure.
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { STUBS, MIGRATIONS } from "./gate-stubs.mjs";
 
 const db = new PGlite();
@@ -136,8 +137,8 @@ expect("WhatsApp unlinked number → the free floor, not a trial", e.plan === "n
 e = await wa("96181000005");
 expect("WhatsApp lapsed trial → none", e.plan === "none");
 const waGate = async (phone) => (await one("select public.ai_subscription_gate_whatsapp($1) v", [phone])).v;
-expect("WhatsApp trial sender → subscription notice (first)", (await waGate("96181000001")) === "blocked_first_notice");
-expect("WhatsApp trial sender → then silent", (await waGate("96181000001")) === "blocked_silent");
+expect("WhatsApp free-week sender → no notice (20261079: Meta may bill an outbound service message; refused silently)", (await waGate("96181000001")) === "blocked_silent");
+expect("WhatsApp trial sender → and still silent", (await waGate("96181000001")) === "blocked_silent");
 expect("WhatsApp basic sender → authorized", (await waGate("96181000002")) === "authorized");
 
 // ── 9. Nothing here leaks to the browser roles ──
@@ -149,6 +150,31 @@ for (const role of ["anon", "authenticated"]) {
   }
   await db.exec("RESET ROLE");
   expect(`${role} cannot ask for anybody's plan, sections or WhatsApp entitlement`, denied === 3);
+}
+
+// ── Who may be handed a LiveKit room token: ai_user_entitled, as livekit-token asks it ──
+// (the Edge Function is exercised in scripts/e2e/livekit-gate-harness.ts; this proves the
+// database answer for each account state it depends on)
+const entitled = async (id) => (await one("select public.ai_user_entitled($1) v", [id])).v;
+await db.exec(`INSERT INTO user_subscriptions (user_id, plan_id, status, ends_at) VALUES ('${u(30)}','kids','active', now() + interval '30 days')`);
+await db.exec(`INSERT INTO user_subscriptions (user_id, plan_id, status, ends_at) VALUES ('${u(31)}','pro','active', now() + interval '30 days')`);
+await db.exec(`INSERT INTO user_roles VALUES ('${u(32)}','admin')`);
+await db.exec(`INSERT INTO profiles VALUES ('${u(33)}', now() + interval '5 days')`);
+await db.exec(`INSERT INTO user_subscriptions (user_id, plan_id, status, ends_at) VALUES ('${u(34)}','pro','active', now() - interval '1 day')`);
+expect("LiveKit: free week → not entitled", (await entitled(u(33))) === false);
+expect("LiveKit: expired subscription → not entitled", (await entitled(u(34))) === false);
+expect("LiveKit: an account with no plan at all → not entitled", (await entitled(u(35))) === false);
+expect("LiveKit: Kids (active) → entitled, so Kids voice rooms keep working", (await entitled(u(30))) === true);
+expect("LiveKit: Pro (active) → entitled", (await entitled(u(31))) === true);
+expect("LiveKit: admin → entitled", (await entitled(u(32))) === true);
+expect("LiveKit: NULL user → not entitled", (await entitled(null)) === false);
+
+// ── Companion scenarios that run with this one in CI (this script is in the gate workflow) ──
+for (const script of ["whatsapp-notice-scenarios.mjs", "trial-sections-migration-scenarios.mjs"]) {
+  const r = spawnSync(process.execPath, [`scripts/sql/${script}`], { encoding: "utf8" });
+  const lines = (r.stdout ?? "").trim().split("\n");
+  console.log(`${r.status === 0 ? "PASS" : "FAIL"}  ${script}: ${lines.at(-1)}`);
+  if (r.status !== 0) { fail++; console.log((r.stdout ?? "").split("\n").filter((l) => l.startsWith("FAIL")).join("\n") + (r.stderr ?? "")); }
 }
 
 console.log(fail === 0 ? "ALL PASS" : `${fail} FAILURE(S)`);

@@ -21,6 +21,7 @@ const PROVIDER_CALL = /structuredCompletion\(|streamChatCompletion\(|meteredFetc
 const GUARD_EVIDENCE: Record<Guard, RegExp | null> = {
   none: null,
   unverified: null,
+  token: /\.eq\("(manage_)?token"/,
   jwt: /getUser\(/,
   signature: /signature|constructEvent|hmac/i,
   cron: /CRON_SECRET/,
@@ -65,14 +66,17 @@ describe("the Edge Function table", () => {
     }
   });
 
-  it("states a guard for the other classes where one was verified, and caps the unverified ones", () => {
+  it("states a guard for every other class too, and no function is left 'unverified'", () => {
     for (const [name, p] of Object.entries(EDGE_POLICY)) {
       const evidence = GUARD_EVIDENCE[p.guard];
       if (evidence && p.cls !== "D") expect(evidence.test(dirSource(name)), `${name} (${p.guard})`).toBe(true);
     }
     const unverified = Object.entries(EDGE_POLICY).filter(([, p]) => p.guard === "unverified").map(([n]) => n);
-    // Honest ceiling: this audit did not prove a guard for these. The list may shrink, never grow.
-    expect(unverified.length).toBeLessThanOrEqual(26);
+    expect(unverified).toEqual([]);
+    // What is still open is named, with its reason, and pinned: identity is proven, a send limit is not.
+    const open = Object.entries(EDGE_POLICY).filter(([, p]) => p.open).map(([n]) => n);
+    expect(open).toEqual(["bazaar-notify-seller"]);
+    for (const n of open) expect(EDGE_POLICY[n].note).toMatch(/^UNRESOLVED/);
   });
 
   it("runs the subscription gate BEFORE the first provider call in every ai_gate function", () => {
@@ -95,7 +99,7 @@ describe("the Edge Function table", () => {
     for (const name of ["news-generate", "library-process-background-jobs", "provider-hub", "social-publish"]) {
       expect(dirSource(name), name).toMatch(/CRON_SECRET/);
     }
-    for (const name of ["analytics-insights", "enrich-product", "kids-course-generate", "embed-content"]) {
+    for (const name of ["analytics-insights", "enrich-product", "kids-course-generate", "embed-content", "career-system-health"]) {
       expect(dirSource(name), name).toMatch(/has_role|user_roles/);
     }
   });
@@ -108,6 +112,31 @@ describe("the Edge Function table", () => {
     expect(EDGE_POLICY["livekit-token"]).toMatchObject({ cls: "D", trial: false });
     expect(decideAccess(operationById("voice.rooms"), { signedIn: true, plan: "free_trial" })).toMatchObject({ allow: false, reason: "trial_excluded" });
     expect(decideAccess(operationById("voice.rooms"), { signedIn: true, plan: "kids" })).toMatchObject({ allow: true });
+  });
+
+  it("career-system-health refuses before it probes the provider or writes (cron secret or admin)", () => {
+    const src = dirSource("career-system-health");
+    const guard = src.indexOf("CRON_SECRET");
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(src.indexOf("checkGemini()", src.indexOf("Deno.serve")));
+    expect(guard).toBeLessThan(src.indexOf(".insert(rows)"));
+    expect(src).toMatch(/has_role/);
+    expect(src).toMatch(/Unauthorized/);
+  });
+
+  it("library-librarian-daily-plan returns the caller's own stored plan BEFORE the gate and the limit, and force still pays", () => {
+    const src = dirSource("library-librarian-daily-plan");
+    const handler = src.indexOf("Deno.serve");
+    const stored = src.indexOf(".from(\"library_librarian_daily_plans\").select(\"*\")", handler);
+    const gate = src.indexOf("subscriptionGate(serviceClient", handler);
+    const limit = src.indexOf("check_ai_rate_limit", handler);
+    const call = src.indexOf("structuredCompletion({", handler);
+    expect(stored).toBeGreaterThan(-1);
+    expect(stored).toBeLessThan(gate);
+    expect(gate).toBeLessThan(limit);
+    expect(limit).toBeLessThan(call);
+    expect(src.slice(stored - 200, stored + 120)).toMatch(/!body.force/);
+    expect(src.slice(stored, gate)).toMatch(/\.eq\("user_id", user\.id\)/);
   });
 
   it("keeps webhooks behind the sender gate before any provider call", () => {
@@ -299,7 +328,10 @@ describe("saved library answers (no provider, no gate)", () => {
     // a hit returns on the spot
     const hit = src.slice(saved, gate);
     expect(hit).toMatch(/if \(saved\)[\s\S]*return json\(/);
-    expect(hit).not.toMatch(/structuredCompletion|serviceClient|billedRequest|meter\(/);
+    // serviceClient appears exactly once: as the client for the key-only cache lookup (20261080).
+    expect(hit.match(/serviceClient/g)?.length).toBe(1);
+    expect(hit).toMatch(/EXPLAIN_INSTRUCTIONS, serviceClient\)/);
+    expect(hit).not.toMatch(/structuredCompletion|billedRequest|meter\(|\.rpc\(/);
   });
 
   it("11. a miss still reaches the gate; the lookup reads through the caller's own session, never the service role", () => {
