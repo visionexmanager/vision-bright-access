@@ -70,7 +70,7 @@ export const EDGE_POLICY: Readonly<Record<string, EdgePolicy>> = {
   "analyze-image": { cls: "D", guard: "ai_gate", trial: false, note: "Subscription gate runs before the provider call." },
   "analyze-meal": { cls: "D", guard: "ai_gate", trial: false, note: "Subscription gate runs before the provider call." },
   "bazaar-checkout": { cls: "C", guard: "jwt", trial: false, note: "Marketplace checkout; identity from the verified session (getUser), no user id taken from the body." },
-  "bazaar-notify-seller": { cls: "D", guard: "claim", trial: false, note: "Sends an in-app notification, an e-mail (Resend) and a WhatsApp message to a seller, so it is treated as billed. Platform calls (service role) are unlimited; a user's are authorised per event (order_paid only for their own recent order, order_status and low_stock refused) and claimed through bazaar_notify_claim: 10-minute duplicate window, 5 per shop per hour, 30 per day, and e-mail/WhatsApp for at most 20 per shop per hour across all senders. Fails closed." },
+  "bazaar-notify-seller": { cls: "D", guard: "claim", trial: false, note: "Sends an in-app notification, an e-mail (Resend) and a WhatsApp message to a seller, so it is treated as billed. Platform calls (service role) are unlimited; a user's are authorised per event (order_paid only for their own paid order from the last 30 minutes at that shop, order_status and low_stock refused) and claimed through bazaar_notify_claim: 10-minute duplicate window (24 hours for an event naming an order), 5 per shop per hour, 30 per day, and e-mail/WhatsApp for at most 20 per shop per hour across all senders. Fails closed." },
   "bazaar-stripe-connect": { cls: "C", guard: "jwt", trial: false, note: "Seller onboarding with Stripe Connect; verified session, own account." },
   "bazaar-stripe-webhook": { cls: "C", guard: "signature", trial: false, note: "Payment webhook; verified by provider signature, not a user session." },
   "billing-engine": { cls: "C", guard: "jwt", trial: false, note: "Subscription/VX actions for the caller; admin actions check has_role inside the function." },
@@ -132,7 +132,7 @@ export const EDGE_POLICY: Readonly<Record<string, EdgePolicy>> = {
   "library-track-reading": { cls: "C", guard: "jwt", trial: true, note: "The caller's own reading progress; verified session, row-level security." },
   "library-translate-book-metadata": { cls: "D", guard: "ai_gate", trial: false, note: "Subscription gate runs before the provider call." },
   "library-translate-comment": { cls: "D", guard: "ai_gate", trial: false, note: "Subscription gate runs before the provider call." },
-  "livekit-token": { cls: "D", guard: "paid_plan", trial: false, note: "LiveKit rooms are billed per participant-minute by the host (billing not verified). Requires an active paid plan or admin, checked server-side before a token is signed; fails closed.", },
+  "livekit-token": { cls: "D", guard: "paid_plan", trial: false, note: "LiveKit rooms are billed per participant-minute by the host (billing not verified). Requires an active paid plan or admin before the body is parsed; signs a token only for a room that exists, is active (admins excepted) and the caller is not banned from (adult UUID or 'kids-<uuid>'); the name is the account's display name, never an e-mail; the token is room-join only for the verified user id, two hours. Not enforced here: a room's join cost, password, privacy and capacity (the browser checks them), and there is no minute cap. Fails closed.", },
   "meta-messaging-webhook": { cls: "D", guard: "webhook_gate", trial: false, note: "Messenger/Instagram webhook; AI answers need an active plan." },
   "mobility": { cls: "C", guard: "jwt", trial: false, note: "Requires a verified session (401 otherwise). Every provider adapter declares shape 'none', so no provider is callable today and no paid call can be made; a future adapter must add a plan gate before it is enabled." },
   "moderate-content": { cls: "B", guard: "jwt", trial: true, note: "Calls the free OpenAI moderation endpoint (no charge); signed-in only. Deliberately outside the subscription gate so child safety checks keep working." },
@@ -158,7 +158,7 @@ export const EDGE_POLICY: Readonly<Record<string, EdgePolicy>> = {
   "video-studio": { cls: "D", guard: "ai_gate", trial: false, note: "Subscription gate runs before the provider call." },
   "voice-studio": { cls: "D", guard: "ai_gate", trial: false, note: "Subscription gate runs before the provider call." },
   "vx-coin-review": { cls: "C", guard: "jwt", trial: false, note: "Admin approval of VX top-ups; the RPCs check has_role(admin) themselves, the function only sends the buyer e-mail." },
-  "whatsapp-webhook": { cls: "D", guard: "webhook_gate", trial: false, note: "WhatsApp webhook; AI answers need an active plan. Local menus/audio for the trial are NOT yet served: the gate stays silent for them." },
+  "whatsapp-webhook": { cls: "D", guard: "webhook_gate", trial: false, note: "WhatsApp webhook; AI answers need an active plan. A linked free-week sender is never sent the subscription notice; any other unentitled sender gets one notice and at most six re-notices a day, within an optional database-wide hourly budget (ops_limits, off by default). The notice fails closed. Local menus/audio for the trial are NOT served: the gate stays silent for them." },
 };
 
 // ── User-facing operations ──────────────────────────────────────────────────
@@ -313,3 +313,70 @@ export function decideAccess(operation: OperationPolicy | undefined, caller: Cal
 export function sectionOfPath(pathname: string): SectionKey | null {
   return sectionForPath(pathname);
 }
+
+// ── Section-level entitlement of AI functions ───────────────────────────────
+
+/**
+ * AI functions that belong to ONE section of the product, and the section a plan must include.
+ * `ai_subscription_gate` proves a paying account; the function then asks `user_has_section` for this
+ * section (`requireSection` / `maySeeSection` in `_shared/entitlements.ts`), on the server, so a
+ * plan that does not include the section cannot reach the provider by calling the function directly.
+ * Verified in source and by `access-policy.test.ts`; the plan/section truth is `plans.ts`.
+ */
+export const AI_FUNCTION_SECTIONS: Readonly<Record<string, SectionKey>> = {
+  "academy-chat": "academy",
+  "career-ai": "career",
+  "document-generate": "mediaStudio",
+  "file-convert": "professional",
+  "image-generate": "mediaStudio",
+  "image-tools-generate": "mediaStudio",
+  "kids-ai-teacher": "kids",
+  "kids-drawing-to-art": "kids",
+  "kids-story-generate": "kids",
+  "library-ai-assistant": "library",
+  "library-ai-chat": "library",
+  "library-ai-search": "library",
+  "library-generate-flashcard-deck": "library",
+  "library-generate-practice-exam": "library",
+  "library-generate-reading-plan": "library",
+  "library-librarian-chat": "library",
+  "library-librarian-daily-plan": "library",
+  "library-librarian-summary": "library",
+  "library-research-assistant": "library",
+  "library-semantic-search": "library",
+  "library-summarize-discussion": "library",
+  "library-translate-comment": "library",
+  "speech-generate": "mediaStudio",
+  "text-tools-generate": "mediaStudio",
+  "video-studio": "mediaStudio",
+  "voice-studio": "mediaStudio",
+};
+
+/**
+ * AI functions behind the subscription gate only (any paying plan passes), and why no single section
+ * owns them. Adding a section check to one of these is a PRODUCT decision: it would remove direct-call
+ * access that some plans have today. The list is pinned by a test so it can shrink and never grow.
+ */
+export const AI_FUNCTIONS_WITHOUT_SECTION: Readonly<Record<string, string>> = {
+  "ai-chat": "The general assistant, used by several sections (assistant, Academy IVX, the domain assistants). No single owner.",
+  "ai-generate": "General structured generation used across sections.",
+  "ai-search": "General AI search used across sections.",
+  "ai-voice-chat": "Voice assistant used across sections.",
+  "text-to-speech": "Read-aloud and voice features used across sections.",
+  "speech-transcribe": "Dictation used across sections.",
+  "realtime-session": "Voice conversation; also capped per month when a plan sets realtime_monthly_minutes (PR #474).",
+  "analyze-image": "Image description for assistive use across sections.",
+  "radar-ai": "Visual assistant for assistive use across sections.",
+  "analyze-meal": "Nutrition service; its section is not modelled in plans.ts.",
+  "generate-diet-plan": "Nutrition service; its section is not modelled in plans.ts.",
+  "ocr-scan": "Free by design: in no section, and reached from the Library reader; pinned by section-entitlement.test.ts.",
+  "organization-ai-admin": "Organisation administration tool; its section is not modelled in plans.ts.",
+  "library-ai-writing-assistant": "Authoring side of the Library (publishing studio): the owning section would be studio (Business); not decided.",
+  "library-ai-classify-book": "Catalogue maintenance on a book the caller owns or administers; section not decided.",
+  "library-detect-series": "Catalogue maintenance; section not decided.",
+  "library-build-knowledge-graph": "Catalogue maintenance; section not decided.",
+  "library-embed-book": "Indexing a book for search; section not decided.",
+  "library-generate-narration": "Audiobook production for an author; section not decided.",
+  "library-generate-quotes": "Quote extraction by an author or admin; section not decided.",
+  "library-translate-book-metadata": "Catalogue localisation by an author or admin; section not decided.",
+};

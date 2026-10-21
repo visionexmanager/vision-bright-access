@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  ACCESS_MESSAGE_KEYS, decideAccess, EDGE_POLICY, isEntitledPlan, operationById, OPERATIONS,
+  ACCESS_MESSAGE_KEYS, AI_FUNCTIONS_WITHOUT_SECTION, AI_FUNCTION_SECTIONS, decideAccess, EDGE_POLICY, isEntitledPlan, operationById, OPERATIONS,
   type Guard,
 } from "@/lib/access/policy";
 import { planAllows, sectionForPath, TRIAL_SECTIONS } from "@/lib/billing/plans";
-import { findSavedResponse, textModeCacheKey, textModeInput } from "../../supabase/functions/_shared/librarySavedAnswers";
+import { CACHE_KEY_VERSION, CACHE_MAX_AGE_DAYS, CACHE_MODEL, findSavedResponse, textModeCacheKey, textModeInput } from "../../supabase/functions/_shared/librarySavedAnswers";
 
 const FUNCTIONS = "supabase/functions";
 const read = (p: string) => readFileSync(p, "utf8").replace(/\r\n/g, "\n");
@@ -292,7 +292,7 @@ describe("saved library answers (no provider, no gate)", () => {
         touched.push(table);
         if (boom) throw new Error("db down");
         const chain: Record<string, unknown> = {};
-        for (const m of ["select", "eq", "is"]) chain[m] = () => chain;
+        for (const m of ["select", "eq", "is", "gte"]) chain[m] = () => chain;
         chain.maybeSingle = async () => ({ data: rows[table] ?? null, error: null });
         return chain;
       },
@@ -310,9 +310,9 @@ describe("saved library answers (no provider, no gate)", () => {
 
   it("11. returns a stored translation or explanation from the content cache, labelled as saved", async () => {
     const { client, touched } = stub({ library_ai_content_cache: { result_text: "Hola", created_at: "2026-09-01T00:00:00Z" } });
-    const t = await findSavedResponse(client, { mode: "translate-paragraph", text: "Hello", targetLanguage: "Spanish" }, "student", EXPLAIN);
+    const t = await findSavedResponse(client, { mode: "translate-paragraph", text: "Hello", targetLanguage: "Spanish" }, "student", EXPLAIN, client, "user-a");
     expect(t).toMatchObject({ kind: "text", result: { translated_text: "Hola", source: "saved" } });
-    const e = await findSavedResponse(client, { mode: "explain-paragraph", text: "Hello" }, "student", EXPLAIN);
+    const e = await findSavedResponse(client, { mode: "explain-paragraph", text: "Hello" }, "student", EXPLAIN, client, "user-a");
     expect(e).toMatchObject({ kind: "text", result: { explanation: "Hola", source: "saved" } });
     expect(new Set(touched)).toEqual(new Set(["library_ai_content_cache"]));
   });
@@ -325,21 +325,60 @@ describe("saved library answers (no provider, no gate)", () => {
     expect(await findSavedResponse(client, { mode: "smart-summary", scope: "chapter", book_id: "b1" }, "student", EXPLAIN)).toBeNull();
   });
 
+  it("cache privacy: a summary written in one reader's style is never served to a reader of another style", async () => {
+    const { client, touched } = stub({ library_ai_summaries: { content: "STORED-SUMMARY", created_at: "2026-10-01T00:00:00Z" } });
+    for (const mode of ["child", "professional", "beginner", "teacher"]) {
+      expect(await findSavedResponse(client, { mode: "smart-summary", book_id: "b1", scope: "book", length: "medium" }, mode, EXPLAIN)).toBeNull();
+    }
+    expect(touched).toEqual([]);
+    expect(await findSavedResponse(client, { mode: "smart-summary", book_id: "b1", scope: "book", length: "medium" }, "student", EXPLAIN)).not.toBeNull();
+    const fn = read("supabase/functions/library-ai-assistant/index.ts");
+    expect(fn).toMatch(/if \(readingMode === SHARED_SUMMARY_READING_MODE\) \{\s*await serviceClient\.from\("library_ai_summaries"\)\.upsert/);
+  });
+
   it("14. a database failure is a miss (it falls to the gate), never an answer or a throw", async () => {
     const { client } = stub({}, true);
     await expect(findSavedResponse(client, { mode: "smart-summary", book_id: "b1" }, "student", EXPLAIN)).resolves.toBeNull();
   });
 
-  it("keys the stored answer exactly as the writer does (same builder, same hash)", async () => {
+  it("keys the stored answer exactly as the writer does (same builder, same hash), per user", async () => {
     const body = { mode: "translate-paragraph", text: "Hello", targetLanguage: "French" };
     const input = textModeInput(body, EXPLAIN);
     expect(input).toBe("Translate the following into French:\n\nHello");
-    const a = await textModeCacheKey(body, "student", EXPLAIN);
-    const b = await textModeCacheKey({ ...body }, "student", EXPLAIN);
-    const c = await textModeCacheKey({ ...body, targetLanguage: "German" }, "student", EXPLAIN);
+    const a = await textModeCacheKey(body, "student", EXPLAIN, "user-a");
+    const b = await textModeCacheKey({ ...body }, "student", EXPLAIN, "user-a");
+    const c = await textModeCacheKey({ ...body, targetLanguage: "German" }, "student", EXPLAIN, "user-a");
     expect(a).toBe(b);
     expect(a).not.toBe(c);
     expect(a).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("cache privacy: two accounts submitting identical text get different keys, so nobody can read or probe another account's entry", async () => {
+    const body = { mode: "explain-paragraph", text: "A private passage a user pasted", instruction: "explain" };
+    const a = await textModeCacheKey(body, "student", EXPLAIN, "user-a");
+    const b = await textModeCacheKey(body, "student", EXPLAIN, "user-b");
+    expect(a).not.toBe(b);
+    // no caller id, no key: the per-user cache is simply not read
+    expect(await textModeCacheKey(body, "student", EXPLAIN, "")).toBeNull();
+    const { client, touched } = stub({ library_ai_content_cache: { result_text: "x", created_at: new Date().toISOString() } });
+    expect(await findSavedResponse(client, body, "student", EXPLAIN, client, "")).toBeNull();
+    expect(touched).toEqual([]);
+  });
+
+  it("cache invalidation: the model and the key version are part of the key, the age limit is applied, and the model matches the one the function calls", async () => {
+    const body = { mode: "translate-paragraph", text: "Hello", targetLanguage: "French" };
+    const base = await textModeCacheKey(body, "student", EXPLAIN, "u");
+    expect(base).not.toBe(await textModeCacheKey(body, "teacher", EXPLAIN, "u"));
+    const lib = read("supabase/functions/_shared/librarySavedAnswers.ts");
+    expect(lib).toMatch(/CACHE_KEY_VERSION,\s*\n\s*CACHE_MODEL,/);
+    expect(CACHE_KEY_VERSION).toBe("v2");
+    expect(CACHE_MAX_AGE_DAYS).toBe(90);
+    expect(lib).toMatch(/\.gte\("created_at"/);
+    const fn = read("supabase/functions/library-ai-assistant/index.ts");
+    const modelsUsedForCachedModes = fn.slice(fn.indexOf("const isCacheableTextMode"), fn.indexOf("const finalResult")).match(/model: "([^"]+)"/g) ?? [];
+    expect(modelsUsedForCachedModes).toContain(`model: "${CACHE_MODEL}"`);
+    // a refreshed entry gets a fresh date, so an expired one is replaced rather than ignored for ever
+    expect(fn).toMatch(/result_text: resultText, created_at: new Date\(\)\.toISOString\(\)/);
   });
 
   it("11. the Edge Function reads the stored answer BEFORE the subscription gate, the daily limit and every provider call", () => {
@@ -357,7 +396,7 @@ describe("saved library answers (no provider, no gate)", () => {
     expect(hit).toMatch(/if \(saved\)[\s\S]*return json\(/);
     // serviceClient appears exactly once: as the client for the key-only cache lookup (20261080).
     expect(hit.match(/serviceClient/g)?.length).toBe(1);
-    expect(hit).toMatch(/EXPLAIN_INSTRUCTIONS, serviceClient\)/);
+    expect(hit).toMatch(/EXPLAIN_INSTRUCTIONS, serviceClient, user\.id\)/);
     expect(hit).not.toMatch(/structuredCompletion|billedRequest|meter\(|\.rpc\(/);
   });
 
@@ -373,6 +412,83 @@ describe("saved library answers (no provider, no gate)", () => {
     const src = read("supabase/functions/library-ai-assistant/index.ts");
     const write = src.indexOf('from("library_ai_content_cache").upsert');
     expect(write).toBeGreaterThan(src.search(/structuredCompletion\(\{/));
+  });
+});
+
+describe("section-level authorization of AI functions", () => {
+  const gated = Object.entries(EDGE_POLICY).filter(([, p]) => p.guard === "ai_gate" || p.guard === "voice_guard").map(([n]) => n).sort();
+  const sectionEvidence = (name: string, section: string) => {
+    const files = name === "career-ai" ? [read("supabase/functions/_shared/careerAiHandler.ts")] : [dirSource(name)];
+    return files.some((f) => new RegExp(`(requireSection|maySeeSection)\\([^)]*"${section}"`).test(f));
+  };
+
+  it("every gated AI function is either mapped to a section or listed, with a reason, as gate-only: none is forgotten", () => {
+    const mapped = Object.keys(AI_FUNCTION_SECTIONS);
+    const unmapped = Object.keys(AI_FUNCTIONS_WITHOUT_SECTION);
+    expect(mapped.filter((n) => unmapped.includes(n))).toEqual([]);
+    expect([...mapped, ...unmapped].filter((n) => !gated.includes(n))).toEqual([]);
+    expect(gated.filter((n) => !mapped.includes(n) && !unmapped.includes(n))).toEqual([]);
+    for (const [n, why] of Object.entries(AI_FUNCTIONS_WITHOUT_SECTION)) expect(why.length, n).toBeGreaterThan(20);
+  });
+
+  it("the gate-only list can shrink but not grow (21 today; adding to it is a product decision)", () => {
+    expect(Object.keys(AI_FUNCTIONS_WITHOUT_SECTION).length).toBeLessThanOrEqual(21);
+  });
+
+  it("every mapped function checks THAT section on the server, after the subscription gate and before any provider call", () => {
+    for (const [name, section] of Object.entries(AI_FUNCTION_SECTIONS)) {
+      expect(sectionEvidence(name, section), `${name} does not check the ${section} section`).toBe(true);
+    }
+    for (const name of Object.keys(AI_FUNCTION_SECTIONS)) {
+      const file = name === "career-ai" ? "supabase/functions/_shared/careerAiHandler.ts" : join(FUNCTIONS, name, "index.ts");
+      const code = read(file).split("\n").filter((l) => !/^\s*(\/\/|\*|\/\*|import )/.test(l)).join("\n");
+      const handler = Math.max(code.indexOf("Deno.serve"), code.search(/^serve\(/m), 0);
+      const src = code.slice(handler);
+      const gate = src.indexOf("subscriptionGate(");
+      const section = src.search(/requireSection\(|maySeeSection\(/);
+      const call = src.search(PROVIDER_CALL);
+      expect(gate, `${name}: gate`).toBeGreaterThan(-1);
+      expect(section, `${name}: section check`).toBeGreaterThan(-1);
+      if (name !== "library-ai-assistant" && name !== "library-librarian-daily-plan") expect(section, `${name}: section check must follow the gate`).toBeGreaterThan(gate);
+      if (call > -1) expect(section, `${name}: a provider call comes before the section check`).toBeLessThan(call);
+    }
+  });
+
+  it("table-driven: for every plan and every mapped function the server answer equals plans.ts (the canonical rules)", () => {
+    const plans = ["free_trial", "none", "kids", "basic", "pro", "business"] as const;
+    for (const plan of plans) {
+      for (const [fn, section] of Object.entries(AI_FUNCTION_SECTIONS)) {
+        const paying = isEntitledPlan(plan);
+        const sectionOpen = planAllows(plan, section);
+        const d = decideAccess(
+          { id: fn, section, cls: "D", requiresAuth: true, trialAllowed: false, paidProvider: true, needsPaidPlan: true, vx: "none", localFallback: false, edge: [fn], limits: "" },
+          { signedIn: true, plan, vxBalance: 0 },
+          { providerAvailable: true },
+        );
+        expect(d.allow, `${plan} → ${fn}`).toBe(paying && sectionOpen);
+      }
+    }
+  });
+
+  it("the plan-by-section matrix the tests rely on (free week, expired, Kids, paid) is exactly the one plans.ts declares", () => {
+    const row = (plan: string) => ["library", "academy", "arcade", "kids", "assistant", "career", "mediaStudio", "professional", "messages"].filter((s) => planAllows(plan, s as never));
+    expect(row("free_trial")).toEqual(["library", "academy", "arcade"]);
+    expect(row("none")).toEqual([]);
+    expect(row("kids")).toEqual(["library", "academy", "arcade", "kids"]);
+    expect(row("basic")).toEqual(["library", "academy", "arcade", "assistant"]);
+    expect(row("pro")).toEqual(["library", "academy", "arcade", "kids", "assistant", "career", "messages"]);
+    expect(row("business")).toEqual(["library", "academy", "arcade", "kids", "assistant", "career", "mediaStudio", "professional", "messages"]);
+  });
+
+  it("an admin is explicit and server-verified: the admin plan is in the entitled set and user_sections answers it from the role, never from a client value", () => {
+    expect(isEntitledPlan("admin")).toBe(true);
+    const sql = read("supabase/migrations/20261063000000_trial_is_not_full_access.sql");
+    expect(sql).toMatch(/IF _plan = 'admin' THEN/);
+    expect(sql).toMatch(/has_role\(_user_id, 'admin'\)/);
+    // no function reads a plan, a role or a section from the request
+    for (const name of Object.keys(AI_FUNCTION_SECTIONS)) {
+      expect(dirSource(name), name).not.toMatch(/req\.headers\.get\(["'](x-plan|x-role|x-section|x-subscription)/i);
+    }
   });
 });
 

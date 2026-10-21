@@ -40,7 +40,7 @@ await db.exec(`
   INSERT INTO user_roles VALUES ('${ACCOUNTS.admin}','admin');
   INSERT INTO subscription_orders VALUES ('${ACCOUNTS.free}','business','pending');
   INSERT INTO user_points VALUES ('${ACCOUNTS.basic}', 5000);
-  INSERT INTO whatsapp_identities VALUES ('+96279100001','${ACCOUNTS.free}'), ('+96279100002','${ACCOUNTS.kids}'), ('+96279100003','${ACCOUNTS.basic}');
+  INSERT INTO whatsapp_identities VALUES ('96279100001','${ACCOUNTS.free}'), ('96279100002','${ACCOUNTS.kids}'), ('96279100003','${ACCOUNTS.basic}');
 `);
 
 async function snapshot() {
@@ -54,7 +54,7 @@ async function snapshot() {
     };
   }
   const wa = {};
-  for (const phone of ["+96279100001", "+96279100002", "+96279100003"]) wa[phone] = (await q("select public.whatsapp_entitlements($1) v", [phone]))[0].v;
+  for (const phone of ["96279100001", "96279100002", "96279100003"]) wa[phone] = (await q("select public.whatsapp_entitlements($1) v", [phone]))[0].v;
   const counts = {
     subscriptions: (await q("select count(*)::int n from user_subscriptions"))[0].n,
     orders: (await q("select count(*)::int n from subscription_orders"))[0].n,
@@ -127,20 +127,20 @@ expect("rollback: every plan row, account state, WhatsApp answer and count equal
   && JSON.stringify(rolled.wa) === JSON.stringify(before.wa)
   && JSON.stringify(rolled.counts) === JSON.stringify(before.counts));
 // …and the WhatsApp function is the 20261075 one again: a free-week sender is told, as before 20261079.
-const rolledGate = (await q("select public.ai_subscription_gate_whatsapp('+96279100001') v"))[0].v;
+const rolledGate = (await q("select public.ai_subscription_gate_whatsapp('96279100001') v"))[0].v;
 expect("rollback of 20261079: a free-week sender is sent the notice again (the pre-079 behaviour)", rolledGate === "blocked_first_notice");
 
 // ── 20261082 (daily cap on WhatsApp re-notices) over the existing table: applies, is idempotent, rolls back ──
 const M82 = read("supabase/migrations/20261082000000_whatsapp_notice_daily_cap.sql");
 await db.exec(M79); // the 20261079 function, as before 20261082
-await db.query("select public.ai_subscription_gate_whatsapp('+96279200001')"); // an existing notice row, as production has 9
+await db.query("select public.ai_subscription_gate_whatsapp('96279200001')"); // an existing notice row, as production has 9
 const rowsBefore = (await q("select count(*)::int n from public.ai_subscription_gate_notices"))[0].n;
 await db.exec(M82);
 await db.exec(M82);
 expect("20261082: applies twice; existing notice rows are kept, with a zero count and no window",
   (await q("select count(*)::int n from public.ai_subscription_gate_notices"))[0].n === rowsBefore
-  && (await q("select renotice_count n from public.ai_subscription_gate_notices where subject='+96279200001'"))[0].n === 0);
-expect("20261082: the first notice still works on the migrated table", (await q("select public.ai_subscription_gate_whatsapp('+96279200002') v"))[0].v === "blocked_first_notice");
+  && (await q("select renotice_count n from public.ai_subscription_gate_notices where subject='96279200001'"))[0].n === 0);
+expect("20261082: the first notice still works on the migrated table", (await q("select public.ai_subscription_gate_whatsapp('96279200002') v"))[0].v === "blocked_first_notice");
 const rollback82 = /--\s+(ALTER TABLE public\.ai_subscription_gate_notices DROP COLUMN IF EXISTS renotice_count, DROP COLUMN IF EXISTS renotice_window_start;)/.exec(M82)?.[1];
 expect("20261082: the rollback statement is documented in its header", !!rollback82);
 await db.exec(M79); // the function first (it references the columns), then drop them
@@ -148,7 +148,27 @@ await db.exec(rollback82);
 expect("20261082 rollback: the function is 20261079's again, the columns are gone, the rows are kept",
   (await q("select count(*)::int n from information_schema.columns where table_name='ai_subscription_gate_notices' and column_name like 'renotice%'"))[0].n === 0
   && (await q("select count(*)::int n from public.ai_subscription_gate_notices"))[0].n >= rowsBefore
-  && (await q("select public.ai_subscription_gate_whatsapp('+96279200002') v"))[0].v === "blocked_silent");
+  && (await q("select public.ai_subscription_gate_whatsapp('96279200002') v"))[0].v === "blocked_silent");
+
+// ── 20261083 (global notice budget, number normalisation): applies over 20261082, idempotent, rolls back ──
+const M83 = read("supabase/migrations/20261083000000_whatsapp_notice_global_budget.sql");
+await db.exec(M82);
+await db.exec(M83);
+await db.exec(M83);
+expect("20261083: applies twice over 20261082; with no limit configured behaviour is unchanged (a new number is told once, then silent)",
+  (await q("select public.ai_subscription_gate_whatsapp('96279800001') v"))[0].v === "blocked_first_notice"
+  && (await q("select public.ai_subscription_gate_whatsapp('+96279800001') v"))[0].v === "blocked_silent"
+  && (await q("select count(*)::int n from public.whatsapp_notice_log"))[0].n === 0);
+expect("20261083: the earlier notice rows are untouched (digits-only subjects, same counts)", (await q("select count(*)::int n from public.ai_subscription_gate_notices where subject = '96279200001'"))[0].n === 1);
+const rollback83 = [...M83.matchAll(/^--\s+(DROP TABLE IF EXISTS public\.[a-z_]+;)/gm)].map((m) => m[1]);
+expect("20261083: the rollback documents dropping the two new tables", rollback83.length === 2);
+await db.exec(M82); // the function first: it references the tables
+for (const stmt of rollback83) await db.exec(stmt);
+expect("20261083 rollback: the 20261082 function is back, both tables are gone, the notice rows are kept",
+  (await q("select to_regclass('public.ops_limits') a, to_regclass('public.whatsapp_notice_log') b"))[0].a === null
+  && (await q("select to_regclass('public.whatsapp_notice_log') b"))[0].b === null
+  && (await q("select count(*)::int n from public.ai_subscription_gate_notices"))[0].n >= rowsBefore
+  && (await q("select public.ai_subscription_gate_whatsapp('96279800002') v"))[0].v === "blocked_first_notice");
 
 console.log(`\n${total - fail}/${total} passed`);
 process.exit(fail ? 1 : 0);

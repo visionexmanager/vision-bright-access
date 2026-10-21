@@ -53,8 +53,12 @@ const PAID_ORDER_STATUSES = ["paid", "processing", "shipped", "completed"];
 /** Bounded single-line text: control characters become spaces, runs collapse, then it is cut. */
 function clean(value: unknown, max: number): string {
   if (typeof value !== "string") return "";
-  // deno-lint-ignore no-control-regex
-  return value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s{2,}/g, " ").trim().slice(0, max);
+  let out = "";
+  for (const ch of value) {
+    const code = ch.charCodeAt(0);
+    out += code < 32 || code === 127 ? " " : ch;
+  }
+  return out.replace(/\s{2,}/g, " ").trim().slice(0, max);
 }
 
 Deno.serve(async (req) => {

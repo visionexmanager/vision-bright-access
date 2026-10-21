@@ -15,8 +15,10 @@
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 
-const FILE = "supabase/migrations/20261081000000_bazaar_notify_limits.sql";
-const SQL = readFileSync(FILE, "utf8").replace(/\r\n/g, "\n");
+const SQL81 = readFileSync("supabase/migrations/20261081000000_bazaar_notify_limits.sql", "utf8").replace(/\r\n/g, "\n");
+// 20261084 makes an event that names an order a duplicate for a day; it replaces the function from 20261081.
+const SQL84 = readFileSync("supabase/migrations/20261084000000_bazaar_notify_keyed_dedupe.sql", "utf8").replace(/\r\n/g, "\n");
+const SQL = SQL81 + "\n" + SQL84;
 
 async function fresh(sql) {
   const db = new PGlite();
@@ -58,6 +60,20 @@ r = await claim(db, U(2), SHOP(2), "order_paid", null, "order-B");
 expect("order_paid for a second, different order within minutes → also allowed", r.allowed === true);
 r = await claim(db, U(2), SHOP(2), "order_paid", null, "order-A");
 expect("order A announced twice → duplicate", r.allowed === false && r.reason === "duplicate");
+
+// ── An event that names an order is one event for a day (20261084) ──
+r = await claim(db, U(6), SHOP(6), "order_paid", null, "order-X");
+expect("order_paid for order X → allowed", r.allowed === true);
+await age(db, 11);
+r = await claim(db, U(6), SHOP(6), "order_paid", null, "order-X");
+expect("…the same order again 11 minutes later is STILL a duplicate (one real order is announced once)", r.allowed === false && r.reason === "duplicate");
+await age(db, 60 * 25);
+r = await claim(db, U(6), SHOP(6), "order_paid", null, "order-X");
+expect("…and allowed again only after a day", r.allowed === true);
+r = await claim(db, U(6), SHOP(6), "message", null, null);
+await age(db, 11);
+r = await claim(db, U(6), SHOP(6), "message", null, null);
+expect("an unkeyed event (a message) keeps the 10-minute window: allowed again after 11 minutes", r.allowed === true);
 
 // ── Per user per shop per hour: 5 ──
 let granted = 0;
@@ -115,7 +131,14 @@ expect("row-level security is on and the ledger has no policy", (await db.query(
   && Number((await db.query("select count(*)::int n from pg_policies where tablename='bazaar_notification_log'")).rows[0].n) === 0);
 
 // ── Rollback exactly as documented ──
-const rollback = [...SQL.matchAll(/^--\s+(DROP [^\n]+;)$/gm)].map((m) => m[1]);
+// 20261084 rolls back by re-creating the function from 20261081: keyed events are on the 10-minute window again.
+const rdb = await fresh(SQL);
+await rdb.exec(SQL81);
+const rk = await claim(rdb, U(7), SHOP(7), "order_paid", null, "order-Y");
+await rdb.exec("update public.bazaar_notification_log set created_at = created_at - interval '11 minutes'");
+const rk2 = await claim(rdb, U(7), SHOP(7), "order_paid", null, "order-Y");
+expect("20261084 rollback (re-create the 20261081 function): a keyed event is on the 10-minute window again, nothing else changes", rk.allowed === true && rk2.allowed === true);
+const rollback = [...SQL81.matchAll(/^--\s+(DROP [^\n]+;)$/gm)].map((m) => m[1]);
 expect("the migration documents two rollback statements", rollback.length === 2);
 for (const stmt of rollback) await db.exec(stmt);
 expect("rollback removes the function and the ledger",
@@ -123,7 +146,7 @@ expect("rollback removes the function and the ledger",
   && Number((await db.query("select count(*)::int n from pg_proc where proname='bazaar_notify_claim'")).rows[0].n) === 0);
 
 // ── Mutation proof: remove the hourly ceiling and the 5-a-shop check must go red ──
-const mutated = SQL.replace("IF _n >= _per_shop_hour THEN", "IF false THEN");
+const mutated = SQL81 + "\n" + SQL84.replace("IF _n >= _per_shop_hour THEN", "IF false THEN");
 const mdb = await fresh(mutated);
 let mg = 0;
 for (let i = 0; i < 12; i++) if ((await claim(mdb, U(3), SHOP(3), "message", null, `m${i}`)).allowed) mg++;

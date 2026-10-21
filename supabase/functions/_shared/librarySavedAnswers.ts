@@ -39,6 +39,24 @@ export type SavedLookupClient = { from(table: string): any };
 /** Matches MAX_DIRECT_CHARS in library-ai-assistant. */
 export const MAX_DIRECT_CHARS = 24_000;
 
+/**
+ * What invalidates a stored translation or explanation: the model that wrote it and the version of this
+ * key. Change either and every older entry stops matching, because both are hashed into the key.
+ * MUST equal the model library-ai-assistant asks for (a test compares the two).
+ */
+export const CACHE_MODEL = "gpt-4o-mini";
+export const CACHE_KEY_VERSION = "v2";
+/** A stored translation or explanation older than this is ignored, and replaced when asked for again. */
+export const CACHE_MAX_AGE_DAYS = 90;
+
+/**
+ * The shared per-book summary is written in the requester's reading style (student, teacher, ...), and
+ * its key is only (book, chapter, scope, length). So that one reader's style is never served to another,
+ * the shared summary is stored and served ONLY for the default style; any other style is generated for
+ * that request and not shared.
+ */
+export const SHARED_SUMMARY_READING_MODE = "student";
+
 export const SAVED_TEXT_MODES = ["translate-paragraph", "explain-paragraph"] as const;
 
 /** sha-256 of the normalised key parts; the same function writes and reads the cache. */
@@ -72,11 +90,22 @@ export async function textModeCacheKey(
   body: SavedLookupBody,
   readingMode: string,
   explainInstructions: Record<string, string>,
+  /**
+   * Whose stored answer this is. The text of a translate/explain request is whatever the caller
+   * typed or selected, so it can be private; the key is therefore PER USER. Two accounts that submit
+   * the same text do not share an entry, and nobody can test whether somebody else submitted a given
+   * text. (A cross-user key for verified book excerpts is a product decision; see PRE_MERGE_FINDINGS.)
+   */
+  userId: string,
 ): Promise<string | null> {
+  if (!userId) return null;
   if (!(SAVED_TEXT_MODES as readonly string[]).includes(body.mode)) return null;
   const input = textModeInput(body, explainInstructions);
   if (input === null) return null;
   return await hashCacheKey([
+    CACHE_KEY_VERSION,
+    CACHE_MODEL,
+    `u:${userId}`,
     body.mode,
     body.mode === "translate-paragraph" ? (body.targetLanguage ?? "") : (body.instruction ?? "explain"),
     readingMode,
@@ -100,10 +129,13 @@ export async function findSavedResponse(
   explainInstructions: Record<string, string>,
   /** Client for library_ai_content_cache (service role: the table has no read policy). Defaults to `client`. */
   cacheClient: SavedLookupClient = client,
+  /** The caller's id: the translate/explain cache is keyed per user. Without it that cache is not read. */
+  userId = "",
 ): Promise<SavedResponse | null> {
   try {
     if (body.mode === "smart-summary") {
       if (!body.book_id) return null;
+      if (readingMode !== SHARED_SUMMARY_READING_MODE) return null;
       const scope = body.scope ?? "book";
       const length = body.length ?? "medium";
       if (scope !== "book" && !body.chapter_id) return null;
@@ -120,12 +152,13 @@ export async function findSavedResponse(
       return { kind: "summary", summary: data.content, scope, length, result: { summary: data.content, cached: true, source: "saved", saved_at: savedAt } };
     }
 
-    const key = await textModeCacheKey(body, readingMode, explainInstructions);
+    const key = await textModeCacheKey(body, readingMode, explainInstructions, userId);
     if (!key) return null;
     const { data } = await cacheClient
       .from("library_ai_content_cache")
       .select("result_text, created_at")
       .eq("content_hash", key)
+      .gte("created_at", new Date(Date.now() - CACHE_MAX_AGE_DAYS * 86_400_000).toISOString())
       .maybeSingle();
     if (!data || typeof data.result_text !== "string") return null;
     const savedAt = typeof data.created_at === "string" ? data.created_at : null;

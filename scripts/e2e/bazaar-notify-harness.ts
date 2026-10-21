@@ -53,7 +53,19 @@ globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => 
     const table = url.pathname.split("/").pop()!;
     if (req.method === "POST") { if (table === "notifications") seen.notifications.push(JSON.parse(await req.text())); return new Response(null, { status: 201 }); }
     if (table === "bazaar_shops") return json({ id: SHOP, owner_id: OWNER, name: "Harness Shop", email_notifications: true, whatsapp_notifications: true, whatsapp_number: "+961 70 000 000", order_notifications: true, message_notifications: true, review_notifications: true, low_stock_notifications: true });
-    if (table === "bazaar_orders") { seen.orderQueries++; return orderRow ? (single ? json(orderRow) : json([orderRow])) : (single ? json({ code: "PGRST116", message: "0 rows" }, 406) : json([])); }
+    if (table === "bazaar_orders") {
+      seen.orderQueries++;
+      // The stub evaluates the filters the handler sent, so a stale, foreign or unpaid order is really excluded.
+      const q = url.searchParams;
+      const statuses = (q.get("status") ?? "").replace(/^in\.\(|\)$/g, "").split(",").filter(Boolean);
+      const since = (q.get("created_at") ?? "").replace(/^gt\./, "");
+      const matches = !!orderRow
+        && q.get("buyer_id") === `eq.${orderRow.buyer_id ?? BUYER}`
+        && q.get("shop_id") === `eq.${orderRow.shop_id ?? SHOP}`
+        && statuses.includes(orderRow.status ?? "paid")
+        && (!since || new Date(orderRow.created_at ?? new Date().toISOString()).getTime() > new Date(since).getTime());
+      return matches ? (single ? json(orderRow) : json([orderRow])) : (single ? json({ code: "PGRST116", message: "0 rows" }, 406) : json([]));
+    }
     if (table === "profiles") return single ? json({ display_name: "Sam Buyer" }) : json([{ display_name: "Sam Buyer" }]);
     if (table === "bazaar_products") return single ? json({ name: "Lamp" }) : json([{ name: "Lamp" }]);
     return single ? json({ code: "PGRST116", message: "0 rows" }, 406) : json([]);
@@ -122,6 +134,24 @@ check("order_paid from a user with no recent order at that shop → 403, nothing
 orderRow = { id: "11111111-1111-4111-8111-111111111111" };
 r = await call({ shopId: SHOP, eventType: "order_paid", message: "Order 1234 has been paid." });
 check("order_paid from the buyer of a recent order → delivered, and the claim carries the ORDER as its key (two orders are two events)", r.status === 200 && seen.notifications.length === 1 && seen.claims[0]._key === "11111111-1111-4111-8111-111111111111");
+// A valid-looking order that must NOT announce: stale, cancelled, refunded, unpaid, someone else's, another shop's.
+const old = new Date(Date.now() - 31 * 60_000).toISOString();
+for (const [label, row] of [
+  ["a paid order older than 30 minutes", { id: "o1", status: "paid", created_at: old }],
+  ["a cancelled order", { id: "o2", status: "cancelled", created_at: new Date().toISOString() }],
+  ["a refunded order", { id: "o3", status: "refunded", created_at: new Date().toISOString() }],
+  ["a pending (unpaid) order", { id: "o4", status: "pending", created_at: new Date().toISOString() }],
+  ["a failed-payment order", { id: "o5", status: "payment_failed", created_at: new Date().toISOString() }],
+  ["another buyer's order", { id: "o6", status: "paid", created_at: new Date().toISOString(), buyer_id: "00000000-0000-4000-8000-0000000000ff" }],
+  ["an order at a different shop", { id: "o7", status: "paid", created_at: new Date().toISOString(), shop_id: "00000000-0000-4000-8000-0000000000fe" }],
+]) {
+  orderRow = row;
+  r = await call({ shopId: SHOP, eventType: "order_paid", message: "Order has been paid." });
+  check(`order_paid backed by ${label} → 403, nothing created or sent, no claim spent`, r.status === 403 && nothingSent() && seen.claims.length === 0);
+}
+orderRow = { id: "o8", status: "completed", created_at: new Date().toISOString() };
+r = await call({ shopId: SHOP, eventType: "order_paid", message: "Order has been paid." });
+check("order_paid backed by a completed order from the last 30 minutes → delivered", r.status === 200 && seen.notifications.length === 1);
 orderRow = null;
 for (const ev of ["order_status", "low_stock"]) {
   r = await call({ shopId: SHOP, eventType: ev });
@@ -146,7 +176,7 @@ check("no shop id → 400", r.status === 400 && nothingSent());
 claimReply = { allowed: true, reason: "ok", external: true };
 r = await call({ shopId: SHOP, eventType: "message", buyerName: "Visionex Security\n\nTEAM ".repeat(20), message: "A".repeat(5000) + "\u0000\u0007" });
 const body = String(seen.notifications[0]?.body ?? "");
-check("a 5,000-character message is cut to 600, a long buyer name to 60, and control characters are removed", r.status === 200 && body.length < 760 && !/[\u0000-\u001f]/.test(body));
+check("a 5,000-character message is cut to 600, a long buyer name to 60, and control characters are removed", r.status === 200 && body.length < 760 && ![...body].some((ch) => ch.charCodeAt(0) < 32));
 
 console.log(fail ? `\n${fail} FAILURE(S)` : "\nall passed");
 Deno.exit(fail ? 1 : 0);

@@ -38,7 +38,8 @@ import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { ensureBookIndexed, retrieveChunks, formatChunksAsContext, citationsFromChunks, DIRECT_READ_CHAR_THRESHOLD } from "../_shared/libraryRag.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
-import { findSavedResponse, textModeCacheKey, textModeInput } from "../_shared/librarySavedAnswers.ts";
+import { findSavedResponse, SHARED_SUMMARY_READING_MODE, textModeCacheKey, textModeInput } from "../_shared/librarySavedAnswers.ts";
+import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 
 installUsageMetering("library-ai-assistant");
 
@@ -371,7 +372,12 @@ Deno.serve(async (req: Request) => {
   // VX and cannot reach a provider: the lookup runs through the caller's own
   // session and nothing below it executes on a hit. A miss, or a failed lookup,
   // falls through to the gate exactly as before.
-  const saved = await findSavedResponse(userClient, body, resolveReadingMode(body.readingMode), EXPLAIN_INSTRUCTIONS, serviceClient);
+  // The Library section is a condition of reading a stored answer too: an account whose plan does
+  // not include it (a lapsed one) gets no saved answers and falls through to the gate as before.
+  const librarySection = await maySeeSection(serviceClient, user.id, "library");
+  const saved = librarySection.allowed
+    ? await findSavedResponse(userClient, body, resolveReadingMode(body.readingMode), EXPLAIN_INSTRUCTIONS, serviceClient, user.id)
+    : null;
   if (saved) {
     console.log(JSON.stringify({ fn: "library-ai-assistant", event: "saved_hit", mode: body.mode, provider_called: false }));
     if (saved.kind === "summary" && body.book_id) {
@@ -385,6 +391,8 @@ Deno.serve(async (req: Request) => {
   // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
   const refused = await subscriptionGate(serviceClient, req, user.id, cors);
   if (refused) return refused;
+  // A paying account whose plan does not include the Library cannot generate in it.
+  if (!librarySection.allowed) return sectionRefusal("library", librarySection.unavailable, cors);
 
   const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "library-ai-assistant" });
   if (allowed === false) return json({ error: "Daily limit reached (40 requests/day). Try again tomorrow." }, 429, cors);
@@ -455,7 +463,7 @@ Deno.serve(async (req: Request) => {
     let cacheHash: string | null = null;
     if (isCacheableTextMode) {
       // Read side: findSavedResponse, above the gate. This is only the key the new answer is stored under.
-      cacheHash = await textModeCacheKey(body, readingMode, EXPLAIN_INSTRUCTIONS);
+      cacheHash = await textModeCacheKey(body, readingMode, EXPLAIN_INSTRUCTIONS, user.id);
     }
 
     const result = await structuredCompletion({
@@ -472,7 +480,7 @@ Deno.serve(async (req: Request) => {
       const resultText = body.mode === "translate-paragraph" ? (result.translated_text as string) : (result.explanation as string);
       try {
         await serviceClient.from("library_ai_content_cache").upsert(
-          { content_hash: cacheHash, action: body.mode === "translate-paragraph" ? "translate" : (body.instruction ?? "explain"), result_text: resultText },
+          { content_hash: cacheHash, action: body.mode === "translate-paragraph" ? "translate" : (body.instruction ?? "explain"), result_text: resultText, created_at: new Date().toISOString() },
           { onConflict: "content_hash" }
         );
       } catch (cacheErr) {
@@ -587,10 +595,13 @@ async function handleSmartSummary(body: RequestBody, userId: string, userClient:
       maxTokens: length === "detailed" ? 1500 : 500,
     })) as { summary: string };
 
-    await serviceClient.from("library_ai_summaries").upsert(
-      { book_id: body.book_id, chapter_id: scope === "book" ? null : body.chapter_id, scope, length, content: result.summary },
-      { onConflict: "book_id,chapter_id,scope,length" }
-    );
+    // Shared across readers, so only the default reading style is stored (see SHARED_SUMMARY_READING_MODE).
+    if (readingMode === SHARED_SUMMARY_READING_MODE) {
+      await serviceClient.from("library_ai_summaries").upsert(
+        { book_id: body.book_id, chapter_id: scope === "book" ? null : body.chapter_id, scope, length, content: result.summary },
+        { onConflict: "book_id,chapter_id,scope,length" }
+      );
+    }
     await logSummaryActivity(userClient, userId, body.book_id, scope, length, result.summary);
 
     return json({ ok: true, mode: "smart-summary", source: "generated", result: { ...result, cached: false } }, 200, cors);

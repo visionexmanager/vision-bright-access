@@ -447,7 +447,12 @@ describe("every user-facing AI entry point asks the gate first", () => {
       const gate = handler.indexOf("await subscriptionGate(");
       expect(gate, `${name} does not call subscriptionGate`).toBeGreaterThan(-1);
       expect(handler).toMatch(/if \(refused\) return refused;/);
+      // These two return the caller's own stored result BEFORE the gate (cost-aware access policy), and
+      // that read itself requires the Library section, so the (cheap, read-only) section lookup comes first.
+      // Nothing that costs money does: the section check is a database RPC, and a stored hit calls no provider.
+      const SAVED_FIRST = ["library-ai-assistant", "library-librarian-daily-plan"];
       for (const marker of COSTLY) {
+        if (marker === "maySeeSection(" && SAVED_FIRST.includes(name)) continue;
         const at = handler.indexOf(marker);
         if (at >= 0) expect(at, `${name}: ${marker} runs before the gate`).toBeGreaterThan(gate);
       }

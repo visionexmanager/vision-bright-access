@@ -26,6 +26,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
+import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 
 installUsageMetering("library-librarian-daily-plan");
 
@@ -97,7 +98,9 @@ Deno.serve(async (req: Request) => {
   // filtered to them, so nobody else's plan can come back, and it needs no plan,
   // no daily unit and no model. Asking for a new one (force) is paid work and goes
   // through the gate below.
-  if (!body.force) {
+  // The Library section is a condition of reading the stored plan too (a lapsed account gets none).
+  const librarySection = await maySeeSection(serviceClient, user.id, "library");
+  if (!body.force && librarySection.allowed) {
     const { data: existing } = await userClient
       .from("library_librarian_daily_plans").select("*").eq("user_id", user.id).eq("plan_date", today).maybeSingle();
     if (existing) {
@@ -109,6 +112,7 @@ Deno.serve(async (req: Request) => {
   // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
   const refused = await subscriptionGate(serviceClient, req, user.id, cors);
   if (refused) return refused;
+  if (!librarySection.allowed) return sectionRefusal("library", librarySection.unavailable, cors);
 
   const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "library-librarian-daily-plan" });
   if (allowed === false) return json({ error: "Daily limit reached. Try again tomorrow." }, 429, cors);

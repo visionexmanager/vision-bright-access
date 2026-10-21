@@ -4,6 +4,58 @@ Labels: **[C]** read in source · **[T]** pinned by a test · **[H]** real handl
 
 Nothing here changes a price, a plan price, a VX balance, an order, a subscription or customer data.
 
+## A. Final pass (2026-10-21, fourth): what was re-verified and what changed
+
+**Starting state (re-checked, not assumed):** PR #475, base `main` at `4ca80ce1` (no drift), head `516c9697` equal to the pushed branch, working tree clean, merge state CLEAN, 14 checks passing and 5 skipped, no reviews or comments. Open neighbour: PR #474 (realtime minutes) uses migration `20261077`, which does not collide with `20261078` to `20261084`. Production, read-only: plans `free_trial` $0 / 3 sections, `kids` $3 / 3,000 VX / 50 / 4, `basic` $5 / 5,000 / 150 / 8, `pro` $10 / 11,000 / 400 / 14, `business` $20 / 24,000 / unlimited / 18; 0 subscriptions, 1 pending order, 20 profiles, points total 6,245, 9 WhatsApp notice rows (all digits-only), 1 linked WhatsApp number.
+
+**Why the 3→6 and 4→7 section changes exist.** `free_trial` gains `academy`, `library`, `arcade` and `kids` gains the same three. They were approved in this task's brief (free trial and Kids reach Academy, Library and Arcade without a paid subscription, provided no unapproved external cost is incurred). They are stored-content sections: every AI function inside them is a separate Edge Function behind the subscription gate, which neither plan passes as a trial, and the new section-level checks below mean a Kids or free-week account cannot use them to reach a provider. They do not open `assistant`, `career`, `mediaStudio`, `professional`, `studio`, `messages`, `kids` (for the trial) or any paid section. Pinned by `access-policy.test.ts` (the plan-by-section matrix) and the executed before/after snapshot.
+
+### A.1 New findings fixed in this pass
+
+| # | Severity | Scenario | Fix | Evidence |
+|---|---|---|---|---|
+| 1 | High (cost) | **WhatsApp notices are bounded per number but not in aggregate**: many different senders each get a first notice | Migration `20261083`: optional database-wide hourly budget in `ops_limits` (**off by default**), atomic under an advisory lock, claims handed back when refused, fails closed, counter holds no number or text; numbers normalised to digits | 46 PGlite checks; real PostgreSQL: 30 numbers in three simultaneous bursts against a budget of 7 are told exactly 7 times |
+| 2 | High | **LiveKit signs a token for any string**: any paying account could name any room (creating rooms outside the product), reach a Kids room by prefix, join a room it was banned from, and the browser's e-mail address was shown as the participant name | `livekit-token` validates the id (UUID or `kids-<UUID>`), requires the room to exist and be active (admins excepted), refuses a ban, and names the participant by display name | in-process harness, 46 checks; the previous handler fails 21 |
+| 3 | High | **AI gate is plan-eligibility only**: a Basic account could call the Kids AI functions, and a Basic or Kids account the Career AI, directly | `requireSection` (one helper in `_shared/entitlements.ts`) after the gate in 17 functions; saved answers also require the Library section | 17 functions × zero provider calls in the harness; table-driven plan × function tests; the old handlers fail the harness |
+| 4 | Medium (privacy) | **The translate/explain cache is shared across users keyed by text**, so someone submitting the same text could read, or probe for, another person's entry; the per-book summary was written in the first requester's reading style | key is **per user** and carries a model and key version; entries older than 90 days are ignored and refreshed; the shared summary is stored and served only for the default reading style | unit and in-process tests (two accounts → two keys; non-default style → no shared read) |
+| 5 | Medium | **A keyed notification (an order) could be re-announced every ten minutes** | Migration `20261084`: an event naming an order is a duplicate for 24 hours | PGlite; real PostgreSQL: 30 rounds × 10 simultaneous retries accept exactly 1 |
+| 6 | Medium | A notification backed by a stale, cancelled, refunded, unpaid, foreign or other-shop order | already refused by the server-side order check; **now proven** | harness evaluates the filters the handler sent: 7 cases → 403, nothing sent, no claim spent |
+
+### A.2 Section authorization matrix (from `plans.ts`, enforced server-side)
+
+| Section | free week | expired / none | Kids | Basic | Pro | Business | admin |
+|---|---|---|---|---|---|---|---|
+| library | yes | no | **yes** | yes | yes | yes | yes |
+| academy | yes | no | **yes** | yes | yes | yes | yes |
+| arcade | yes | no | **yes** | yes | yes | yes | yes |
+| kids | no | no | yes | no | yes | yes | yes |
+| assistant | no | no | no | yes | yes | yes | yes |
+| career | no | no | no | no | yes | yes | yes |
+| mediaStudio / professional | no | no | no | no | no | yes | yes |
+| messages (voice rooms lobby) | no | no | no | no | yes | yes | yes |
+
+AI-eligible plans (those that pass `ai_subscription_gate`): Kids, Basic, Pro, Business and admin. A free-week or expired account never passes it, whatever its sections. **Behaviour changes, stated plainly:** a Basic account can no longer call the Kids AI functions directly, and a Basic or Kids account can no longer call the Career AI directly; the browser already hid both. Twenty-one AI functions remain gate-only (any paying plan) because no single section owns them (the general assistant, voice features, nutrition, the Library authoring and catalogue tools); each has its reason in `policy.ts` and the list is pinned so it cannot grow. Whether any should get a section is a product decision.
+
+### A.3 What is enforced by code, what is verified, what is not
+
+| Control | Enforced in code | Verified by | Not verified / outside this repository |
+|---|---|---|---|
+| WhatsApp notice: free-week senders never; per-number first + 6/day; atomic | yes | PGlite + real PostgreSQL concurrency | Meta's rate for these markets, whether this notice is billed, whether the account is on the free tier |
+| WhatsApp global hourly budget | yes, **default OFF** | PGlite + real PostgreSQL | the value (proposal below) |
+| Duplicate webhook delivery | yes: a unique `wa_message_id` makes a Meta retry a no-op before the gate | source (`whatsapp-webhook`, `whatsapp_messages.wa_message_id UNIQUE`) | not re-executed in this pass |
+| Notice send fails closed | yes: an RPC error is "unavailable", which is not a first notice; one send attempt, no retry loop | source + the migration-83 fail-closed scenario | |
+| LiveKit: paid plan, room, ban, name, token scope, ttl | yes | in-process harness | room join cost, password, privacy and capacity are **checked by the browser only**; no room-minute cap; no provider spend alert; LiveKit's own billing |
+| Section entitlement of AI functions | yes (17 functions) | harness + table-driven tests | 21 gate-only functions (product decision) |
+| Cache privacy and eligibility | yes | tests | the empty production cache is not a saving |
+| Seller notification limits | yes | PGlite + real PostgreSQL + harness | none known |
+| Dashboards or alerts for any of the above | **no** | | not built; provider billing alerts (Meta, LiveKit, Resend) cannot be seen from this repository |
+
+**Safe counters that exist** (no number, text or account in them): `whatsapp_notice_log` (a timestamp and a kind, when a budget is set), `bazaar_notification_log`, `ai_subscription_gate_notices` (state), `library_ai_activity_log.metadata.source` (saved or generated) and the `saved_hit` log line. Example: `select kind, count(*) from whatsapp_notice_log where sent_at > now() - interval '24 hours' group by 1`.
+
+### A.4 Proposed values that need your approval (nothing was invented or set)
+- **`whatsapp_notice_global_per_hour`**: production holds 61 outbound messages of the notice's kind ("unsupported", which may include replies other than this notice) in 14 conversations since records began (about seven weeks, roughly 9 a week), so **60 an hour** would never bind in normal use and would stop a flood. Proposed, not set. To set: the `INSERT ... ON CONFLICT` in the header of migration 20261083.
+- A room-minute cap and a join-cost enforcement for LiveKit: not proposed numerically because the provider's billing is unknown; the safe next step is a server-side join flow (verify member row, join cost and password at token time) and a LiveKit-side spend alert.
+
 ## 0. Third pass (the four remaining risks)
 
 ### 0.1 `bazaar-notify-seller` — was open, now limited
@@ -135,7 +187,7 @@ Production state to compare after any deploy [M] (read today): plans `free_trial
 - A stored library result or today's librarian plan is returned without the gate, the daily limit or a provider.
 - Any signed-in account can no longer list the translate/explain cache; `career-system-health` refuses without `CRON_SECRET` or an admin session.
 
-**Deployment scope.** Migrations `20261078`, `20261079`, `20261080`, `20261081`, `20261082` (idempotent; they write one plan row's `limits.sections`, replace two functions and drop one policy, create one ledger table with one function, and add two columns to `ai_subscription_gate_notices`). Edge Functions: `library-ai-assistant`, `library-librarian-daily-plan`, `livekit-token`, `career-system-health`, `bazaar-notify-seller`, plus functions that import the edited shared files (`_shared/entitlements.ts`, the new `_shared/librarySavedAnswers.ts`). The SPA (new `plans.ts`, a note under the summary, 20 locale files). No secret, workflow or `config.toml` change.
+**Deployment scope.** Migrations `20261078` to `20261084` (idempotent; they write one plan row's `limits.sections`, replace two functions and drop one policy, create one ledger table with one function, add two columns to `ai_subscription_gate_notices`, create two small service-only tables (`ops_limits`, `whatsapp_notice_log`) and replace the WhatsApp gate function twice more and the notification claim once more). Edge Functions: `library-ai-assistant`, `library-librarian-daily-plan`, `livekit-token`, `career-system-health`, `bazaar-notify-seller`, the 17 section-checked AI functions, plus functions that import the edited shared files (`_shared/entitlements.ts`, the new `_shared/librarySavedAnswers.ts`). The SPA (new `plans.ts`, a note under the summary, 20 locale files). No secret, workflow or `config.toml` change.
 
 **Rollback**
 1. Entitlements: re-create `trial_sections()` from `20261063`, and `UPDATE public.billing_plans SET limits = jsonb_set(limits, '{sections}', '["news","community","assistive","kids"]') WHERE id = 'kids';`; revert `TRIAL_LOCAL_SECTIONS` and `KIDS_PLAN` in `plans.ts`.

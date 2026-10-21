@@ -2,7 +2,7 @@
 
 2026-10-21. Branch `claude/cost-aware-trial-policy`. Labels: **[C]** confirmed in source · **[T]** pinned by a test · **[H]** demonstrated by running the real handler in-process (`scripts/e2e/*-harness.ts`, network replaced) · **[M]** measured in production today (read-only) · **[U]** unverified.
 
-**Second-pass findings (WhatsApp notice trace, library trace, the 26 audited functions, migration/rollback verification, CI): [`PRE_MERGE_FINDINGS.md`](PRE_MERGE_FINDINGS.md).**
+**Later passes (WhatsApp notice trace and global budget, LiveKit room scope, section-level authorization of AI functions, cache privacy, seller notifications, the 26 audited functions, migration/rollback verification, the plan-by-section matrix, CI): [`PRE_MERGE_FINDINGS.md`](PRE_MERGE_FINDINGS.md).**
 
 Nothing here changes a price, a VX balance, a subscription, an order or customer data. Two billing-plan **entitlement** rows change when this is deployed (the free-week list, and the `kids` plan's section list); see section 8 for the exact effects.
 
@@ -105,7 +105,7 @@ Opening Academy, Library and Arcade to the free week and Kids adds **no paid-pro
 | analyze-image | D | ai_gate | no | Subscription gate runs before the provider call. |
 | analyze-meal | D | ai_gate | no | Subscription gate runs before the provider call. |
 | bazaar-checkout | C | jwt | no | Marketplace checkout; identity from the verified session (getUser), no user id taken from the body. |
-| bazaar-notify-seller | D | claim | no | Sends an in-app notification, an e-mail (Resend) and a WhatsApp message to a seller, so it is treated as billed. Platform calls (service role) are unlimited; a user's are authorised per event (order_paid only for their own recent order, order_status and low_stock refused) and claimed through bazaar_notify_claim: 10-minute duplicate window, 5 per shop per hour, 30 per day, and e-mail/WhatsApp for at most 20 per shop per hour across all senders. Fails closed. |
+| bazaar-notify-seller | D | claim | no | Sends an in-app notification, an e-mail (Resend) and a WhatsApp message to a seller, so it is treated as billed. Platform calls (service role) are unlimited; a user's are authorised per event (order_paid only for their own paid order from the last 30 minutes at that shop, order_status and low_stock refused) and claimed through bazaar_notify_claim: 10-minute duplicate window (24 hours for an event naming an order), 5 per shop per hour, 30 per day, and e-mail/WhatsApp for at most 20 per shop per hour across all senders. Fails closed. |
 | bazaar-stripe-connect | C | jwt | no | Seller onboarding with Stripe Connect; verified session, own account. |
 | bazaar-stripe-webhook | C | signature | no | Payment webhook; verified by provider signature, not a user session. |
 | billing-engine | C | jwt | no | Subscription/VX actions for the caller; admin actions check has_role inside the function. |
@@ -167,7 +167,7 @@ Opening Academy, Library and Arcade to the free week and Kids adds **no paid-pro
 | library-track-reading | C | jwt | yes | The caller's own reading progress; verified session, row-level security. |
 | library-translate-book-metadata | D | ai_gate | no | Subscription gate runs before the provider call. |
 | library-translate-comment | D | ai_gate | no | Subscription gate runs before the provider call. |
-| livekit-token | D | paid_plan | no | LiveKit rooms are billed per participant-minute by the host (billing not verified). Requires an active paid plan or admin, checked server-side before a token is signed; fails closed. |
+| livekit-token | D | paid_plan | no | LiveKit rooms are billed per participant-minute by the host (billing not verified). Requires an active paid plan or admin before the body is parsed; signs a token only for a room that exists, is active (admins excepted) and the caller is not banned from (adult UUID or 'kids-<uuid>'); the name is the account's display name, never an e-mail; the token is room-join only for the verified user id, two hours. Not enforced here: a room's join cost, password, privacy and capacity (the browser checks them), and there is no minute cap. Fails closed. |
 | meta-messaging-webhook | D | webhook_gate | no | Messenger/Instagram webhook; AI answers need an active plan. |
 | mobility | C | jwt | no | Requires a verified session (401 otherwise). Every provider adapter declares shape 'none', so no provider is callable today and no paid call can be made; a future adapter must add a plan gate before it is enabled. |
 | moderate-content | B | jwt | yes | Calls the free OpenAI moderation endpoint (no charge); signed-in only. Deliberately outside the subscription gate so child safety checks keep working. |
@@ -193,7 +193,7 @@ Opening Academy, Library and Arcade to the free week and Kids adds **no paid-pro
 | video-studio | D | ai_gate | no | Subscription gate runs before the provider call. |
 | voice-studio | D | ai_gate | no | Subscription gate runs before the provider call. |
 | vx-coin-review | C | jwt | no | Admin approval of VX top-ups; the RPCs check has_role(admin) themselves, the function only sends the buyer e-mail. |
-| whatsapp-webhook | D | webhook_gate | no | WhatsApp webhook; AI answers need an active plan. Local menus/audio for the trial are NOT yet served: the gate stays silent for them. |
+| whatsapp-webhook | D | webhook_gate | no | WhatsApp webhook; AI answers need an active plan. A linked free-week sender is never sent the subscription notice; any other unentitled sender gets one notice and at most six re-notices a day, within an optional database-wide hourly budget (ops_limits, off by default). The notice fails closed. Local menus/audio for the trial are NOT served: the gate stays silent for them. |
 
 Counts: {"D":61,"C":26,"B":11}
 

@@ -71,7 +71,7 @@ export async function maySeeSection(
  * the caller is on, not what the service costs Visionex, not which vendor runs
  * it.
  */
-export function sectionRefusal(section: Section, unavailable = false): Response {
+export function sectionRefusal(section: Section, unavailable = false, cors: Record<string, string> = {}): Response {
   const body = unavailable
     ? {
         ok: false,
@@ -87,7 +87,7 @@ export function sectionRefusal(section: Section, unavailable = false): Response 
       };
   return new Response(JSON.stringify(body), {
     status: unavailable ? 503 : 403,
-    headers: { "Content-Type": "application/json" },
+    headers: { ...cors, "Content-Type": "application/json" },
   });
 }
 
@@ -104,4 +104,19 @@ export async function hasActivePaidPlan(db: EntitlementDb, userId: string): Prom
   const { data, error } = await db.rpc("ai_user_entitled", { _user_id: userId });
   if (error) return { allowed: false, unavailable: true };
   return { allowed: data === true };
+}
+
+/**
+ * The refusal to send, or null when the account's plan opens `section`. One line in an Edge
+ * Function, after the subscription gate: the gate answers "is this a paying customer", this answers
+ * "does their plan include this part of the product". Fails closed.
+ */
+export async function requireSection(
+  db: EntitlementDb,
+  userId: string,
+  section: Section,
+  cors: Record<string, string> = {},
+): Promise<Response | null> {
+  const verdict = await maySeeSection(db, userId, section);
+  return verdict.allowed ? null : sectionRefusal(section, verdict.unavailable, cors);
 }
