@@ -1,54 +1,64 @@
 # Cost-aware free trial and feature access policy
 
-2026-10-21. Branch `claude/cost-aware-trial-policy`. Labels: **[C]** confirmed in source · **[T]** pinned by a test in this PR · **[M]** measured in production today (read-only) · **[U]** unverified.
+2026-10-21. Branch `claude/cost-aware-trial-policy`. Labels: **[C]** confirmed in source · **[T]** pinned by a test · **[H]** demonstrated by running the real handler in-process (`scripts/e2e/*-harness.ts`, network replaced) · **[M]** measured in production today (read-only) · **[U]** unverified.
 
-Nothing here changes a price, a plan row, a VX balance, a subscription or customer data. The one entitlement change (the trial opens three more sections) ships as a migration that is **not applied until this PR is merged and deployed**, and needs your approval.
+Nothing here changes a price, a VX balance, a subscription, an order or customer data. Two billing-plan **entitlement** rows change when this is deployed (the free-week list, and the `kids` plan's section list); see section 8 for the exact effects.
 
 ## 1. The rule, as implemented
 
-> A trial account may use what Visionex already holds or serves from its own database, files and CPU. Anything that can reach a paid external provider needs identity, then an eligible paid plan, then VX/budget where it is charged, then the provider, in that order, on the server.
+> A trial account may use what Visionex already holds or serves from its own database, files and CPU. Anything that can reach a paid external provider, or a service billed per use by an outside host, needs identity, then an eligible paid plan, then VX/budget where it is charged, then the provider, in that order, on the server.
 
-One declaration: [`src/lib/access/policy.ts`](../../src/lib/access/policy.ts). It adds **no price and no plan** (those stay in `lib/billing/plans.ts`) and **replaces no enforcement** (`ai_subscription_gate`, `plan_for_user`, the VX meter and the daily limits keep doing the work). What it adds is a written, tested answer to "does this reach a paid provider, and what must be true first", per Edge Function and per user-facing operation, plus `decideAccess()` which returns one of: allow (internal / saved / provider) or refuse with a reason and a translation key (`sign_in`, `trial_excluded`, `plan_required`, `plan_not_included`, `insufficient_vx`, `unavailable`, `review`).
+One declaration: [`src/lib/access/policy.ts`](../../src/lib/access/policy.ts). It holds **no price and no plan** (those stay in `lib/billing/plans.ts`) and **replaces no enforcement** (`ai_subscription_gate`, `plan_for_user`, the VX meter and the daily limits keep doing the work). It adds a written, tested answer to "does this reach a paid provider, and what must be true first", per Edge Function and per user-facing operation, plus `decideAccess()` returning allow (internal / saved / provider) or a refusal with a reason and a translation key.
 
-The tests that keep the table honest (`src/test/access-policy.test.ts`, 54 tests): every directory under `supabase/functions` is classified and nothing else is; a function whose source reaches a paid provider can never be A, B or C (mutation-checked: flipping `ai-chat` to B turns it red); every D function's source shows the guard its row names; the subscription gate precedes the first provider call in every gated function; cron/admin provider functions demand their secret or role; the webhooks demand the sender gate; a trial-allowed operation can never touch a paid provider except through a stored answer served first; the policy file holds no price.
+Tests that keep the table honest (`src/test/access-policy.test.ts`, 56 tests): every directory under `supabase/functions` is classified and nothing else is; a function whose source reaches a paid provider can never be A, B or C (mutation-checked); every D function's source shows the guard its row names; the subscription gate precedes the first provider call in every gated function; cron/admin provider functions demand their secret or role; webhooks demand the sender gate; LiveKit checks the plan before reading the body or signing a token; a trial-allowed operation can never touch a paid provider except through a stored answer served first; the policy file holds no price.
 
-Classes: **A** free in the trial (stored or local content) · **B** free with limits (Visionex's own CPU, database or bandwidth) · **C** needs identity or a verified signature, grants no provider access · **D** paid external provider, closed to the trial · **R** needs review (cost not established), treated as closed.
+Classes: **A** free in the trial (stored or local content) · **B** free with limits (Visionex's own CPU, database or bandwidth) · **C** identity or a verified signature, grants no provider access · **D** paid external provider or per-use billed service, closed to the trial · **R** needs review (cost not established), treated as closed.
 
-## 2. What changed
+## 2. What the PR does
 
 | Change | Where | Effect |
 |---|---|---|
-| The trial opens `academy`, `library`, `arcade` (plus the free set) | `TRIAL_SECTIONS` in `plans.ts`; migration `20261078` (`trial_sections()`) | A free-week account can read lessons and books and play browser games. Opens **no** billable operation: every AI Edge Function still asks `ai_subscription_gate`, which the trial does not pass. |
-| A saved library answer is served **before** the gate, the daily limit and any provider | `library-ai-assistant` + `_shared/librarySavedAnswers.ts` | Before: refused without a paid plan even when Visionex held the answer, and a paid account spent one of its 40 daily units reading a row. Now: returned with `source: "saved"`; no provider, no gate, no VX, no daily unit. A miss or a lookup error falls through to the gate exactly as before. |
-| Saved answers are labelled | `source`, `saved_at`; a note under the summary; `library_ai_activity_log.metadata.source` | Accurate about origin: a stored answer is never presented as freshly generated. |
-| Six translated messages in all 20 locales, and the outdated free-week card rewritten | `access.*` keys, `plans.freeWeekBody` | The card used to promise "every section open, on the site and on WhatsApp", which was untrue since 20261063. |
-| Existing pins updated to the new rule, deliberately | `subscription-tiers`, `trial-entitlement`, `trial-entitlement-scenarios.mjs`, `library-saved-external-scenarios.mjs`, `gate-stubs.mjs` | Each still asserts "the trial is never every section and never an AI service"; the exact set changed from 3 to 6 sections. |
+| The free week opens `academy`, `library`, `arcade` | `TRIAL_SECTIONS` (`plans.ts`); migration `20261078` `trial_sections()` | A free-week account can read lessons and books and play browser games. No AI function opens: each still asks `ai_subscription_gate`, which the trial does not pass. |
+| **Kids opens the same three** | `KIDS_PLAN` (`plans.ts`); migration `20261078` updates the `kids` row's `limits.sections` (union, idempotent) | A Kids subscriber has at least what the free week has. Kids was already AI-eligible, so no new AI exposure; the upgrade prompt for these sections points at Basic, never at the children's plan (`cheapestTierFor`). |
+| A saved library answer is served **before** the gate, the daily limit and any provider | `library-ai-assistant` + `_shared/librarySavedAnswers.ts` | Before: refused without a paid plan even when Visionex held the answer, and a paid account spent a daily unit reading a row. Now: returned with `source: "saved"` and `saved_at`, no provider, no gate, no VX, no daily unit. A miss or lookup error falls to the gate as before. |
+| **LiveKit now requires a paid plan or admin** | `livekit-token` + `hasActivePaidPlan` (`_shared/entitlements.ts`) | See section 4. Fails closed (503) if the plan cannot be read. |
+| Six access messages in all 20 locales; the free-week card rewritten | `access.*`, `plans.freeWeekBody` | The card promised "every section open, on the site and on WhatsApp", untrue since 20261063. |
 
-## 3. Provider calls avoided
+## 3. Provider calls avoided: none yet, and no saving is claimed
 
-Measured today **[M]**: `library_ai_content_cache` 0 rows, `library_ai_summaries` 0 rows, `library_ai_activity_log` 0 rows, 0 provider events from any `library-*` function, 8 books, 0 audiobooks. **So the saved-answer path has avoided zero calls so far, because nothing has been stored yet.** The cache is filled only after a paid account generates something; a trial account will see saved answers only for what paid users have already asked. Hits are now countable: `select metadata->>'source', count(*) from library_ai_activity_log group by 1`, and each hit also writes one structured log line (`event: saved_hit, provider_called: false`). Provider calls are counted separately in `ai_usage_events` (by `function_name`). There is no baseline to compare against until traffic exists.
+Measured today **[M]**: `library_ai_content_cache` 0 rows, `library_ai_summaries` 0 rows, `library_ai_activity_log` 0 rows, 0 provider events from any `library-*` function, 8 books, 0 audiobooks. **The stored-answer path has avoided zero calls in production, because nothing has been stored.** The cache fills only after a paid account generates something.
+
+What is established is the **path**, not a saving **[H]**: `scripts/e2e/library-saved-answer-harness.ts` runs the real handler with the network replaced and a stored row seeded. A stored summary and a stored translation return 200 with `source: "saved"`; zero requests reach any AI provider host; zero RPCs are made (no gate, no daily limit, no VX); only the cache table is read. A request with no stored answer and no plan is refused 403 at the gate with zero provider requests; a mode that is never stored goes straight to the gate; no or invalid session returns 401 and no stored text. The same harness run against the previous handler fails 6 checks, which is the original defect: an unsubscribed account was refused even a stored answer.
+
+Until the cache holds usable answers and a deployed production request is observed returning one (`select metadata->>'source', count(*) from library_ai_activity_log group by 1` and the `saved_hit` log line), this is "designed not to call a provider on a hit", not a cost saving. There is no baseline to compare against.
 
 ## 4. Existing restrictions that conflict with the policy
 
 | Finding | Status |
 |---|---|
-| The trial could not open stored-content sections (academy, library, arcade) | **Changed** |
+| The trial could not open stored-content sections | **Changed** |
+| Kids subscribers would have had less than the free week | **Changed** (this decision) |
 | A saved library answer was behind the paid gate | **Changed** (`library-ai-assistant` only) |
 | The free-week card promised "every section" | **Changed** |
-| The other library functions that keep their own saved tables (`library-librarian-summary`, flashcard/practice-exam generators, `library-ai-chat`) gate first and have no stored-first path | **Open**: gated, so safe, but a trial account cannot read what they stored |
-| WhatsApp holds a trial sender silent after one notice, including for local menus and stored content | **Open, needs review**: the webhook is large and the change touches message handling; no local feature is served to a trial number |
-| `livekit-token` mints a room token for any signed-in account; the voice-rooms section needs Pro but the function does not check it | **Open (R)**: LiveKit minutes may be billed by the host; unknown |
-| Kids is a separate product: a Kids subscriber has fewer sections than the free week | **Owner decision** (pinned by a test as a known gap) |
-| Games that speak through `text-to-speech` are refused for a trial account (gated), and whether each falls back to local or browser speech was not audited | **Unverified** |
-| Read-aloud in the library: uses stored audio only when an audiobook exists; production has 0 audiobooks | **Unverified** beyond that |
+| **`livekit-token` handed a two-hour room token with publish rights to any signed-in account** (free week, expired, any plan). The voice-rooms lobby is a Pro section, but joining a room (`/community/room/:id`) falls under the free community section and the function checked nothing. Demonstrated: the previous handler fails 3 harness checks **[H]** | **Changed**: paid plan or admin required, before the body is read; 403 for a trial/free/expired account, 503 if unreadable. Behaviour change: an expired or free account can no longer join a voice room until it subscribes. Kids voice rooms keep working (Kids is a paid plan). |
+| WhatsApp holds a trial or unlinked sender at a static notice (no model, no provider, no VX) and, since #471, repeats it at most once per 10 minutes per number | **Unchanged and verified** (section 6). No AI cost. The notice is an outbound message that Meta may bill past the 1,000 free service messages a month per number; the count per sender is capped at 144 a day but not across senders |
+| The other library functions that keep their own saved tables gate first | **Open**: safe, but a trial account cannot read what they stored |
+| `mobility` calls map services and partners; cost not established | **Open (R)** |
+| The AI gate is plan-eligibility, not section-aware: any AI-eligible plan, Kids included, can call any gated AI function directly (the five media endpoints and `file-convert` add a section check) | **Open, pre-existing**; opening sections did not change it |
 
 ## 5. Genuinely free versus hidden infrastructure cost
 
-Free of provider cost **[C]**: news, assistive-product catalogue, Academy lessons and exercises, library reading and stored answers, browser games (VX spent on a game is an internal ledger row), account settings.
+Free of provider cost **[C]**: news, the assistive catalogue, Academy lessons and exercises, library reading and stored answers, browser games (the game pages call no Edge Function; VX spent on a game is an internal ledger row), account settings.
 
-Not free of infrastructure, though not a paid-provider call: `file-convert` (own server CPU and bandwidth, 10/day, gated), radio/TV stream tokens (bandwidth through the stream proxy, plan-gated), `library-import-book` (fetch and storage), `moderate-content` (OpenAI's free moderation endpoint, rate-bound by the platform), community posts and uploads (storage), `mobility` (keyless map services and partners; cost not established, class R), Supabase Edge invocations (the project is on the free plan today).
+Opening Academy, Library and Arcade to the free week and Kids adds **no paid-provider path**: the only functions those areas call that reach a provider (`academy-chat`, the `library-*` AI functions, `text-to-speech` for read-aloud, `ocr-scan`) are all behind the AI gate or the voice guard, and the external-content search runs inside `library-research-assistant`, also gated. Infrastructure effect is small today **[M]**: 8 books, 3 chapters, 6 courses, no library or academy files in storage (the only stored objects are 31 MB of social-media and video outputs), 20 accounts. The costs that scale with use are Supabase reads and writes (reading progress, academy progress, activity logs), storage egress for book files once they exist, and Edge Function invocations; the project is on the Supabase free plan, so quotas rather than invoices are the exposure. Not provider-billed but metered by us: `file-convert` (own server, gated), radio/TV stream tokens (bandwidth), `library-import-book` (fetch and storage), `moderate-content` (OpenAI's free moderation endpoint).
 
-## 6. Edge Functions and operations
+## 6. WhatsApp and LiveKit
+
+**WhatsApp [C][T]:** `whatsapp_entitlements` still returns `allowed: false` for a free-week account (pinned by `trial-entitlement.test.ts` and `trial-entitlement-scenarios.mjs`, which pass with migration 20261078 applied); the webhook asks `requireActiveSubscription` before any model call; this PR changes neither. Exposure that remains: the static notice described above. The webhook is not opened to the trial and was not edited.
+
+**LiveKit [H][T]:** now requires a paid plan or admin server-side. The billing exposure of LiveKit itself (cloud or self-hosted, per-minute rate) is still **unknown**; the control is a gate, not a limit. There is no per-account room-minute cap, and a paying account could still run rooms for hours (token TTL is two hours, and a new token can be requested).
+
+## 7. Edge Functions and operations
 
 | Operation | Section | Class | Sign-in | Trial | Paid provider | Needs plan | VX | Stored answer first | Edge functions |
 |---|---|---|---|---|---|---|---|---|---|
@@ -74,7 +84,7 @@ Not free of infrastructure, though not a paid-provider call: `file-convert` (own
 | vision.analyse | assistant | D | yes | no | yes | yes | fixed | no | analyze-image, radar-ai, ocr-scan, analyze-meal |
 | whatsapp.ai | - | D | yes | no | yes | yes | shadow | yes | whatsapp-webhook, meta-messaging-webhook |
 | kids.ai | kids | D | yes | no | yes | yes | none | no | kids-ai-teacher, kids-story-generate |
-| voice.rooms | messages | R | yes | no | no | no | none | no | livekit-token |
+| voice.rooms | - | D | yes | no | yes | yes | none | no | livekit-token |
 
 | Edge function | Class | Guard | Trial | Note |
 |---|---|---|---|---|
@@ -149,7 +159,7 @@ Not free of infrastructure, though not a paid-provider call: `file-convert` (own
 | library-track-reading | C | unverified | yes | Reading time tracking. |
 | library-translate-book-metadata | D | ai_gate | no | Subscription gate runs before the provider call. |
 | library-translate-comment | D | ai_gate | no | Subscription gate runs before the provider call. |
-| livekit-token | R | jwt | no | Mints a LiveKit room token for any signed-in user. LiveKit minutes may be billed by the host; the section (messages/voice rooms) needs Pro but the function does not check it. |
+| livekit-token | D | paid_plan | no | LiveKit rooms are billed per participant-minute by the host (billing not verified). Requires an active paid plan or admin, checked server-side before a token is signed; fails closed. |
 | meta-messaging-webhook | D | webhook_gate | no | Messenger/Instagram webhook; AI answers need an active plan. |
 | mobility | R | jwt | no | Calls keyless map services and travel partners; costs not established. |
 | moderate-content | B | jwt | yes | Calls the free OpenAI moderation endpoint (no charge); signed-in only. Deliberately outside the subscription gate so child safety checks keep working. |
@@ -177,34 +187,47 @@ Not free of infrastructure, though not a paid-provider call: `file-convert` (own
 | vx-coin-review | C | unverified | yes | VX review actions. |
 | whatsapp-webhook | D | webhook_gate | no | WhatsApp webhook; AI answers need an active plan. Local menus/audio for the trial are NOT yet served: the gate stays silent for them. |
 
-Counts: {"D":58,"C":26,"R":3,"B":11}
+Counts: {"D":59,"C":26,"R":2,"B":11}
 
-## 7. Rollout and rollback
+## 8. Migration `20261078`: exact effects, rollout and rollback
 
-**Order (each step is safe on its own):**
-1. Deploy the Edge Function change first (`library-ai-assistant` + the shared module). It changes no entitlement; it only serves stored answers earlier. Watch `saved_hit` log lines and `ai_usage_events` for `library-*` calls.
-2. Apply migration `20261078` and deploy the SPA (`TRIAL_SECTIONS`). The pipeline already runs migrations before functions; the SPA follows. Watch trial accounts: the count of `ai_subscription_gate_notices` (the gate still refuses them) and any new provider events attributable to a trial account (there should be none).
-3. Seed the cache deliberately (an offline, owner-approved run of the existing summary generator over the 8 books) so the trial has something to read. Not done here: it spends money.
+**What it runs** (all idempotent; applied twice in PGlite and a third time in a scenario, with identical results):
+1. `CREATE OR REPLACE FUNCTION public.trial_sections()` returning `{news, community, assistive, academy, library, arcade}`. The function is read by `user_sections` and `my_plan_access` for accounts whose resolved plan is `free_trial`. It is `IMMUTABLE`, grants unchanged.
+2. `UPDATE public.billing_plans SET limits = jsonb_set(...) WHERE id = 'kids' AND NOT (limits->'sections' @> '["academy","library","arcade"]')`: a **union** (existing entries stay, the three are added), touching only `limits.sections` of the one `kids` row. Its price (3.00), VX (3,000), `whatsapp_daily_messages` (50) and every other plan row are asserted untouched by the scenario script.
+
+**What it does not touch:** `user_subscriptions`, `subscription_orders`, `profiles`, `user_points`, any balance, any price, any other plan, any policy or grant.
+
+**Existing users and subscriptions [M]:** 20 profiles, 1 inside the free week, 0 rows in `user_subscriptions`, 1 pending Business order. So no live subscriber's entitlement moves; the only accounts affected are those in the free week (they gain three sections) and any future Kids subscriber.
+
+**Order:** the pipeline runs migrations, then Edge Functions, then the SPA. Safe in that order: the migration alone opens the sections server-side RPCs (`library_save_external_item` checks `user_has_section('library')`, so a trial or Kids account can now keep a shelf entry, a metadata row); the SPA's `TRIAL_SECTIONS`/`KIDS_PLAN` then unlocks the routes. If the SPA deployed first, routes would stay locked and nothing breaks.
+
+**Deployment effects of the whole PR:** Edge Functions redeployed: `library-ai-assistant` and `livekit-token`, plus any function that imports the edited shared file `_shared/entitlements.ts` (the media-studio functions), which change only by gaining an unused export. SPA: new `plans.ts`, a note under the summary, 20 locale files. No secret, workflow or config change.
 
 **Rollback:**
-- Section change: re-create `trial_sections()` with the three-element array from `20261063` (one `CREATE OR REPLACE`), and revert `TRIAL_LOCAL_SECTIONS` in `plans.ts`. No row, price or balance is touched either way.
-- Saved-first path: revert `library-ai-assistant/index.ts`; the shared module and the activity-log `source` field are additive.
+- Entitlements: `CREATE OR REPLACE FUNCTION public.trial_sections()` with the three-element array from `20261063`, and `UPDATE public.billing_plans SET limits = jsonb_set(limits, '{sections}', '["news","community","assistive","kids"]') WHERE id = 'kids';`, and revert `TRIAL_LOCAL_SECTIONS` / `KIDS_PLAN`. No data is lost either way.
+- Saved-first path: revert `library-ai-assistant/index.ts`; the shared module and the `source` field in the activity log are additive.
+- LiveKit: revert `livekit-token/index.ts`; this restores the open behaviour, so decide knowingly.
 - Locale keys are additive.
 
-## 8. Unresolved risks and decisions for you
+**Staged rollout:** (1) Edge Functions first. They change no entitlement; they only serve stored answers earlier and require a plan for LiveKit. Watch voice-room join failures from expected paying accounts and `saved_hit` lines. (2) Migration then SPA. Watch `ai_subscription_gate_notices` and new provider events attributable to free-week accounts (expect none). (3) Seed the cache only after approval (it spends provider money).
 
-1. **Approve the trial change** (academy, library, arcade). Decide whether Kids subscribers should also get them.
-2. **WhatsApp for trial senders** (local menus, stored content) is not changed; it needs its own review.
-3. **`livekit-token`**: confirm whether LiveKit is self-hosted; if it is billed, add the section check.
-4. The saved-answer path is **verified in code and in tests, but unproven in production** until there is something stored.
-5. A shared cache means one account's summary is shown to another. That is the existing design (the tables are shared and the underlying text was already accessible to the requester); it was not changed, and it means a stale summary stays until replaced.
-6. Pages that call a gated function (the AI panel in the reader) show the existing subscription notice; the new sign-in and not-included messages are translated and tested but not yet shown by a screen, because the existing notice component handles only the 403 case.
-7. 26 Edge Functions have a guard that was **not proven** in this audit (`guard: unverified`); a test caps that number so it can only shrink.
+## 9. Remaining risks and open decisions
 
-## 9. How to reproduce
+1. The saved-answer cache is empty; no saving exists or is claimed until it holds answers and a deployed request is seen returning one.
+2. LiveKit's own billing is unknown, and there is no room-minute cap. The change closes access to non-payers only.
+3. A free or expired account can no longer join community voice rooms (previously possible by direct link). If that is not wanted, the check can be narrowed to the free week only.
+4. WhatsApp: the static notice repeats every 10 minutes per number with no cross-sender cap; trial senders get no local content.
+5. The AI gate is not section-aware (pre-existing).
+6. The new sign-in and not-included messages are translated and tested but no screen shows them yet; `livekit-token` refusals show as a generic error in the room page.
+7. 26 Edge Functions have a guard not proven here (`guard: unverified`); a test caps that number.
+8. Games that speak through gated `text-to-speech` are refused for the free week; whether each falls back to local or browser speech was not audited.
+
+## 10. How to reproduce
 
 ```
-npx vitest run src/test/access-policy.test.ts          # 54 tests
-npx vite-node scripts/finance/access-tables.ts          # regenerates the tables above
-node scripts/sql/trial-entitlement-scenarios.mjs        # the trial rule in PGlite (npm i --no-save @electric-sql/pglite)
+npx vitest run src/test/access-policy.test.ts          # 56 tests
+npx vite-node scripts/finance/access-tables.ts          # regenerates the tables
+node scripts/sql/trial-entitlement-scenarios.mjs        # trial + Kids row, idempotence (npm i --no-save @electric-sql/pglite)
+deno run --no-lock --node-modules-dir=none -A scripts/e2e/library-saved-answer-harness.ts   # real handler, network replaced
+deno run --no-lock --node-modules-dir=none -A scripts/e2e/livekit-gate-harness.ts           # real handler, network replaced
 ```

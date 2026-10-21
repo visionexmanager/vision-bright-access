@@ -90,3 +90,18 @@ export function sectionRefusal(section: Section, unavailable = false): Response 
     headers: { "Content-Type": "application/json" },
   });
 }
+
+/**
+ * Is this account on an active paid plan (Kids, Basic, Pro or Business), or an
+ * admin? For services that are not AI but are billed per use by an outside host
+ * (LiveKit rooms), where the question is "is this a paying customer" rather than
+ * "does the plan open a section". Same predicate as the AI gate
+ * (`ai_user_entitled`), without the gate's notice bookkeeping.
+ *
+ * Fails closed: an unreadable answer is "no".
+ */
+export async function hasActivePaidPlan(db: EntitlementDb, userId: string): Promise<SectionVerdict> {
+  const { data, error } = await db.rpc("ai_user_entitled", { _user_id: userId });
+  if (error) return { allowed: false, unavailable: true };
+  return { allowed: data === true };
+}

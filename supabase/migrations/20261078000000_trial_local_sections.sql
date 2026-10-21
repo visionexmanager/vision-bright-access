@@ -1,4 +1,4 @@
--- The free week opens the sections whose content is stored on Visionex.
+-- The free week and the Kids plan open the sections whose content is stored on Visionex.
 --
 -- Cost-aware trial policy (src/lib/access/policy.ts). 20261063 made the trial
 -- the free set only (news, community, assistive products), which was safe but
@@ -7,7 +7,9 @@
 -- not even read a library book or play a game.
 --
 -- This adds exactly three sections to `trial_sections()`: academy, library,
--- arcade. It opens no billable operation:
+-- arcade, and the same three to the Kids plan row (approved 2026-10-21: a Kids
+-- subscriber must not have less than the free week). It opens no billable
+-- operation:
 --
 --   * AI is a separate question from the section. Every Edge Function that can
 --     reach a paid provider asks `ai_subscription_gate` first, and the gate
@@ -18,10 +20,16 @@
 --   * WhatsApp is untouched: `whatsapp_entitlements` still holds the trial
 --     silent after one notice.
 --
--- Mirrors TRIAL_SECTIONS in src/lib/billing/plans.ts (subscription-tiers.test.ts
--- pins the two). Idempotent; changes no row, no price, no balance, no
--- subscription. Rollback: re-create the function with the three-element array
--- from 20261063.
+-- Mirrors TRIAL_SECTIONS and KIDS_PLAN in src/lib/billing/plans.ts. Idempotent
+-- (re-running changes nothing). Touches ONE data row: billing_plans 'kids',
+-- limits.sections only — its price, VX, WhatsApp allowance and every other plan
+-- are untouched, and no subscription, order, balance or profile is written.
+-- At the last read there were 0 subscriptions, so no live entitlement moves.
+--
+-- Rollback: re-create trial_sections() with the three-element array from
+-- 20261063, and remove 'academy', 'library', 'arcade' from the kids row:
+--   UPDATE public.billing_plans SET limits = jsonb_set(limits, '{sections}',
+--     '["news","community","assistive","kids"]'::jsonb) WHERE id = 'kids';
 
 CREATE OR REPLACE FUNCTION public.trial_sections()
 RETURNS text[]
@@ -35,3 +43,22 @@ COMMENT ON FUNCTION public.trial_sections() IS
 
 REVOKE ALL ON FUNCTION public.trial_sections() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.trial_sections() TO authenticated, service_role;
+
+-- ── The Kids plan keeps what it had and gains the same three ───────────────
+--
+-- A union, not an overwrite: whatever the row lists today stays, and the three
+-- are added if missing. The WHERE makes a second run a no-op.
+
+UPDATE public.billing_plans p
+   SET limits = jsonb_set(
+         p.limits,
+         '{sections}',
+         (SELECT to_jsonb(array_agg(s ORDER BY s))
+            FROM (
+              SELECT jsonb_array_elements_text(COALESCE(p.limits -> 'sections', '[]'::jsonb)) AS s
+              UNION
+              SELECT unnest(ARRAY['academy', 'library', 'arcade'])
+            ) u)
+       )
+ WHERE p.id = 'kids'
+   AND NOT (COALESCE(p.limits -> 'sections', '[]'::jsonb) @> '["academy", "library", "arcade"]'::jsonb);

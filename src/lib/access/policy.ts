@@ -44,6 +44,7 @@ export type Guard =
   | "ai_gate"       // subscriptionGate -> ai_subscription_gate
   | "voice_guard"   // guardVoiceRequest (identity, plan, limit)
   | "webhook_gate"  // requireActiveSubscription for a WhatsApp/Messenger sender
+  | "paid_plan"     // hasActivePaidPlan: a paying account or an admin, for billed non-AI services
   | "unverified";   // not proven in this audit: listed, counted, and capped by a test
 
 export interface EdgePolicy {
@@ -127,7 +128,7 @@ export const EDGE_POLICY: Readonly<Record<string, EdgePolicy>> = {
   "library-track-reading": { cls: "C", guard: "unverified", trial: true, note: "Reading time tracking." },
   "library-translate-book-metadata": { cls: "D", guard: "ai_gate", trial: false, note: "Subscription gate runs before the provider call." },
   "library-translate-comment": { cls: "D", guard: "ai_gate", trial: false, note: "Subscription gate runs before the provider call." },
-  "livekit-token": { cls: "R", guard: "jwt", trial: false, note: "Mints a LiveKit room token for any signed-in user. LiveKit minutes may be billed by the host; the section (messages/voice rooms) needs Pro but the function does not check it." },
+  "livekit-token": { cls: "D", guard: "paid_plan", trial: false, note: "LiveKit rooms are billed per participant-minute by the host (billing not verified). Requires an active paid plan or admin, checked server-side before a token is signed; fails closed.", },
   "meta-messaging-webhook": { cls: "D", guard: "webhook_gate", trial: false, note: "Messenger/Instagram webhook; AI answers need an active plan." },
   "mobility": { cls: "R", guard: "jwt", trial: false, note: "Calls keyless map services and travel partners; costs not established." },
   "moderate-content": { cls: "B", guard: "jwt", trial: true, note: "Calls the free OpenAI moderation endpoint (no charge); signed-in only. Deliberately outside the subscription gate so child safety checks keep working." },
@@ -202,7 +203,7 @@ export const OPERATIONS: readonly OperationPolicy[] = [
   op({ id: "vision.analyse", section: "assistant", cls: "D", requiresAuth: true, trialAllowed: false, paidProvider: true, needsPaidPlan: true, vx: "fixed", localFallback: false, edge: ["analyze-image", "radar-ai", "ocr-scan", "analyze-meal"], limits: "20/day each" }),
   op({ id: "whatsapp.ai", section: null, cls: "D", requiresAuth: true, trialAllowed: false, paidProvider: true, needsPaidPlan: true, vx: "shadow", localFallback: true, edge: ["whatsapp-webhook", "meta-messaging-webhook"], limits: "daily operations per plan; trial is held silently after one notice" }),
   op({ id: "kids.ai", section: "kids", cls: "D", requiresAuth: true, trialAllowed: false, paidProvider: true, needsPaidPlan: true, vx: "none", localFallback: false, edge: ["kids-ai-teacher", "kids-story-generate"], limits: "per-user daily limits" }),
-  op({ id: "voice.rooms", section: "messages", cls: "R", requiresAuth: true, trialAllowed: false, paidProvider: false, needsPaidPlan: false, vx: "none", localFallback: false, edge: ["livekit-token"], limits: "NOT enforced on the server: any signed-in account can mint a room token" }),
+  op({ id: "voice.rooms", section: null, cls: "D", requiresAuth: true, trialAllowed: false, paidProvider: true, needsPaidPlan: true, vx: "none", localFallback: false, edge: ["livekit-token"], limits: "paid plan or admin only; LiveKit billing exposure and limits not yet verified, so no trial access" }),
 ] as const;
 
 export function operationById(id: string): OperationPolicy | undefined {

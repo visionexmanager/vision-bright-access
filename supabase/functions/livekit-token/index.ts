@@ -1,5 +1,6 @@
 import { AccessToken } from "npm:livekit-server-sdk@2";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { hasActivePaidPlan } from "../_shared/entitlements.ts";
 
 const DEFAULT_ALLOWED_ORIGINS = ["https://visionex.app", "https://www.visionex.app"];
 
@@ -58,6 +59,21 @@ Deno.serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // A signed-in account is not a paying one. A LiveKit room is billed per
+    // participant-minute by the host, and until now any session, including the
+    // free week and a lapsed account, could mint a two-hour token with publish
+    // rights. Asked before the body is read or a token is signed. Fails closed.
+    const serviceClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const paid = await hasActivePaidPlan(serviceClient, user.id);
+    if (!paid.allowed) {
+      return new Response(
+        JSON.stringify(paid.unavailable
+          ? { error: "entitlement_unavailable", message: "We could not confirm your plan just now. Please try again in a moment." }
+          : { error: "subscription_required", message: "Voice rooms are available with an active plan." }),
+        { status: paid.unavailable ? 503 : 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const { roomId, userName } = await req.json();

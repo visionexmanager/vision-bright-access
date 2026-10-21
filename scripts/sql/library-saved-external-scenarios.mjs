@@ -61,7 +61,10 @@ const trialId = await save();
 expect("free week (trial) → saved: the Library is a trial section since 20261078", !!trialId && (await count(u(1))) === 1);
 await db.exec(`delete from library_saved_external_items where user_id = '${u(1)}'`);
 await as(u(4));
-expect("Kids plan (no Library section) → refused", /subscription_required/.test((await rejects(() => save())) ?? ""));
+// 20261078: Kids also opens the Library (approved 2026-10-21), so a Kids subscriber may keep a shelf entry.
+const kidsId = await save();
+expect("Kids plan (has the Library since 20261078) → saved", !!kidsId && (await count(u(4))) === 1);
+await db.exec(`delete from library_saved_external_items where user_id = '${u(4)}'`);
 await as(u(2));
 const id1 = await save();
 expect("Basic (has the Library) → saved", !!id1 && (await count(u(2))) === 1);

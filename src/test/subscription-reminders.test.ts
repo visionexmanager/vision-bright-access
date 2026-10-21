@@ -26,8 +26,9 @@ const row = { plan_id: "business", plan_name: "Business", ends_at: "2026-09-15T1
 describe("the Kids plan", () => {
   it("costs three dollars and opens VisionKids, and nothing a tier sells", () => {
     expect(KIDS_PLAN.price).toBe(3);
-    expect([...KIDS_PLAN.sections].sort()).toEqual([...FREE_SECTIONS, "kids"].sort());
-    for (const other of ["assistant", "academy", "arcade", "library", "marketplace"] as const) {
+    // 2026-10-21: Kids also opens the three stored-content sections the free week opens (migration 20261078).
+    expect([...KIDS_PLAN.sections].sort()).toEqual([...FREE_SECTIONS, "kids", "academy", "arcade", "library"].sort());
+    for (const other of ["assistant", "marketplace"] as const) {
       expect(planAllows("kids", other), other).toBe(false);
     }
     expect(planAllows("kids", "kids")).toBe(true);
@@ -46,7 +47,11 @@ describe("the Kids plan", () => {
     expect(tuple).toMatch(/^\('kids', 'Kids', '[^']+',\s*3, 0, false/);
     const array = tuple.slice(tuple.indexOf("jsonb_build_array(") + "jsonb_build_array(".length);
     const seeded = [...array.slice(0, array.indexOf(")")).matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]);
-    expect(seeded.sort()).toEqual([...KIDS_PLAN.sections].sort());
+    // The seed (20261014) plus what 20261078 adds to the row: the two together are the plan in code.
+    const additions = readFileSync("supabase/migrations/20261078000000_trial_local_sections.sql", "utf8");
+    expect(additions).toMatch(/WHERE p\.id = 'kids'/);
+    expect(additions).toMatch(/ARRAY\['academy', 'library', 'arcade'\]/);
+    expect([...seeded, "academy", "library", "arcade"].sort()).toEqual([...KIDS_PLAN.sections].sort());
     expect(Number(/'whatsapp_daily_messages',\s*(\d+)/.exec(tuple)?.[1])).toBe(KIDS_PLAN.whatsappDaily);
   });
 

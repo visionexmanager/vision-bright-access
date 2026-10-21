@@ -45,6 +45,17 @@ expect("free_trial row: sections are the three free ones, not eighteen", JSON.st
 expect("free_trial row: the 200-a-day WhatsApp allowance is gone (0 would mean unlimited, so the key is removed)", !("whatsapp_daily_messages" in row.limits));
 expect("free_trial row: copy no longer promises every section", !/every section/i.test(JSON.stringify(row.features)) && !/every section (open|of)/i.test(row.description));
 
+// ── 0b. The Kids plan row (20261078): union, nothing else touched, idempotent ──
+const kidsRow = await one("select price_monthly_usd::numeric p, limits from public.billing_plans where id = 'kids'");
+expect("kids row: keeps news/community/assistive/kids and gains academy, arcade, library",
+  JSON.stringify(sorted(kidsRow.limits.sections)) === JSON.stringify(["academy", "arcade", "assistive", "community", "kids", "library", "news"]));
+expect("kids row: price and WhatsApp allowance untouched", Number(kidsRow.p) === 3 && kidsRow.limits.whatsapp_daily_messages === 50);
+const proRow = await one("select limits from public.billing_plans where id = 'pro'");
+expect("pro row untouched by the Kids update", proRow.limits.sections.length === 14);
+await db.exec(migration);
+const kidsAgain = await one("select limits from public.billing_plans where id = 'kids'");
+expect("a third run changes nothing (idempotent)", JSON.stringify(sorted(kidsAgain.limits.sections)) === JSON.stringify(sorted(kidsRow.limits.sections)) && kidsAgain.limits.sections.length === 7);
+
 // ── 1. Trial only ──
 await db.exec(`INSERT INTO profiles VALUES ('${u(1)}', now() + interval '5 days')`);
 expect("trial only → plan free_trial", (await plan(u(1))) === "free_trial");

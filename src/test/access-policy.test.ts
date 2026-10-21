@@ -29,6 +29,7 @@ const GUARD_EVIDENCE: Record<Guard, RegExp | null> = {
   ai_gate: /subscriptionGate\(/,
   voice_guard: /guardVoiceRequest\(/,
   webhook_gate: /requireActiveSubscription\(/,
+  paid_plan: /hasActivePaidPlan\(/,
 };
 /** Functions whose gate lives in a shared handler rather than their own file. */
 const GATED_VIA: Record<string, RegExp> = { "career-ai": /handleStructuredCareerAiRequest/ };
@@ -56,7 +57,7 @@ describe("the Edge Function table", () => {
   it("gives every D function a real guard, and the source of that function shows it", () => {
     for (const [name, p] of Object.entries(EDGE_POLICY)) {
       if (p.cls !== "D") continue;
-      expect(["ai_gate", "voice_guard", "webhook_gate", "admin", "cron", "owner"], `${name}: guard ${p.guard}`).toContain(p.guard);
+      expect(["ai_gate", "voice_guard", "webhook_gate", "paid_plan", "admin", "cron", "owner"], `${name}: guard ${p.guard}`).toContain(p.guard);
       const evidence = GUARD_EVIDENCE[p.guard]!;
       const source = dirSource(name);
       const ok = evidence.test(source) || (GATED_VIA[name]?.test(source) ?? false);
@@ -97,6 +98,16 @@ describe("the Edge Function table", () => {
     for (const name of ["analytics-insights", "enrich-product", "kids-course-generate", "embed-content"]) {
       expect(dirSource(name), name).toMatch(/has_role|user_roles/);
     }
+  });
+
+  it("LiveKit: the plan is checked before the body is read or a token is signed, and a trial cannot reach it", () => {
+    const src = dirSource("livekit-token");
+    expect(src.indexOf("hasActivePaidPlan(")).toBeGreaterThan(-1);
+    expect(src.indexOf("hasActivePaidPlan(")).toBeLessThan(src.indexOf("await req.json()"));
+    expect(src.indexOf("hasActivePaidPlan(")).toBeLessThan(src.indexOf("new AccessToken("));
+    expect(EDGE_POLICY["livekit-token"]).toMatchObject({ cls: "D", trial: false });
+    expect(decideAccess(operationById("voice.rooms"), { signedIn: true, plan: "free_trial" })).toMatchObject({ allow: false, reason: "trial_excluded" });
+    expect(decideAccess(operationById("voice.rooms"), { signedIn: true, plan: "kids" })).toMatchObject({ allow: true });
   });
 
   it("keeps webhooks behind the sender gate before any provider call", () => {
@@ -198,13 +209,14 @@ describe("decideAccess", () => {
   });
 
   it("a plan that does not open the section is told so, not told to subscribe", () => {
-    expect(decideAccess(op("library.ai_generate"), { signedIn: true, plan: "kids", vxBalance: 0 }, { providerAvailable: true }))
+    expect(decideAccess(op("assistant.chat"), { signedIn: true, plan: "kids", vxBalance: 0 }, { providerAvailable: true }))
       .toMatchObject({ allow: false, reason: "plan_not_included", messageKey: "access.planNotIncluded" });
   });
 
   it("14. treats an unknown or review-only operation as closed", () => {
     expect(decideAccess(undefined, basic)).toMatchObject({ allow: false, reason: "review", providerCalled: false });
-    expect(decideAccess(op("voice.rooms"), { signedIn: true, plan: "business" })).toMatchObject({ allow: false, reason: "review" });
+    const reviewOnly = { ...op("assistant.chat")!, id: "x.review", cls: "R" as const };
+    expect(decideAccess(reviewOnly, { signedIn: true, plan: "business" })).toMatchObject({ allow: false, reason: "review" });
   });
 
   it("admins pass the plan checks but are still subject to identity", () => {
@@ -341,5 +353,19 @@ describe("the policy does not become a second source of truth", () => {
     const code = src.split("\n").filter((l) => !l.trim().startsWith("//")).join("\n");
     expect(code).not.toMatch(/fetch\(|from "@\/integrations|supabase-js|Deno\./);
     expect(vi.isMockFunction(decideAccess)).toBe(false);
+  });
+});
+
+describe("hasActivePaidPlan", () => {
+  const db = (reply: { data: unknown; error: unknown }) => ({ rpc: vi.fn(async () => reply) });
+
+  it("allows only a literal true, asks the AI-entitlement predicate, and fails closed", async () => {
+    const { hasActivePaidPlan } = await import("../../supabase/functions/_shared/entitlements");
+    const yes = db({ data: true, error: null });
+    await expect(hasActivePaidPlan(yes, "u")).resolves.toEqual({ allowed: true });
+    expect(yes.rpc).toHaveBeenCalledWith("ai_user_entitled", { _user_id: "u" });
+    await expect(hasActivePaidPlan(db({ data: false, error: null }), "u")).resolves.toEqual({ allowed: false });
+    await expect(hasActivePaidPlan(db({ data: "true", error: null }), "u")).resolves.toEqual({ allowed: false });
+    await expect(hasActivePaidPlan(db({ data: null, error: { code: "x" } }), "u")).resolves.toEqual({ allowed: false, unavailable: true });
   });
 });

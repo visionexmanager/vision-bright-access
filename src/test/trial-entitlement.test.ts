@@ -58,17 +58,10 @@ describe("free_trial never resolves to all sections", () => {
     expect("TRIAL_WHATSAPP_DAILY" in plans).toBe(false);
   });
 
-  it("a nested tier opens more than the trial, so upgrading from the trial is never a downgrade", () => {
-    for (const plan of [PAID_PLANS.basic, PAID_PLANS.pro, PAID_PLANS.business]) {
-      for (const s of TRIAL_SECTIONS) expect(plan.sections).toContain(s);
+  it("every paid plan, Kids included, opens more than the trial, so subscribing is never a downgrade", () => {
+    for (const plan of Object.values(PAID_PLANS)) {
+      for (const s of TRIAL_SECTIONS) expect(plan.sections, plan.id).toContain(s);
     }
-  });
-
-  it("KNOWN GAP, owner decision: Kids is a separate product and does not open the trial's stored-content sections", () => {
-    // A Kids subscriber has FEWER sections than the free week. Either Kids gains academy/library/arcade
-    // (a paid-entitlement change) or this stays as it is. Pinned so the choice is deliberate.
-    const missing = TRIAL_SECTIONS.filter((s) => !PAID_PLANS.kids.sections.includes(s));
-    expect([...missing].sort()).toEqual(["academy", "arcade", "library"]);
   });
 });
 
