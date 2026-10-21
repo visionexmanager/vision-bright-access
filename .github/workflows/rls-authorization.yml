@@ -10,6 +10,7 @@ on:
   pull_request:
     paths:
       - supabase/migrations/**
+      - scripts/sql/voice-room-join-scenarios.mjs
       - scripts/sql/rls-authorization-scenarios.mjs
       - scripts/sql/vx-accounting-scenarios.mjs
       - scripts/sql/ai-budget-scenarios.mjs
@@ -32,10 +33,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Install the test-only database (not saved to package.json)
-        run: npm i --no-save @electric-sql/pglite
+      - name: Install the test-only databases (not saved to package.json)
+        run: npm i --no-save @electric-sql/pglite embedded-postgres pg
       - name: Run the matrix
         run: node scripts/sql/rls-authorization-scenarios.mjs
+      - name: Voice room join on real PostgreSQL (password, seats, price, races)
+        run: node scripts/sql/voice-room-join-scenarios.mjs
       - name: VX accounting invariants (hold, settle, release, reap)
         run: node scripts/sql/vx-accounting-scenarios.mjs
       - name: check_ai_budget against the rows ai-chat and Career AI really write
