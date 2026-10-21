@@ -197,7 +197,7 @@ All on the branch head described in section 9; commands as in CI.
 | Full vitest, build, SQL scenario scripts, axe, Trivy | see the CI result for the exact commit in the PR |
 | Not run: "Edge Function end-to-end" against real provider keys | runs only in CI; skipped locally by design |
 
-The new real-PostgreSQL realtime script is **not yet wired into a workflow**: editing `.github/workflows/*` needs your explicit approval (AGENTS.md). It runs locally with `npm i --no-save embedded-postgres pg`.
+The new real-PostgreSQL realtime script runs in the "RLS authorization matrix" workflow (step added with your approval for this PR only). Locally: `npm i --no-save embedded-postgres pg`.
 
 ## 7. Recommended settings (none applied)
 
@@ -212,7 +212,6 @@ The new real-PostgreSQL realtime script is **not yet wired into a workflow**: ed
 1. LiveKit room passwords, price and capacity: approve a server-side join design, or declare them unavailable until it exists (L1–L3).
 2. Whether Pro authors should keep the studio tools (this change makes them Business-only on the server, as the interface already is).
 3. The owning section for `library-embed-book`, `analyze-meal`, `generate-diet-plan`.
-4. Whether to add the realtime concurrency script to a workflow.
 5. Whether to set the WhatsApp budget (60/hour) and when.
 6. Whether to add a client end call for realtime sessions, and the outer `catch` wording.
 

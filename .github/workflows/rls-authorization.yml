@@ -17,6 +17,7 @@ on:
       - scripts/sql/page-events-retention-scenarios.mjs
       - scripts/sql/page-events-export-restore-rehearsal.mjs
       - scripts/sql/realtime-minutes-scenarios.mjs
+      - scripts/sql/realtime-minutes-concurrency.mjs
       - .github/workflows/rls-authorization.yml
 
 permissions:
@@ -32,8 +33,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Install the test-only database (not saved to package.json)
-        run: npm i --no-save @electric-sql/pglite
+      - name: Install the test-only databases (not saved to package.json)
+        run: npm i --no-save @electric-sql/pglite embedded-postgres pg
       - name: Run the matrix
         run: node scripts/sql/rls-authorization-scenarios.mjs
       - name: VX accounting invariants (hold, settle, release, reap)
@@ -48,3 +49,5 @@ jobs:
         run: node scripts/sql/page-events-export-restore-rehearsal.mjs
       - name: Monthly realtime-minute allowance (reserve, end, month boundary, privileges)
         run: node scripts/sql/realtime-minutes-scenarios.mjs
+      - name: Monthly realtime minutes under real concurrency (real PostgreSQL)
+        run: node scripts/sql/realtime-minutes-concurrency.mjs
