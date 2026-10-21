@@ -30,6 +30,9 @@ let banned = false;
 let kidsBanned = false;
 let admin = false;
 let profileName: string | null = "Sam Member";
+let joinVerdict: unknown = { allowed: true, charged: 0 };
+let joinFails = false;
+let joinArgs: any = null;
 let rpcs: string[] = [];
 let reads: string[] = [];
 let outside: string[] = [];
@@ -45,6 +48,10 @@ globalThis.fetch = async (input: Request | string | URL, init?: RequestInit) => 
     rpcs.push(name);
     if (name === "ai_user_entitled") return entitled === "error" ? json({ code: "XX000", message: "down" }, 500) : json(entitled);
     if (name === "has_role") return json(admin);
+    if (name === "voice_room_join") {
+      joinArgs = JSON.parse(await req.clone().text());
+      return joinFails ? json({ code: "XX000", message: "down" }, 500) : json(joinVerdict);
+    }
     return json(null);
   }
   if (url.pathname.startsWith("/rest/v1/")) {
@@ -69,7 +76,7 @@ if (!handler) throw new Error("no handler registered");
 let fail = 0;
 const check = (label: string, ok: boolean) => { if (!ok) fail++; console.log(`${ok ? "PASS" : "FAIL"}  ${label}`); };
 async function call(body: unknown = { roomId: ROOM, userName: "Harness" }, auth = true, raw?: string) {
-  rpcs = []; reads = []; outside = [];
+  rpcs = []; reads = []; outside = []; joinArgs = null;
   const res = await handler!(new Request("http://localhost/functions/v1/livekit-token", {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: "https://visionex.app", ...(auth ? { Authorization: "Bearer harness-user" } : {}) },
@@ -166,6 +173,67 @@ profileName = "Sam Member";
 r = await call({ roomId: ROOM, userName: "Visionex Admin" });
 check("a browser-supplied name cannot override the account's display name", decode(r.body.token).name === "Sam Member");
 check("no request left the process", outside.length === 0);
+
+// ── The password, the capacity and the price are decided by voice_room_join (migration 20261085) ──
+entitled = true; admin = false; room = { id: ROOM, is_active: true }; kidsRoom = { id: KIDS_ROOM, status: "live" }; banned = false; kidsBanned = false;
+joinVerdict = { allowed: true, charged: 0 };
+r = await call({ roomId: ROOM, password: "open-sesame", listener: true });
+check("a token is signed only after voice_room_join said yes, and the join carried the verified user, room and password",
+  r.status === 200 && !!r.body?.token && joinArgs?._user_id === USER && joinArgs?._room_id === ROOM && joinArgs?._kind === "adult" && joinArgs?._password === "open-sesame" && joinArgs?._listener === true && joinArgs?._is_admin === false);
+r = await call({ roomId: ROOM, userId: "00000000-0000-4000-8000-0000000000ff" });
+check("a user id sent by the browser is never used for the join", joinArgs?._user_id === USER);
+r = await call({ roomId: ROOM });
+check("no password supplied → the function passes null, not an empty string", joinArgs?._password === null);
+r = await call({ roomId: `kids-${KIDS_ROOM}`, password: "kidspass" });
+check("a Kids room is joined with kind 'kids' and the bare room id", r.status === 200 && joinArgs?._kind === "kids" && joinArgs?._room_id === KIDS_ROOM && joinArgs?._password === "kidspass");
+admin = true;
+r = await call({ roomId: ROOM });
+check("an admin is flagged to the join (the database lets admins through)", joinArgs?._is_admin === true);
+admin = false;
+
+for (const [reason, status, error] of [
+  ["password_required", 403, "password_required"],
+  ["wrong_password", 403, "wrong_password"],
+  ["too_many_attempts", 429, "too_many_attempts"],
+  ["room_full", 409, "room_full"],
+  ["insufficient_vx", 402, "insufficient_vx"],
+  ["room_not_found", 404, "room_not_found"],
+  ["something_new", 403, "join_refused"],
+] as [string, number, string][]) {
+  joinVerdict = { allowed: false, reason };
+  r = await call({ roomId: ROOM, password: "x" });
+  check(`join refused as '${reason}' → ${status} ${error}, no token`, r.status === status && r.body?.error === error && !r.body?.token);
+}
+joinVerdict = { allowed: false, reason: "wrong_password" };
+r = await call({ roomId: ROOM, password: "very-secret-guess" });
+check("a refusal never echoes the password", !JSON.stringify(r.body).includes("very-secret-guess"));
+
+joinFails = true;
+r = await call({ roomId: ROOM });
+check("the join call failing → 503 join_unavailable, no token (fails closed)", r.status === 503 && r.body?.error === "join_unavailable" && !r.body?.token);
+joinFails = false;
+joinVerdict = null;
+r = await call({ roomId: ROOM });
+check("an empty answer from the join → 503, no token", r.status === 503 && !r.body?.token);
+joinVerdict = { allowed: "yes" };
+r = await call({ roomId: ROOM });
+check("a malformed answer (allowed is not a boolean) → 503, no token", r.status === 503 && !r.body?.token);
+joinVerdict = { allowed: true, charged: 0 };
+for (const bad of [123, ["a"], { x: 1 }, "x".repeat(129)]) {
+  r = await call({ roomId: ROOM, password: bad });
+  check(`a password of the wrong type or length (${JSON.stringify(bad).slice(0, 12)}…) → 400 before the join`, r.status === 400 && r.body?.error === "invalid_request" && joinArgs === null);
+}
+entitled = false;
+r = await call({ roomId: ROOM, password: "x" });
+check("an account without a plan never reaches the join (no seat, no charge)", r.status === 403 && joinArgs === null);
+entitled = true;
+banned = true;
+r = await call({ roomId: ROOM });
+check("a banned user never reaches the join", r.status === 403 && r.body?.error === "banned" && joinArgs === null);
+banned = false;
+room = null;
+r = await call({ roomId: ROOM });
+check("a room that does not exist never reaches the join", r.status === 404 && joinArgs === null);
 
 console.log(fail ? `\n${fail} FAILURE(S)` : "\nall passed");
 Deno.exit(fail ? 1 : 0);

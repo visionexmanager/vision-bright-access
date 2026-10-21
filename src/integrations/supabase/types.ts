@@ -15218,6 +15218,7 @@ export type Database = {
           recording_active: boolean
           room_name: string
           room_password: string | null
+          has_password: boolean
           scheduled_at: string | null
           status: string
           topic: string | null
@@ -15234,6 +15235,7 @@ export type Database = {
           recording_active?: boolean
           room_name: string
           room_password?: string | null
+          has_password?: boolean
           scheduled_at?: string | null
           status?: string
           topic?: string | null
@@ -15250,6 +15252,7 @@ export type Database = {
           recording_active?: boolean
           room_name?: string
           room_password?: string | null
+          has_password?: boolean
           scheduled_at?: string | null
           status?: string
           topic?: string | null
@@ -25784,6 +25787,7 @@ export type Database = {
           room_mode: string | null
           room_name: string
           room_password: string | null
+          has_password: boolean
           room_topic: string | null
           room_type: string
           scheduled_at: string | null
@@ -25806,6 +25810,7 @@ export type Database = {
           room_mode?: string | null
           room_name?: string
           room_password?: string | null
+          has_password?: boolean
           room_topic?: string | null
           room_type?: string
           scheduled_at?: string | null
@@ -25828,6 +25833,7 @@ export type Database = {
           room_mode?: string | null
           room_name?: string
           room_password?: string | null
+          has_password?: boolean
           room_topic?: string | null
           room_type?: string
           scheduled_at?: string | null
