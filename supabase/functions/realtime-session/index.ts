@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getAssistant } from "../_shared/assistants.ts";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
+import { endRealtimeSession, reserveRealtimeMinutes } from "../_shared/realtimeMinutes.ts";
 import { providerErrorSummary } from "../_shared/providerInput.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 
@@ -70,6 +71,19 @@ Deno.serve(async (req) => {
     const refused = await subscriptionGate(serviceClient, req, user.id, corsHeaders);
     if (refused) return refused;
 
+    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+
+    // The client reports the end of a session so the unused part of its minute
+    // reservation goes back. No daily unit is spent and no provider is reached.
+    if (body.action === "end") {
+      const ended = typeof body.reservationId === "string"
+        ? await endRealtimeSession(serviceClient, user.id, body.reservationId)
+        : false;
+      return new Response(JSON.stringify({ ended }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Per-user daily ceiling on minting a realtime session, before OpenAI is
     // asked for one (Phase 2F-2).
     const limited = await chargeDailyLimit(
@@ -78,14 +92,21 @@ Deno.serve(async (req) => {
     );
     if (limited) return limited;
 
+    // Monthly voice minutes (billing_plans.limits.realtime_monthly_minutes).
+    // No cap configured = allowed, as before. Reserved before the provider is asked.
+    const minutes = await reserveRealtimeMinutes(serviceClient, user.id, corsHeaders);
+    if (!minutes.ok) return minutes.response;
+    const reservation = minutes.reservation;
+
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) {
+      if (reservation.reservationId) await endRealtimeSession(serviceClient, user.id, reservation.reservationId, true);
       return new Response(JSON.stringify({ error: "OPENAI_API_KEY not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { voice, assistant = "visionex", assistantId } = await req.json().catch(() => ({}));
+    const { voice, assistant = "visionex", assistantId } = body as { voice?: string; assistant?: string; assistantId?: string };
 
     const VOICES = ["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse", "marin", "cedar"];
 
@@ -160,6 +181,7 @@ Deno.serve(async (req) => {
     });
 
     if (!response.ok) {
+      if (reservation.reservationId) await endRealtimeSession(serviceClient, user.id, reservation.reservationId, true);
       const err = await response.text();
       console.error("OpenAI Realtime session error:", response.status, providerErrorSummary(err));
       // A fixed sentence: the provider's own message named the vendor and could
@@ -175,6 +197,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       client_secret: { value: ephemeralValue, expires_at: clientSecret.expires_at },
       session_id: clientSecret.session?.id ?? "session",
+      reservation_id: reservation.reservationId,
+      session_minutes: reservation.sessionMinutes,
+      remaining_minutes: reservation.remainingMinutes,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

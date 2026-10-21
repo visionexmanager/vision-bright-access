@@ -167,6 +167,23 @@ export async function callRealtimeSession(
 }
 
 /**
+ * realtime-session (action "end") — tells the server a voice session is over so
+ * the unused part of its minute reservation goes back. Best effort: if it fails
+ * the full reservation stays counted, which is the safe side.
+ */
+export async function callRealtimeEnd(reservationId: string): Promise<void> {
+  try {
+    await callEdge({
+      fn: "realtime-session",
+      body: { action: "end", reservationId },
+      auth: "user-jwt",
+    });
+  } catch {
+    // Intentionally ignored; see above.
+  }
+}
+
+/**
  * radar-ai — structured image analysis for blind users
  */
 export async function callRadarAI(

@@ -285,4 +285,10 @@ export interface RealtimeSessionResponse {
     expires_at: number;
   };
   session_id: string;
+  /** Set only when the plan has a monthly voice-minute cap. */
+  reservation_id?: string | null;
+  /** Longest this session may run, in minutes; null/absent = no cap. */
+  session_minutes?: number | null;
+  /** Minutes left in the month after this session; null/absent = no cap. */
+  remaining_minutes?: number | null;
 }
