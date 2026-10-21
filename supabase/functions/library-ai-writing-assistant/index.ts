@@ -26,6 +26,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
+import { requireSection } from "../_shared/entitlements.ts";
 
 installUsageMetering("library-ai-writing-assistant");
 
@@ -217,6 +218,10 @@ Deno.serve(async (req: Request) => {
   // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
   const refused = await subscriptionGate(serviceClient, req, user.id, cors);
   if (refused) return refused;
+  // The plan must also include the section this belongs to, so a direct call cannot reach what the
+  // interface does not offer (the same check as the routes: plans.ts → studio).
+  const sectionRefused = await requireSection(serviceClient, user.id, "studio", cors);
+  if (sectionRefused) return sectionRefused;
 
   const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "library-ai-writing-assistant" });
   if (allowed === false) return json({ error: "Daily limit reached (40 requests/day). Try again tomorrow." }, 429, cors);

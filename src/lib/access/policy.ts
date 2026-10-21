@@ -324,6 +324,13 @@ export function sectionOfPath(pathname: string): SectionKey | null {
  * Verified in source and by `access-policy.test.ts`; the plan/section truth is `plans.ts`.
  */
 export const AI_FUNCTION_SECTIONS: Readonly<Record<string, SectionKey>> = {
+  "library-ai-writing-assistant": "studio",
+  "library-ai-classify-book": "studio",
+  "library-detect-series": "studio",
+  "library-build-knowledge-graph": "studio",
+  "library-translate-book-metadata": "studio",
+  "library-generate-narration": "studio",
+  "library-generate-quotes": "library",
   "academy-chat": "academy",
   "career-ai": "career",
   "document-generate": "mediaStudio",
@@ -371,12 +378,5 @@ export const AI_FUNCTIONS_WITHOUT_SECTION: Readonly<Record<string, string>> = {
   "generate-diet-plan": "Nutrition service; its section is not modelled in plans.ts.",
   "ocr-scan": "Free by design: in no section, and reached from the Library reader; pinned by section-entitlement.test.ts.",
   "organization-ai-admin": "Organisation administration tool; its section is not modelled in plans.ts.",
-  "library-ai-writing-assistant": "Authoring side of the Library (publishing studio): the owning section would be studio (Business); not decided.",
-  "library-ai-classify-book": "Catalogue maintenance on a book the caller owns or administers; section not decided.",
-  "library-detect-series": "Catalogue maintenance; section not decided.",
-  "library-build-knowledge-graph": "Catalogue maintenance; section not decided.",
   "library-embed-book": "Indexing a book for search; section not decided.",
-  "library-generate-narration": "Audiobook production for an author; section not decided.",
-  "library-generate-quotes": "Quote extraction by an author or admin; section not decided.",
-  "library-translate-book-metadata": "Catalogue localisation by an author or admin; section not decided.",
 };

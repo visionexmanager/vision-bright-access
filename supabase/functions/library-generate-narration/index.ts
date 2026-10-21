@@ -54,6 +54,7 @@ import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { boundedText } from "../_shared/providerInput.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
+import { requireSection } from "../_shared/entitlements.ts";
 
 installUsageMetering("library-generate-narration");
 
@@ -180,6 +181,10 @@ Deno.serve(async (req: Request) => {
   // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
   const refused = await subscriptionGate(serviceClient, req, user.id, cors);
   if (refused) return refused;
+  // The plan must also include the section this belongs to, so a direct call cannot reach what the
+  // interface does not offer (the same check as the routes: plans.ts → studio).
+  const sectionRefused = await requireSection(serviceClient, user.id, "studio", cors);
+  if (sectionRefused) return sectionRefused;
 
   let body: RequestBody;
   try {
