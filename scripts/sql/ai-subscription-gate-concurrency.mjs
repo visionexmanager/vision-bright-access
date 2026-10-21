@@ -86,7 +86,9 @@ try {
   }
   expect("100 rounds x 10 simultaneous requests from trial-only accounts: never authorized, exactly 1 notice each", trialBad === 0);
   const trialSecs = (await admin.query("select public.user_sections('00000000-0000-4000-8000-000000005000'::uuid) s")).rows[0].s;
-  expect("a trial account's sections are still exactly the three free ones", trialSecs.length === 3);
+  // 20261078: the free set plus the stored-content sections. Still never an AI service and never every section.
+  expect("a trial account's sections are exactly the free set plus academy, arcade, library",
+    JSON.stringify([...trialSecs].sort()) === JSON.stringify(["academy", "arcade", "assistive", "community", "library", "news"]));
 
   // Subscribing mid-flight: a subscriber is never told and the re-arm never double-fires.
   const sub = "00000000-0000-4000-8000-0000000000ff";
