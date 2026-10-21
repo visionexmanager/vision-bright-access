@@ -1,0 +1,487 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-10-21",
+  "currency": "USD",
+  "notes": [
+    "Plan prices, monthly VX and WhatsApp daily caps are NOT stored here. They are read from src/lib/billing/plans.ts (the single source of truth, mirrored into billing_plans).",
+    "Every number carries a basis: measured (read from production tables), published (a provider's price page), code (read from source), estimate (a guess you should replace), unknown (no data; value is a placeholder and the result is flagged).",
+    "No secrets and no personal data."
+  ],
+  "vx": {
+    "vx_per_usd": {
+      "value": 1000,
+      "basis": "code",
+      "note": "src/lib/billing/plans.ts VX_PER_USD"
+    },
+    "ad_reward_vx": {
+      "value": 5,
+      "basis": "measured",
+      "note": "236 'Watched an ad' rows = 1,180 VX in production"
+    },
+    "ad_daily_limit": {
+      "value": 10,
+      "basis": "code",
+      "note": "DAILY_AD_LIMIT, checked in the browser only"
+    },
+    "daily_login_vx": {
+      "value": 10,
+      "basis": "measured",
+      "note": "132 rows = 1,320 VX"
+    },
+    "welcome_bonus_vx": {
+      "value": 100,
+      "basis": "measured",
+      "note": "8 rows = 800 VX"
+    },
+    "self_award_daily_cap_vx": {
+      "value": 2000,
+      "basis": "code",
+      "note": "vx_self_award_take"
+    }
+  },
+  "payment": {
+    "mix": {
+      "omt": 0.5,
+      "whish": 0.25,
+      "card": 0.25,
+      "basis": "estimate",
+      "note": "One order exists (pending, OMT). Checkout is manual: OMT/Whish transfer or a card link."
+    },
+    "fees": {
+      "omt": {
+        "pct": 0,
+        "fixed_usd": 0,
+        "basis": "unknown",
+        "note": "Fee, if any, is paid outside the platform. Unknown."
+      },
+      "whish": {
+        "pct": 0,
+        "fixed_usd": 0,
+        "basis": "unknown",
+        "note": "Unknown."
+      },
+      "card": {
+        "pct": 0.029,
+        "fixed_usd": 0.3,
+        "basis": "estimate",
+        "note": "Typical card-processor list rate; no processor integration is verified for subscriptions."
+      }
+    },
+    "refund_rate": {
+      "value": 0,
+      "basis": "unknown",
+      "note": "No completed order exists to measure."
+    },
+    "chargeback_rate": {
+      "value": 0,
+      "basis": "unknown",
+      "note": "No data."
+    },
+    "fx_fee_pct": {
+      "value": 0,
+      "basis": "unknown",
+      "note": "Unknown."
+    },
+    "tax_pct": {
+      "value": 0,
+      "basis": "unknown",
+      "note": "Tax position not known; prices treated as tax-exclusive."
+    },
+    "measured_additional_revenue_usd_per_sub": {
+      "value": 0,
+      "basis": "measured",
+      "note": "Ads reward users with VX; no ad revenue, marketplace commission or other income is measurable. Not counted."
+    }
+  },
+  "unit_costs": {
+    "chat_message_gpt41": {
+      "usd": 0.0055,
+      "basis": "measured",
+      "note": "gpt-4.1: 27 WhatsApp calls = $0.1425 (avg 2,741 tokens); 3 ai-chat calls = $0.0178."
+    },
+    "chat_message_cheap": {
+      "usd": 0.0006,
+      "basis": "measured",
+      "note": "gpt-5.6-luna / groq gpt-oss: $0.0001 to $0.0007 per call, few priced samples."
+    },
+    "chat_share_expensive": {
+      "value": 0.7,
+      "basis": "estimate",
+      "note": "Share of answers served by gpt-4.1 rather than a cheap model. Gemini/Mistral answers are unpriced in production."
+    },
+    "chat_fallback_multiplier": {
+      "value": 1.05,
+      "basis": "estimate",
+      "note": "Failed attempts that used tokens before the chain moved on. Fallback attempts share one reservation but each is a real provider charge."
+    },
+    "image_medium": {
+      "usd": 0.042,
+      "basis": "published",
+      "note": "gpt-image-1 medium 1024x1024; image-generate defaults to medium unless 'hd' is requested."
+    },
+    "image_high": {
+      "usd": 0.167,
+      "basis": "measured",
+      "note": "5 gpt-image-1 events from social-publish = $0.8347 (high quality)."
+    },
+    "tts_clip": {
+      "usd": 0.015,
+      "basis": "estimate",
+      "note": "gpt-4o-mini-tts is unpriced in production (no usage returned); registry base_cost is 0.015."
+    },
+    "stt_voice_note": {
+      "usd": 0.0001,
+      "basis": "measured",
+      "note": "13 Groq whisper-large-v3-turbo calls = $0.00122."
+    },
+    "document_ai": {
+      "usd": 0.004,
+      "basis": "estimate",
+      "note": "central_pricing_registry base_cost."
+    },
+    "ocr": {
+      "usd": 0.002,
+      "basis": "estimate",
+      "note": "English runs on the VPS (marginal $0); Arabic falls back to a vision model. Registry base_cost."
+    },
+    "realtime_minute": {
+      "usd": 0.096,
+      "basis": "estimate",
+      "note": "600 input + 1,200 output audio tokens/min at $32 / $64 per 1M. Rate is from memory of the provider's page; verify. Server never sees realtime usage."
+    },
+    "voice_clone": {
+      "usd": 1,
+      "basis": "estimate",
+      "note": "Registry base_cost; runs on Voxtral with the existing Mistral key, true cost unknown."
+    },
+    "video_clip": {
+      "usd": 0.5,
+      "basis": "estimate",
+      "note": "Registry base_cost. LUMA_API_KEY is unset, so video is dead today."
+    },
+    "whatsapp_service_message": {
+      "usd": 0.01,
+      "basis": "unknown",
+      "note": "Meta charges per delivered service message from 2026-10-01 per third-party sources (US ~0.0034, Germany ~0.05). Rate for the owner's markets unverified; set to 0 to see the old free-reply case."
+    },
+    "whatsapp_free_service_messages_per_month": {
+      "value": 1000,
+      "basis": "unknown",
+      "note": "Per business phone number, per third-party sources and one fetched Meta page. Verify in Meta billing."
+    },
+    "bandwidth_storage_per_sub": {
+      "usd": 0,
+      "basis": "estimate",
+      "note": "Hetzner includes 20 TB; Supabase free quotas. Marginal cost ~0 until a quota is hit."
+    },
+    "whatsapp_ai_share": {
+      "value": 0.5,
+      "basis": "estimate",
+      "note": "Share of WhatsApp messages that call a model; the rest are menus, links and fixed replies. Meta's per-message charge applies to all of them."
+    }
+  },
+  "fixed_costs_monthly": {
+    "hetzner_ccx23_vps": {
+      "usd": 94,
+      "basis": "estimate",
+      "note": "List price EUR 86.49 ex VAT x ~1.09. The $37.59 invoice could not be matched to this server; do not treat it as monthly until confirmed."
+    },
+    "domain": {
+      "usd": 1.5,
+      "basis": "estimate",
+      "note": "visionex.app, annualised."
+    },
+    "unallocated_other": {
+      "usd": 4.5,
+      "basis": "unknown",
+      "note": "Remainder of the owner's ~$100 figure: monitoring, e-mail, misc. Not itemised."
+    },
+    "supabase": {
+      "usd": 0,
+      "basis": "measured",
+      "note": "Organisation plan is 'free' (read from the management API). No backups/PITR on this tier."
+    }
+  },
+  "step_costs_monthly": [
+    {
+      "id": "supabase_pro",
+      "from_paying_subscribers": 50,
+      "usd": 25,
+      "basis": "estimate",
+      "note": "Free tier is not a production plan: no backups, project pausing, 500k function invocations."
+    },
+    {
+      "id": "second_vps",
+      "from_paying_subscribers": 500,
+      "usd": 94,
+      "basis": "estimate",
+      "note": "Capacity guess for the media processor and nginx; unmeasured."
+    }
+  ],
+  "free_users": {
+    "per_paying_subscriber": {
+      "value": 5,
+      "basis": "estimate",
+      "note": "Free and expired-trial accounts per paying subscriber."
+    },
+    "monthly_cost_usd_per_free_user": {
+      "value": 0.05,
+      "basis": "estimate",
+      "note": "Trial and free sections open no AI service. Cost comes from the free WhatsApp allowance and unlinked numbers (~5 chat messages/month x $0.004 + marginal Meta cost) rounded up."
+    },
+    "monthly_vx_issued_max_per_free_user": {
+      "value": 1800,
+      "basis": "code",
+      "note": "Login 10/day + 10 ads x 5 VX/day, if they claim both daily. Cash cost is 0 while every service is disabled."
+    }
+  },
+  "usage": {
+    "note": "Units per subscriber per month. Caps come from plans.ts (whatsappDaily) and central_pricing_registry (max_daily_usage). 'heavy' is high-but-permitted, not the theoretical ceiling. Typical values are estimates: production has 0 paying subscribers and 0 linked WhatsApp identities, so there is no per-subscriber telemetry. Heavy WhatsApp volume is the daily cap x 30 (Business is uncapped: 330/day assumed).",
+    "kids": {
+      "light": {
+        "chat_messages": 10,
+        "whatsapp_messages": 10,
+        "image_medium": 0,
+        "tts_clip": 2,
+        "stt_voice_note": 0,
+        "ocr": 0,
+        "realtime_minutes": 0,
+        "document_ai": 0,
+        "voice_clone": 0,
+        "video_clip": 0
+      },
+      "typical": {
+        "chat_messages": 40,
+        "whatsapp_messages": 40,
+        "image_medium": 3,
+        "tts_clip": 10,
+        "stt_voice_note": 10,
+        "ocr": 0,
+        "realtime_minutes": 0,
+        "document_ai": 0,
+        "voice_clone": 0,
+        "video_clip": 0
+      },
+      "heavy": {
+        "chat_messages": 300,
+        "whatsapp_messages": 1500,
+        "image_medium": 20,
+        "tts_clip": 60,
+        "stt_voice_note": 150,
+        "ocr": 0,
+        "realtime_minutes": 30,
+        "document_ai": 0,
+        "voice_clone": 0,
+        "video_clip": 0
+      }
+    },
+    "basic": {
+      "light": {
+        "chat_messages": 15,
+        "whatsapp_messages": 15,
+        "image_medium": 0,
+        "tts_clip": 0,
+        "stt_voice_note": 3,
+        "ocr": 5,
+        "realtime_minutes": 0,
+        "document_ai": 0,
+        "voice_clone": 0,
+        "video_clip": 0
+      },
+      "typical": {
+        "chat_messages": 80,
+        "whatsapp_messages": 80,
+        "image_medium": 0,
+        "tts_clip": 10,
+        "stt_voice_note": 15,
+        "ocr": 20,
+        "realtime_minutes": 5,
+        "document_ai": 0,
+        "voice_clone": 0,
+        "video_clip": 0
+      },
+      "heavy": {
+        "chat_messages": 900,
+        "whatsapp_messages": 4500,
+        "image_medium": 0,
+        "tts_clip": 100,
+        "stt_voice_note": 200,
+        "ocr": 200,
+        "realtime_minutes": 150,
+        "document_ai": 0,
+        "voice_clone": 0,
+        "video_clip": 0
+      }
+    },
+    "pro": {
+      "light": {
+        "chat_messages": 30,
+        "whatsapp_messages": 25,
+        "image_medium": 0,
+        "tts_clip": 3,
+        "stt_voice_note": 5,
+        "ocr": 8,
+        "realtime_minutes": 0,
+        "document_ai": 0,
+        "voice_clone": 0,
+        "video_clip": 0
+      },
+      "typical": {
+        "chat_messages": 150,
+        "whatsapp_messages": 120,
+        "image_medium": 0,
+        "tts_clip": 20,
+        "stt_voice_note": 25,
+        "ocr": 30,
+        "realtime_minutes": 10,
+        "document_ai": 0,
+        "voice_clone": 0,
+        "video_clip": 0
+      },
+      "heavy": {
+        "chat_messages": 1500,
+        "whatsapp_messages": 12000,
+        "image_medium": 0,
+        "tts_clip": 200,
+        "stt_voice_note": 400,
+        "ocr": 200,
+        "realtime_minutes": 300,
+        "document_ai": 0,
+        "voice_clone": 0,
+        "video_clip": 0
+      }
+    },
+    "business": {
+      "light": {
+        "chat_messages": 50,
+        "whatsapp_messages": 40,
+        "image_medium": 3,
+        "tts_clip": 5,
+        "stt_voice_note": 8,
+        "ocr": 8,
+        "realtime_minutes": 0,
+        "document_ai": 3,
+        "voice_clone": 0,
+        "video_clip": 0
+      },
+      "typical": {
+        "chat_messages": 250,
+        "whatsapp_messages": 200,
+        "image_medium": 25,
+        "tts_clip": 30,
+        "stt_voice_note": 40,
+        "ocr": 30,
+        "realtime_minutes": 15,
+        "document_ai": 20,
+        "voice_clone": 1,
+        "video_clip": 0
+      },
+      "heavy": {
+        "chat_messages": 2500,
+        "whatsapp_messages": 10000,
+        "image_medium": 300,
+        "tts_clip": 400,
+        "stt_voice_note": 600,
+        "ocr": 200,
+        "realtime_minutes": 450,
+        "document_ai": 200,
+        "voice_clone": 20,
+        "video_clip": 0
+      }
+    }
+  },
+  "mixes": {
+    "subscriber_mix_a_basic_heavy": {
+      "kids": 0.2,
+      "basic": 0.5,
+      "pro": 0.2,
+      "business": 0.1,
+      "basis": "estimate"
+    },
+    "subscriber_mix_b_balanced": {
+      "kids": 0.1,
+      "basic": 0.3,
+      "pro": 0.3,
+      "business": 0.3,
+      "basis": "estimate"
+    },
+    "subscriber_mix_c_business_led": {
+      "kids": 0.05,
+      "basic": 0.15,
+      "pro": 0.3,
+      "business": 0.5,
+      "basis": "estimate"
+    },
+    "usage_mix_base": {
+      "light": 0.5,
+      "typical": 0.48,
+      "heavy": 0.02,
+      "basis": "estimate",
+      "note": "A heavy user saturates a daily cap every day; assumed rare. See maxHeavyShare for how much of this each plan tolerates."
+    },
+    "usage_mix_adverse": {
+      "light": 0.2,
+      "typical": 0.4,
+      "heavy": 0.4,
+      "basis": "estimate",
+      "note": "Stress case, not a forecast."
+    },
+    "usage_mix_mid": {
+      "light": 0.4,
+      "typical": 0.55,
+      "heavy": 0.05,
+      "basis": "estimate"
+    }
+  },
+  "registry_services": {
+    "note": "central_pricing_registry rows read from production 2026-10-21. All enabled=false. vx_price in VX; base_cost is the registry's own cost guess in USD.",
+    "ocr": {
+      "vx_price": 10,
+      "base_cost": 0.002,
+      "free_limit": 3,
+      "max_daily_usage": 200
+    },
+    "document_ai": {
+      "vx_price": 15,
+      "base_cost": 0.004,
+      "free_limit": 2,
+      "max_daily_usage": 100
+    },
+    "translation": {
+      "vx_price": 5,
+      "base_cost": 0.001,
+      "free_limit": 10,
+      "max_daily_usage": 300
+    },
+    "image": {
+      "vx_price": 60,
+      "base_cost": 0.04,
+      "free_limit": 1,
+      "max_daily_usage": 30
+    },
+    "tts": {
+      "vx_price": 100,
+      "base_cost": 0.015,
+      "free_limit": 1,
+      "max_daily_usage": 50
+    },
+    "video": {
+      "vx_price": 300,
+      "base_cost": 0.5,
+      "free_limit": 0,
+      "max_daily_usage": 10
+    },
+    "voice_clone": {
+      "vx_price": 500,
+      "base_cost": 1,
+      "free_limit": 0,
+      "max_daily_usage": 5
+    },
+    "whatsapp_ai": {
+      "vx_price": 2,
+      "base_cost": 0.0005,
+      "free_limit": 20,
+      "max_daily_usage": 500
+    }
+  }
+}
