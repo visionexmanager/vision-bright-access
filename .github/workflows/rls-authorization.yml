@@ -16,6 +16,7 @@ on:
       - scripts/sql/ai-cost-reconciliation-scenarios.mjs
       - scripts/sql/page-events-retention-scenarios.mjs
       - scripts/sql/page-events-export-restore-rehearsal.mjs
+      - scripts/sql/realtime-minutes-scenarios.mjs
       - .github/workflows/rls-authorization.yml
 
 permissions:
@@ -45,3 +46,5 @@ jobs:
         run: node scripts/sql/page-events-retention-scenarios.mjs
       - name: page_events export and scratch-restore rehearsal (synthetic rows only)
         run: node scripts/sql/page-events-export-restore-rehearsal.mjs
+      - name: Monthly realtime-minute allowance (reserve, end, month boundary, privileges)
+        run: node scripts/sql/realtime-minutes-scenarios.mjs

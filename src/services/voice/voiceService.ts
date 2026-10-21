@@ -132,8 +132,24 @@ export async function createVoiceSession(
   await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
 
   // ── 4. Return session control handle ──────────────────────────────────────
-  return {
+  // A plan with a monthly voice allowance reserves minutes before the session
+  // starts. The reservation is the longest this session may run; the server's
+  // clock, not this timer, decides what is charged when it ends.
+  const reservationId = sessionData.reservation_id ?? null;
+  const limitMs = sessionData.session_minutes ? sessionData.session_minutes * 60_000 : null;
+  let limitTimer: ReturnType<typeof setTimeout> | null = null;
+  let reported = false;
+  const reportEnd = () => {
+    if (reservationId && !reported) {
+      reported = true;
+      void aiService.endRealtimeSession(reservationId);
+    }
+  };
+
+  const handle: VoiceSession = {
     disconnect: () => {
+      if (limitTimer) { clearTimeout(limitTimer); limitTimer = null; }
+      reportEnd();
       stream.getTracks().forEach((t) => t.stop());
       dc.close();
       pc.close();
@@ -146,4 +162,12 @@ export async function createVoiceSession(
       }
     },
   };
+
+  if (limitMs) {
+    limitTimer = setTimeout(() => {
+      handle.disconnect();
+      onError("Your voice session reached its time limit.");
+    }, limitMs);
+  }
+  return handle;
 }

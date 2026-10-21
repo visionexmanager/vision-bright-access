@@ -18,6 +18,7 @@ import {
   callGenerateDietPlan,
   callOCRScan,
   callRealtimeSession,
+  callRealtimeEnd,
   callVisionAnalyst,
   callGenerate,
   callAISearch,
@@ -289,6 +290,10 @@ async function getRealtimeSession(
   return callRealtimeSession(assistant, voice, assistantId);
 }
 
+async function endRealtimeSession(reservationId: string): Promise<void> {
+  return callRealtimeEnd(reservationId);
+}
+
 // ── Exported service object ───────────────────────────────────────────────────
 
 export const aiService = {
@@ -299,6 +304,7 @@ export const aiService = {
   generateDietPlan,
   ocrScan,
   getRealtimeSession,
+  endRealtimeSession,
   analyzeWithAnalyst,
   generatePlan,
   search,
