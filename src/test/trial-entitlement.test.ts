@@ -128,7 +128,8 @@ describe("one resolution in the database", () => {
   });
 
   it("no migration after 20261063 reads a trial flag in code (the service-request perk is the only survivor, and it is older)", () => {
-    const later = readdirSync("supabase/migrations").filter((f) => f.split("_")[0] > "20261063000000" && !f.startsWith("20261078") && !f.startsWith("20261079"));
+    const later = readdirSync("supabase/migrations").filter((f) => f.split("_")[0] > "20261063000000" && !f.startsWith("20261078") && !f.startsWith("20261079") && !f.startsWith("20261082"));
+    // 20261082 re-creates the 20261079 function (which reads the trial only to refuse the notice) with a daily cap.
     // 20261078 redefines trial_sections(); 20261079 reads the trial only to REFUSE the WhatsApp notice to a free-week sender. Neither grants anything.
     for (const file of later) {
       expect(code(read(`supabase/migrations/${file}`)), file).not.toMatch(/free_trial|trial_expires_at|is_in_trial|trial_ends_at|trial_sections/i);

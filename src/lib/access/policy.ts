@@ -45,6 +45,7 @@ export type Guard =
   | "voice_guard"   // guardVoiceRequest (identity, plan, limit)
   | "webhook_gate"  // requireActiveSubscription for a WhatsApp/Messenger sender
   | "paid_plan"     // hasActivePaidPlan: a paying account or an admin, for billed non-AI services
+  | "claim"         // an atomic per-caller limit and ledger decided in the database before anything is sent (bazaar_notify_claim)
   | "token"         // an unguessable, short-lived capability token minted elsewhere for a signed-in account, re-checked on use
   | "unverified";   // not proven: none remain after the 2026-10-21 audit (a test pins that)
 
@@ -69,7 +70,7 @@ export const EDGE_POLICY: Readonly<Record<string, EdgePolicy>> = {
   "analyze-image": { cls: "D", guard: "ai_gate", trial: false, note: "Subscription gate runs before the provider call." },
   "analyze-meal": { cls: "D", guard: "ai_gate", trial: false, note: "Subscription gate runs before the provider call." },
   "bazaar-checkout": { cls: "C", guard: "jwt", trial: false, note: "Marketplace checkout; identity from the verified session (getUser), no user id taken from the body." },
-  "bazaar-notify-seller": { cls: "C", guard: "jwt", trial: false, note: "UNRESOLVED (limit): verified session, but the notification text carries a caller-supplied buyer name and no per-caller send limit was found. Sends a notification, calls no paid provider.", open: true },
+  "bazaar-notify-seller": { cls: "D", guard: "claim", trial: false, note: "Sends an in-app notification, an e-mail (Resend) and a WhatsApp message to a seller, so it is treated as billed. Platform calls (service role) are unlimited; a user's are authorised per event (order_paid only for their own recent order, order_status and low_stock refused) and claimed through bazaar_notify_claim: 10-minute duplicate window, 5 per shop per hour, 30 per day, and e-mail/WhatsApp for at most 20 per shop per hour across all senders. Fails closed." },
   "bazaar-stripe-connect": { cls: "C", guard: "jwt", trial: false, note: "Seller onboarding with Stripe Connect; verified session, own account." },
   "bazaar-stripe-webhook": { cls: "C", guard: "signature", trial: false, note: "Payment webhook; verified by provider signature, not a user session." },
   "billing-engine": { cls: "C", guard: "jwt", trial: false, note: "Subscription/VX actions for the caller; admin actions check has_role inside the function." },

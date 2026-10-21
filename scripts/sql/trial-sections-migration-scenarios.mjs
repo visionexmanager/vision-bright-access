@@ -130,5 +130,25 @@ expect("rollback: every plan row, account state, WhatsApp answer and count equal
 const rolledGate = (await q("select public.ai_subscription_gate_whatsapp('+96279100001') v"))[0].v;
 expect("rollback of 20261079: a free-week sender is sent the notice again (the pre-079 behaviour)", rolledGate === "blocked_first_notice");
 
+// ── 20261082 (daily cap on WhatsApp re-notices) over the existing table: applies, is idempotent, rolls back ──
+const M82 = read("supabase/migrations/20261082000000_whatsapp_notice_daily_cap.sql");
+await db.exec(M79); // the 20261079 function, as before 20261082
+await db.query("select public.ai_subscription_gate_whatsapp('+96279200001')"); // an existing notice row, as production has 9
+const rowsBefore = (await q("select count(*)::int n from public.ai_subscription_gate_notices"))[0].n;
+await db.exec(M82);
+await db.exec(M82);
+expect("20261082: applies twice; existing notice rows are kept, with a zero count and no window",
+  (await q("select count(*)::int n from public.ai_subscription_gate_notices"))[0].n === rowsBefore
+  && (await q("select renotice_count n from public.ai_subscription_gate_notices where subject='+96279200001'"))[0].n === 0);
+expect("20261082: the first notice still works on the migrated table", (await q("select public.ai_subscription_gate_whatsapp('+96279200002') v"))[0].v === "blocked_first_notice");
+const rollback82 = /--\s+(ALTER TABLE public\.ai_subscription_gate_notices DROP COLUMN IF EXISTS renotice_count, DROP COLUMN IF EXISTS renotice_window_start;)/.exec(M82)?.[1];
+expect("20261082: the rollback statement is documented in its header", !!rollback82);
+await db.exec(M79); // the function first (it references the columns), then drop them
+await db.exec(rollback82);
+expect("20261082 rollback: the function is 20261079's again, the columns are gone, the rows are kept",
+  (await q("select count(*)::int n from information_schema.columns where table_name='ai_subscription_gate_notices' and column_name like 'renotice%'"))[0].n === 0
+  && (await q("select count(*)::int n from public.ai_subscription_gate_notices"))[0].n >= rowsBefore
+  && (await q("select public.ai_subscription_gate_whatsapp('+96279200002') v"))[0].v === "blocked_silent");
+
 console.log(`\n${total - fail}/${total} passed`);
 process.exit(fail ? 1 : 0);

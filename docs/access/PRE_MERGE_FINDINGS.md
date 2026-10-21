@@ -4,6 +4,55 @@ Labels: **[C]** read in source · **[T]** pinned by a test · **[H]** real handl
 
 Nothing here changes a price, a plan price, a VX balance, an order, a subscription or customer data.
 
+## 0. Third pass (the four remaining risks)
+
+### 0.1 `bazaar-notify-seller` — was open, now limited
+
+**Every way it can send** [C]: for one request it can create (1) an in-app notification for the seller, (2) an e-mail through Resend, a paid provider, to the seller's address, and (3) a WhatsApp text through the Graph API to the shop's number, which Meta may bill. The text and the buyer's name were chosen by the caller.
+
+**What an authenticated user could do before** [H]: pass any shop id and notify its owner, unlimited times, with any text, on all three channels; and send `order_paid`, `order_status` or `low_stock` for a shop they had nothing to do with, so any account could tell a seller "New paid order". The notice also named the buyer by their **e-mail address** when no name was supplied, which put a buyer's address into the seller's inbox and WhatsApp. The previous handler fails 8 of the 20 checks in the new harness.
+
+**What now happens:**
+- Platform calls (bearer = service role, i.e. the Stripe webhook) are unchanged and unlimited.
+- A user may send `message`, `add_to_cart`, `wishlist`, `review`, `dispute`, `report` and `order_paid`. `order_paid` is accepted only for an order that user really has with that shop (status paid/processing/shipped/completed, created in the last 30 minutes), and the order id becomes the dedupe key, so two real orders are two notifications. `order_status` and `low_stock` from a user are refused (403): no client sends them.
+- Every user-triggered notification is claimed through **`bazaar_notify_claim`** (migration `20261081`): the same event within 10 minutes is a duplicate; at most 5 per user per shop per hour; at most 30 per user per day; and **e-mail and WhatsApp are granted to at most 20 notifications per shop per hour across all senders** (the in-app notification is never withdrawn by the shop-wide cap). The decision and the ledger insert are one transaction under advisory locks, so a burst cannot all pass. The claim failing means nothing is sent (503); a refused claim returns 200 `skipped`, so the marketplace screens (which fire and forget) are unaffected.
+- Text is stripped of control characters and cut (buyer name 60, message 600), and the buyer is named by the supplied name or their display name, never by e-mail.
+
+**Legitimate use is untouched:** a buyer adding several products, saving a wishlist, messaging, reviewing or disputing stays well inside 5 an hour per shop, and each real VX or card order is announced.
+
+**Tests:** 31 checks in PGlite (`bazaar-notify-claim-scenarios.mjs`: delivery, duplicates, distinct orders, the 5/hour and 30/day ceilings, the 20/hour external ceiling, pruning, privileges, idempotent migration, **documented rollback executed**, a mutation proof); on **real PostgreSQL 18 with 10 simultaneous connections** (`ai-subscription-gate-concurrency.mjs`, run by CI): 30 rounds of 10 identical notifications allow exactly 1, 20 rounds of 10 different ones from one user allow exactly 5, and 30 users in three simultaneous bursts all get their in-app notification but only exactly 20 get e-mail/WhatsApp; 20 handler checks in-process (`bazaar-notify-harness.ts`: unauthorized, normal delivery, repeated, over each ceiling, external budget spent, claim failing, forged `order_paid`/`order_status`/`low_stock`, platform calls, the shop's owner, bad input, bounded text, no buyer e-mail), plus source-order tests in `access-policy.test.ts`.
+
+**Rollback:** `DROP FUNCTION IF EXISTS public.bazaar_notify_claim(uuid, uuid, text, uuid, text); DROP TABLE IF EXISTS public.bazaar_notification_log;` then revert the function file (this restores the unlimited behaviour).
+
+### 0.2 WhatsApp notices — exact circumstances, and a daily cap
+
+**Who receives the static notice** (`ai_subscription_gate_whatsapp`, migrations 20261075, 20261079, 20261082):
+
+| Sender | First message | Later messages |
+|---|---|---|
+| Owner handset, or an active paid account | authorized, no notice | authorized |
+| **Linked account in its free week** | silent, **never a notice** (20261079) | silent |
+| **Unlinked number** (no linked account) | **one notice** | silent; re-told after 10 minutes of writing again, **at most 6 re-notices in a rolling 24 hours** (20261082), so at most 7 notices a day per number |
+| **Linked account whose free week has ended, no active plan** | one notice | same as unlinked |
+
+Every inbound kind (text, voice note, picture) is judged the same way; the notice is always plain text, never synthesised speech. The typed account-linking flow ("link", "unlink", and the e-mail and code steps) is separate from the notice and is not limited by it, so a subscriber can always link their number. The first notice to a new number is never limited, because it is the only way a subscriber learns to link.
+
+**What is verified about Meta pricing, and what is not.** Verified from Meta's own pages on 2026-10-21: per-message charging for service messages began on 2026-10-01, with one free tier of 1,000 delivered service messages per month per business phone number; rates are published only as a rate-card file per currency and no number is given in the page text for the Rest of Middle East or "Other" markets. One Meta page still says service messages are not charged; the dated updates page says they are. **Unknown:** the rate for the owner's markets, whether the owner's account is on the free tier, and whether this static notice is classified as a service message. Nothing in this PR assumes a price or a free allowance; the cap bounds the count instead.
+
+**Controls added:** the daily cap above (`20261082`; two columns on `ai_subscription_gate_notices`; still one atomic UPDATE, so concurrent messages cannot add extra notices). Tested in PGlite (26 checks: seven notices then silence, window reset after 25 hours, first notices unaffected, mutation proofs) and on real PostgreSQL under concurrency (30 rounds at the cap: nobody is re-told; 30 rounds one below it: exactly one winner and the count lands on 6). The migration's own rollback is executed in `trial-sections-migration-scenarios.mjs`.
+
+**Still open:** many different numbers each get their first notice (bounded by real senders: the webhook verifies Meta's signature on every delivery). There is no global hourly cap on first notices.
+
+### 0.3 Library cache isolation — verified at the database
+
+`library_ai_content_cache` after `20261080` has row-level security on, **no policy**, and no grant to `anon` or `authenticated` [S, extracted from the real migrations]. Direct client queries as a signed-in user: cannot list it, cannot read it by hash, cannot write to it; anonymous cannot read it; the service role reads it by exact hash. Other users' saved rows (daily plans, flashcard decks, librarian summaries, research analyses, chat sessions): own row readable, **another user's row not readable**, anonymous reads nothing, no writing as another user; the per-book summary cache follows book access. Paid generation stays gated: a miss with no entitlement stops at the gate with zero provider requests (in-process harness). Re-opening any store turns the matrix red (mutation proofs). **No cached text is exposed from another user's submission** through any path: the lookup is by exact hash of text the requester already sent.
+
+**Residual, stated honestly:** the cache is shared by design (one translation of the same text serves everyone), so a requester who submits the exact text another person submitted gets that stored answer and its `saved_at` date. That reveals only that this exact text was translated before, never an unknown text or whose it was. If that is not acceptable the key must include the user, which removes the sharing.
+
+### 0.4 LiveKit — unchanged
+
+The paid-plan or admin check still runs before the request is parsed and before any token is signed (source-order test and in-process harness). No free access was enabled and no minute cap was invented; LiveKit billing and cost controls remain unverified.
+
 ## 1. LiveKit voice rooms
 
 - **Order [C][T][H].** `livekit-token` reads the `Authorization` header, verifies the session (`getUser`), then calls `hasActivePaidPlan` (`ai_user_entitled`: a paying account or an admin) **before `req.json()` is read and before `new AccessToken(...)` is created**. A source-order test pins both; the in-process harness confirms no token is ever returned to a refused caller.
@@ -65,9 +114,9 @@ Method: read the source of each for its identity check, whether it takes a user 
 | radio-stream-token, tv-stream-token | redeem a 64-character short-lived token minted for a signed-in account; expiry and the subscription re-checked on use; no token, no stream URL | **Verified intentionally public** (capability token) |
 | newsletter-preferences | acts only on the subscriber whose unguessable manage token (UUID) is presented | **Verified intentionally public** (capability token) |
 | **career-system-health** | **was unauthenticated**: every call probed the Gemini key and inserted 16 history rows; callable with the public anon key. **Now requires `CRON_SECRET` or an admin session, before any probe or write** | **Fixed** [H]; the old handler fails 4 harness checks |
-| **bazaar-notify-seller** | session proven; the notification text carries a caller-supplied buyer name and **no per-caller send limit was found**; calls no paid provider | **Unresolved** (limit), flagged `open` and pinned by a test |
+| **bazaar-notify-seller** | session proven. It could notify any shop, unlimited, on three channels, and accepted forged `order_paid`/`order_status`/`low_stock`. **Now: event authorisation, an atomic limit (`bazaar_notify_claim`), bounded text, no buyer e-mail** (section 0.1) | **Fixed** [H][S]; the previous handler fails 8 harness checks |
 
-Nothing was marked safe merely because a bypass could not be found: identity is the claim, and the one function with a gap is named. A test now fails if any function has no stated guard and pins the single open one.
+Nothing was marked safe merely because a bypass could not be found. No function is left open; a test fails if any function has no stated guard or is flagged open.
 
 ## 5. Migrations: verification
 
@@ -86,7 +135,7 @@ Production state to compare after any deploy [M] (read today): plans `free_trial
 - A stored library result or today's librarian plan is returned without the gate, the daily limit or a provider.
 - Any signed-in account can no longer list the translate/explain cache; `career-system-health` refuses without `CRON_SECRET` or an admin session.
 
-**Deployment scope.** Migrations `20261078`, `20261079`, `20261080` (additive/idempotent; they write one plan row's `limits.sections` and replace two functions and one policy). Edge Functions: `library-ai-assistant`, `library-librarian-daily-plan`, `livekit-token`, `career-system-health`, plus functions that import the edited shared files (`_shared/entitlements.ts`, the new `_shared/librarySavedAnswers.ts`). The SPA (new `plans.ts`, a note under the summary, 20 locale files). No secret, workflow or `config.toml` change.
+**Deployment scope.** Migrations `20261078`, `20261079`, `20261080`, `20261081`, `20261082` (idempotent; they write one plan row's `limits.sections`, replace two functions and drop one policy, create one ledger table with one function, and add two columns to `ai_subscription_gate_notices`). Edge Functions: `library-ai-assistant`, `library-librarian-daily-plan`, `livekit-token`, `career-system-health`, `bazaar-notify-seller`, plus functions that import the edited shared files (`_shared/entitlements.ts`, the new `_shared/librarySavedAnswers.ts`). The SPA (new `plans.ts`, a note under the summary, 20 locale files). No secret, workflow or `config.toml` change.
 
 **Rollback**
 1. Entitlements: re-create `trial_sections()` from `20261063`, and `UPDATE public.billing_plans SET limits = jsonb_set(limits, '{sections}', '["news","community","assistive","kids"]') WHERE id = 'kids';`; revert `TRIAL_LOCAL_SECTIONS` and `KIDS_PLAN` in `plans.ts`.
@@ -99,7 +148,7 @@ All of it is data-preserving.
 
 1. LiveKit billing and a room-minute cap are unresolved.
 2. WhatsApp notices for unlinked and expired senders: up to 144 a day per number, uncapped across numbers; Meta's service-message rate is unverified.
-3. `bazaar-notify-seller` has no send limit that I could find.
+3. Many different numbers each receive a first WhatsApp notice (no global hourly cap); Meta's rate and free-tier status for the owner's account are unknown.
 4. The AI gate is plan-eligibility, not section-aware (pre-existing): any AI-eligible plan, Kids included, can call a gated AI function directly.
 5. The saved-answer cache is empty in production; no cost saving exists or is claimed.
 6. Free and expired accounts lose voice-room access (intended, a visible change).

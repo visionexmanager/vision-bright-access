@@ -86,6 +86,21 @@ try {
   }
   expect("50 rounds x 10 simultaneous WhatsApp requests after the 10 minutes: exactly 1 renotice each, none on the next burst", badRenotice === 0);
 
+  // The daily cap (20261082) under concurrency: at the cap nobody wins; one below it exactly one wins and the count lands on six.
+  let capBad = 0, lastBad = 0;
+  for (let i = 0; i < 30; i++) {
+    const phone = `+96279${String(80000000 + i)}`;
+    await admin.query("UPDATE public.ai_subscription_gate_notices SET notified_at = now() - interval '11 minutes', renotice_count = 6, renotice_window_start = now() - interval '1 hour' WHERE channel='whatsapp' AND subject=$1", [phone]);
+    const atCap = tally(await race((c) => c.query("select public.ai_subscription_gate_whatsapp($1) as v", [phone])));
+    if (atCap.first !== 0) capBad++;
+    await admin.query("UPDATE public.ai_subscription_gate_notices SET notified_at = now() - interval '11 minutes', renotice_count = 5, renotice_window_start = now() - interval '1 hour' WHERE channel='whatsapp' AND subject=$1", [phone]);
+    const below = tally(await race((c) => c.query("select public.ai_subscription_gate_whatsapp($1) as v", [phone])));
+    const count = (await admin.query("select renotice_count n from public.ai_subscription_gate_notices where channel='whatsapp' and subject=$1", [phone])).rows[0].n;
+    if (below.first !== 1 || count !== 6) lastBad++;
+  }
+  expect("30 rounds x 10 simultaneous messages from a number AT its daily cap: nobody is re-told", capBad === 0);
+  expect("30 rounds x 10 simultaneous messages one below the cap: exactly one is re-told and the count lands on six", lastBad === 0);
+
   // A linked account in its free week (20261079) is never sent the notice, however they race.
   let badFreeWeek = 0;
   for (let i = 0; i < 50; i++) {
@@ -115,6 +130,33 @@ try {
   // 20261078: the free set plus the stored-content sections. Still never an AI service and never every section.
   expect("a trial account's sections are exactly the free set plus academy, arcade, library",
     JSON.stringify([...trialSecs].sort()) === JSON.stringify(["academy", "arcade", "assistive", "community", "library", "news"]));
+
+  // Seller notifications (20261081): the limit is decided atomically, so a burst cannot all read
+  // the same count and pass.
+  const claimAs = (c, user, shop, event, product, key) => c.query("select public.bazaar_notify_claim($1,$2,$3,$4,$5) as v", [user, shop, event, product, key]);
+  const uid = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  let dupBad = 0;
+  for (let i = 0; i < 30; i++) {
+    const rs = await Promise.all(clients.map((c) => claimAs(c, uid(9000 + i), uid(9500 + i), "add_to_cart", uid(1), null)));
+    if (rs.filter((r) => r.rows[0].v.allowed === true).length !== 1) dupBad++;
+  }
+  expect("30 rounds x 10 simultaneous IDENTICAL seller notifications: exactly 1 allowed each (the rest are duplicates)", dupBad === 0);
+
+  let rateBad = 0;
+  for (let i = 0; i < 20; i++) {
+    const rs = await Promise.all(clients.map((c, k) => claimAs(c, uid(9100 + i), uid(9600 + i), "message", null, `k${k}`)));
+    if (rs.filter((r) => r.rows[0].v.allowed === true).length !== 5) rateBad++;
+  }
+  expect("20 rounds x 10 simultaneous DIFFERENT notifications from one user to one shop: exactly 5 allowed each (the hourly ceiling)", rateBad === 0);
+
+  let externalGranted = 0, inAppAllowed = 0;
+  const shop = uid(9700);
+  for (let batch = 0; batch < 3; batch++) {
+    const rs = await Promise.all(clients.map((c, k) => claimAs(c, uid(9200 + batch * 10 + k), shop, "review", uid(2), null)));
+    for (const r of rs) { if (r.rows[0].v.allowed) inAppAllowed++; if (r.rows[0].v.allowed && r.rows[0].v.external) externalGranted++; }
+  }
+  expect("30 users notify one shop in three simultaneous bursts: all 30 in-app notifications allowed", inAppAllowed === 30);
+  expect("…and e-mail/WhatsApp is granted to exactly 20 (the shop-wide ceiling cannot be raced past)", externalGranted === 20);
 
   // Subscribing mid-flight: a subscriber is never told and the re-arm never double-fires.
   const sub = "00000000-0000-4000-8000-0000000000ff";

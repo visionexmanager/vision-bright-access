@@ -31,6 +31,7 @@ const GUARD_EVIDENCE: Record<Guard, RegExp | null> = {
   voice_guard: /guardVoiceRequest\(/,
   webhook_gate: /requireActiveSubscription\(/,
   paid_plan: /hasActivePaidPlan\(/,
+  claim: /bazaar_notify_claim/,
 };
 /** Functions whose gate lives in a shared handler rather than their own file. */
 const GATED_VIA: Record<string, RegExp> = { "career-ai": /handleStructuredCareerAiRequest/ };
@@ -58,7 +59,7 @@ describe("the Edge Function table", () => {
   it("gives every D function a real guard, and the source of that function shows it", () => {
     for (const [name, p] of Object.entries(EDGE_POLICY)) {
       if (p.cls !== "D") continue;
-      expect(["ai_gate", "voice_guard", "webhook_gate", "paid_plan", "admin", "cron", "owner"], `${name}: guard ${p.guard}`).toContain(p.guard);
+      expect(["ai_gate", "voice_guard", "webhook_gate", "paid_plan", "claim", "admin", "cron", "owner"], `${name}: guard ${p.guard}`).toContain(p.guard);
       const evidence = GUARD_EVIDENCE[p.guard]!;
       const source = dirSource(name);
       const ok = evidence.test(source) || (GATED_VIA[name]?.test(source) ?? false);
@@ -73,10 +74,9 @@ describe("the Edge Function table", () => {
     }
     const unverified = Object.entries(EDGE_POLICY).filter(([, p]) => p.guard === "unverified").map(([n]) => n);
     expect(unverified).toEqual([]);
-    // What is still open is named, with its reason, and pinned: identity is proven, a send limit is not.
+    // Nothing is left open: the one that was (bazaar-notify-seller, no send limit) now claims a limit before it sends.
     const open = Object.entries(EDGE_POLICY).filter(([, p]) => p.open).map(([n]) => n);
-    expect(open).toEqual(["bazaar-notify-seller"]);
-    for (const n of open) expect(EDGE_POLICY[n].note).toMatch(/^UNRESOLVED/);
+    expect(open).toEqual([]);
   });
 
   it("runs the subscription gate BEFORE the first provider call in every ai_gate function", () => {
@@ -137,6 +137,33 @@ describe("the Edge Function table", () => {
     expect(limit).toBeLessThan(call);
     expect(src.slice(stored - 200, stored + 120)).toMatch(/!body.force/);
     expect(src.slice(stored, gate)).toMatch(/\.eq\("user_id", user\.id\)/);
+  });
+
+  it("bazaar-notify-seller: authorise the event, claim the limit, and only then create or send anything", () => {
+    const src = dirSource("bazaar-notify-seller");
+    const handler = src.indexOf("Deno.serve");
+    const at = (needle: string, from = handler) => { const i = src.indexOf(needle, from); expect(i, needle).toBeGreaterThan(-1); return i; };
+    const internalOnly = at("INTERNAL_ONLY_EVENTS.has(payload.eventType)");
+    const orderCheck = at('.from("bazaar_orders")');
+    const claim = at('rpc("bazaar_notify_claim"');
+    const inApp = at('.from("notifications").insert');
+    const email = at("https://api.resend.com/emails");
+    const whatsapp = at("/messages`");
+    expect(internalOnly).toBeLessThan(claim);
+    expect(orderCheck).toBeLessThan(claim);
+    expect(claim).toBeLessThan(inApp);
+    expect(inApp).toBeLessThan(email);
+    expect(claim).toBeLessThan(whatsapp);
+    // the paid channels are sent only when the claim granted them
+    expect(src).toMatch(/if \(external && shop\.email_notifications !== false\)/);
+    expect(src).toMatch(/if \(external && shop\.whatsapp_notifications && shop\.whatsapp_number\)/);
+    // a user's e-mail address is never put in a seller's notification
+    // (the seller's own address, `owner.data.user?.email`, is what the e-mail is sent TO, and is exempt)
+    expect(src).not.toMatch(/(?<![.\w])user!?\??\.email/);
+    // fails closed
+    expect(src).toMatch(/claimError \|\| !claim/);
+    // platform calls are the only unlimited path
+    expect(src).toMatch(/if \(!isInternal\) \{[\s\S]*bazaar_notify_claim/);
   });
 
   it("keeps webhooks behind the sender gate before any provider call", () => {

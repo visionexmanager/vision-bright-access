@@ -2,6 +2,21 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { GRAPH_BASE } from "../_shared/meta.ts";
 
+// Who may cause which notification, and how often (cost-aware access policy).
+//
+//   * The platform itself (bearer = the service role: the Stripe webhook) may send any
+//     event, unlimited.
+//   * A signed-in user may send message, add_to_cart, wishlist, review, dispute, report
+//     and order_paid. order_paid is accepted only for an order that user really has
+//     with that shop in the last 30 minutes, and order_status / low_stock are refused:
+//     before this, anyone could tell any seller an order had been paid.
+//   * Every user-triggered notification is claimed through bazaar_notify_claim
+//     (20261081): duplicates, per-user and per-shop ceilings, decided atomically. E-mail
+//     and WhatsApp (which cost money and reach a person) are sent only when the claim
+//     grants them; the in-app notification is the floor.
+//   * The text is bounded and stripped of control characters, and the buyer is named by
+//     a supplied name or display name, never by e-mail address.
+
 type BazaarEventType =
   | "message" | "add_to_cart" | "wishlist" | "dispute" | "review" | "report"
   | "order_paid" | "order_status" | "low_stock";
@@ -32,6 +47,16 @@ const EVENT_LABELS: Record<BazaarEventType, string> = {
   low_stock: "Low stock alert",
 };
 
+const INTERNAL_ONLY_EVENTS = new Set<BazaarEventType>(["order_status", "low_stock"]);
+const PAID_ORDER_STATUSES = ["paid", "processing", "shipped", "completed"];
+
+/** Bounded single-line text: control characters become spaces, runs collapse, then it is cut. */
+function clean(value: unknown, max: number): string {
+  if (typeof value !== "string") return "";
+  // deno-lint-ignore no-control-regex
+  return value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s{2,}/g, " ").trim().slice(0, max);
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -54,7 +79,7 @@ Deno.serve(async (req) => {
     }
 
     const payload = await req.json() as NotifyPayload;
-    if (!payload.shopId || !payload.eventType || !EVENT_LABELS[payload.eventType]) {
+    if (!payload || typeof payload.shopId !== "string" || !payload.eventType || !EVENT_LABELS[payload.eventType]) {
       return new Response(JSON.stringify({ error: "Invalid notification payload" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -86,6 +111,36 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Authorisation of the event itself, before anything is read or sent.
+    let claimKey: string | null = null;
+    if (!isInternal) {
+      if (INTERNAL_ONLY_EVENTS.has(payload.eventType)) {
+        return new Response(JSON.stringify({ error: "not_allowed" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (payload.eventType === "order_paid") {
+        const { data: order } = await serviceClient
+          .from("bazaar_orders")
+          .select("id")
+          .eq("buyer_id", user!.id)
+          .eq("shop_id", shop.id)
+          .in("status", PAID_ORDER_STATUSES)
+          .gt("created_at", new Date(Date.now() - 30 * 60_000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!order) {
+          return new Response(JSON.stringify({ error: "no_recent_order" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        claimKey = String(order.id);
+      }
+    }
+
     let productName = "";
     if (payload.productId) {
       const { data: product } = await serviceClient
@@ -108,11 +163,42 @@ Deno.serve(async (req) => {
       });
     }
 
-    const buyer = payload.buyerName || user?.email || "A buyer";
+    // The atomic limit. Platform calls are not claimed; a user's are, and a claim that cannot be
+    // made fails closed (nothing is sent) rather than open.
+    let external = true;
+    if (!isInternal) {
+      const { data: claim, error: claimError } = await serviceClient.rpc("bazaar_notify_claim", {
+        _user_id: user!.id,
+        _shop_id: shop.id,
+        _event_type: payload.eventType,
+        _product_id: typeof payload.productId === "string" ? payload.productId : null,
+        _key: claimKey,
+      });
+      if (claimError || !claim || typeof claim !== "object") {
+        return new Response(JSON.stringify({ error: "unavailable" }), {
+          status: 503,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if ((claim as { allowed?: unknown }).allowed !== true) {
+        return new Response(JSON.stringify({ skipped: true, reason: String((claim as { reason?: unknown }).reason ?? "limited") }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      external = (claim as { external?: unknown }).external === true;
+    }
+
+    let buyer = clean(payload.buyerName, 60);
+    if (!buyer && user) {
+      const { data: profile } = await serviceClient.from("profiles").select("display_name").eq("user_id", user.id).maybeSingle();
+      buyer = clean(profile?.display_name, 60);
+    }
+    if (!buyer) buyer = "A buyer";
+    const messageText = clean(payload.message, 600);
     const title = `${EVENT_LABELS[payload.eventType]} · ${shop.name}`;
     const bodyParts = [
       `${buyer} interacted with ${productName || "your shop"}.`,
-      payload.message ? `Message: ${payload.message}` : "",
+      messageText ? `Message: ${messageText}` : "",
     ].filter(Boolean);
     const body = bodyParts.join(" ");
 
@@ -124,9 +210,9 @@ Deno.serve(async (req) => {
       sent_by: user?.id || null,
     });
 
-    const result = { inApp: true, email: "skipped", whatsapp: "skipped" };
+    const result = { inApp: true, email: "skipped", whatsapp: "skipped", external };
 
-    if (shop.email_notifications !== false) {
+    if (external && shop.email_notifications !== false) {
       const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
       const owner = await serviceClient.auth.admin.getUserById(shop.owner_id);
       const ownerEmail = owner.data.user?.email;
@@ -155,7 +241,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (shop.whatsapp_notifications && shop.whatsapp_number) {
+    if (external && shop.whatsapp_notifications && shop.whatsapp_number) {
       // WHATSAPP_TOKEN, not WHATSAPP_ACCESS_TOKEN. Both names existed and both
       // meant the same Cloud API credential, so configuring one silently left
       // the other send path dead. WHATSAPP_TOKEN is the canonical name because

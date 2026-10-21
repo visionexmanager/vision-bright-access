@@ -27,6 +27,8 @@ Classes: **A** free in the trial (stored or local content) · **B** free with li
 | **WhatsApp: a linked free-week sender is never sent the subscription notice** | migration `20261079` (`ai_subscription_gate_whatsapp`) | The notice is an outbound message Meta may bill. Unlinked and expired senders keep it (see findings). |
 | **The shared translate/explain cache can no longer be listed by any signed-in user** | migration `20261080`; the lookup uses the service role by exact hash | It had `USING (true)` for every authenticated account (see findings). |
 | **Today's librarian plan is returned before the gate** | `library-librarian-daily-plan` | The caller's own stored row, read under their own session. `force` still pays. |
+| **`bazaar-notify-seller` is limited and its events authorised** | migration `20261081` + the function | Any signed-in user could notify any seller unlimited on three channels and forge order notices; now a duplicate window, per-shop and per-day ceilings, a shop-wide e-mail/WhatsApp ceiling, and `order_paid` only for the caller's own recent order. |
+| **WhatsApp notices: at most 7 a day per number** | migration `20261082` | First notice always; six re-notices in a rolling day instead of up to 144. |
 | **`career-system-health` requires CRON_SECRET or an admin** | the function | It was callable with the public anon key: a Gemini probe plus 16 inserts per call. |
 | Six access messages in all 20 locales; the free-week card rewritten | `access.*`, `plans.freeWeekBody` | The card promised "every section open, on the site and on WhatsApp", untrue since 20261063. |
 
@@ -103,7 +105,7 @@ Opening Academy, Library and Arcade to the free week and Kids adds **no paid-pro
 | analyze-image | D | ai_gate | no | Subscription gate runs before the provider call. |
 | analyze-meal | D | ai_gate | no | Subscription gate runs before the provider call. |
 | bazaar-checkout | C | jwt | no | Marketplace checkout; identity from the verified session (getUser), no user id taken from the body. |
-| bazaar-notify-seller | C | jwt | no | UNRESOLVED (limit): verified session, but the notification text carries a caller-supplied buyer name and no per-caller send limit was found. Sends a notification, calls no paid provider. |
+| bazaar-notify-seller | D | claim | no | Sends an in-app notification, an e-mail (Resend) and a WhatsApp message to a seller, so it is treated as billed. Platform calls (service role) are unlimited; a user's are authorised per event (order_paid only for their own recent order, order_status and low_stock refused) and claimed through bazaar_notify_claim: 10-minute duplicate window, 5 per shop per hour, 30 per day, and e-mail/WhatsApp for at most 20 per shop per hour across all senders. Fails closed. |
 | bazaar-stripe-connect | C | jwt | no | Seller onboarding with Stripe Connect; verified session, own account. |
 | bazaar-stripe-webhook | C | signature | no | Payment webhook; verified by provider signature, not a user session. |
 | billing-engine | C | jwt | no | Subscription/VX actions for the caller; admin actions check has_role inside the function. |
@@ -193,7 +195,7 @@ Opening Academy, Library and Arcade to the free week and Kids adds **no paid-pro
 | vx-coin-review | C | jwt | no | Admin approval of VX top-ups; the RPCs check has_role(admin) themselves, the function only sends the buyer e-mail. |
 | whatsapp-webhook | D | webhook_gate | no | WhatsApp webhook; AI answers need an active plan. Local menus/audio for the trial are NOT yet served: the gate stays silent for them. |
 
-Counts: {"D":60,"C":27,"B":11}
+Counts: {"D":61,"C":26,"B":11}
 
 ## 8. Migration `20261078`: exact effects, rollout and rollback
 
@@ -225,7 +227,7 @@ Counts: {"D":60,"C":27,"B":11}
 4. WhatsApp: the static notice repeats every 10 minutes per number with no cross-sender cap; trial senders get no local content.
 5. The AI gate is not section-aware (pre-existing).
 6. The new sign-in and not-included messages are translated and tested but no screen shows them yet; `livekit-token` refusals show as a generic error in the room page.
-7. No Edge Function is left with an unproven guard. One is `open` (`bazaar-notify-seller`: identity proven, no send limit found); the other 25 are classified in `PRE_MERGE_FINDINGS.md`.
+7. No Edge Function is left with an unproven guard or flagged open. `bazaar-notify-seller` is now limited (claimed through `bazaar_notify_claim`, migration 20261081); the rest are classified in `PRE_MERGE_FINDINGS.md`.
 8. Games that speak through gated `text-to-speech` are refused for the free week; whether each falls back to local or browser speech was not audited.
 
 ## 10. How to reproduce

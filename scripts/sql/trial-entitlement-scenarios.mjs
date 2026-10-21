@@ -170,7 +170,7 @@ expect("LiveKit: admin → entitled", (await entitled(u(32))) === true);
 expect("LiveKit: NULL user → not entitled", (await entitled(null)) === false);
 
 // ── Companion scenarios that run with this one in CI (this script is in the gate workflow) ──
-for (const script of ["whatsapp-notice-scenarios.mjs", "trial-sections-migration-scenarios.mjs"]) {
+for (const script of ["whatsapp-notice-scenarios.mjs", "trial-sections-migration-scenarios.mjs", "bazaar-notify-claim-scenarios.mjs"]) {
   const r = spawnSync(process.execPath, [`scripts/sql/${script}`], { encoding: "utf8" });
   const lines = (r.stdout ?? "").trim().split("\n");
   console.log(`${r.status === 0 ? "PASS" : "FAIL"}  ${script}: ${lines.at(-1)}`);

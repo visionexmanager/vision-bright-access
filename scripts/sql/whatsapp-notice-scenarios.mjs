@@ -55,6 +55,21 @@ expect("…11 minutes later → told again (blocked_first_notice)", (await gate(
 expect("…and then silent again straight away (the clock restarted)", (await gate(UNLINKED)) === "blocked_silent");
 expect("…never more than one row for the number", (await notices(UNLINKED)) === 1);
 
+// ── The daily cap (20261082): the first notice plus six re-notices in a rolling day, then silence ──
+const CAPPED = "+96279000077";
+expect("capped number: first message → notice", (await gate(CAPPED)) === "blocked_first_notice");
+let renotices = 0;
+for (let i = 0; i < 10; i++) { await age(CAPPED, 11); if ((await gate(CAPPED)) === "blocked_first_notice") renotices++; }
+expect("capped number: of ten message bursts 11 minutes apart, exactly six re-notices are sent (7 notices in the day)", renotices === 6);
+await age(CAPPED, 11);
+expect("capped number: after the cap it stays silent, even though 10 minutes have passed", (await gate(CAPPED)) === "blocked_silent");
+await db.exec(`update public.ai_subscription_gate_notices set renotice_window_start = now() - interval '25 hours', notified_at = now() - interval '25 hours' where subject = '${CAPPED}'`);
+expect("capped number: 25 hours later the window has reset and it is told again", (await gate(CAPPED)) === "blocked_first_notice");
+expect("…and the count restarted at one", Number((await one("select renotice_count n from public.ai_subscription_gate_notices where subject = $1", [CAPPED])).n) === 1);
+expect("a number never re-noticed has a zero count and no window (the first notice is not counted against the cap)", Number((await one("select renotice_count n from public.ai_subscription_gate_notices where subject = $1", [UNLINKED])).n) <= 2);
+// the cap is per number: another number's first notice is untouched
+expect("another number's first notice is unaffected by a capped number", (await gate("+96279000078")) === "blocked_first_notice");
+
 // ── A linked account in its free week: never sent the notice ──
 const seen = new Set();
 for (let i = 0; i < 25; i++) seen.add(await gate(FREEWEEK));
@@ -90,6 +105,21 @@ await mdb.exec(`INSERT INTO profiles VALUES ('${u(1)}', now() + interval '5 days
 await mdb.exec(`INSERT INTO whatsapp_identities VALUES ('${FREEWEEK}', '${u(1)}')`);
 const mv = (await mdb.query("select public.ai_subscription_gate_whatsapp($1) v", [FREEWEEK])).rows[0].v;
 expect("MUTATION: with the free-week branch removed the sender WOULD be sent a notice (the real test above goes red)", mv === "blocked_first_notice");
+
+// ── Mutation proof for the daily cap: without it a number would be re-told every time ──
+const capSql = readFileSync("supabase/migrations/20261082000000_whatsapp_notice_daily_cap.sql", "utf8").replace("OR renotice_count < 6)", "OR true)");
+const cdb = new PGlite();
+await cdb.exec(STUBS);
+await cdb.exec(`CREATE SCHEMA auth; CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('test.uid', true), '')::uuid $$;`);
+await cdb.exec(MIGRATIONS.slice(0, -1).map((f) => readFileSync(f, "utf8")).join("\n"));
+await cdb.exec(capSql);
+let mutRenotices = 0;
+await cdb.query("select public.ai_subscription_gate_whatsapp($1)", [CAPPED]);
+for (let i = 0; i < 10; i++) {
+  await cdb.exec(`update public.ai_subscription_gate_notices set notified_at = notified_at - interval '11 minutes' where subject = '${CAPPED}'`);
+  if ((await cdb.query("select public.ai_subscription_gate_whatsapp($1) v", [CAPPED])).rows[0].v === "blocked_first_notice") mutRenotices++;
+}
+expect("MUTATION: with the daily cap removed all ten bursts would be re-told (the real cap test goes red)", mutRenotices === 10);
 
 console.log(`\n${total - fail}/${total} passed`);
 process.exit(fail ? 1 : 0);

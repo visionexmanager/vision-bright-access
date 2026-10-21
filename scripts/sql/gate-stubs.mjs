@@ -45,4 +45,6 @@ export const MIGRATIONS = [
   "supabase/migrations/20261075000000_whatsapp_gate_renotice.sql",
   "supabase/migrations/20261078000000_trial_local_sections.sql",
   "supabase/migrations/20261079000000_whatsapp_no_notice_for_free_week.sql",
+  "supabase/migrations/20261081000000_bazaar_notify_limits.sql",
+  "supabase/migrations/20261082000000_whatsapp_notice_daily_cap.sql",
 ];
