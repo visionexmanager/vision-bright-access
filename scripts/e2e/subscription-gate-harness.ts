@@ -47,7 +47,10 @@ const providerPaths: string[] = [];
 
 const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status, headers: { "Content-Type": "application/json" } });
 // The gate, and identity/authorization questions that spend nothing.
-const GATE_ONLY = new Set(["ai_subscription_gate", "ai_subscription_gate_whatsapp", "ai_subscription_gate_meta", "has_role", "is_organization_admin"]);
+// `user_has_section` is the same kind of question as `has_role`: a read-only entitlement lookup that spends
+// nothing (no limit, no VX, no provider). library-ai-assistant and library-librarian-daily-plan ask it BEFORE
+// the gate because a stored answer is only served to an account whose plan includes the Library.
+const GATE_ONLY = new Set(["ai_subscription_gate", "ai_subscription_gate_whatsapp", "ai_subscription_gate_meta", "has_role", "is_organization_admin", "user_has_section"]);
 
 // Bodies for the functions that validate their input before they authenticate.
 const BODIES: Record<string, unknown> = {

@@ -1,7 +1,9 @@
 // GET/POST — Career Center system diagnostics, in the same spirit as the
 // site-wide health-check function but scoped to Career Center tables and AI
-// provider keys. No auth required (read-only diagnostics), but every run is
-// persisted to career_system_health_checks for the admin-only history view.
+// provider keys. Requires CRON_SECRET or an admin session. It used to need no auth
+// at all, which let anyone holding the public anon key trigger a Gemini key probe
+// and sixteen history inserts per call; every run is persisted to
+// career_system_health_checks for the admin-only history view.
 // Intended to be polled by a cron (see infrastructure/monitoring/README.md).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
@@ -65,6 +67,38 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
+
+  // Before any probe, any provider call or any write: the scheduler's secret, or an
+  // admin session. Fails closed (no secret configured means only an admin gets in).
+  {
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const isCron = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
+    let isAdmin = false;
+    if (!isCron) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+      const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (authHeader && supabaseUrl && anonKey && serviceRole && authHeader !== `Bearer ${anonKey}`) {
+        try {
+          const asUser = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+          const { data: { user } } = await asUser.auth.getUser();
+          if (user) {
+            const { data } = await createClient(supabaseUrl, serviceRole).rpc("has_role", { _user_id: user.id, _role: "admin" });
+            isAdmin = data === true;
+          }
+        } catch {
+          isAdmin = false;
+        }
+      }
+    }
+    if (!isCron && !isAdmin) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const results: Record<string, ComponentStatus> = {};
 

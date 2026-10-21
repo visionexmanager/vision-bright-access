@@ -420,7 +420,7 @@ const EXEMPT: Record<string, string> = {
   "library-process-background-jobs": "cron secret; no end-user caller",
   "health-check": "public model-list probes that generate nothing; generation probes are admin-gated",
   "moderate-content": "safety control, not an AI service: free OpenAI moderation endpoint (no VX); every client caller fails open on refusal, so gating would publish unmoderated kids/library content. JWT required, 8000-char cap",
-  "career-system-health": "configuration presence check; calls no provider",
+  "career-system-health": "admin/cron-only diagnostics; its one provider call is the free Gemini models listing, never a generation",
   "career-gdpr-request": "data deletion; calls no provider",
 };
 
@@ -447,7 +447,12 @@ describe("every user-facing AI entry point asks the gate first", () => {
       const gate = handler.indexOf("await subscriptionGate(");
       expect(gate, `${name} does not call subscriptionGate`).toBeGreaterThan(-1);
       expect(handler).toMatch(/if \(refused\) return refused;/);
+      // These two return the caller's own stored result BEFORE the gate (cost-aware access policy), and
+      // that read itself requires the Library section, so the (cheap, read-only) section lookup comes first.
+      // Nothing that costs money does: the section check is a database RPC, and a stored hit calls no provider.
+      const SAVED_FIRST = ["library-ai-assistant", "library-librarian-daily-plan"];
       for (const marker of COSTLY) {
+        if (marker === "maySeeSection(" && SAVED_FIRST.includes(name)) continue;
         const at = handler.indexOf(marker);
         if (at >= 0) expect(at, `${name}: ${marker} runs before the gate`).toBeGreaterThan(gate);
       }

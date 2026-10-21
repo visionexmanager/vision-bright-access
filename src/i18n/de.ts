@@ -13403,7 +13403,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Was dieser Tarif öffnet",
   "plans.currentPlan": "Ihr Tarif",
   "plans.freeWeekTitle": "Jedes Konto beginnt mit einer kostenlosen Woche",
-  "plans.freeWeekBody": "Sieben Tage mit allen Bereichen offen, auf der Website und bei WhatsApp — ohne Karte, und wir sagen Ihnen einen Tag vorher Bescheid. Danach wählen Sie Kinder, Basis, Pro oder Business. Nachrichten, Community und Hilfsmittel bleiben in jedem Fall offen.",
+  "plans.freeWeekBody": "Sieben Tage zum Entdecken von Visionex: Nachrichten, Community, Hilfsmittel sowie die gespeicherten Lektionen, Bücher und Spiele von Akademie, Bibliothek und Arcade sind offen – ohne Karte, und wir erinnern dich einen Tag vor dem Ende. KI-Dienste und WhatsApp brauchen einen Tarif: Wähle Kinder, Basis, Pro oder Business.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Abonnement abschließen",
@@ -13583,6 +13583,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "Halbpension",
   "travel.board.full_board": "Vollpension",
   "travel.board.all_inclusive": "All inclusive",
+  "access.signInRequired": "Diese Funktion nutzt einen externen KI-Dienst. Erstelle ein Konto oder melde dich an und wähle dann einen passenden Tarif, um fortzufahren.",
+  "access.planNotIncluded": "Dein aktueller Tarif enthält diese Funktion nicht.",
+  "access.insufficientVx": "Du hast nicht genug VX für diese Aktion. Es wurde keine externe Anfrage gesendet.",
+  "access.unavailable": "Diese Funktion ist vorübergehend nicht verfügbar, und es wurde keine externe Anfrage gesendet.",
+  "access.savedAnswer": "Diese Antwort wurde früher auf Visionex gespeichert. Es wurde keine neue KI-Anfrage gestellt, daher kann sie neuere Informationen nicht berücksichtigen.",
+  "access.trialLocal": "Diese Funktion ist in deiner kostenlosen Testphase verfügbar, weil sie lokal gespeicherte Inhalte nutzt.",
 };
 
 export default translations;

@@ -13793,7 +13793,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "What it opens",
   "plans.currentPlan": "Your plan",
   "plans.freeWeekTitle": "Every account starts with a free week",
-  "plans.freeWeekBody": "Seven days with every section open, on the site and on WhatsApp — no card needed, and we tell you the day before it ends. After that, choose Kids, Basic, Pro or Business. The news, the community and assistive products stay open either way.",
+  "plans.freeWeekBody": "Seven days to explore Visionex: the news, the community, assistive products, and the stored lessons, books and games of the Academy, Library and Arcade are open — no card needed, and we tell you the day before it ends. AI services and WhatsApp need a plan: choose Kids, Basic, Pro or Business.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Complete your subscription",
@@ -13973,6 +13973,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "Half board",
   "travel.board.full_board": "Full board",
   "travel.board.all_inclusive": "All inclusive",
+  "access.signInRequired": "This feature uses an external AI service. Create an account or sign in, then choose an eligible plan to continue.",
+  "access.planNotIncluded": "Your current plan does not include this operation.",
+  "access.insufficientVx": "You do not have enough VX for this operation. No external request was made.",
+  "access.unavailable": "This feature is temporarily unavailable, and no external request was made.",
+  "access.savedAnswer": "This answer was saved earlier on Visionex. No new AI request was made, so it may not reflect newer information.",
+  "access.trialLocal": "This feature is available during your free trial because it uses locally stored content.",
 };
 
 export default translations;

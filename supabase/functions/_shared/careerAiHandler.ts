@@ -10,6 +10,7 @@ import { CAREER_AI_RESPONSE_SCHEMA, CareerAiRole, CareerAiService, getCareerAiPr
 import { buildUserAiContext } from "./careerAiMemory.ts";
 import { checkRateLimit } from "./careerRateLimit.ts";
 import { subscriptionGate } from "./subscriptionGate.ts";
+import { requireSection } from "./entitlements.ts";
 import { validateAndCleanInput } from "./careerAiSafety.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -59,6 +60,10 @@ export async function authenticateCareerAiRequest(
   // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
   const refused = await subscriptionGate(serviceClient, req, user.id, corsHeaders);
   if (refused) return { ok: false, response: refused };
+
+  // Section entitlement (cost-aware access policy): the Career hub is a Pro section.
+  const sectionRefused = await requireSection(serviceClient, user.id, "career", corsHeaders);
+  if (sectionRefused) return { ok: false, response: sectionRefused };
 
   const rate = await checkRateLimit(serviceClient, user.id);
   if (!rate.allowed) {

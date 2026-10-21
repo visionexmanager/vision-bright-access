@@ -21,6 +21,8 @@ import * as plans from "@/lib/billing/plans";
 
 const read = (path: string) => readFileSync(path, "utf8");
 const TRIAL_MIGRATION = read("supabase/migrations/20261063000000_trial_is_not_full_access.sql");
+// The LATEST definition of trial_sections(): 20261063 made it the free set, 20261078 added the stored-content sections.
+const TRIAL_SECTIONS_MIGRATION = read("supabase/migrations/20261078000000_trial_local_sections.sql");
 const WAIVER_MIGRATION = read("supabase/migrations/20261064000000_trial_stops_waiving_vx.sql");
 const code = (sql: string) => sql.split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
 
@@ -38,9 +40,9 @@ describe("free_trial never resolves to all sections", () => {
     }
   });
 
-  it("is today the free set only: no AI assistant and no paid section", () => {
-    expect([...TRIAL_SECTIONS].sort()).toEqual([...FREE_SECTIONS].sort());
-    for (const paid of ["assistant", "academy", "library", "arcade", "marketplace", "kids", "career", "tv", "radio", "messages", "simulations", "mediaStudio", "studio", "professional", "finance"] as const) {
+  it("is the free set plus the three sections served from stored content: no AI assistant and no paid section", () => {
+    expect([...TRIAL_SECTIONS].sort()).toEqual([...FREE_SECTIONS, "academy", "library", "arcade"].sort());
+    for (const paid of ["assistant", "marketplace", "kids", "career", "tv", "radio", "messages", "simulations", "mediaStudio", "studio", "professional", "finance"] as const) {
       expect(planAllows("free_trial", paid), paid).toBe(false);
     }
   });
@@ -56,16 +58,16 @@ describe("free_trial never resolves to all sections", () => {
     expect("TRIAL_WHATSAPP_DAILY" in plans).toBe(false);
   });
 
-  it("a paid plan opens more than the trial, so subscribing is never a downgrade", () => {
+  it("every paid plan, Kids included, opens more than the trial, so subscribing is never a downgrade", () => {
     for (const plan of Object.values(PAID_PLANS)) {
-      for (const s of TRIAL_SECTIONS) expect(plan.sections).toContain(s);
+      for (const s of TRIAL_SECTIONS) expect(plan.sections, plan.id).toContain(s);
     }
   });
 });
 
 describe("one resolution in the database", () => {
   it("trial_sections() is the same list as TRIAL_SECTIONS", () => {
-    const list = /FUNCTION public\.trial_sections\(\)[\s\S]*?ARRAY\[([^\]]*)\]/.exec(TRIAL_MIGRATION)?.[1] ?? "";
+    const list = /FUNCTION public\.trial_sections\(\)[\s\S]*?ARRAY\[([^\]]*)\]/.exec(TRIAL_SECTIONS_MIGRATION)?.[1] ?? "";
     expect([...list.matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]).sort()).toEqual([...TRIAL_SECTIONS].sort());
   });
 
@@ -113,10 +115,10 @@ describe("one resolution in the database", () => {
     expect(/FUNCTION public\.ai_eligible_plans[\s\S]{0,200}ARRAY\[([^\]]*)\]/.exec(eligible)?.[1]).not.toMatch(/free_trial/);
   });
 
-  it("the LAST definition of every entitlement function is the one in 20261062/20261063", () => {
+  it("the LAST definition of every entitlement function is the one in 20261062/20261063/20261078", () => {
     const expected: Record<string, string> = {
       plan_for_user: "20261063", user_sections: "20261063", my_plan_access: "20261063", whatsapp_entitlements: "20261063",
-      trial_sections: "20261063", ai_user_entitled: "20261062", ai_subscription_gate: "20261062",
+      trial_sections: "20261078", ai_user_entitled: "20261062", ai_subscription_gate: "20261062",
     };
     const files = readdirSync("supabase/migrations").sort();
     for (const [fn, version] of Object.entries(expected)) {
@@ -126,7 +128,9 @@ describe("one resolution in the database", () => {
   });
 
   it("no migration after 20261063 reads a trial flag in code (the service-request perk is the only survivor, and it is older)", () => {
-    const later = readdirSync("supabase/migrations").filter((f) => f.split("_")[0] > "20261063000000");
+    const later = readdirSync("supabase/migrations").filter((f) => f.split("_")[0] > "20261063000000" && !f.startsWith("20261078") && !f.startsWith("20261079") && !f.startsWith("20261082") && !f.startsWith("20261083"));
+    // 20261082 re-creates the 20261079 function (which reads the trial only to refuse the notice) with a daily cap.
+    // 20261078 redefines trial_sections(); 20261079 reads the trial only to REFUSE the WhatsApp notice to a free-week sender. Neither grants anything.
     for (const file of later) {
       expect(code(read(`supabase/migrations/${file}`)), file).not.toMatch(/free_trial|trial_expires_at|is_in_trial|trial_ends_at|trial_sections/i);
     }

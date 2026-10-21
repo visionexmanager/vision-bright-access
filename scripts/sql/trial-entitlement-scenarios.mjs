@@ -9,6 +9,7 @@
 // that had the obsolete rule and was then migrated. Exit status 1 on any failure.
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { STUBS, MIGRATIONS } from "./gate-stubs.mjs";
 
 const db = new PGlite();
@@ -33,6 +34,8 @@ const asUser = (id) => db.exec(`select set_config('test.uid', '${id ?? ""}', fal
 const wa = async (phone) => (await one("select public.whatsapp_entitlements($1) v", [phone])).v;
 
 const FREE = ["assistive", "community", "news"];
+// What the free week opens now (20261078): the free set plus the sections served from stored content.
+const TRIAL = [...FREE, "academy", "arcade", "library"].sort();
 const ALL_EIGHTEEN = ["academy", "arcade", "assistant", "assistive", "career", "community", "finance", "kids", "library",
   "marketplace", "mediaStudio", "messages", "news", "professional", "radio", "simulations", "studio", "tv"];
 const sorted = (xs) => [...xs].sort();
@@ -43,22 +46,33 @@ expect("free_trial row: sections are the three free ones, not eighteen", JSON.st
 expect("free_trial row: the 200-a-day WhatsApp allowance is gone (0 would mean unlimited, so the key is removed)", !("whatsapp_daily_messages" in row.limits));
 expect("free_trial row: copy no longer promises every section", !/every section/i.test(JSON.stringify(row.features)) && !/every section (open|of)/i.test(row.description));
 
+// ── 0b. The Kids plan row (20261078): union, nothing else touched, idempotent ──
+const kidsRow = await one("select price_monthly_usd::numeric p, limits from public.billing_plans where id = 'kids'");
+expect("kids row: keeps news/community/assistive/kids and gains academy, arcade, library",
+  JSON.stringify(sorted(kidsRow.limits.sections)) === JSON.stringify(["academy", "arcade", "assistive", "community", "kids", "library", "news"]));
+expect("kids row: price and WhatsApp allowance untouched", Number(kidsRow.p) === 3 && kidsRow.limits.whatsapp_daily_messages === 50);
+const proRow = await one("select limits from public.billing_plans where id = 'pro'");
+expect("pro row untouched by the Kids update", proRow.limits.sections.length === 14);
+await db.exec(migration);
+const kidsAgain = await one("select limits from public.billing_plans where id = 'kids'");
+expect("a third run changes nothing (idempotent)", JSON.stringify(sorted(kidsAgain.limits.sections)) === JSON.stringify(sorted(kidsRow.limits.sections)) && kidsAgain.limits.sections.length === 7);
+
 // ── 1. Trial only ──
 await db.exec(`INSERT INTO profiles VALUES ('${u(1)}', now() + interval '5 days')`);
 expect("trial only → plan free_trial", (await plan(u(1))) === "free_trial");
-expect("trial only → sections are exactly the trial's three", JSON.stringify(sorted(await sections(u(1)))) === JSON.stringify(FREE));
+expect("trial only → sections are exactly the trial's six (free set + academy, arcade, library)", JSON.stringify(sorted(await sections(u(1)))) === JSON.stringify(TRIAL));
 expect("trial only → AI refused (first notice)", (await gate(u(1))) === "blocked_first_notice");
 expect("trial only → AI refused again (silent)", (await gate(u(1))) === "blocked_silent");
 const trialSections = await sections(u(1));
-for (const s of ["assistant", "academy", "library", "arcade", "marketplace", "kids", "career", "tv", "radio", "messages", "simulations", "mediaStudio", "studio", "professional", "finance"]) {
+for (const s of ["assistant", "marketplace", "kids", "career", "tv", "radio", "messages", "simulations", "mediaStudio", "studio", "professional", "finance"]) {
   if (trialSections.includes(s)) { fail++; console.log(`FAIL  trial must not open ${s}`); }
 }
-expect("trial opens none of the fifteen paid/AI sections", !ALL_EIGHTEEN.filter((s) => !FREE.includes(s)).some((s) => trialSections.includes(s)));
+expect("trial opens none of the twelve paid/AI sections", !ALL_EIGHTEEN.filter((s) => !TRIAL.includes(s)).some((s) => trialSections.includes(s)));
 
 // ── 2. Tampering with the plan row cannot reopen everything ──
 await db.exec(`UPDATE public.billing_plans SET limits = jsonb_set(limits, '{sections}', to_jsonb(ARRAY[${ALL_EIGHTEEN.map((s) => `'${s}'`).join(",")}]::text[])) WHERE id = 'free_trial'`);
 expect("plan row edited back to all eighteen sections → the trial STILL gets three (free_trial can never resolve to all sections)",
-  JSON.stringify(sorted(await sections(u(1)))) === JSON.stringify(FREE));
+  JSON.stringify(sorted(await sections(u(1)))) === JSON.stringify(TRIAL));
 expect("…and still no AI", (await gate(u(1))) === "blocked_silent");
 
 // ── 3. Paid eligible plan ──
@@ -94,7 +108,7 @@ expect("admin → AI authorized", (await gate(u(7))) === "authorized");
 // ── 7. What the browser reads ──
 await asUser(u(1));
 let mine = (await one("select public.my_plan_access() v")).v;
-expect("my_plan_access, trial: plan free_trial, trial_active, three sections", mine.plan === "free_trial" && mine.trial_active === true && mine.sections.length === 3);
+expect("my_plan_access, trial: plan free_trial, trial_active, six sections", mine.plan === "free_trial" && mine.trial_active === true && mine.sections.length === 6);
 await asUser(u(3));
 mine = (await one("select public.my_plan_access() v")).v;
 expect("my_plan_access, pro inside the free week: plan pro, trial_active false (no trial banner)", mine.plan === "pro" && mine.trial_active === false && mine.sections.includes("career"));
@@ -123,8 +137,8 @@ expect("WhatsApp unlinked number → the free floor, not a trial", e.plan === "n
 e = await wa("96181000005");
 expect("WhatsApp lapsed trial → none", e.plan === "none");
 const waGate = async (phone) => (await one("select public.ai_subscription_gate_whatsapp($1) v", [phone])).v;
-expect("WhatsApp trial sender → subscription notice (first)", (await waGate("96181000001")) === "blocked_first_notice");
-expect("WhatsApp trial sender → then silent", (await waGate("96181000001")) === "blocked_silent");
+expect("WhatsApp free-week sender → no notice (20261079: Meta may bill an outbound service message; refused silently)", (await waGate("96181000001")) === "blocked_silent");
+expect("WhatsApp trial sender → and still silent", (await waGate("96181000001")) === "blocked_silent");
 expect("WhatsApp basic sender → authorized", (await waGate("96181000002")) === "authorized");
 
 // ── 9. Nothing here leaks to the browser roles ──
@@ -136,6 +150,31 @@ for (const role of ["anon", "authenticated"]) {
   }
   await db.exec("RESET ROLE");
   expect(`${role} cannot ask for anybody's plan, sections or WhatsApp entitlement`, denied === 3);
+}
+
+// ── Who may be handed a LiveKit room token: ai_user_entitled, as livekit-token asks it ──
+// (the Edge Function is exercised in scripts/e2e/livekit-gate-harness.ts; this proves the
+// database answer for each account state it depends on)
+const entitled = async (id) => (await one("select public.ai_user_entitled($1) v", [id])).v;
+await db.exec(`INSERT INTO user_subscriptions (user_id, plan_id, status, ends_at) VALUES ('${u(30)}','kids','active', now() + interval '30 days')`);
+await db.exec(`INSERT INTO user_subscriptions (user_id, plan_id, status, ends_at) VALUES ('${u(31)}','pro','active', now() + interval '30 days')`);
+await db.exec(`INSERT INTO user_roles VALUES ('${u(32)}','admin')`);
+await db.exec(`INSERT INTO profiles VALUES ('${u(33)}', now() + interval '5 days')`);
+await db.exec(`INSERT INTO user_subscriptions (user_id, plan_id, status, ends_at) VALUES ('${u(34)}','pro','active', now() - interval '1 day')`);
+expect("LiveKit: free week → not entitled", (await entitled(u(33))) === false);
+expect("LiveKit: expired subscription → not entitled", (await entitled(u(34))) === false);
+expect("LiveKit: an account with no plan at all → not entitled", (await entitled(u(35))) === false);
+expect("LiveKit: Kids (active) → entitled, so Kids voice rooms keep working", (await entitled(u(30))) === true);
+expect("LiveKit: Pro (active) → entitled", (await entitled(u(31))) === true);
+expect("LiveKit: admin → entitled", (await entitled(u(32))) === true);
+expect("LiveKit: NULL user → not entitled", (await entitled(null)) === false);
+
+// ── Companion scenarios that run with this one in CI (this script is in the gate workflow) ──
+for (const script of ["whatsapp-notice-scenarios.mjs", "trial-sections-migration-scenarios.mjs", "bazaar-notify-claim-scenarios.mjs"]) {
+  const r = spawnSync(process.execPath, [`scripts/sql/${script}`], { encoding: "utf8" });
+  const lines = (r.stdout ?? "").trim().split("\n");
+  console.log(`${r.status === 0 ? "PASS" : "FAIL"}  ${script}: ${lines.at(-1)}`);
+  if (r.status !== 0) { fail++; console.log((r.stdout ?? "").split("\n").filter((l) => l.startsWith("FAIL")).join("\n") + (r.stderr ?? "")); }
 }
 
 console.log(fail === 0 ? "ALL PASS" : `${fail} FAILURE(S)`);
