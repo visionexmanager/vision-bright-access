@@ -26,6 +26,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
+import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 
 installUsageMetering("library-librarian-daily-plan");
 
@@ -82,10 +83,6 @@ Deno.serve(async (req: Request) => {
   const { data: { user }, error: authErr } = await userClient.auth.getUser();
   if (authErr || !user) return json({ error: "Unauthorized" }, 401, cors);
 
-  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
-  const refused = await subscriptionGate(serviceClient, req, user.id, cors);
-  if (refused) return refused;
-
   let body: { force?: boolean } = {};
   try {
     body = await req.json();
@@ -95,11 +92,27 @@ Deno.serve(async (req: Request) => {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  if (!body.force) {
+  // Today's plan, if the caller already has one, is returned BEFORE the gate, the
+  // daily limit and any provider (cost-aware trial policy): it is the caller's own
+  // stored row, read through their own session (RLS: user_id = auth.uid()) and
+  // filtered to them, so nobody else's plan can come back, and it needs no plan,
+  // no daily unit and no model. Asking for a new one (force) is paid work and goes
+  // through the gate below.
+  // The Library section is a condition of reading the stored plan too (a lapsed account gets none).
+  const librarySection = await maySeeSection(serviceClient, user.id, "library");
+  if (!body.force && librarySection.allowed) {
     const { data: existing } = await userClient
       .from("library_librarian_daily_plans").select("*").eq("user_id", user.id).eq("plan_date", today).maybeSingle();
-    if (existing) return json({ ok: true, plan: existing }, 200, cors);
+    if (existing) {
+      console.log(JSON.stringify({ fn: "library-librarian-daily-plan", event: "saved_hit", provider_called: false }));
+      return json({ ok: true, source: "saved", plan: existing }, 200, cors);
+    }
   }
+
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(serviceClient, req, user.id, cors);
+  if (refused) return refused;
+  if (!librarySection.allowed) return sectionRefusal("library", librarySection.unavailable, cors);
 
   const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "library-librarian-daily-plan" });
   if (allowed === false) return json({ error: "Daily limit reached. Try again tomorrow." }, 429, cors);

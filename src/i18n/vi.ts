@@ -13396,7 +13396,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Những phần được mở",
   "plans.currentPlan": "Gói của bạn",
   "plans.freeWeekTitle": "Mỗi tài khoản bắt đầu với một tuần miễn phí",
-  "plans.freeWeekBody": "Bảy ngày mở toàn bộ các phần, trên trang web và trên WhatsApp — không cần thẻ, và chúng tôi báo trước một ngày khi sắp hết. Sau đó hãy chọn gói Trẻ em, Cơ bản, Pro hoặc Doanh nghiệp. Tin tức, cộng đồng và sản phẩm hỗ trợ vẫn luôn mở.",
+  "plans.freeWeekBody": "Bảy ngày để khám phá Visionex: tin tức, cộng đồng, sản phẩm hỗ trợ cùng các bài học, sách và trò chơi đã lưu trong Học viện, Thư viện và Arcade đều mở — không cần thẻ, và chúng tôi nhắc bạn trước khi hết một ngày. Dịch vụ AI và WhatsApp cần một gói: hãy chọn Trẻ em, Cơ bản, Pro hoặc Doanh nghiệp.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Hoàn tất đăng ký",
@@ -13581,6 +13581,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "Bán phần",
   "travel.board.full_board": "Trọn bữa",
   "travel.board.all_inclusive": "Trọn gói",
+  "access.signInRequired": "Tính năng này dùng dịch vụ AI bên ngoài. Hãy tạo tài khoản hoặc đăng nhập, rồi chọn gói phù hợp để tiếp tục.",
+  "access.planNotIncluded": "Gói hiện tại của bạn không bao gồm thao tác này.",
+  "access.insufficientVx": "Bạn không đủ VX cho thao tác này. Không có yêu cầu bên ngoài nào được gửi.",
+  "access.unavailable": "Tính năng này tạm thời không khả dụng và không có yêu cầu bên ngoài nào được gửi.",
+  "access.savedAnswer": "Câu trả lời này đã được lưu trước đó trên Visionex. Không có yêu cầu AI mới nào được tạo, nên có thể chưa phản ánh thông tin mới hơn.",
+  "access.trialLocal": "Tính năng này có trong thời gian dùng thử miễn phí vì nó dùng nội dung được lưu cục bộ.",
 };
 
 export default translations;

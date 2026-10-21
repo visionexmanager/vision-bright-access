@@ -13396,7 +13396,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "可使用的板块",
   "plans.currentPlan": "您的方案",
   "plans.freeWeekTitle": "每个账户都从免费一周开始",
-  "plans.freeWeekBody": "七天内所有板块全部开放，网站和 WhatsApp 都一样——无需银行卡，结束前一天我们会提醒您。之后请选择儿童、基础版、专业版或商务版方案。新闻、社区和辅助产品始终保持开放。",
+  "plans.freeWeekBody": "七天探索 Visionex：新闻、社区、辅助产品，以及学院、图书馆和游戏厅中已存储的课程、图书和游戏均可使用，无需绑定银行卡，结束前一天我们会提醒您。AI 服务和 WhatsApp 需要套餐：请选择 儿童、基础版、专业版 或 商务版。",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "完成订阅",
@@ -13581,6 +13581,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "半膳",
   "travel.board.full_board": "全膳",
   "travel.board.all_inclusive": "全包",
+  "access.signInRequired": "此功能使用外部 AI 服务。请先创建账户或登录，然后选择合适的套餐以继续。",
+  "access.planNotIncluded": "您当前的套餐不包含此操作。",
+  "access.insufficientVx": "您的 VX 不足以执行此操作。未发送任何外部请求。",
+  "access.unavailable": "此功能暂时不可用，且未发送任何外部请求。",
+  "access.savedAnswer": "此回答此前已保存在 Visionex 上。未发起新的 AI 请求，因此可能不反映最新信息。",
+  "access.trialLocal": "此功能使用本地存储的内容，因此在免费试用期间可用。",
 };
 
 export default translations;

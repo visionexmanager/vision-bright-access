@@ -42,4 +42,11 @@ export const STUBS = `
 export const MIGRATIONS = [
   "supabase/migrations/20261062000000_ai_subscription_gate.sql",
   "supabase/migrations/20261063000000_trial_is_not_full_access.sql",
+  "supabase/migrations/20261075000000_whatsapp_gate_renotice.sql",
+  "supabase/migrations/20261078000000_trial_local_sections.sql",
+  "supabase/migrations/20261079000000_whatsapp_no_notice_for_free_week.sql",
+  "supabase/migrations/20261081000000_bazaar_notify_limits.sql",
+  "supabase/migrations/20261082000000_whatsapp_notice_daily_cap.sql",
+  "supabase/migrations/20261083000000_whatsapp_notice_global_budget.sql",
+  "supabase/migrations/20261084000000_bazaar_notify_keyed_dedupe.sql",
 ];

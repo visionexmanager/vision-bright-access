@@ -38,6 +38,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { loadLibrarySavedTables, ACCESSIBLE_BOOK, HIDDEN_BOOK } from "./library-saved-tables.mjs";
 
 const dir = resolve(process.argv[2] ?? "supabase/migrations");
 const db = new PGlite();
@@ -103,6 +104,9 @@ for (const t of REQUIRED) {
   if (!r.rows[0].rls) { console.log(`FAIL  row level security is OFF on public.${t}`); process.exit(1); }
 }
 
+const savedTables = await loadLibrarySavedTables(db);
+console.log(`library saved-result tables loaded from their migrations: ${savedTables.length}`);
+
 const U = (n) => `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
 const A = U(1), B = U(2), ADMIN = U(3);
 
@@ -127,6 +131,21 @@ async function seed() {
     insert into public.profiles(user_id, display_name, status, ban_reason, is_verified) values
       ('${A}', 'A', 'banned', 'abuse', false), ('${B}', 'B', 'active', null, false), ('${ADMIN}', 'Admin', 'active', null, false);
     insert into public.whatsapp_conversations(wa_phone) values ('+10000000001');
+    -- saved library results (saved-answer path): one row each for A and B, and one shared cache row
+    delete from public.library_librarian_daily_plans where user_id in ('${A}','${B}');
+    delete from public.library_flashcard_decks where user_id in ('${A}','${B}');
+    delete from public.library_librarian_summaries where user_id in ('${A}','${B}');
+    delete from public.library_research_analyses where user_id in ('${A}','${B}');
+    delete from public.library_ai_content_cache;
+    delete from public.library_ai_chat_sessions;
+    delete from public.library_ai_summaries;
+    insert into public.library_librarian_daily_plans(user_id, plan_date, motivational_summary) values ('${A}', current_date, 'plan of A'), ('${B}', current_date, 'plan of B');
+    insert into public.library_flashcard_decks(user_id, title) values ('${A}', 'deck of A'), ('${B}', 'deck of B');
+    insert into public.library_librarian_summaries(user_id, summary_period, period_start, period_end, summary_text) values ('${A}', 'daily', current_date, current_date, 'summary of A'), ('${B}', 'daily', current_date, current_date, 'summary of B');
+    insert into public.library_research_analyses(user_id, analysis_type, title, result) values ('${A}', 'research_outline', 'analysis of A', '{}'), ('${B}', 'research_outline', 'analysis of B', '{}');
+    insert into public.library_ai_content_cache(content_hash, action, result_text) values ('hash-of-a-private-passage', 'translate', 'a translation somebody asked for');
+    insert into public.library_ai_chat_sessions(user_id, book_id, session_id, role, content) values ('${A}', '${ACCESSIBLE_BOOK}', gen_random_uuid(), 'user', 'question of A'), ('${B}', '${ACCESSIBLE_BOOK}', gen_random_uuid(), 'user', 'question of B');
+    insert into public.library_ai_summaries(book_id, scope, length, content) values ('${ACCESSIBLE_BOOK}', 'book', 'medium', 'summary of a readable book'), ('${HIDDEN_BOOK}', 'book', 'medium', 'summary of a book the caller may not read');
   `);
 }
 
@@ -309,6 +328,29 @@ async function matrix() {
   check("whatsapp_conversations: A reads none", (await as("A", "select 1 from public.whatsapp_conversations")).rows?.length === 0);
   check("whatsapp_conversations: anonymous reads none", (await as("anon", "select 1 from public.whatsapp_conversations")).rows?.length === 0);
   check("whatsapp_conversations: admin reads", (await as("ADMIN", "select 1 from public.whatsapp_conversations")).rows?.length === 1);
+
+  // Saved library results: what the saved-answer path may serve is the caller's own, or nothing.
+  for (const [table, ownCol] of [
+    ["library_librarian_daily_plans", "user_id"], ["library_flashcard_decks", "user_id"],
+    ["library_librarian_summaries", "user_id"], ["library_research_analyses", "user_id"], ["library_ai_chat_sessions", "user_id"],
+  ]) {
+    check(`${table}: A reads A's own row`, (await sees("A", table, ownCol, A)) === 1);
+    check(`${table}: A cannot read B's row`, (await sees("A", table, ownCol, B)) === 0);
+    check(`${table}: B cannot read A's row`, (await sees("B", table, ownCol, A)) === 0);
+    check(`${table}: anonymous reads nothing`, ((await as("anon", `select 1 from public.${table}`)).rows ?? []).length === 0);
+    check(`${table}: A cannot write a row as B`, !(await wrote("A", `insert into public.${table}(${ownCol}) select '${B}' returning 1`)));
+  }
+  check("daily plan: A's select with no filter returns only A's plan, never B's", (await as("A", "select motivational_summary m from public.library_librarian_daily_plans")).rows?.map((r) => r.m).join() === "plan of A");
+  // The shared per-book summary cache follows book access: a readable book's summary, never a hidden one's.
+  check("library_ai_summaries: a caller gets the summary of a book they may read", (await sees("A", "library_ai_summaries", "book_id", ACCESSIBLE_BOOK)) === 1);
+  check("library_ai_summaries: a caller does NOT get the summary of a book they may not read", (await sees("A", "library_ai_summaries", "book_id", HIDDEN_BOOK)) === 0);
+  check("library_ai_summaries: anonymous callers are governed by the same access function (no read of the hidden book)", (await sees("anon", "library_ai_summaries", "book_id", HIDDEN_BOOK)) === 0);
+  // The shared translate/explain cache is looked up by key by the server, never listed by a caller.
+  check("library_ai_content_cache: a signed-in user cannot list it (no policy, no grant)", ((await as("A", "select 1 from public.library_ai_content_cache")).rows ?? []).length === 0 || !!(await as("A", "select 1 from public.library_ai_content_cache")).error);
+  check("library_ai_content_cache: a signed-in user cannot read it by hash either", ((await as("A", "select 1 from public.library_ai_content_cache where content_hash='hash-of-a-private-passage'")).rows ?? []).length === 0);
+  check("library_ai_content_cache: anonymous cannot read it", ((await as("anon", "select 1 from public.library_ai_content_cache")).rows ?? []).length === 0);
+  check("library_ai_content_cache: a signed-in user cannot write to it", !(await wrote("A", "insert into public.library_ai_content_cache(content_hash, action, result_text) values ('x','translate','y') returning 1")));
+  check("library_ai_content_cache: the service role (the saved-answer lookup) can read it by hash", ((await as("SERVICE", "select 1 from public.library_ai_content_cache where content_hash='hash-of-a-private-passage'")).rows ?? []).length === 1);
   return out;
 }
 
@@ -330,6 +372,10 @@ const mutations = [
   ["credit_wallets writable by authenticated", `grant update on public.credit_wallets to authenticated; create policy zz_w on public.credit_wallets for update using (true) with check (true)`, `drop policy zz_w on public.credit_wallets; revoke update on public.credit_wallets from authenticated`],
   ["user_roles insertable by authenticated", `create policy zz_r on public.user_roles for insert with check (true)`, `drop policy zz_r on public.user_roles`],
   ["whatsapp_conversations readable by everyone", `create policy zz_wa on public.whatsapp_conversations for select using (true)`, `drop policy zz_wa on public.whatsapp_conversations`],
+  ["library_ai_content_cache readable by every signed-in user (the old policy)", `grant select on public.library_ai_content_cache to authenticated; create policy zz_cc on public.library_ai_content_cache for select to authenticated using (true)`, `drop policy zz_cc on public.library_ai_content_cache; revoke select on public.library_ai_content_cache from authenticated`],
+  ["library_ai_chat_sessions readable by everyone", `create policy zz_cs on public.library_ai_chat_sessions for select using (true)`, `drop policy zz_cs on public.library_ai_chat_sessions`],
+  ["library_ai_summaries readable without book access", `create policy zz_sm on public.library_ai_summaries for select using (true)`, `drop policy zz_sm on public.library_ai_summaries`],
+  ["library_librarian_daily_plans readable by everyone", `create policy zz_dp on public.library_librarian_daily_plans for select using (true)`, `drop policy zz_dp on public.library_librarian_daily_plans`],
 ];
 for (const [name, apply, undo] of mutations) {
   if (apply === undo) { fail++; console.log(`FAIL  mutation "${name}" changed nothing (its pattern no longer matches)`); continue; }

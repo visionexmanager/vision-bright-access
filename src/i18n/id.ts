@@ -13396,7 +13396,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Bagian yang dibuka",
   "plans.currentPlan": "Paket Anda",
   "plans.freeWeekTitle": "Setiap akun dimulai dengan satu minggu gratis",
-  "plans.freeWeekBody": "Tujuh hari dengan semua bagian terbuka, di situs dan di WhatsApp — tanpa kartu, dan kami memberi tahu sehari sebelum berakhir. Setelah itu pilih Anak, Dasar, Pro, atau Bisnis. Berita, komunitas, dan produk bantu tetap terbuka bagaimanapun juga.",
+  "plans.freeWeekBody": "Tujuh hari untuk menjelajahi Visionex: berita, komunitas, produk bantu, serta pelajaran, buku, dan permainan tersimpan di Akademi, Perpustakaan, dan Arcade terbuka — tanpa kartu, dan kami mengingatkan sehari sebelum berakhir. Layanan AI dan WhatsApp memerlukan paket: pilih Anak, Dasar, Pro, atau Bisnis.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Selesaikan langganan Anda",
@@ -13581,6 +13581,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "Setengah papan",
   "travel.board.full_board": "Penuh papan",
   "travel.board.all_inclusive": "Semua termasuk",
+  "access.signInRequired": "Fitur ini menggunakan layanan AI eksternal. Buat akun atau masuk, lalu pilih paket yang sesuai untuk melanjutkan.",
+  "access.planNotIncluded": "Paket Anda saat ini tidak mencakup operasi ini.",
+  "access.insufficientVx": "VX Anda tidak cukup untuk operasi ini. Tidak ada permintaan eksternal yang dikirim.",
+  "access.unavailable": "Fitur ini sementara tidak tersedia, dan tidak ada permintaan eksternal yang dikirim.",
+  "access.savedAnswer": "Jawaban ini sudah tersimpan sebelumnya di Visionex. Tidak ada permintaan AI baru yang dibuat, jadi mungkin tidak mencerminkan informasi terbaru.",
+  "access.trialLocal": "Fitur ini tersedia selama uji coba gratis Anda karena menggunakan konten yang tersimpan secara lokal.",
 };
 
 export default translations;

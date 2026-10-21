@@ -27,6 +27,7 @@ import { streamChatCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { ensureBookIndexed, retrieveChunks, formatChunksAsContext, citationsFromChunks } from "../_shared/libraryRag.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
+import { requireSection } from "../_shared/entitlements.ts";
 
 installUsageMetering("library-ai-chat");
 
@@ -134,6 +135,9 @@ Deno.serve(async (req: Request) => {
   // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
   const refused = await subscriptionGate(serviceClient, req, user.id, cors);
   if (refused) return refused;
+  // Section entitlement (cost-aware access policy): the gate proves a paying account, this proves its plan includes library.
+  const sectionRefused = await requireSection(serviceClient, user.id, "library", cors);
+  if (sectionRefused) return sectionRefused;
 
   const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "library-ai-chat" });
   if (allowed === false) return json({ error: "Daily limit reached (60 messages/day). Try again tomorrow." }, 429, cors);

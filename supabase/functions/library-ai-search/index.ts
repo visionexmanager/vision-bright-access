@@ -23,6 +23,7 @@ import { createEmbedding, structuredCompletion, ProviderError } from "../_shared
 import { allowCaller } from "../_shared/securityGuard.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
+import { requireSection } from "../_shared/entitlements.ts";
 
 installUsageMetering("library-ai-search");
 
@@ -80,6 +81,9 @@ Deno.serve(async (req: Request) => {
   // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
   const refused = await subscriptionGate(service, req, userId, cors);
   if (refused) return refused;
+  // Section entitlement (cost-aware access policy): the gate proves a paying account, this proves its plan includes library.
+  const sectionRefused = await requireSection(service, userId ?? "", "library", cors);
+  if (sectionRefused) return sectionRefused;
   if (!(await allowCaller(service, req, "library-ai-search"))) {
     return json({ error: "Too many searches from this connection today. Please try again later." }, 429, cors);
   }

@@ -98,6 +98,7 @@ export function SummaryTab({ bookId, chapterId }: SummaryTabProps) {
         <div className="space-y-2 rounded-lg bg-muted p-3 text-sm leading-relaxed">
           <p className="whitespace-pre-line">{summaryResult.summary}</p>
           {summaryResult.cached && <Badge variant="outline" className="text-xs">{t("library.ai.summary.fromMemory")}</Badge>}
+          {summaryResult.cached && <p className="text-xs text-muted-foreground" role="note">{t("access.savedAnswer")}</p>}
         </div>
       )}
 

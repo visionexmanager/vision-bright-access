@@ -211,20 +211,37 @@ export const TIERS: Readonly<Record<TierId, TierDef>> = {
 export const TIER_ORDER: readonly TierId[] = ["basic", "pro", "business"] as const;
 
 /**
- * Kids: VisionKids and nothing else, for three dollars.
+ * Kids: VisionKids, plus the stored-content sections the free week also opens,
+ * for three dollars.
  *
  * Beside the tiers, not inside them. A parent who wants the children's world
- * should not have to buy the assistant, the academy and the bazaar to get it —
- * and Kids does not open those, so it cannot undercut Basic. Pro and Business
- * still include VisionKids, so nobody upgrading from Kids loses it.
+ * should not have to buy the assistant and the bazaar to get it — and Kids
+ * still does not open those, so it cannot undercut Basic's AI and marketplace.
+ * It does open the Academy, the Library and the Arcade (the same three the free
+ * week opens, decided 2026-10-21), so subscribing is never a step down from the
+ * trial. None of the three carries a paid-provider operation of its own: every
+ * AI function inside them is gated by plan eligibility, which Kids already has.
+ * Pro and Business still include VisionKids, so nobody upgrading from Kids
+ * loses it.
  */
-export const KIDS_PLAN: TierDef = tier("kids", 3, 0, 50, [...FREE_SECTIONS, "kids"]);
+export const KIDS_PLAN: TierDef = tier("kids", 3, 0, 50, [...FREE_SECTIONS, "kids", "academy", "library", "arcade"]);
 
 /** Every paid plan by id. */
 export const PAID_PLANS: Readonly<Record<PaidPlanId, TierDef>> = { kids: KIDS_PLAN, ...TIERS };
 
 /** Every paid plan, cheapest first — the order the upgrade notice picks from. */
 export const PAID_PLAN_ORDER: readonly PaidPlanId[] = ["kids", ...TIER_ORDER] as const;
+
+/**
+ * Sections the free week opens beyond the free set, because everything they
+ * serve is stored on Visionex: lessons, books and their saved answers, and
+ * games that run in the browser. None of them calls a paid external provider
+ * by itself. Every AI feature inside them is a separate Edge Function behind
+ * `ai_subscription_gate`, which the trial does not pass, so opening the section
+ * opens no billable operation (`src/lib/access/policy.ts` and its test pin
+ * that). Decided by the cost-aware trial policy, 2026-10-21.
+ */
+const TRIAL_LOCAL_SECTIONS: readonly SectionKey[] = ["academy", "library", "arcade"] as const;
 
 /**
  * What the free week opens, and the only place it is named.
@@ -236,7 +253,7 @@ export const PAID_PLAN_ORDER: readonly PaidPlanId[] = ["kids", ...TIER_ORDER] as
  * 20261063; `subscription-tiers.test.ts` fails until the two agree and until
  * the list stops being a strict subset of the sections.
  */
-export const TRIAL_SECTIONS: readonly SectionKey[] = [...FREE_SECTIONS] as const;
+export const TRIAL_SECTIONS: readonly SectionKey[] = [...FREE_SECTIONS, ...TRIAL_LOCAL_SECTIONS] as const;
 
 /**
  * Does being inside the free week waive payment for anything the trial does not
@@ -271,7 +288,10 @@ export function planAllows(planId: string | null | undefined, section: SectionKe
 
 /** The cheapest paid plan that opens a section, for "upgrade to…" copy. */
 export function cheapestTierFor(section: SectionKey): PaidPlanId | null {
-  return PAID_PLAN_ORDER.find((plan) => PAID_PLANS[plan].sections.includes(section)) ?? null;
+  // Kids is a separate product, not the first rung of the ladder: an adult who
+  // hits the Academy or the Library is pointed at Basic, never at the children's plan.
+  const pool = section === "kids" ? PAID_PLAN_ORDER : TIER_ORDER;
+  return pool.find((plan) => PAID_PLANS[plan].sections.includes(section)) ?? null;
 }
 
 /** The section a route belongs to, or null when the route needs no plan. */

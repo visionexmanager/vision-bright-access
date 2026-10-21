@@ -9,6 +9,10 @@
 export interface SmartSummaryResult {
   summary: string;
   cached: boolean;
+  /** "saved" when Visionex already held this summary and no AI request was made. */
+  source?: "saved" | "generated";
+  /** When a saved summary was stored, if the server knows. */
+  saved_at?: string | null;
 }
 
 export interface TimelineEvent {

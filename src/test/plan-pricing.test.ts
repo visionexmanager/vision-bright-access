@@ -82,7 +82,8 @@ describe("the four plans, in code", () => {
 
   it("keeps the WhatsApp allowances and sections as they were — this change is prices and VX only", () => {
     expect(PAID_PLAN_ORDER.map((id) => PAID_PLANS[id].whatsappDaily)).toEqual([50, 150, 400, 0]);
-    expect(KIDS_PLAN.sections).toEqual(["news", "community", "assistive", "kids"]);
+    // 2026-10-21: Kids also opens the three stored-content sections the free week opens (cost-aware trial policy).
+    expect(KIDS_PLAN.sections).toEqual(["news", "community", "assistive", "kids", "academy", "library", "arcade"]);
   });
 });
 

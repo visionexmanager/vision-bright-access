@@ -13403,7 +13403,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Ce que cette formule ouvre",
   "plans.currentPlan": "Votre formule",
   "plans.freeWeekTitle": "Chaque compte commence par une semaine gratuite",
-  "plans.freeWeekBody": "Sept jours avec toutes les sections ouvertes, sur le site et sur WhatsApp — sans carte bancaire, et nous vous prévenons la veille de la fin. Ensuite, choisissez Enfants, Essentiel, Pro ou Entreprise. Les actualités, la communauté et les produits d'assistance restent ouverts dans tous les cas.",
+  "plans.freeWeekBody": "Sept jours pour découvrir Visionex : l'actualité, la communauté, les produits d'assistance, ainsi que les leçons, livres et jeux enregistrés de l'Académie, de la Bibliothèque et de l'Arcade sont ouverts, sans carte, et nous vous prévenons la veille de la fin. Les services d'IA et WhatsApp nécessitent une offre : choisissez Enfants, Essentiel, Pro ou Entreprise.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Finaliser votre abonnement",
@@ -13583,6 +13583,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "Demi-pension",
   "travel.board.full_board": "Pension complète",
   "travel.board.all_inclusive": "Tout compris",
+  "access.signInRequired": "Cette fonction utilise un service d'IA externe. Créez un compte ou connectez-vous, puis choisissez une offre adaptée pour continuer.",
+  "access.planNotIncluded": "Votre offre actuelle n'inclut pas cette opération.",
+  "access.insufficientVx": "Vous n'avez pas assez de VX pour cette opération. Aucune requête externe n'a été envoyée.",
+  "access.unavailable": "Cette fonction est temporairement indisponible, et aucune requête externe n'a été envoyée.",
+  "access.savedAnswer": "Cette réponse a été enregistrée plus tôt sur Visionex. Aucune nouvelle requête d'IA n'a été faite, elle peut donc ne pas refléter des informations plus récentes.",
+  "access.trialLocal": "Cette fonction est disponible pendant votre essai gratuit car elle utilise du contenu stocké localement.",
 };
 
 export default translations;

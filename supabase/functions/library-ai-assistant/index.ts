@@ -38,6 +38,8 @@ import { structuredCompletion, ProviderError } from "../_shared/aiProvider.ts";
 import { ensureBookIndexed, retrieveChunks, formatChunksAsContext, citationsFromChunks, DIRECT_READ_CHAR_THRESHOLD } from "../_shared/libraryRag.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
+import { findSavedResponse, SHARED_SUMMARY_READING_MODE, textModeCacheKey, textModeInput } from "../_shared/librarySavedAnswers.ts";
+import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 
 installUsageMetering("library-ai-assistant");
 
@@ -59,14 +61,6 @@ const MODE_STYLE_INSTRUCTIONS: Record<AiReadingMode, string> = {
 
 function resolveReadingMode(value: string | undefined): AiReadingMode {
   return value && value in MODE_STYLE_INSTRUCTIONS ? (value as AiReadingMode) : "student";
-}
-
-/** Phase 8 — sha-256 of normalized cache-key parts, for
- *  library_ai_content_cache dedup (translate-paragraph/explain-paragraph). */
-async function hashCacheKey(parts: string[]): Promise<string> {
-  const data = new TextEncoder().encode(parts.join("|"));
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function json(data: unknown, status: number, cors: Record<string, string>) {
@@ -366,19 +360,42 @@ Deno.serve(async (req: Request) => {
 
   const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
-  const refused = await subscriptionGate(serviceClient, req, user.id, cors);
-  if (refused) return refused;
-
-  const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "library-ai-assistant" });
-  if (allowed === false) return json({ error: "Daily limit reached (40 requests/day). Try again tomorrow." }, 429, cors);
-
   let body: RequestBody;
   try {
     body = await req.json();
   } catch {
     return json({ error: "Invalid JSON body" }, 400, cors);
   }
+
+  // A saved answer comes first (cost-aware trial policy). Visionex already holds
+  // it, so returning it needs no subscription, spends no daily unit, charges no
+  // VX and cannot reach a provider: the lookup runs through the caller's own
+  // session and nothing below it executes on a hit. A miss, or a failed lookup,
+  // falls through to the gate exactly as before.
+  // The Library section is a condition of reading a stored answer too: an account whose plan does
+  // not include it (a lapsed one) gets no saved answers and falls through to the gate as before.
+  const librarySection = await maySeeSection(serviceClient, user.id, "library");
+  const saved = librarySection.allowed
+    ? await findSavedResponse(userClient, body, resolveReadingMode(body.readingMode), EXPLAIN_INSTRUCTIONS, serviceClient, user.id)
+    : null;
+  if (saved) {
+    console.log(JSON.stringify({ fn: "library-ai-assistant", event: "saved_hit", mode: body.mode, provider_called: false }));
+    if (saved.kind === "summary" && body.book_id) {
+      await logSummaryActivity(userClient, user.id, body.book_id, saved.scope, saved.length, saved.summary, "saved");
+      return json({ ok: true, mode: "smart-summary", source: "saved", result: saved.result }, 200, cors);
+    }
+    await logAiActivity(userClient, user.id, body, saved.result, "saved");
+    return json({ ok: true, mode: body.mode, source: "saved", result: saved.result }, 200, cors);
+  }
+
+  // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
+  const refused = await subscriptionGate(serviceClient, req, user.id, cors);
+  if (refused) return refused;
+  // A paying account whose plan does not include the Library cannot generate in it.
+  if (!librarySection.allowed) return sectionRefusal("library", librarySection.unavailable, cors);
+
+  const { data: allowed } = await serviceClient.rpc("check_ai_rate_limit", { _user_id: user.id, _function_name: "library-ai-assistant" });
+  if (allowed === false) return json({ error: "Daily limit reached (40 requests/day). Try again tomorrow." }, 429, cors);
 
   if (body.mode === "smart-summary") return handleSmartSummary(body, user.id, userClient, serviceClient, cors);
   if (body.mode === "image-description") return handleImageDescription(body, cors);
@@ -430,14 +447,9 @@ Deno.serve(async (req: Request) => {
       }
     } else if (TEXT_MODES.has(body.mode)) {
       if (!body.text?.trim()) return json({ error: "text is required for this mode" }, 400, cors);
-      userText = body.text.length > MAX_DIRECT_CHARS ? body.text.slice(0, MAX_DIRECT_CHARS) : body.text;
-      if (body.mode === "translate-paragraph") {
-        if (!body.targetLanguage) return json({ error: "targetLanguage is required for translate-paragraph" }, 400, cors);
-        userText = `Translate the following into ${body.targetLanguage}:\n\n${userText}`;
-      } else if (body.mode === "explain-paragraph") {
-        const instruction = EXPLAIN_INSTRUCTIONS[body.instruction ?? "explain"] ?? EXPLAIN_INSTRUCTIONS.explain;
-        userText = `${instruction}:\n\n${userText}`;
-      }
+      if (body.mode === "translate-paragraph" && !body.targetLanguage) return json({ error: "targetLanguage is required for translate-paragraph" }, 400, cors);
+      // The same builder the saved-answer lookup keys on, so a stored answer and a new one can never disagree.
+      userText = textModeInput(body, EXPLAIN_INSTRUCTIONS) as string;
     } else {
       return json({ error: `Unsupported mode "${body.mode}"` }, 400, cors);
     }
@@ -450,22 +462,8 @@ Deno.serve(async (req: Request) => {
     // global content cache before spending a model call.
     let cacheHash: string | null = null;
     if (isCacheableTextMode) {
-      cacheHash = await hashCacheKey([
-        body.mode,
-        body.mode === "translate-paragraph" ? (body.targetLanguage ?? "") : (body.instruction ?? "explain"),
-        readingMode,
-        userText,
-      ]);
-      const { data: cached } = await userClient
-        .from("library_ai_content_cache")
-        .select("result_text")
-        .eq("content_hash", cacheHash)
-        .maybeSingle();
-      if (cached) {
-        const cachedResult = body.mode === "translate-paragraph" ? { translated_text: cached.result_text } : { explanation: cached.result_text };
-        await logAiActivity(userClient, user.id, body, cachedResult);
-        return json({ ok: true, mode: body.mode, result: cachedResult }, 200, cors);
-      }
+      // Read side: findSavedResponse, above the gate. This is only the key the new answer is stored under.
+      cacheHash = await textModeCacheKey(body, readingMode, EXPLAIN_INSTRUCTIONS, user.id);
     }
 
     const result = await structuredCompletion({
@@ -482,7 +480,7 @@ Deno.serve(async (req: Request) => {
       const resultText = body.mode === "translate-paragraph" ? (result.translated_text as string) : (result.explanation as string);
       try {
         await serviceClient.from("library_ai_content_cache").upsert(
-          { content_hash: cacheHash, action: body.mode === "translate-paragraph" ? "translate" : (body.instruction ?? "explain"), result_text: resultText },
+          { content_hash: cacheHash, action: body.mode === "translate-paragraph" ? "translate" : (body.instruction ?? "explain"), result_text: resultText, created_at: new Date().toISOString() },
           { onConflict: "content_hash" }
         );
       } catch (cacheErr) {
@@ -492,7 +490,7 @@ Deno.serve(async (req: Request) => {
     if (isCacheableTextMode) await logAiActivity(userClient, user.id, body, result);
 
     const finalResult = answerCitations ? { ...result, citations: answerCitations } : result;
-    return json({ ok: true, mode: body.mode, result: finalResult }, 200, cors);
+    return json({ ok: true, mode: body.mode, source: "generated", result: finalResult }, 200, cors);
   } catch (err) {
     return json({ error: errorMessage(err) }, 500, cors);
   }
@@ -505,7 +503,7 @@ Deno.serve(async (req: Request) => {
  *  content — see HighlightSelectionPopover/TranslateTab. Silently no-ops if
  *  absent rather than failing the request over a missing history entry. */
 // deno-lint-ignore no-explicit-any
-async function logAiActivity(userClient: any, userId: string, body: RequestBody, result: Record<string, unknown>): Promise<void> {
+async function logAiActivity(userClient: any, userId: string, body: RequestBody, result: Record<string, unknown>, source: "saved" | "generated" = "generated"): Promise<void> {
   if (!body.book_id) return;
   try {
     const activityType = body.mode === "translate-paragraph" ? "translation" : "explain_selection";
@@ -516,7 +514,7 @@ async function logAiActivity(userClient: any, userId: string, body: RequestBody,
       activity_type: activityType,
       title: body.mode === "translate-paragraph" ? `Translated to ${body.targetLanguage ?? ""}` : `Explained selection (${body.instruction ?? "explain"})`,
       snippet: resultText.slice(0, 140),
-      metadata: body.mode === "translate-paragraph" ? { targetLanguage: body.targetLanguage } : { action: body.instruction ?? "explain" },
+      metadata: { ...(body.mode === "translate-paragraph" ? { targetLanguage: body.targetLanguage } : { action: body.instruction ?? "explain" }), source },
     });
   } catch (err) {
     console.error("library-ai-assistant: activity log write failed:", err);
@@ -534,7 +532,7 @@ function errorMessage(err: unknown): string {
  *  library_ai_summaries itself has no user_id (it's a shared cache), so a
  *  personal "my summaries" history needs this separate log. */
 // deno-lint-ignore no-explicit-any
-async function logSummaryActivity(userClient: any, userId: string, bookId: string, scope: string, length: string, summary: string): Promise<void> {
+async function logSummaryActivity(userClient: any, userId: string, bookId: string, scope: string, length: string, summary: string, source: "saved" | "generated" = "generated"): Promise<void> {
   try {
     await userClient.from("library_ai_activity_log").insert({
       user_id: userId,
@@ -542,7 +540,7 @@ async function logSummaryActivity(userClient: any, userId: string, bookId: strin
       activity_type: "summary",
       title: `${length} summary (${scope})`,
       snippet: summary.slice(0, 140),
-      metadata: { scope, length },
+      metadata: { scope, length, source },
     });
   } catch (err) {
     console.error("library-ai-assistant: summary activity log write failed:", err);
@@ -557,20 +555,8 @@ async function handleSmartSummary(body: RequestBody, userId: string, userClient:
   if (scope !== "book" && !body.chapter_id) return json({ error: "chapter_id is required for page/chapter scope" }, 400, cors);
 
   try {
-    // Cache/memory check first — satisfies both "remembers past summaries"
-    // and "cache repeated summaries" with one lookup.
-    let cacheQuery = userClient
-      .from("library_ai_summaries")
-      .select("content")
-      .eq("book_id", body.book_id)
-      .eq("scope", scope)
-      .eq("length", length);
-    cacheQuery = scope === "book" ? cacheQuery.is("chapter_id", null) : cacheQuery.eq("chapter_id", body.chapter_id);
-    const { data: cached } = await cacheQuery.maybeSingle();
-    if (cached) {
-      await logSummaryActivity(userClient, userId, body.book_id, scope, length, cached.content);
-      return json({ ok: true, mode: "smart-summary", result: { summary: cached.content, cached: true } }, 200, cors);
-    }
+    // The stored-summary read happens before the gate (findSavedResponse in the
+    // handler); reaching this point means there was none.
 
     let userText: string;
     if (scope === "book") {
@@ -609,13 +595,16 @@ async function handleSmartSummary(body: RequestBody, userId: string, userClient:
       maxTokens: length === "detailed" ? 1500 : 500,
     })) as { summary: string };
 
-    await serviceClient.from("library_ai_summaries").upsert(
-      { book_id: body.book_id, chapter_id: scope === "book" ? null : body.chapter_id, scope, length, content: result.summary },
-      { onConflict: "book_id,chapter_id,scope,length" }
-    );
+    // Shared across readers, so only the default reading style is stored (see SHARED_SUMMARY_READING_MODE).
+    if (readingMode === SHARED_SUMMARY_READING_MODE) {
+      await serviceClient.from("library_ai_summaries").upsert(
+        { book_id: body.book_id, chapter_id: scope === "book" ? null : body.chapter_id, scope, length, content: result.summary },
+        { onConflict: "book_id,chapter_id,scope,length" }
+      );
+    }
     await logSummaryActivity(userClient, userId, body.book_id, scope, length, result.summary);
 
-    return json({ ok: true, mode: "smart-summary", result: { ...result, cached: false } }, 200, cors);
+    return json({ ok: true, mode: "smart-summary", source: "generated", result: { ...result, cached: false } }, 200, cors);
   } catch (err) {
     return json({ error: errorMessage(err) }, 500, cors);
   }

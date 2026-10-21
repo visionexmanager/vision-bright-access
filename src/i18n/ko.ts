@@ -13396,7 +13396,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "이용 가능한 섹션",
   "plans.currentPlan": "현재 플랜",
   "plans.freeWeekTitle": "모든 계정은 무료 일주일로 시작합니다",
-  "plans.freeWeekBody": "7일 동안 모든 섹션이 열립니다. 웹사이트에서도 WhatsApp에서도 동일하며 카드는 필요 없고, 종료 하루 전에 알려드립니다. 이후에는 키즈, 베이직, 프로, 비즈니스 중에서 선택하세요. 뉴스, 커뮤니티, 보조 제품은 어느 경우에도 계속 열려 있습니다.",
+  "plans.freeWeekBody": "Visionex를 7일간 체험해 보세요. 뉴스, 커뮤니티, 보조 제품, 그리고 아카데미·도서관·아케이드에 저장된 강의, 도서, 게임을 이용할 수 있으며 카드가 필요 없고 종료 하루 전에 알려 드립니다. AI 서비스와 WhatsApp에는 요금제가 필요합니다. 키즈, 베이직, 프로, 비즈니스 중에서 선택하세요.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "구독 완료하기",
@@ -13581,6 +13581,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "조·석식 포함",
   "travel.board.full_board": "세 끼 포함",
   "travel.board.all_inclusive": "올인클루시브",
+  "access.signInRequired": "이 기능은 외부 AI 서비스를 사용합니다. 계속하려면 계정을 만들거나 로그인한 뒤 적합한 요금제를 선택하세요.",
+  "access.planNotIncluded": "현재 요금제에는 이 작업이 포함되어 있지 않습니다.",
+  "access.insufficientVx": "이 작업에 필요한 VX가 부족합니다. 외부 요청은 전송되지 않았습니다.",
+  "access.unavailable": "이 기능은 일시적으로 사용할 수 없으며, 외부 요청은 전송되지 않았습니다.",
+  "access.savedAnswer": "이 답변은 이전에 Visionex에 저장된 것입니다. 새 AI 요청을 하지 않았으므로 최신 정보가 반영되지 않았을 수 있습니다.",
+  "access.trialLocal": "로컬에 저장된 콘텐츠를 사용하므로 무료 체험 중에 이용할 수 있는 기능입니다.",
 };
 
 export default translations;

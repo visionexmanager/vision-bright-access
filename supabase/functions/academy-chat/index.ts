@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
+import { requireSection } from "../_shared/entitlements.ts";
 import { boundedChatMessages, boundedText, providerErrorSummary } from "../_shared/providerInput.ts";
 import { meteredFetch } from "../_shared/meteredFetch.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
@@ -48,6 +49,9 @@ Deno.serve(async (req) => {
     // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
     const refused = await subscriptionGate(serviceClient, req, user.id, corsHeaders);
     if (refused) return refused;
+    // Section entitlement (cost-aware access policy): the gate proves a paying account, this proves its plan includes academy.
+    const sectionRefused = await requireSection(serviceClient, user.id, "academy", corsHeaders);
+    if (sectionRefused) return sectionRefused;
 
     // Per-user daily ceiling, before anything reaches a provider (Phase 2F-2).
     const limited = await chargeDailyLimit(

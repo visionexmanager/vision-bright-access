@@ -13403,7 +13403,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Wat dit pakket opent",
   "plans.currentPlan": "Jouw pakket",
   "plans.freeWeekTitle": "Elk account begint met een gratis week",
-  "plans.freeWeekBody": "Zeven dagen met alle onderdelen open, op de site en op WhatsApp — zonder kaart, en we laten het je een dag van tevoren weten. Daarna kies je Kinderen, Basis, Pro of Zakelijk. Nieuws, community en hulpmiddelen blijven hoe dan ook open.",
+  "plans.freeWeekBody": "Zeven dagen om Visionex te verkennen: nieuws, community, hulpmiddelen en de opgeslagen lessen, boeken en spellen van de Academie, de Bibliotheek en de Arcade staan open, zonder kaart, en we waarschuwen je de dag voor het einde. AI-diensten en WhatsApp vragen een abonnement: kies Kinderen, Basis, Pro of Zakelijk.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Rond je abonnement af",
@@ -13583,6 +13583,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "Halfpension",
   "travel.board.full_board": "Volpension",
   "travel.board.all_inclusive": "All-inclusive",
+  "access.signInRequired": "Deze functie gebruikt een externe AI-dienst. Maak een account aan of log in en kies daarna een geschikt abonnement om verder te gaan.",
+  "access.planNotIncluded": "Je huidige abonnement bevat deze actie niet.",
+  "access.insufficientVx": "Je hebt niet genoeg VX voor deze actie. Er is geen extern verzoek verstuurd.",
+  "access.unavailable": "Deze functie is tijdelijk niet beschikbaar en er is geen extern verzoek verstuurd.",
+  "access.savedAnswer": "Dit antwoord is eerder op Visionex opgeslagen. Er is geen nieuw AI-verzoek gedaan, dus het houdt mogelijk geen rekening met nieuwere informatie.",
+  "access.trialLocal": "Deze functie is beschikbaar tijdens je gratis proefperiode omdat ze lokaal opgeslagen inhoud gebruikt.",
 };
 
 export default translations;

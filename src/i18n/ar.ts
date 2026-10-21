@@ -13765,7 +13765,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "ما الذي تفتحه",
   "plans.currentPlan": "باقتك الحالية",
   "plans.freeWeekTitle": "كل حساب يبدأ بأسبوع مجاني",
-  "plans.freeWeekBody": "سبعة أيام بكل الأقسام مفتوحة، على الموقع وعلى واتساب — دون بطاقة، ونخبرك قبل انتهائها بيوم. بعدها اختر خطة الأطفال أو الأساسية أو الاحترافية أو الأعمال. تبقى الأخبار والمجتمع والمنتجات المساعدة مفتوحة في كل الأحوال.",
+  "plans.freeWeekBody": "سبعة أيام لاستكشاف Visionex: الأخبار والمجتمع والمنتجات المساعدة، والدروس والكتب والألعاب المخزّنة في الأكاديمية والمكتبة وقاعة الألعاب مفتوحة — دون بطاقة، وننبّهك قبل انتهائها بيوم. تحتاج خدمات الذكاء الاصطناعي وواتساب إلى باقة: اختر الأطفال أو الأساسية أو الاحترافية أو الأعمال.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "إتمام الاشتراك",
@@ -13945,6 +13945,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "نصف إقامة",
   "travel.board.full_board": "إقامة كاملة",
   "travel.board.all_inclusive": "شامل كل شيء",
+  "access.signInRequired": "تستخدم هذه الميزة خدمة ذكاء اصطناعي خارجية. أنشئ حساباً أو سجّل الدخول ثم اختر باقة مناسبة للمتابعة.",
+  "access.planNotIncluded": "باقتك الحالية لا تشمل هذه العملية.",
+  "access.insufficientVx": "ليس لديك رصيد VX كافٍ لهذه العملية. لم يُرسَل أي طلب خارجي.",
+  "access.unavailable": "هذه الميزة غير متاحة مؤقتاً، ولم يُرسَل أي طلب خارجي.",
+  "access.savedAnswer": "حُفظت هذه الإجابة سابقاً على Visionex. لم يُنفَّذ طلب ذكاء اصطناعي جديد، لذلك قد لا تعكس أحدث المعلومات.",
+  "access.trialLocal": "هذه الميزة متاحة في تجربتك المجانية لأنها تستخدم محتوى مخزناً محلياً.",
 };
 
 export default translations;
