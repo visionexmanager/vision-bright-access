@@ -227,6 +227,17 @@ export const PAID_PLANS: Readonly<Record<PaidPlanId, TierDef>> = { kids: KIDS_PL
 export const PAID_PLAN_ORDER: readonly PaidPlanId[] = ["kids", ...TIER_ORDER] as const;
 
 /**
+ * Sections the free week opens beyond the free set, because everything they
+ * serve is stored on Visionex: lessons, books and their saved answers, and
+ * games that run in the browser. None of them calls a paid external provider
+ * by itself. Every AI feature inside them is a separate Edge Function behind
+ * `ai_subscription_gate`, which the trial does not pass, so opening the section
+ * opens no billable operation (`src/lib/access/policy.ts` and its test pin
+ * that). Decided by the cost-aware trial policy, 2026-10-21.
+ */
+const TRIAL_LOCAL_SECTIONS: readonly SectionKey[] = ["academy", "library", "arcade"] as const;
+
+/**
  * What the free week opens, and the only place it is named.
  *
  * No trial capability list was ever defined — the old rule was "everything" —
@@ -236,7 +247,7 @@ export const PAID_PLAN_ORDER: readonly PaidPlanId[] = ["kids", ...TIER_ORDER] as
  * 20261063; `subscription-tiers.test.ts` fails until the two agree and until
  * the list stops being a strict subset of the sections.
  */
-export const TRIAL_SECTIONS: readonly SectionKey[] = [...FREE_SECTIONS] as const;
+export const TRIAL_SECTIONS: readonly SectionKey[] = [...FREE_SECTIONS, ...TRIAL_LOCAL_SECTIONS] as const;
 
 /**
  * Does being inside the free week waive payment for anything the trial does not

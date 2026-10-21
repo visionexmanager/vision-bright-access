@@ -33,6 +33,8 @@ const asUser = (id) => db.exec(`select set_config('test.uid', '${id ?? ""}', fal
 const wa = async (phone) => (await one("select public.whatsapp_entitlements($1) v", [phone])).v;
 
 const FREE = ["assistive", "community", "news"];
+// What the free week opens now (20261078): the free set plus the sections served from stored content.
+const TRIAL = [...FREE, "academy", "arcade", "library"].sort();
 const ALL_EIGHTEEN = ["academy", "arcade", "assistant", "assistive", "career", "community", "finance", "kids", "library",
   "marketplace", "mediaStudio", "messages", "news", "professional", "radio", "simulations", "studio", "tv"];
 const sorted = (xs) => [...xs].sort();
@@ -46,19 +48,19 @@ expect("free_trial row: copy no longer promises every section", !/every section/
 // ── 1. Trial only ──
 await db.exec(`INSERT INTO profiles VALUES ('${u(1)}', now() + interval '5 days')`);
 expect("trial only → plan free_trial", (await plan(u(1))) === "free_trial");
-expect("trial only → sections are exactly the trial's three", JSON.stringify(sorted(await sections(u(1)))) === JSON.stringify(FREE));
+expect("trial only → sections are exactly the trial's six (free set + academy, arcade, library)", JSON.stringify(sorted(await sections(u(1)))) === JSON.stringify(TRIAL));
 expect("trial only → AI refused (first notice)", (await gate(u(1))) === "blocked_first_notice");
 expect("trial only → AI refused again (silent)", (await gate(u(1))) === "blocked_silent");
 const trialSections = await sections(u(1));
-for (const s of ["assistant", "academy", "library", "arcade", "marketplace", "kids", "career", "tv", "radio", "messages", "simulations", "mediaStudio", "studio", "professional", "finance"]) {
+for (const s of ["assistant", "marketplace", "kids", "career", "tv", "radio", "messages", "simulations", "mediaStudio", "studio", "professional", "finance"]) {
   if (trialSections.includes(s)) { fail++; console.log(`FAIL  trial must not open ${s}`); }
 }
-expect("trial opens none of the fifteen paid/AI sections", !ALL_EIGHTEEN.filter((s) => !FREE.includes(s)).some((s) => trialSections.includes(s)));
+expect("trial opens none of the twelve paid/AI sections", !ALL_EIGHTEEN.filter((s) => !TRIAL.includes(s)).some((s) => trialSections.includes(s)));
 
 // ── 2. Tampering with the plan row cannot reopen everything ──
 await db.exec(`UPDATE public.billing_plans SET limits = jsonb_set(limits, '{sections}', to_jsonb(ARRAY[${ALL_EIGHTEEN.map((s) => `'${s}'`).join(",")}]::text[])) WHERE id = 'free_trial'`);
 expect("plan row edited back to all eighteen sections → the trial STILL gets three (free_trial can never resolve to all sections)",
-  JSON.stringify(sorted(await sections(u(1)))) === JSON.stringify(FREE));
+  JSON.stringify(sorted(await sections(u(1)))) === JSON.stringify(TRIAL));
 expect("…and still no AI", (await gate(u(1))) === "blocked_silent");
 
 // ── 3. Paid eligible plan ──
@@ -94,7 +96,7 @@ expect("admin → AI authorized", (await gate(u(7))) === "authorized");
 // ── 7. What the browser reads ──
 await asUser(u(1));
 let mine = (await one("select public.my_plan_access() v")).v;
-expect("my_plan_access, trial: plan free_trial, trial_active, three sections", mine.plan === "free_trial" && mine.trial_active === true && mine.sections.length === 3);
+expect("my_plan_access, trial: plan free_trial, trial_active, six sections", mine.plan === "free_trial" && mine.trial_active === true && mine.sections.length === 6);
 await asUser(u(3));
 mine = (await one("select public.my_plan_access() v")).v;
 expect("my_plan_access, pro inside the free week: plan pro, trial_active false (no trial banner)", mine.plan === "pro" && mine.trial_active === false && mine.sections.includes("career"));

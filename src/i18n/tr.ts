@@ -13403,7 +13403,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Neleri açar",
   "plans.currentPlan": "Mevcut paketiniz",
   "plans.freeWeekTitle": "Her hesap ücretsiz bir haftayla başlar",
-  "plans.freeWeekBody": "Yedi gün boyunca tüm bölümler açık — hem sitede hem WhatsApp'ta, kart gerekmez ve bitmeden bir gün önce size haber veririz. Sonrasında Çocuk, Temel, Pro veya Kurumsal paketi seçin. Haberler, topluluk ve yardımcı ürünler her hâlükârda açık kalır.",
+  "plans.freeWeekBody": "Visionex'i keşfetmek için yedi gün: haberler, topluluk, destekleyici ürünler ile Akademi, Kütüphane ve Arcade'deki kayıtlı dersler, kitaplar ve oyunlar açıktır; kart gerekmez ve bitmesinden bir gün önce haber veririz. Yapay zeka hizmetleri ve WhatsApp için bir plan gerekir: Çocuk, Temel, Pro veya Kurumsal seçin.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Aboneliğinizi tamamlayın",
@@ -13583,6 +13583,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "Yarım pansiyon",
   "travel.board.full_board": "Tam pansiyon",
   "travel.board.all_inclusive": "Her şey dahil",
+  "access.signInRequired": "Bu özellik harici bir yapay zeka hizmeti kullanır. Devam etmek için hesap oluşturun veya giriş yapın, ardından uygun bir plan seçin.",
+  "access.planNotIncluded": "Mevcut planınız bu işlemi içermiyor.",
+  "access.insufficientVx": "Bu işlem için yeterli VX'iniz yok. Hiçbir harici istek gönderilmedi.",
+  "access.unavailable": "Bu özellik geçici olarak kullanılamıyor ve hiçbir harici istek gönderilmedi.",
+  "access.savedAnswer": "Bu yanıt daha önce Visionex'te kaydedilmişti. Yeni bir yapay zeka isteği yapılmadı, bu yüzden daha yeni bilgileri yansıtmayabilir.",
+  "access.trialLocal": "Bu özellik yerel olarak saklanan içerik kullandığı için ücretsiz denemenizde kullanılabilir.",
 };
 
 export default translations;

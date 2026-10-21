@@ -7135,7 +7135,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "यह क्या खोलता है",
   "plans.currentPlan": "आपका प्लान",
   "plans.freeWeekTitle": "हर खाता एक मुफ़्त सप्ताह से शुरू होता है",
-  "plans.freeWeekBody": "सात दिन, सभी सेक्शन खुले — साइट पर भी और WhatsApp पर भी, बिना कार्ड के, और समाप्त होने से एक दिन पहले हम आपको बता देते हैं। उसके बाद किड्स, बेसिक, प्रो या बिज़नेस चुनें। समाचार, समुदाय और सहायक उत्पाद हर हाल में खुले रहते हैं।",
+  "plans.freeWeekBody": "Visionex को जानने के लिए सात दिन: समाचार, समुदाय, सहायक उत्पाद, तथा अकादमी, पुस्तकालय और आर्केड में संग्रहीत पाठ, पुस्तकें और गेम खुले हैं — कार्ड की ज़रूरत नहीं, और समाप्ति से एक दिन पहले हम आपको बताएँगे। AI सेवाओं और WhatsApp के लिए प्लान चाहिए: किड्स, बेसिक, प्रो या बिज़नेस चुनें।",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "अपनी सदस्यता पूरी करें",
@@ -7320,6 +7320,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "दो वक़्त का खाना",
   "travel.board.full_board": "तीन वक़्त का खाना",
   "travel.board.all_inclusive": "सब कुछ शामिल",
+  "access.signInRequired": "यह सुविधा बाहरी AI सेवा का उपयोग करती है। जारी रखने के लिए खाता बनाएँ या साइन इन करें, फिर उपयुक्त प्लान चुनें।",
+  "access.planNotIncluded": "आपके वर्तमान प्लान में यह कार्य शामिल नहीं है।",
+  "access.insufficientVx": "इस कार्य के लिए आपके पास पर्याप्त VX नहीं है। कोई बाहरी अनुरोध नहीं भेजा गया।",
+  "access.unavailable": "यह सुविधा अस्थायी रूप से उपलब्ध नहीं है, और कोई बाहरी अनुरोध नहीं भेजा गया।",
+  "access.savedAnswer": "यह उत्तर पहले Visionex पर सहेजा गया था। कोई नया AI अनुरोध नहीं किया गया, इसलिए हो सकता है यह नई जानकारी न दर्शाए।",
+  "access.trialLocal": "यह सुविधा आपके मुफ़्त ट्रायल में उपलब्ध है क्योंकि यह स्थानीय रूप से संग्रहीत सामग्री का उपयोग करती है।",
 };
 
 export default translations;

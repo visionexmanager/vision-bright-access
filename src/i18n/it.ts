@@ -13403,7 +13403,7 @@ export const translations: Record<string, string> = {
   "plans.opens": "Cosa apre",
   "plans.currentPlan": "Il tuo piano",
   "plans.freeWeekTitle": "Ogni account inizia con una settimana gratuita",
-  "plans.freeWeekBody": "Sette giorni con tutte le sezioni aperte, sul sito e su WhatsApp — senza carta, e ti avvisiamo il giorno prima della scadenza. Poi scegli Bambini, Base, Pro oppure Business. Notizie, comunità e prodotti assistivi restano comunque aperti.",
+  "plans.freeWeekBody": "Sette giorni per esplorare Visionex: notizie, community, prodotti assistivi e le lezioni, i libri e i giochi archiviati di Accademia, Biblioteca e Arcade sono aperti, senza carta, e ti avvisiamo il giorno prima della fine. I servizi di IA e WhatsApp richiedono un piano: scegli Bambini, Base, Pro o Business.",
   "planCheckout.method.omt": "OMT",
   "planCheckout.method.whish": "Whish to Whish",
   "planCheckout.title": "Completa l'abbonamento",
@@ -13583,6 +13583,12 @@ export const translations: Record<string, string> = {
   "travel.board.half_board": "Mezza pensione",
   "travel.board.full_board": "Pensione completa",
   "travel.board.all_inclusive": "Tutto incluso",
+  "access.signInRequired": "Questa funzione usa un servizio di IA esterno. Crea un account o accedi, poi scegli un piano adatto per continuare.",
+  "access.planNotIncluded": "Il tuo piano attuale non include questa operazione.",
+  "access.insufficientVx": "Non hai abbastanza VX per questa operazione. Non è stata inviata alcuna richiesta esterna.",
+  "access.unavailable": "Questa funzione è temporaneamente non disponibile e non è stata inviata alcuna richiesta esterna.",
+  "access.savedAnswer": "Questa risposta era stata salvata in precedenza su Visionex. Non è stata fatta una nuova richiesta di IA, quindi potrebbe non riflettere informazioni più recenti.",
+  "access.trialLocal": "Questa funzione è disponibile durante la prova gratuita perché usa contenuti archiviati localmente.",
 };
 
 export default translations;

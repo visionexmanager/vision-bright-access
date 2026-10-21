@@ -73,8 +73,8 @@ describe("the free week", () => {
   it("opens ONLY what TRIAL_SECTIONS names — never every section", () => {
     expect([...planSections("free_trial")]).toEqual([...TRIAL_SECTIONS]);
     expect(TRIAL_SECTIONS.length).toBeLessThan(SECTIONS.length);
-    // The database carries the same explicit list (20261063), and stopped listing the other fifteen.
-    const migration = readFileSync("supabase/migrations/20261063000000_trial_is_not_full_access.sql", "utf8");
+    // The database carries the same explicit list (latest definition: 20261078), never the other twelve.
+    const migration = readFileSync("supabase/migrations/20261078000000_trial_local_sections.sql", "utf8");
     const list = /FUNCTION public\.trial_sections\(\)[\s\S]*?ARRAY\[([^\]]*)\]/.exec(migration)?.[1] ?? "";
     expect([...list.matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]).sort()).toEqual([...TRIAL_SECTIONS].sort());
   });
