@@ -61,13 +61,17 @@ heartbeat, so no capacity check.
 | Check | Result |
 |---|---|
 | `scripts/sql/voice-room-join-scenarios.mjs` (real PostgreSQL 18.4, 12 connections) | all passed: hashing, backfill, privileges, password flow and change, throttle, capacity (including 15 races), once-only price (including 12 simultaneous joins and a four-room overdraft race), Kids, room deletion |
-| Mutation proofs | without the room lock the capacity, double-charge and throttle races fail; without the per-user advisory lock the overdraft race fails |
-| `scripts/e2e/livekit-gate-harness.ts` | all passed; the previous handler fails 19 of its checks |
+| Mutation proofs, **automated in the same script** (step "Voice room join on real PostgreSQL") | the real migration with the room row lock removed seats more than the room's capacity and charges one user's simultaneous joins more than once; with the per-user spend lock removed the four-room race overdraws the balance. Each mutant runs on a second throwaway server and the script fails if a mutant does *not* break its race. A 300 ms pause is injected between the protected read and write so the overlap is certain, not left to timing. |
+| Earlier manual claim, **not in CI** | an earlier version of this table said the wrong-password throttle race also fails without the room lock. That was a manual experiment; it is not automated here and was not repeated for this change (the throttle count is read earlier in the function, so it would need its own injection point). Treat it as unverified. |
+| `scripts/e2e/livekit-gate-harness.ts` | all passed; the previous handler failing 19 of its checks was observed by hand, not in CI |
 | `src/test/voice-room-join.test.ts` | wiring: grants, lock, search_path, no plan or price change, token order, page no longer charges or compares |
 | tsc, ESLint, `deno check livekit-token` | clean |
 
-Both new database and harness scripts need a workflow step to run in CI; editing `.github/workflows/*` needs
-your approval and was not done.
+`voice-room-join-scenarios.mjs` runs in CI: the "RLS authorization matrix" workflow
+(`.github/workflows/rls-authorization.yml`) has a step for it, its path is in the workflow's `paths` filter, and
+`embedded-postgres` and `pg` are installed with `--no-save`. The `livekit-gate-harness.ts` script is **not** run by
+any CI workflow: the existing Edge Function workflows run other harness files by name, and this PR adds no step for it.
+It is run locally.
 
 ## Rollout and rollback
 

@@ -5,8 +5,9 @@
 //   node scripts/sql/voice-room-join-scenarios.mjs
 //
 // The room, member, points and purchase tables are minimal copies of the production shapes (same
-// columns the function reads and writes). Writes only to a throwaway database. Ends with a mutation
-// proof: without the room row lock the capacity race oversells. Exit status 1 on any failure.
+// columns the function reads and writes). Writes only to a throwaway database. Ends with two mutation
+// proofs run in a second throwaway server: the real migration with the room row lock, or the per-user
+// spend lock, removed must lose the capacity, double-charge and overdraft races. Exit status 1 on any failure.
 import EmbeddedPostgres from "embedded-postgres";
 import pg from "pg";
 import { readFileSync, mkdtempSync } from "node:fs";
@@ -49,8 +50,8 @@ await server.start();
 let fail = 0;
 const expect = (label, cond) => { if (!cond) fail++; console.log(`${cond ? "PASS" : "FAIL"}  ${label}`); };
 const u = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-const connect = async (role) => {
-  const c = new pg.Client({ host: "127.0.0.1", port: 54393, user: "postgres", password: "pw", database: "postgres" });
+const connect = async (role, port = 54393, database = "postgres") => {
+  const c = new pg.Client({ host: "127.0.0.1", port, user: "postgres", password: "pw", database });
   await c.connect();
   if (role) await c.query(`SET ROLE ${role}`);
   return c;
@@ -219,7 +220,65 @@ try {
     (await admin.query("select count(*)::int n from public.voice_room_secrets where room_id=$1", [gone])).rows[0].n === 0
     && (await admin.query("select count(*)::int n from public.voice_room_joins where room_id=$1", [gone])).rows[0].n === 0);
 
+  // The first server is finished with; its connections close before a second server starts.
   for (const c of [...clients, svc, anon, authed, admin]) await c.end().catch(() => {});
+
+  // ── 9. Mutation proofs: the locks are what hold the races above ──
+  // Each mutant is the real migration with one lock removed and a 300 ms pause put between the read
+  // that lock protects and the write that follows it, so the requests overlap by construction rather
+  // than by luck. The same race must now FAIL its invariant; if it cannot be broken, the passing
+  // result above would prove nothing. Runs on a second throwaway server (port 54394), never the first.
+  const swap = (text, from, to) => { if (!text.includes(from)) throw new Error(`mutation anchor not found: ${from}`); return text.replace(from, () => to); };
+  const noRoomLock = swap(swap(sql,
+    "FROM public.voice_rooms WHERE id = _room_id FOR UPDATE;", "FROM public.voice_rooms WHERE id = _room_id;"),
+    "-- Price: charged once", "PERFORM pg_sleep(0.3); -- Price: charged once");
+  const noSpendLock = swap(swap(sql,
+    "PERFORM pg_advisory_xact_lock(hashtextextended('vx_spend:' || _user_id::text, 0));", ""),
+    "IF _balance < _cost THEN", "PERFORM pg_sleep(0.3); IF _balance < _cost THEN");
+
+  const MPORT = 54394;
+  const mserver = new EmbeddedPostgres({ databaseDir: mkdtempSync(`${tmpdir()}/vj-mut-`), user: "postgres", password: "pw", port: MPORT, persistent: false, onLog: () => {}, onError: () => {}, initdbFlags: ["--encoding=UTF8", "--locale=C"] });
+  await mserver.initialise();
+  await mserver.start();
+  try {
+    const root = await connect(null, MPORT);
+    await root.query("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;");
+    const stripRoles = SCHEMA.replace("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;", "");
+    const mutantDb = async (name, mutated) => {
+      await root.query(`CREATE DATABASE ${name}`);
+      const a = await connect(null, MPORT, name);
+      await a.query(stripRoles);
+      for (let i = 1; i <= 40; i++) await a.query("INSERT INTO auth.users VALUES ($1)", [u(i)]);
+      await a.query(mutated);
+      const cs = await Promise.all(Array.from({ length: CONNS }, () => connect("service_role", MPORT, name)));
+      const mkRoom = async (extra) => (await a.query("INSERT INTO public.voice_rooms (owner_id, max_users, join_cost_vx) VALUES ($1,$2,$3) RETURNING id", [u(1), extra.max ?? 4, extra.cost ?? 0])).rows[0].id;
+      return { a, cs, mkRoom, close: async () => { for (const c of [...cs, a]) await c.end().catch(() => {}); } };
+    };
+
+    const m1 = await mutantDb("m_roomlock", noRoomLock);
+    const seats = await m1.mkRoom({ max: 3 });
+    await Promise.all(m1.cs.map((c, i) => join(c, u(20 + i), seats)));
+    const seated = (await m1.a.query("select count(*)::int n from public.voice_room_members where room_id=$1", [seats])).rows[0].n;
+    expect(`mutation: without the room row lock a 3-seat room seats ${seated} of ${CONNS} simultaneous joiners (the capacity race oversells)`, seated > 3);
+    await m1.a.query("INSERT INTO public.user_points (user_id, points, reason) VALUES ($1, 500, 'seed')", [u(31)]);
+    const paid = await m1.mkRoom({ cost: 50 });
+    await Promise.all(m1.cs.map((c) => join(c, u(31), paid)));
+    const purchases = (await m1.a.query("select count(*)::int n from public.vx_purchases where user_id=$1", [u(31)])).rows[0].n;
+    expect(`mutation: without the room row lock one user joining a paid room ${CONNS} times at once is charged ${purchases} times`, purchases > 1);
+    await m1.close();
+
+    const m2 = await mutantDb("m_spendlock", noSpendLock);
+    await m2.a.query("INSERT INTO public.user_points (user_id, points, reason) VALUES ($1, 60, 'seed')", [u(32)]);
+    const four = []; for (let i = 0; i < 4; i++) four.push(await m2.mkRoom({ cost: 30 }));
+    await Promise.all(m2.cs.map((c, i) => join(c, u(32), four[i % 4])));
+    const left = Number((await m2.a.query("select coalesce(sum(points),0)::int s from public.user_points where user_id=$1", [u(32)])).rows[0].s);
+    expect(`mutation: without the per-user spend lock 60 VX across four 30 VX rooms ends at ${left} (overdraft)`, left < 0);
+    await m2.close();
+    await root.end();
+  } finally {
+    await mserver.stop().catch(() => {});
+  }
+
 } finally {
   await server.stop().catch(() => {});
 }
