@@ -42,7 +42,7 @@ import {
   Music2, Pencil, PhoneOff, RefreshCw, Send, Settings2, ShieldX, Sparkles, Timer,
   Unlock, Upload, UserX, Users, Users2, Video, VideoOff, Volume2, VolumeX, WifiOff, X,
 } from "lucide-react";
-import { useVXWallet } from "@/hooks/useVXWallet";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTrial } from "@/hooks/useTrial";
 import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { JoinModal } from "@/components/voice-room/JoinModal";
@@ -128,7 +128,31 @@ type LiveKitSessionResponse = {
   token?: string;
   url?: string;
   error?: string;
+  /** VX this join cost (0 for a free room or a rejoin); the server charges it, not the page. */
+  charged?: number;
 };
+
+/**
+ * Ask the server for a room token. The password, the capacity and the join price are decided there
+ * (voice_room_join): a refusal comes back as an error code, which a failed `functions.invoke` hides
+ * inside the response body, so it is read from there.
+ */
+async function requestVoiceToken(body: Record<string, unknown>): Promise<{ session: LiveKitSessionResponse | null; code: string | null; message?: string }> {
+  const { data, error } = await supabase.functions.invoke("livekit-token", { body });
+  if (!error) {
+    const session = data as LiveKitSessionResponse | null;
+    return session?.token ? { session, code: null } : { session: null, code: session?.error ?? "token_error" };
+  }
+  let code = "token_error";
+  const ctx = (error as { context?: unknown }).context;
+  if (typeof Response !== "undefined" && ctx instanceof Response) {
+    try {
+      const parsed = await ctx.clone().json();
+      if (typeof parsed?.error === "string") code = parsed.error;
+    } catch { /* keep the generic code */ }
+  }
+  return { session: null, code, message: error.message };
+}
 
 // ── Spatial audio renderer ─────────────────────────────────────────
 // Uses LiveKit's @internal Web Audio plugin API to route each remote
@@ -3026,7 +3050,7 @@ export default function VoiceRoom() {
   const { user, loading: authLoading } = useAuth();
   const { t } = useLanguage();
   const { isAdmin, loading: adminLoading } = useAdmin();
-  const { spendVX } = useVXWallet();
+  const queryClient = useQueryClient();
   const { isOnTrial } = useTrial();
   const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
 
@@ -3046,7 +3070,8 @@ export default function VoiceRoom() {
   const [roomPerms, setRoomPerms] = useState<RoomPerms>({ camera: true, mic: true, chat: true, screen: true });
   // New advanced feature state
   const [roomMode, setRoomMode] = useState<"conversation" | "stage">("conversation");
-  const [roomPassword, setRoomPassword] = useState<string | null>(null);
+  // Whether the room has a password. The password itself is never sent to the page; the server checks it.
+  const [roomHasPassword, setRoomHasPassword] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [isListener, setIsListener] = useState(false);
   const [isOnStage, setIsOnStage] = useState(false);
@@ -3185,35 +3210,66 @@ export default function VoiceRoom() {
     toast({ title: t(newValue ? "vroom.roomNowPrivate" : "vroom.roomNowPublic") });
   }, [roomId, isPrivate, t]);
 
+  // Asks the server to let this account into the room. The server checks the password, the seats
+  // and the price in one step, records the membership and signs the token (voice_room_join).
+  // Returns what the page should do next: connected, ask for a password, stay where it is, or leave.
+  const requestJoin = useCallback(async (password?: string, listener = false): Promise<"joined" | "needs_password" | "retry" | "left"> => {
+    if (!user || !roomId) return "left";
+    cleanupStartedRef.current = false;
+    const outcome = await requestVoiceToken({
+      roomId,
+      userName: user.user_metadata?.display_name || user.email,
+      password,
+      listener,
+    });
+    if (outcome.session) {
+      if ((outcome.session.charged ?? 0) > 0) {
+        queryClient.invalidateQueries({ queryKey: ["points-total", user.id] });
+        queryClient.invalidateQueries({ queryKey: ["points-history", user.id] });
+      }
+      applyLiveKitSession(outcome.session);
+      setLoading(false);
+      return "joined";
+    }
+    switch (outcome.code) {
+      case "password_required":
+        return "needs_password";
+      case "wrong_password":
+        toast({ title: t("vroom.wrongPassword"), variant: "destructive" });
+        return "retry";
+      case "room_full":
+        toast({ title: t("community.roomFull"), variant: "destructive" });
+        navigate("/community");
+        return "left";
+      case "insufficient_vx":
+        toast({ title: t("vxWallet.insufficientVX"), variant: "destructive" });
+        navigate("/community");
+        return "left";
+      case "banned":
+        toast({ title: t("vroom.youAreBanned"), variant: "destructive" });
+        navigate("/community");
+        return "left";
+      case "room_not_found":
+        toast({ title: t("vroom.roomInactive"), variant: "destructive" });
+        navigate("/community");
+        return "left";
+      default:
+        toast({ title: t("vroom.tokenError"), description: outcome.message, variant: "destructive" });
+        return "retry";
+    }
+  }, [user, roomId, t, navigate, queryClient, applyLiveKitSession]);
+
   const handleReconnect = useCallback(async () => {
     if (!user || !roomId) return;
-    // Re-upsert into voice_room_members
-    cleanupStartedRef.current = false;
-    await supabase.from("voice_room_members").upsert(
-      { room_id: roomId, user_id: user.id, raise_hand: false, last_seen_at: new Date().toISOString() },
-      { onConflict: "room_id,user_id" }
-    );
-    // Re-fetch token
-    const { data, error: fnErr } = await supabase.functions.invoke("livekit-token", {
-      body: {
-        roomId,
-        userId: user.id,
-        userName: user.user_metadata?.display_name || user.email,
-      },
-    });
-    const session = data as LiveKitSessionResponse | null;
-    if (fnErr || !session?.token) {
-      toast({
-        title: t("vroom.tokenError"),
-        description: fnErr?.message || session?.error,
-        variant: "destructive",
-      });
+    // A fresh token for a member who is already in (the server remembers the password and the price).
+    const result = await requestJoin(undefined, isListener);
+    if (result !== "joined") {
+      if (result === "needs_password") toast({ title: t("vroom.passwordRequired"), variant: "destructive" });
       return;
     }
-    applyLiveKitSession(session);
     setConnectionKey((k) => k + 1);
     setConnectionLost(false);
-  }, [user, roomId, t, applyLiveKitSession]);
+  }, [user, roomId, t, requestJoin, isListener]);
 
   useEffect(() => {
     // Wait for Supabase auth to fully resolve before acting.  Without this guard,
@@ -3233,7 +3289,7 @@ export default function VoiceRoom() {
     const getToken = async () => {
       const { data: room } = await supabase
         .from("voice_rooms")
-        .select("room_name, room_topic, is_private, owner_id, join_cost_vx, is_default, is_active, allow_camera, allow_mic, allow_chat, allow_screen_share, room_mode, room_password")
+        .select("room_name, room_topic, is_private, owner_id, join_cost_vx, is_default, is_active, allow_camera, allow_mic, allow_chat, allow_screen_share, room_mode, has_password")
         .eq("id", roomId)
         .single();
 
@@ -3261,9 +3317,8 @@ export default function VoiceRoom() {
         screen: room.allow_screen_share ?? true,
       });
       const mode = (room as { room_mode?: string }).room_mode as "conversation" | "stage" | undefined;
-      const pwd = (room as { room_password?: string | null }).room_password ?? null;
       setRoomMode(mode || "conversation");
-      setRoomPassword(pwd);
+      setRoomHasPassword((room as { has_password?: boolean }).has_password === true);
 
       const { data: ban } = await supabase
         .from("voice_room_bans")
@@ -3279,49 +3334,31 @@ export default function VoiceRoom() {
 
       const { data: existingMember } = await supabase
         .from("voice_room_members")
-        .select("id")
+        .select("id, is_listener")
         .eq("room_id", roomId)
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (!existingMember && room.owner_id !== user.id && room.join_cost_vx > 0) {
-        const ok = await spendVX(room.join_cost_vx, "voice_room_join", roomId, roomId);
-        if (!ok) { navigate("/community"); return; }
-      }
-
-      // Show join modal for password/stage mode (skip for owner and existing members)
-      const hasPassword = !!pwd;
+      // A stage room lets a newcomer choose speaker or listener first; a password is asked for only
+      // when the server says it is needed (it remembers who already gave it), and the price, the
+      // seats and the password are all decided and recorded there.
       const isStageRoom = (mode || "conversation") === "stage";
-      if ((hasPassword || isStageRoom) && room.owner_id !== user.id && !existingMember) {
+      if (isStageRoom && room.owner_id !== user.id && !existingMember) {
         setLoading(false);
         setPendingJoin(true);
         setShowJoinModal(true);
         return;
       }
 
-      // Upsert with raise_hand reset on (re)join
-      cleanupStartedRef.current = false;
-      const { error: membershipError } = await supabase.from("voice_room_members").upsert(
-        { room_id: roomId, user_id: user.id, raise_hand: false, last_seen_at: new Date().toISOString() },
-        { onConflict: "room_id,user_id" }
-      );
-      if (membershipError) { setError(membershipError.message); setLoading(false); return; }
-
-      const { data, error: fnErr } = await supabase.functions.invoke("livekit-token", {
-        body: {
-          roomId,
-          userId: user.id,
-          userName: user.user_metadata?.display_name || user.email,
-        },
-      });
-
-      const session = data as LiveKitSessionResponse | null;
-      if (fnErr || !session?.token) {
-        setError(fnErr?.message || session?.error || t("vroom.tokenError"));
-      } else {
-        applyLiveKitSession(session);
+      const result = await requestJoin(undefined, existingMember?.is_listener === true);
+      if (result === "needs_password") {
+        setLoading(false);
+        setPendingJoin(true);
+        setShowJoinModal(true);
+      } else if (result === "retry") {
+        setError(t("vroom.tokenError"));
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     getToken();
@@ -3422,33 +3459,18 @@ export default function VoiceRoom() {
 
   const handleJoinConfirmed = async (joinMode: "speaker" | "listener", password?: string) => {
     if (!user || !roomId) return;
-    // Validate password
-    if (roomPassword && password !== roomPassword) {
-      toast({ title: t("vroom.wrongPassword"), variant: "destructive" });
-      return;
-    }
     const listenerMode = joinMode === "listener";
-    setIsListener(listenerMode);
-    setShowJoinModal(false);
-    setPendingJoin(false);
     joinTimeRef.current = Date.now();
-    // Upsert membership
-    cleanupStartedRef.current = false;
-    await supabase.from("voice_room_members").upsert(
-      { room_id: roomId, user_id: user.id, raise_hand: false, is_listener: listenerMode, last_seen_at: new Date().toISOString() },
-      { onConflict: "room_id,user_id" }
-    );
-    // Fetch token
-    const { data, error: fnErr } = await supabase.functions.invoke("livekit-token", {
-      body: { roomId, userId: user.id, userName: user.user_metadata?.display_name || user.email },
-    });
-    const session = data as LiveKitSessionResponse | null;
-    if (fnErr || !session?.token) {
-      setError(fnErr?.message || session?.error || t("vroom.tokenError"));
-    } else {
-      applyLiveKitSession(session);
+    // The server checks the password, the seats and the price, records the membership and signs the
+    // token. The modal stays open on a wrong password so the person can try again.
+    const result = await requestJoin(password, listenerMode);
+    if (result === "joined") {
+      setIsListener(listenerMode);
+      setShowJoinModal(false);
+      setPendingJoin(false);
+    } else if (result === "needs_password") {
+      toast({ title: t("vroom.passwordRequired"), variant: "destructive" });
     }
-    setLoading(false);
   };
 
   const handlePromoteToStage = async (userId: string) => {
@@ -3617,7 +3639,7 @@ export default function VoiceRoom() {
       <Layout>
         <JoinModal
           roomName={roomName}
-          hasPassword={!!roomPassword}
+          hasPassword={roomHasPassword}
           isStageMode={roomMode === "stage"}
           t={t}
           onJoin={handleJoinConfirmed}
