@@ -945,6 +945,54 @@ jobs:
             exit 1
           fi
           say 'Both paragraphs came back, in both scripts. Office extraction works end to end.'
+      - name: Prove it renders PDF pages
+        if: inputs.action == 'selftest'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [ -z "${TOKEN:-}" ]; then
+            echo '::error::PROCESSOR_TOKEN is not set. Nothing to authenticate with.'
+            exit 1
+          fi
+
+          # A one-page PDF written by hand: no cross-reference table, which poppler
+          # rebuilds. Generated here rather than committed, like the test tone below.
+          printf '%%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 200]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 24 Tf 20 100 Td (Visionex) Tj ET\nendstream\nendobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R/Size 6>>\n%%%%EOF\n' > /tmp/vx-page.pdf
+
+          say '## PDF page rendering self-test'
+          say '```'
+          FAILED=0
+
+          CAPS=$(curl -s --max-time 30 -H "authorization: Bearer $TOKEN" 'https://visionex.app/internal/media/capabilities')
+          case "$CAPS" in
+            *'"pdf_pages"'*) say 'capabilities: pdf_pages advertised' ;;
+            *) echo '::error::This deployment does not advertise pdf_pages (an image built before poppler-utils was added?).'; FAILED=1 ;;
+          esac
+
+          BODY=$(curl -s --max-time 90 \
+            -H "authorization: Bearer $TOKEN" -H 'content-type: application/pdf' \
+            --data-binary @/tmp/vx-page.pdf \
+            'https://visionex.app/internal/media/pdf-pages?pages=1')
+          # Counts only: never print the picture.
+          say "response  : $(printf '%s' "$BODY" | head -c 80 | tr -d '\n')..."
+          case "$BODY" in
+            *'"ok":true'*'"jpeg_base64":"/9j/'*) say 'rendered  : one JPEG page came back' ;;
+            *) echo '::error::The page did not render to a JPEG.'; FAILED=1 ;;
+          esac
+
+          # Refusals: bytes decide, and the body limit holds.
+          CODE=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' \
+            -H "authorization: Bearer $TOKEN" --data-binary 'this is not a pdf' \
+            'https://visionex.app/internal/media/pdf-pages')
+          say "not a pdf : HTTP $CODE"
+          [ "$CODE" = "400" ] || { echo "::error::A non-PDF was not refused with 400 (got $CODE)."; FAILED=1; }
+
+          say '```'
+          if [ "$FAILED" -ne 0 ]; then exit 1; fi
+          say 'PDF pages render through the service.'
       - name: Prove it can convert and probe
         if: inputs.action == 'selftest'
         env:
