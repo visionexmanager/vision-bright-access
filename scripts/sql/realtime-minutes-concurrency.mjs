@@ -8,7 +8,9 @@
 // Asserts: simultaneous reservations for one user never reserve more than the cap, every
 // refusal is a clean monthly_limit, other users are unaffected, ending a reservation from many
 // connections at once ends it exactly once, and a reserve racing an end never leaves the user
-// over the cap. Writes only to a throwaway database. Exit status 1 on any failure.
+// over the cap. A mutation proof then removes the reserve advisory lock from the real migration on a
+// second throwaway server and requires the same race to break. Writes only to throwaway databases.
+// Exit status 1 on any failure.
 import EmbeddedPostgres from "embedded-postgres";
 import pg from "pg";
 import { readFileSync, mkdtempSync } from "node:fs";
@@ -123,6 +125,51 @@ try {
 
   for (const c of clients) await c.end();
   await admin.end();
+
+  // Mutation proof: the advisory lock is what holds the race above. The mutant is the real
+  // migration with that one lock removed and a 300 ms pause put between the read of the month's
+  // usage and the insert that follows it, so twelve simultaneous requests overlap by construction
+  // rather than by luck. The same race must now FAIL (the month goes over the cap); if it cannot
+  // be broken, the passing result above would prove nothing. It runs on a second throwaway server
+  // (port 54392), never the first. Only the reserve lock is mutated; ending a reservation is not.
+  const swap = (text, from, to) => { if (!text.includes(from)) throw new Error(`mutation anchor not found: ${from}`); return text.replace(from, () => to); };
+  const mutantNew = swap(swap(readFileSync(NEW, "utf8"),
+    "PERFORM pg_advisory_xact_lock(hashtextextended('realtime_reserve:' || _user_id::text, 0));", ""),
+    "_reserve := LEAST(_session, _remaining);", "PERFORM pg_sleep(0.3); _reserve := LEAST(_session, _remaining);");
+  const MPORT = 54392;
+  const mserver = new EmbeddedPostgres({ databaseDir: mkdtempSync(`${tmpdir()}/rt-mut-`), user: "postgres", password: "pw", port: MPORT, persistent: false, onLog: () => {}, onError: () => {}, initdbFlags: ["--encoding=UTF8", "--locale=C"] });
+  await mserver.initialise();
+  await mserver.start();
+  try {
+    const mconnect = async () => {
+      const c = new pg.Client({ host: "127.0.0.1", port: MPORT, user: "postgres", password: "pw", database: "postgres" });
+      await c.connect();
+      return c;
+    };
+    const madmin = await mconnect();
+    await madmin.query(STUBS);
+    await madmin.query(`
+      CREATE SCHEMA IF NOT EXISTS auth;
+      CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY);
+      CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE
+        AS $$ SELECT nullif(current_setting('test.uid', true), '')::uuid $$;
+    `);
+    await madmin.query([...MIGRATIONS.map((f) => readFileSync(f, "utf8")), mutantNew].join("\n"));
+    await madmin.query("INSERT INTO auth.users VALUES ($1)", [u(1)]);
+    await madmin.query("INSERT INTO public.user_subscriptions (user_id, plan_id, status, ends_at) VALUES ($1,'pro','active', now() + interval '30 days')", [u(1)]);
+    await madmin.query(`UPDATE public.billing_plans SET limits = limits || '{"realtime_monthly_minutes":25}'::jsonb WHERE id='pro'`);
+    const mclients = await Promise.all(Array.from({ length: CONNS }, async () => {
+      const c = await mconnect();
+      await c.query("SET ROLE service_role");
+      return c;
+    }));
+    await Promise.all(mclients.map((c) => reserve(c, u(1))));
+    const overCap = Number((await madmin.query("select coalesce(sum(reserved_minutes),0)::int m from public.realtime_sessions where user_id=$1", [u(1)])).rows[0].m);
+    expect(`mutation: without the advisory lock ${CONNS} simultaneous reservations hand out ${overCap} minutes against a cap of 25`, overCap > 25);
+    for (const c of [...mclients, madmin]) await c.end();
+  } finally {
+    await mserver.stop().catch(() => {});
+  }
 } finally {
   await server.stop();
 }

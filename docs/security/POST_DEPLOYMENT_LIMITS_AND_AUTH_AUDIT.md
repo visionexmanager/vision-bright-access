@@ -77,7 +77,7 @@ decision and was not made here.
 Tests (`scripts/e2e/library-saved-answer-harness.ts`, 63 checks): for each of the seven, a paying account without the section gets
 403 `plan_required` naming the section, with zero provider requests and no daily unit spent; with the
 section the request is not turned away by the section check; the unmodified handler fails the check
-(mutation proof run on `library-ai-writing-assistant`). Unauthenticated callers are rejected by the existing plan-gate
+(a manual experiment on `library-ai-writing-assistant`, run once by hand; no CI step repeats it). Unauthenticated callers are rejected by the existing plan-gate
 harness (`subscription-gate-harness.ts`), which covers every function. Admin is entitled through
 `user_has_section` and is covered by the database scenarios, not re-tested here.
 
@@ -159,8 +159,13 @@ and any free allowance were **not verified**.
 - **New evidence:** `scripts/sql/realtime-minutes-concurrency.mjs` (real PostgreSQL 18, 12 connections): 40 rounds of
   simultaneous reservations always admit exactly 3 (10+10+5 = 25); 25 rounds of reserve racing end never exceed the
   cap; twelve simultaneous ends of one reservation end it exactly once; another user is unaffected; `authenticated`
-  cannot call the function. Removing the advisory lock makes it fail (mutation proof), so it catches the race. The
-  older scenario script ran in PGlite, one connection, and could not.
+  cannot call the function. The older scenario script ran in PGlite, one connection, and could not.
+- **Mutation proof, automated in the same script (CI step "Monthly realtime minutes under real concurrency"):** the
+  script then builds a second throwaway server from the real migration with the reserve advisory lock removed and a
+  300 ms pause between reading the month's usage and inserting the reservation, so twelve simultaneous requests overlap by
+  construction. It requires the race to break (the run reports 120 minutes handed out against a cap of 25) and fails if
+  it does not. Only the reserve lock is mutated. The end-reservation function and the other invariants have no
+  mutation proof.
 - Fails closed: if the reservation call errors, the function answers 503 and no provider call is made.
 
 Observations (not defects):
@@ -187,9 +192,9 @@ All on the branch head described in section 9; commands as in CI.
 
 | Check | Result |
 |---|---|
-| `scripts/e2e/library-saved-answer-harness.ts` (Deno, in-process) | all passed, 63 checks; old handler fails the new check |
+| `scripts/e2e/library-saved-answer-harness.ts` (Deno, in-process) | all passed, 63 checks, run locally (no CI workflow runs this file by name); the old handler failing the new check was observed by hand |
 | `livekit-gate-harness`, `career-health-gate-harness`, `bazaar-notify-harness`, `subscription-gate-harness` | all passed |
-| `scripts/sql/realtime-minutes-concurrency.mjs` (real PostgreSQL 18.4) | all passed; fails without the advisory lock |
+| `scripts/sql/realtime-minutes-concurrency.mjs` (real PostgreSQL 18.4) | all passed, including the automated mutation proof (the same race breaks when the reserve advisory lock is removed); the script runs in CI, the last step of the "Who can read and write which rows" job |
 | vitest: access-policy, ai-subscription-gate, trial-entitlement, migrations-invariants, section-entitlement, realtime-minutes | 258 tests passed |
 | `tsc -b` | exit 0 |
 | `deno check` on the seven changed functions | pass |
