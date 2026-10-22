@@ -978,6 +978,12 @@ export interface StructuredParams {
    * provider refuses it, and a chain moves on to one that can.
    */
   pdf?: string;
+  /**
+   * More pages after `image`, for a document shown as pictures. OpenAI-compatible
+   * providers only: Gemini and Anthropic take one image here, refuse these, and a
+   * chain moves on to a provider that can.
+   */
+  extraImages?: string[];
   /** JSON Schema for the result object. */
   schema: Record<string, unknown>;
   /** Tool/function name the model must call. */
@@ -1024,6 +1030,9 @@ async function structuredCompletionDetailed(p: StructuredParams): Promise<Struct
 }
 
 async function structuredCompletionOnce(p: StructuredParams): Promise<StructuredOutcome> {
+  if (p.extraImages?.length && (p.provider === "gemini" || p.provider === "anthropic")) {
+    throw new ProviderError(400, `${p.provider} takes one image here`);
+  }
   if (p.pdf && p.provider !== "openai" && p.provider !== "gemini") {
     throw new ProviderError(400, `${p.provider} does not read PDF files here`);
   }
@@ -1106,6 +1115,9 @@ async function structuredOpenAICompatible(p: StructuredParams): Promise<Structur
   const content: Array<Record<string, unknown>> = [{ type: "text", text: p.userText }];
   if (p.image) {
     content.push({ type: "image_url", image_url: { url: p.image, detail: "high" } });
+  }
+  for (const extra of p.extraImages ?? []) {
+    content.push({ type: "image_url", image_url: { url: extra, detail: "high" } });
   }
   if (p.pdf) {
     // OpenAI's own file part: it extracts the text and renders every page, so

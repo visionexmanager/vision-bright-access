@@ -24,6 +24,7 @@ import {
   toDataUrl,
 } from "./whatsappAttachments.ts";
 import { readOfficeLocally } from "./whatsappOffice.ts";
+import { renderPdfPages } from "./whatsappPdfPages.ts";
 import {
   convertMediaLocally,
   processorAvailable,
@@ -323,9 +324,49 @@ export async function readScannedPdf(params: {
   userText: string;
   languageName: string;
   targets?: ProviderTarget[];
+  /** Injected by the tests; the real renderer talks to the processor. */
+  renderPages?: typeof renderPdfPages;
 }): Promise<DocumentResult> {
   const targets = (params.targets ?? VISION_TARGETS).filter((t) => t.provider === "openai" || t.provider === "gemini");
   if (targets.length === 0) return { ok: false, reason: "scanned_pdf" };
+
+  // First, the pages as pictures: Visionex's own processor renders the opening
+  // pages at a legible size and a vision model reads them at high detail, the
+  // way it reads a photograph. A provider that is handed the whole file picks
+  // its own resolution, and a scan read at a poor one comes back "unreadable".
+  // Only an OpenAI-compatible provider takes several images; when the processor
+  // is off, busy, or the answer is not a real reading, this falls through to
+  // handing over the file exactly as before, so it can only add a way to read.
+  const withImages = targets.filter((t) => t.provider === "openai");
+  if (withImages.length > 0) {
+    const rendered = await (params.renderPages ?? renderPdfPages)({ bytes: params.bytes });
+    if (rendered.ok) {
+      const shown = rendered.pages.length;
+      const total = rendered.totalPages;
+      const cutoff = total !== null && total > shown
+        ? ` Only the first ${shown} of ${total} pages are shown; say so if the answer may depend on the rest.`
+        : "";
+      try {
+        const { result } = await structuredCompletionWithFallback({
+          targets: withImages,
+          system: attachmentSystemPrompt(params.languageName, "document"),
+          userText: `${params.userText}
+
+The images are the ${shown} page(s) of a scanned PDF, in order.${cutoff} Read the words on them.`,
+          image: rendered.pages[0],
+          extraImages: rendered.pages.slice(1),
+          schema: ATTACHMENT_ANSWER_SCHEMA as unknown as Record<string, unknown>,
+          toolName: "answer_from_document",
+          maxTokens: 700,
+        });
+        const value = coerce(result);
+        if (value && value.readable && value.answer) return { ok: true, value };
+      } catch (e) {
+        console.error("[whatsapp-vision] rendered pages read failed:", describeError(e));
+      }
+    }
+  }
+
   try {
     const { result } = await structuredCompletionWithFallback({
       targets,
@@ -337,7 +378,9 @@ export async function readScannedPdf(params: {
       maxTokens: 700,
     });
     const value = coerce(result);
-    return value ? { ok: true, value } : { ok: false, reason: "scanned_pdf" };
+    // A model that says "I cannot read this" is not a reading: the sender gets
+    // the scan advice (photograph the pages), not the generic "unsupported" line.
+    return value && value.readable && value.answer ? { ok: true, value } : { ok: false, reason: "scanned_pdf" };
   } catch (e) {
     console.error("[whatsapp-vision] scanned PDF read failed:", describeError(e));
     return { ok: false, reason: "scanned_pdf" };

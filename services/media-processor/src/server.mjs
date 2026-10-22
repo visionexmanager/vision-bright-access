@@ -34,11 +34,22 @@
 
 import { createServer } from "node:http";
 import { checkOverpassQuery, relayOverpass } from "./overpass.mjs";
+import {
+  MAX_PDF_BYTES,
+  PDFINFO_TIMEOUT_MS,
+  PDF_PAGE_EDGE_PX,
+  PDF_RENDER_TIMEOUT_MS,
+  checkPdfUpload,
+  pageNumberOf,
+  pagesFromQuery,
+  parsePdfInfo,
+  selectPages,
+} from "./pdfpages.mjs";
 import { DataHubError, listDatasets, readStorage, resolveDatasetFile } from "./datahub.mjs";
 import { createReadStream } from "node:fs";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -764,6 +775,112 @@ async function handleOffice(req, res, correlation) {
   }
 }
 
+/**
+ * Render the first pages of a PDF as JPEG pictures.
+ *
+ * For a PDF with no text layer. The caller shows the pictures to a vision model
+ * at high detail instead of handing the model the file and hoping for the best.
+ *
+ * Two tools, both from poppler-utils and both given arguments as an array: the
+ * page count first (so a caller can say "the first 4 of 40 pages"), then the
+ * render, bounded by a fixed pixel edge rather than a DPI so a hostile page size
+ * cannot request an enormous bitmap. Nothing the caller sends reaches a command
+ * line except a page count that has been clamped to a small integer.
+ *
+ * The response carries images, never text, and the log carries counts and
+ * timings, never anything about what a page says.
+ */
+async function handlePdfPages(req, res, correlation) {
+  if (tooBusy(res, correlation)) return;
+
+  const url = new URL(req.url, "http://internal");
+  const wanted = pagesFromQuery(url.searchParams.get("pages"));
+
+  let bytes;
+  try {
+    bytes = await readBody(req, MAX_PDF_BYTES);
+  } catch (error) {
+    log("rejected", { correlation, reason: error.code ?? "unreadable" });
+    return send(res, 413, { ok: false, reason: error.code ?? "unreadable" });
+  }
+  const verdict = checkPdfUpload(bytes);
+  if (!verdict.ok) {
+    log("rejected", { correlation, reason: verdict.reason, bytes: bytes.length });
+    return send(res, 400, { ok: false, reason: verdict.reason });
+  }
+
+  await acquireSlot();
+  const startedAt = Date.now();
+  try {
+    let total = null;
+    try {
+      const info = await runTool({
+        bytes,
+        prefix: "pdfinfo-",
+        command: "pdfinfo",
+        timeoutMs: PDFINFO_TIMEOUT_MS,
+        build: (input) => [input],
+        ok: (code) => code === 0,
+        read: ({ stdout }) => parsePdfInfo(stdout),
+        failure: "pdfinfo_failed",
+      });
+      total = info.pages;
+    } catch (error) {
+      // A file pdfinfo cannot open is a file pdftoppm cannot render either
+      // (damaged, or locked with a password), and saying so now is cheaper.
+      log("pdf_pages_failed", { correlation, ms: Date.now() - startedAt, stage: "info", reason: error.code ?? "unknown" });
+      return send(res, 200, { ok: false, reason: error.code === "timeout" ? "timeout" : "unreadable" });
+    }
+
+    const last = total ? Math.min(wanted, total) : wanted;
+    const pages = await runTool({
+      bytes,
+      prefix: "pdfpages-",
+      command: "pdftoppm",
+      timeoutMs: PDF_RENDER_TIMEOUT_MS,
+      build: (input, dir) => [
+        "-jpeg", "-jpegopt", "quality=72",
+        "-scale-to", String(PDF_PAGE_EDGE_PX),
+        "-f", "1", "-l", String(last),
+        input, join(dir, "out"),
+      ],
+      ok: (code) => code === 0,
+      read: async ({ dir }) => {
+        const out = [];
+        for (const name of await readdir(dir)) {
+          const n = pageNumberOf(name);
+          if (n !== null) out.push({ n, bytes: await readFile(join(dir, name)) });
+        }
+        return out.sort((a, b) => a.n - b.n);
+      },
+      failure: "render_failed",
+    });
+
+    const kept = selectPages(pages);
+    log("pdf_pages", {
+      correlation,
+      ms: Date.now() - startedAt,
+      bytes: bytes.length,
+      total_pages: total ?? 0,
+      rendered: pages.length,
+      returned: kept.length,
+    });
+    if (kept.length === 0) return send(res, 200, { ok: false, reason: "no_pages" });
+
+    return send(res, 200, {
+      ok: true,
+      total_pages: total,
+      pages: kept.map((p) => ({ n: p.n, jpeg_base64: p.bytes.toString("base64") })),
+      ms: Date.now() - startedAt,
+    });
+  } catch (error) {
+    log("pdf_pages_failed", { correlation, ms: Date.now() - startedAt, stage: "render", reason: error?.code ?? "unknown" });
+    return send(res, 200, { ok: false, reason: error?.code === "timeout" ? "timeout" : "unreadable" });
+  } finally {
+    releaseSlot();
+  }
+}
+
 /** The largest request body /overpass accepts: a JSON object with one short query. */
 const MAX_OVERPASS_BODY = 4_096;
 
@@ -827,6 +944,8 @@ const server = createServer(async (req, res) => {
         // deployment may have been rolled back to an image with only one.
         barcode: true,
         office: SUPPORTED_OFFICE_KINDS,
+        // A deployment rolled back to an image without poppler lacks this; a caller checks before relying on it.
+        pdf_pages: { max_pages: 6, max_bytes: MAX_PDF_BYTES },
         languages: ["ara", "eng", "ara+eng"],
         max_bytes: MAX_UPLOAD_BYTES,
         max_document_bytes: MAX_DOCUMENT_BYTES,
@@ -852,6 +971,10 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/barcode") {
       return await handleBarcode(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/pdf-pages") {
+      return await handlePdfPages(req, res, correlation);
     }
 
     if (req.method === "POST" && url.pathname === "/office") {

@@ -35,6 +35,7 @@ RUN apt-get update \
       tesseract-ocr-eng \
       ffmpeg \
       zbar-tools \
+      poppler-utils \
  && rm -rf /var/lib/apt/lists/*
 
 # ── Who it runs as ───────────────────────────────────────────────────────────
