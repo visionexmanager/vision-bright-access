@@ -152,7 +152,7 @@ async function post(fn: string, opts: { anon?: boolean; body?: unknown; raw?: st
   if (!opts.anon) headers.Authorization = `Bearer ${USER_TOKEN}`;
   const body = opts.raw ?? JSON.stringify(opts.body ?? {
     action: "generate", prompt: "hello", text: "hello", query: "hello", message: "hello", input: "hello", question: "hello",
-    messages: [{ role: "user", content: "hello" }], assistant: "visionex", stream: false,
+    messages: [{ role: "user", content: "Explain how photosynthesis works in detail" }], assistant: "visionex", stream: false,
   });
   const res = await Promise.race([
     Promise.resolve(handler(new Request(`https://x.supabase.co/functions/v1/${fn}`, { method: "POST", headers, body }))),
@@ -236,7 +236,7 @@ reset("blocked_silent");
 {
   const r = await post("ai-chat", {
     headers: { "x-plan": "business", "x-subscription-status": "active", "x-role": "admin" },
-    body: { messages: [{ role: "user", content: "hi" }], plan: "business", role: "admin", is_subscribed: true, subscription_status: "active" },
+    body: { messages: [{ role: "user", content: "Explain how photosynthesis works in detail" }], plan: "business", role: "admin", is_subscribed: true, subscription_status: "active" },
   });
   const ok = r.status === 403 && providerCalls.length === 0;
   console.log(`${ok ? "PASS" : "FAIL"} spoofed headers and body: http=${r.status}, provider calls=${providerCalls.length}`);
@@ -253,13 +253,37 @@ for (const fn of ["ai-chat", "ai-generate", "academy-chat", "image-generate", "r
   try {
     res = await post(fn, {
       headers: { "x-plan": "free_trial", "x-trial": "true", "x-subscription-status": "trialing" },
-      body: { action: "generate", prompt: "hello", text: "hello", messages: [{ role: "user", content: "hello" }], plan: "free_trial", is_trial: true, trial_active: true },
+      body: { action: "generate", prompt: "hello", text: "hello", messages: [{ role: "user", content: "Explain how photosynthesis works in detail" }], plan: "free_trial", is_trial: true, trial_active: true },
     });
   } catch { res = { status: -1, code: "threw" }; }
   const extra = rpcCalls.filter((r) => !GATE_ONLY.has(r));
   const ok = res.status === 403 && providerCalls.length === 0 && extra.length === 0 && tableWrites.length === 0;
   console.log(`${ok ? "PASS" : "FAIL"} trial account -> ${fn}: http=${res.status}, provider calls=${providerCalls.length}, limit/VX RPCs=${extra.length}, writes=${tableWrites.length}`);
   if (!ok) failures++;
+}
+
+console.log("## ai-chat: a fixed catalogue phrase is answered locally, before the gate, and nothing else is");
+// A greeting or one of the three FAQs costs nothing, so a caller the gate would refuse still gets it - after the
+// caller's own limit, with no provider, no VX and no write except the anonymous daily counter. A real question
+// from the same caller is still refused (the cases above), and a phrase with anything attached is a question.
+for (const [label, mode, anon] of [
+  ["free-week / unsubscribed signed-in", "blocked_silent", false],
+  ["anonymous", "blocked_silent", true],
+] as const) {
+  for (const phrase of ["hello", "free trial", "contact us"]) {
+    reset(mode);
+    const r = await post("ai-chat", { anon, body: { messages: [{ role: "user", content: phrase }] } });
+    const extra = rpcCalls.filter((x) => !GATE_ONLY.has(x));
+    const allowed = new Set(["check_ai_rate_limit", "check_ai_anon_rate_limit", "record_local_answer"]);
+    const ok = r.status === 200 && providerCalls.length === 0 && extra.every((x) => allowed.has(x)) && extra.includes("record_local_answer");
+    console.log(`${ok ? "PASS" : "FAIL"} ${label}, "${phrase}": http=${r.status}, provider calls=${providerCalls.length}, RPCs=${[...new Set(extra)].join(",") || "none"}`);
+    if (!ok) failures++;
+  }
+  reset(mode);
+  const q = await post("ai-chat", { anon, body: { messages: [{ role: "user", content: "hello, how do I reset my password" }] } });
+  const okQ = q.status === 403 && providerCalls.length === 0;
+  console.log(`${okQ ? "PASS" : "FAIL"} ${label}, a phrase with a question attached is still refused: http=${q.status}`);
+  if (!okQ) failures++;
 }
 
 console.log("## YouTube search and details need the Library, like every other Library mode");
