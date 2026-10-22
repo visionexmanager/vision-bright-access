@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     // really exists and that this account may be in: before this, any paying account could name ANY
     // string and have LiveKit create that room, join a Kids room by its prefix, or join a room it was
     // banned from (bans and capacity were enforced by the browser alone).
-    let body: { roomId?: unknown; userName?: unknown };
+    let body: { roomId?: unknown; userName?: unknown; password?: unknown; listener?: unknown };
     try {
       body = await req.json();
     } catch {
@@ -94,6 +94,14 @@ Deno.serve(async (req) => {
     const roomId = typeof body?.roomId === "string" ? body.roomId.trim() : "";
     const isKidsRoom = roomId.startsWith("kids-") && UUID.test(roomId.slice(5));
     if (!isKidsRoom && !UUID.test(roomId)) return reply(corsHeaders, { error: "invalid_room" }, 400);
+    // The room password, when the room has one. Bounded, never logged, never echoed.
+    if (body?.password !== undefined && body.password !== null && (typeof body.password !== "string" || body.password.length > 128)) {
+      return reply(corsHeaders, { error: "invalid_request" }, 400);
+    }
+    const password = typeof body?.password === "string" && body.password !== "" ? body.password : null;
+
+    const { data: adminRole } = await serviceClient.rpc("has_role", { _user_id: user.id, _role: "admin" });
+    const isAdmin = adminRole === true;
 
     if (isKidsRoom) {
       const kidsId = roomId.slice(5);
@@ -105,11 +113,44 @@ Deno.serve(async (req) => {
       const { data: room } = await serviceClient.from("voice_rooms").select("id, is_active").eq("id", roomId).maybeSingle();
       if (!room) return reply(corsHeaders, { error: "room_not_found" }, 404);
       if (!room.is_active) {
-        const { data: isAdmin } = await serviceClient.rpc("has_role", { _user_id: user.id, _role: "admin" });
-        if (isAdmin !== true) return reply(corsHeaders, { error: "room_not_found" }, 404);
+        if (!isAdmin) return reply(corsHeaders, { error: "room_not_found" }, 404);
       }
       const { data: ban } = await serviceClient.from("voice_room_bans").select("id").eq("room_id", roomId).eq("user_id", user.id).maybeSingle();
       if (ban) return reply(corsHeaders, { error: "banned" }, 403);
+    }
+
+    // Nothing is charged and no seat is taken unless a token can actually be signed.
+    if (!Deno.env.get("LIVEKIT_API_KEY") || !Deno.env.get("LIVEKIT_API_SECRET")) {
+      throw new Error("LiveKit credentials not configured on server");
+    }
+
+    // The password, the capacity and the join price are decided here, in one transaction on the
+    // room row (migration 20261085). Until now the page checked them and a direct call skipped all
+    // three; membership is a row any signed-in user can write for themselves, so it proved nothing.
+    // Owners and admins pass. Fails closed: if the database cannot answer, no token.
+    const { data: joined, error: joinErr } = await serviceClient.rpc("voice_room_join", {
+      _user_id: user.id,
+      _room_id: isKidsRoom ? roomId.slice(5) : roomId,
+      _kind: isKidsRoom ? "kids" : "adult",
+      _password: password,
+      _listener: body?.listener === true,
+      _is_admin: isAdmin,
+    });
+    const verdict = (joined ?? null) as { allowed?: unknown; reason?: unknown; charged?: unknown } | null;
+    if (joinErr || !verdict || typeof verdict.allowed !== "boolean") {
+      return reply(corsHeaders, { error: "join_unavailable", message: "We could not check this room just now. Please try again in a moment." }, 503);
+    }
+    if (verdict.allowed !== true) {
+      const refusals: Record<string, [string, number]> = {
+        password_required: ["password_required", 403],
+        wrong_password: ["wrong_password", 403],
+        too_many_attempts: ["too_many_attempts", 429],
+        room_full: ["room_full", 409],
+        insufficient_vx: ["insufficient_vx", 402],
+        room_not_found: ["room_not_found", 404],
+      };
+      const [error, status] = refusals[String(verdict.reason)] ?? ["join_refused", 403];
+      return reply(corsHeaders, { error }, status);
     }
 
     // The display name is the account's own, never an e-mail address and never longer than 40
@@ -159,7 +200,9 @@ Deno.serve(async (req) => {
 
     const token = await at.toJwt();
 
-    return new Response(JSON.stringify({ token, ...(livekitUrl ? { url: livekitUrl } : {}) }), {
+    // `charged` lets the page refresh the VX balance after a paid room; it is the amount this join cost.
+    const charged = typeof verdict.charged === "number" && verdict.charged > 0 ? verdict.charged : 0;
+    return new Response(JSON.stringify({ token, charged, ...(livekitUrl ? { url: livekitUrl } : {}) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
