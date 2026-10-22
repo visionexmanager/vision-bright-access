@@ -249,6 +249,68 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const serviceClient = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
 
+    // ── Answered locally, before the gate and before any provider ──────
+    //
+    // A greeting, a thank-you, "what can you do", "open the library", "what
+    // does the free trial include": fixed, public text that no model writes
+    // and that costs nothing to serve (class A in lib/access/policy.ts). It
+    // sits before the subscription gate so a free-week, expired or signed-out
+    // visitor gets the answer instead of a refusal — but it grants nothing
+    // else: no provider, no VX, no memory, no personal data, and the caller's
+    // own per-user / per-address limit is still taken first. Only the default
+    // assistant: the domain assistants carry a persona and a safety context of
+    // their own. Anything not recognised outright falls through to the gate
+    // and the model exactly as before.
+    if (!assistantIdForAuth) {
+      const early = boundMessages(authPreview.messages);
+      const lastEarly = early.ok ? early.messages[early.messages.length - 1] : undefined;
+      const earlyContext = sanitizeContext(authPreview.context);
+      const local = lastEarly?.role === "user"
+        ? answerLocally(lastEarly.content, {
+          preferredLocale: earlyContext.language?.slice(0, 2).toLowerCase() ?? null,
+          links: !earlyContext.voiceMode,
+          format: "markdown",
+        })
+        : null;
+      if (local && early.ok) {
+        let within = true;
+        if (user) {
+          const { data } = await serviceClient.rpc("check_ai_rate_limit", {
+            _user_id: user.id,
+            _function_name: "ai-chat",
+          });
+          within = data !== false;
+        } else {
+          const { data, error: limitError } = await serviceClient.rpc("check_ai_anon_rate_limit", {
+            _caller_hash: await callerHash(callerAddress(req.headers), serviceRoleKey),
+            _function_name: "ai-chat",
+          });
+          if (limitError) console.error("[ai-chat] anonymous limit check failed, allowing:", limitError.message);
+          within = data !== false;
+        }
+        if (!within) {
+          return new Response(
+            JSON.stringify({ error: user ? "Daily limit reached (60 messages/day). Try again tomorrow." : "You have reached today's limit for guests. Sign in to keep chatting." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+        const promptChars = SYSTEM_PROMPT.length + early.messages.reduce((n, m) => n + m.content.length, 0);
+        const metric = localIntentMetric("website", local, promptChars);
+        console.log(JSON.stringify(metric));
+        // Counters only (day, intent, language, plan class). A failed write is logged and never blocks the answer.
+        const { error: recordError } = await serviceClient.rpc("record_local_answer", {
+          _channel: "website",
+          _intent: metric.intent,
+          _locale: metric.locale,
+          _user_id: user?.id ?? null,
+          _est_tokens: metric.est_avoided_input_tokens,
+        });
+        if (recordError) console.error("[ai-chat] local answer count failed:", recordError.message);
+        const sse = `data: ${JSON.stringify({ choices: [{ delta: { content: local.reply } }] })}\n\ndata: [DONE]\n\n`;
+        return new Response(sse, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+      }
+    }
+
     // Subscription gate: no AI work, limit, VX charge or provider call without an active paid plan.
     // Signed-in and anonymous callers alike; `user` is from the verified auth.getUser() above.
     const refused = await subscriptionGate(serviceClient, req, user?.id ?? null, corsHeaders);
@@ -318,31 +380,6 @@ Deno.serve(async (req) => {
         );
       }
       messages = bounded.messages;
-    }
-
-    // ── Answered locally, before any provider ──────────────────────────
-    //
-    // A greeting, a thank-you, "what can you do", "open the library": fixed,
-    // public text that no model needs to write. This sits after the
-    // subscription gate, the budget and both rate limits, so a match changes
-    // what is *answered*, never who may ask. Only the default assistant: the
-    // domain assistants carry a persona and a safety context of their own.
-    // Anything not recognised outright falls straight through to the model.
-    if (!assistantId) {
-      const lastTurn = messages[messages.length - 1];
-      const local = lastTurn?.role === "user"
-        ? answerLocally(lastTurn.content, {
-          preferredLocale: context.language?.slice(0, 2).toLowerCase() ?? null,
-          links: !context.voiceMode,
-          format: "markdown",
-        })
-        : null;
-      if (local) {
-        const promptChars = SYSTEM_PROMPT.length + messages.reduce((n, m) => n + m.content.length, 0);
-        console.log(JSON.stringify(localIntentMetric("website", local, promptChars)));
-        const sse = `data: ${JSON.stringify({ choices: [{ delta: { content: local.reply } }] })}\n\ndata: [DONE]\n\n`;
-        return new Response(sse, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
-      }
     }
 
     // ── Grading an IVX project ─────────────────────────────────────────

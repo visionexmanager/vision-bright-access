@@ -270,13 +270,20 @@ describe("what a phrase list cannot answer", () => {
 // ── 6. Wiring ───────────────────────────────────────────────────────────────
 
 describe("the website chat", () => {
-  it("answers locally only after the subscription gate and both rate limits", () => {
+  it("answers locally after the caller's own limit, and before the gate, the budget and every provider path", () => {
     const local = aiChat.indexOf("answerLocally(");
     expect(local).toBeGreaterThan(0);
-    expect(aiChat.indexOf("subscriptionGate(serviceClient")).toBeLessThan(local);
-    expect(aiChat.indexOf('rpc("check_ai_budget")')).toBeLessThan(local);
-    expect(aiChat.indexOf('rpc("check_ai_rate_limit"')).toBeLessThan(local);
-    expect(aiChat.indexOf('rpc("check_ai_anon_rate_limit"')).toBeLessThan(local);
+    // The caller's own limit is taken first (once per branch, before the reply) ...
+    const userLimit = aiChat.indexOf('rpc("check_ai_rate_limit"');
+    const anonLimit = aiChat.indexOf('rpc("check_ai_anon_rate_limit"');
+    expect(userLimit).toBeGreaterThan(local);
+    expect(anonLimit).toBeGreaterThan(local);
+    const reply = aiChat.indexOf("data: [DONE]", local);
+    expect(userLimit).toBeLessThan(reply);
+    expect(anonLimit).toBeLessThan(reply);
+    // ... and the answer is returned before the gate that refuses a free-week caller.
+    expect(reply).toBeLessThan(aiChat.indexOf("subscriptionGate(serviceClient"));
+    expect(reply).toBeLessThan(aiChat.indexOf('rpc("check_ai_budget")'));
   });
 
   it("answers before the provider, the billing reservation and the memory write", () => {
@@ -286,8 +293,9 @@ describe("the website chat", () => {
     expect(aiChat.indexOf('.from("ai_user_memory")')).toBeGreaterThan(local);
   });
 
-  it("is limited to the default assistant", () => {
-    expect(aiChat).toMatch(/if \(!assistantId\) \{\s*const lastTurn/);
+  it("is limited to the default assistant, and the later flow carries no second copy", () => {
+    expect(aiChat).toMatch(/if \(!assistantIdForAuth\) \{\s*const early/);
+    expect(aiChat.split("answerLocally(").length - 1).toBe(1);
   });
 
   it("logs the metric without the message", () => {

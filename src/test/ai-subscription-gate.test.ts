@@ -451,8 +451,17 @@ describe("every user-facing AI entry point asks the gate first", () => {
       // that read itself requires the Library section, so the (cheap, read-only) section lookup comes first.
       // Nothing that costs money does: the section check is a database RPC, and a stored hit calls no provider.
       const SAVED_FIRST = ["library-ai-assistant", "library-librarian-daily-plan"];
+      // ai-chat answers a fixed catalogue phrase (greeting, page name, three FAQs) before the gate so a free-week
+      // or signed-out caller is not refused "hello". It takes the caller's own limit first and touches no provider,
+      // VX, memory or budget (src/test/local-faq.test.ts pins the block); the limits it shares with the later path
+      // are therefore compared by their LAST occurrence, which is the one that guards the provider.
+      const LOCAL_FIRST: Record<string, string[]> = { "ai-chat": ["check_ai_rate_limit", "check_ai_anon_rate_limit"] };
       for (const marker of COSTLY) {
         if (marker === "maySeeSection(" && SAVED_FIRST.includes(name)) continue;
+        if (LOCAL_FIRST[name]?.includes(marker)) {
+          expect(handler.lastIndexOf(marker), `${name}: ${marker} guards the provider after the gate`).toBeGreaterThan(gate);
+          continue;
+        }
         const at = handler.indexOf(marker);
         if (at >= 0) expect(at, `${name}: ${marker} runs before the gate`).toBeGreaterThan(gate);
       }
