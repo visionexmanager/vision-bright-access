@@ -55,9 +55,17 @@ import {
   type NavTarget,
   type SocialIntent,
 } from "./localIntentCatalogue.ts";
+import {
+  CONTACT_LABEL,
+  FAQ_INTENTS,
+  FAQ_PATHS,
+  FAQ_PHRASES,
+  FAQ_REPLIES,
+  type FaqIntent,
+} from "./localFaqCatalogue.ts";
 
 export { CATALOGUE_VERSION, LOCALES };
-export type { Locale, NavTarget, SocialIntent };
+export type { FaqIntent, Locale, NavTarget, SocialIntent };
 
 export const MAX_INPUT_CHARS = 200;
 export const MAX_PHRASE_CHARS = 60;
@@ -69,11 +77,11 @@ export const MIN_ACT_CONFIDENCE = 0.8;
 export const MIN_NAV_CONFIDENCE = 0.95;
 
 export type MatchMethod = "exact" | "pattern" | "squeezed" | "fuzzy";
-export type IntentId = SocialIntent | `nav.${NavTarget}`;
+export type IntentId = SocialIntent | `nav.${NavTarget}` | `faq.${FaqIntent}`;
 
 export interface LocalIntentMatch {
   intent: IntentId;
-  category: "social" | "navigation";
+  category: "social" | "navigation" | "faq";
   /** The locale whose phrase matched — also the language the reply is written in. */
   locale: Locale;
   confidence: number;
@@ -123,7 +131,7 @@ const squeeze = (text: string): string => text.replace(/(.)\1+/gu, "$1");
 
 interface Entry {
   intent: IntentId;
-  category: "social" | "navigation";
+  category: "social" | "navigation" | "faq";
   locale: Locale;
   target?: NavTarget;
   key: string;
@@ -155,6 +163,15 @@ function buildIndex(): Index {
         push(index.exact, key, entry);
         push(index.squeezed, squeeze(key), entry);
         index.social.push(entry);
+      }
+    }
+    // Fixed answers to the questions with one public answer. Exact only: no
+    // fuzzy tier and no "open …" pattern, so a near miss goes to the model.
+    for (const faq of FAQ_INTENTS) {
+      for (const phrase of FAQ_PHRASES[faq][locale]) {
+        const key = normalize(phrase);
+        if (!key) continue;
+        push(index.exact, key, { intent: `faq.${faq}`, category: "faq", locale, key });
       }
     }
     NAV_TARGETS.forEach((target, position) => {
@@ -277,7 +294,11 @@ export interface ReplyOptions {
 }
 
 function link(label: string, target: NavTarget, options: ReplyOptions): string {
-  const url = `${options.baseUrl ?? ""}${NAV_PATHS[target]}`;
+  return linkTo(label, NAV_PATHS[target], options);
+}
+
+function linkTo(label: string, path: string, options: ReplyOptions): string {
+  const url = `${options.baseUrl ?? ""}${path}`;
   return options.format === "plain" ? `${label}: ${url}` : `[${label}](${url})`;
 }
 
@@ -296,6 +317,16 @@ export function localReply(match: LocalIntentMatch, options: ReplyOptions = {}):
       return options.format === "plain"
         ? `${HELP_LEAD[match.locale]}:\n${items.join("\n")}`
         : `${HELP_LEAD[match.locale]}: ${items.join(" · ")}`;
+    }
+    case "faq.trial":
+    case "faq.language":
+    case "faq.contact": {
+      const faq = match.intent.slice(4) as FaqIntent;
+      const text = FAQ_REPLIES[faq][match.locale];
+      const path = FAQ_PATHS[faq];
+      if (!links || !path) return text;
+      const label = faq === "contact" ? CONTACT_LABEL[match.locale] : labels[NAV_TARGETS.indexOf("pricing")];
+      return `${text}${options.format === "plain" ? "\n" : " "}${linkTo(label, path, options)}`;
     }
     default: {
       if (!links || !match.params.target) return null;

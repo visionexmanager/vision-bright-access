@@ -26,7 +26,7 @@
 // belong in either list — a test fails on a phrase that lands in two intents.
 // Bump CATALOGUE_VERSION when anything below changes.
 
-export const CATALOGUE_VERSION = "2026.10.1";
+export const CATALOGUE_VERSION = "2026.10.2";
 
 export const LOCALES = [
   "en", "ar", "ur", "hi", "id", "ja", "it", "ko", "nl", "pl",
