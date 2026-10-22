@@ -431,8 +431,8 @@ describe("section-level authorization of AI functions", () => {
     for (const [n, why] of Object.entries(AI_FUNCTIONS_WITHOUT_SECTION)) expect(why.length, n).toBeGreaterThan(20);
   });
 
-  it("the gate-only list can shrink but not grow (21 today; adding to it is a product decision)", () => {
-    expect(Object.keys(AI_FUNCTIONS_WITHOUT_SECTION).length).toBeLessThanOrEqual(21);
+  it("the gate-only list can shrink but not grow (14 today; adding to it is a product decision)", () => {
+    expect(Object.keys(AI_FUNCTIONS_WITHOUT_SECTION).length).toBeLessThanOrEqual(14);
   });
 
   it("every mapped function checks THAT section on the server, after the subscription gate and before any provider call", () => {

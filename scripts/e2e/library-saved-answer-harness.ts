@@ -19,6 +19,7 @@ Deno.env.set("SUPABASE_URL", "http://stub.supabase.test");
 Deno.env.set("SUPABASE_ANON_KEY", "stub-anon");
 Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "stub-service");
 Deno.env.set("ALLOWED_ORIGINS", "https://visionex.app");
+Deno.env.set("OPENAI_API_KEY", "harness-not-a-real-key");
 
 const USER_ID = "00000000-0000-4000-8000-0000000000a1";
 const USER_TOKEN = "harness-user";
@@ -196,6 +197,11 @@ const SECTIONED: [string, string][] = [
   ["library-summarize-discussion", "library"], ["library-translate-comment", "library"], ["library-librarian-daily-plan", "library"],
   ["academy-chat", "academy"], ["kids-ai-teacher", "kids"], ["kids-story-generate", "kids"], ["kids-drawing-to-art", "kids"],
   ["career-ai", "career"],
+  // The authoring studio is Business-only in plans.ts; the interface routes enforce it, and so does the server now.
+  ["library-ai-writing-assistant", "studio"], ["library-ai-classify-book", "studio"], ["library-detect-series", "studio"],
+  ["library-build-knowledge-graph", "studio"], ["library-translate-book-metadata", "studio"], ["library-generate-narration", "studio"],
+  // Readers of a book (not only its owner) can reach this one, so it belongs to the Library.
+  ["library-generate-quotes", "library"],
 ];
 for (const [fn, section] of SECTIONED) {
   await load(`../../supabase/functions/${fn}/index.ts`);
@@ -204,6 +210,12 @@ for (const [fn, section] of SECTIONED) {
     r.status === 403 && r.body?.error === "plan_required" && r.body?.section === section && seen.providers.length === 0 && !seen.rpcs.includes("check_ai_rate_limit"));
 }
 sectionAllowed = true;
+// An account that has the section is not turned away by the section check (it reaches the function's own ownership rules).
+for (const [fn, section] of SECTIONED.slice(-7)) {
+  await load(`../../supabase/functions/${fn}/index.ts`);
+  r = await call(fn, { book_id: "b1", chapter_id: "c1", force: true });
+  check(`${fn}: with the ${section} section the section check lets the request through`, r.body?.error !== "plan_required");
+}
 await load("../../supabase/functions/library-ai-assistant/index.ts");
 
 // ═══ Cache privacy: the translate/explain key is per user ═══════════════════
