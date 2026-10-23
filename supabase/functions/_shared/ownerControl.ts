@@ -234,6 +234,10 @@ export function formatOwnerHelp(): string {
     "/pending — list what is waiting for you",
     "/help — this list",
     ...CONTENT_HELP_LINES,
+    // Subscription orders (see ownerOrders.ts, which owns the commands).
+    "/orders — اشتراكات بانتظار التأكيد",
+    "/approve VX-XXXXXX — تأكيد الدفع وتفعيل الاشتراك",
+    "/reject VX-XXXXXX السبب — رفض الطلب",
   ].join("\n");
 }
 
