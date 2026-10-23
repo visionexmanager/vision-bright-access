@@ -20,6 +20,8 @@ import {
 } from "../_shared/providers/fal.ts";
 import { observeShadow, shadowEnabled } from "../_shared/providerSelection.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { makeSlideshow, slideshowReady } from "../_shared/providers/slideshowVideo.ts";
+import { processorConfig } from "../_shared/whatsappProcessor.ts";
 
 installUsageMetering("video-studio");
 
@@ -82,6 +84,8 @@ interface VideoProvider {
   cancelJob(providerJobId: string): Promise<void>;
   /** Fetch a provider asset, attaching provider auth where it is required. */
   fetchAsset(url: string): Promise<Response>;
+  /** Called once the video is safely in the user's own storage; drops anything the provider staged. */
+  release?(providerJobId: string): Promise<void>;
 }
 
 // Shared prompt shaping: both providers take a single text prompt, so style and
@@ -409,6 +413,79 @@ class FalVideoProvider implements VideoProvider {
   }
 }
 
+// ── Slideshow provider (OpenAI key + Visionex's media processor) ──────────────
+//
+// The stand-in for Sora: stills from gpt-image-1 with a gpt-4o-mini-tts
+// narration, joined by ffmpeg on the processor (see _shared/providers/
+// slideshowVideo.ts). It is not generated motion and the job says so in its
+// model name. The whole render happens inside generateVideo, so the finished
+// file is staged in storage and polling only has to hand back a signed link;
+// the shared completion path then copies it into the user's folder as it does
+// for every other provider.
+const SLIDESHOW_BUCKET = "video-outputs";
+const SLIDESHOW_PREFIX = "_slideshow/";
+const SLIDESHOW_ID = "slideshow:";
+
+class SlideshowVideoProvider implements VideoProvider {
+  name = "slideshow";
+  publicAssetUrls = false;
+
+  private storage() {
+    return createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").storage
+      .from(SLIDESHOW_BUCKET);
+  }
+
+  async generateVideo(params: VideoGenerateParams): Promise<VideoGenerateResult> {
+    const made = await makeSlideshow(
+      { prompt: params.prompt, style: params.style, durationSec: params.durationSec, aspectRatio: params.aspectRatio },
+      { apiKey: Deno.env.get("OPENAI_API_KEY"), processor: processorConfig() },
+    );
+    if (!made.ok) return { ok: false, error: `slideshow_${made.error}` };
+
+    const key = params.idempotencyKey;
+    const bucket = this.storage();
+    const video = await bucket.upload(`${SLIDESHOW_PREFIX}${key}/video.mp4`, made.video, { contentType: "video/mp4", upsert: true });
+    if (video.error) return { ok: false, error: "slideshow_storage_failed" };
+    // The thumbnail is a courtesy; a video without one is still a video.
+    await bucket.upload(`${SLIDESHOW_PREFIX}${key}/thumb.jpg`, made.thumbnail, { contentType: "image/jpeg", upsert: true });
+    return { ok: true, providerJobId: `${SLIDESHOW_ID}${key}` };
+  }
+
+  async pollJob(providerJobId: string): Promise<VideoPollResult> {
+    const key = providerJobId.startsWith(SLIDESHOW_ID) ? providerJobId.slice(SLIDESHOW_ID.length) : "";
+    if (!/^[0-9a-f-]{36}$/i.test(key)) return { ok: false, state: "failed", progress: 0, error: "slideshow_bad_job" };
+    const bucket = this.storage();
+    const video = await bucket.createSignedUrl(`${SLIDESHOW_PREFIX}${key}/video.mp4`, 600);
+    if (video.error || !video.data?.signedUrl) return { ok: false, state: "failed", progress: 0, error: "slideshow_missing" };
+    const thumb = await bucket.createSignedUrl(`${SLIDESHOW_PREFIX}${key}/thumb.jpg`, 600);
+    return {
+      ok: true, state: "completed", progress: 100,
+      videoUrl: video.data.signedUrl,
+      thumbnailUrl: thumb.data?.signedUrl,
+      thumbnailMime: "image/jpeg",
+    };
+  }
+
+  async cancelJob(_providerJobId: string): Promise<void> {
+    // The render is finished before the job exists; there is nothing to stop.
+  }
+
+  fetchAsset(url: string): Promise<Response> {
+    // Our own storage and nothing else, and never through a redirect.
+    const base = `${Deno.env.get("SUPABASE_URL") ?? ""}/storage/v1/`;
+    if (!base.startsWith("https://") || !url.startsWith(base)) {
+      return Promise.reject(new Error("The video could not be retrieved."));
+    }
+    return fetch(url, { redirect: "error" });
+  }
+
+  async release(providerJobId: string): Promise<void> {
+    const key = providerJobId.startsWith(SLIDESHOW_ID) ? providerJobId.slice(SLIDESHOW_ID.length) : "";
+    if (!/^[0-9a-f-]{36}$/i.test(key)) return;
+    await this.storage().remove([`${SLIDESHOW_PREFIX}${key}/video.mp4`, `${SLIDESHOW_PREFIX}${key}/thumb.jpg`]);
+  }
+}
+
 //
 // "auto" (the client default) is Luma: since 2026-09-24 it is the only
 // provider that can serve a request. OpenAI Sora is retired and refused by
@@ -431,7 +508,19 @@ function getProvider(name?: string, opts: { falRoutable?: boolean; existingJob?:
   // an execution target that can be selected by default is one that starts
   // serving traffic the day its key is added, which is the opposite of a
   // staged rollout.
+  const slideshowOk = slideshowReady({ apiKey: Deno.env.get("OPENAI_API_KEY"), processor: processorConfig() });
+  const automatic = !requested;
   if (!requested) requested = !lumaKey && opts.falRoutable && falKey ? "fal" : "luma";
+  // Only "auto", and only where Luma has no key: the slideshow stands in for
+  // Sora when its two inputs exist (the OpenAI key and the processor). A named
+  // provider is never rewritten, and with neither available "auto" still
+  // refuses as "luma", naming the secret that would fix it.
+  if (automatic && requested === "luma" && !lumaKey && slideshowOk) requested = "slideshow";
+
+  if (requested === "slideshow") {
+    if (!slideshowOk) throw new Error("The slideshow video service is not configured.");
+    return new SlideshowVideoProvider();
+  }
 
   if (requested === "fal") {
     if (!falKey) throw new Error("FAL_KEY is not configured.");
@@ -568,6 +657,7 @@ async function handleGenerate(
     ? lumaRequestShape({ model: requestedModel, durationSec: 5, resolution: "720p" }).model
     // FAL runs one commercially licensed model whatever the caller asked for.
     : provider.name === "fal" ? FAL_VIDEO_MODEL
+    : provider.name === "slideshow" ? "gpt-image-1+gpt-4o-mini-tts"
     : requestedModel || "default";
 
   // Create job record
@@ -764,6 +854,11 @@ async function handlePoll(
     } catch (_e) {
       console.error("Video download/upload failed:", _e);
       storagePath = null;
+    }
+
+    // The copy is ours now; whatever the provider staged for it can go.
+    if (storagePath) {
+      try { await provider.release?.(job.provider_job_id); } catch { /* a leftover temp file is not a failed video */ }
     }
 
     // Providers with private assets (OpenAI) hand us URLs that need our API key

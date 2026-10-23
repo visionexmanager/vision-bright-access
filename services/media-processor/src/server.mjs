@@ -34,6 +34,7 @@
 
 import { createServer } from "node:http";
 import { checkOverpassQuery, relayOverpass } from "./overpass.mjs";
+import { readSlideshowRequest, renderSlideshow, MAX_SCENES } from "./slideshow.mjs";
 import {
   MAX_PDF_BYTES,
   PDFINFO_TIMEOUT_MS,
@@ -533,6 +534,55 @@ async function handleConvert(req, res, correlation) {
   }
 }
 
+/** JSON with base64 pictures and narration; under the 12 MB nginx body ceiling. */
+const MAX_SLIDESHOW_BODY_BYTES = 11 * 1024 * 1024;
+
+/**
+ * A narrated slideshow: finished pictures and narration in, one MP4 out.
+ * Queued behind the same workers as every other ffmpeg run.
+ */
+async function handleSlideshow(req, res, correlation) {
+  if (tooBusy(res, correlation)) return;
+
+  let payload;
+  try {
+    payload = JSON.parse((await readBody(req, MAX_SLIDESHOW_BODY_BYTES)).toString("utf8"));
+  } catch (error) {
+    const reason = error.code === "too_large" ? "too_large" : "bad_request";
+    log("rejected", { correlation, reason });
+    return send(res, reason === "too_large" ? 413 : 400, { ok: false, reason });
+  }
+  const parsed = readSlideshowRequest(payload);
+  if (!parsed.ok) {
+    log("rejected", { correlation, reason: parsed.reason });
+    return send(res, 400, { ok: false, reason: parsed.reason });
+  }
+
+  await acquireSlot();
+  const started = Date.now();
+  try {
+    const output = await renderSlideshow(parsed.request);
+    if (output.bytes.length > MAX_OUTPUT_BYTES) {
+      throw Object.assign(new Error("output_too_large"), { code: "output_too_large" });
+    }
+    log("slideshow", { correlation, scenes: parsed.request.images.length, ms: Date.now() - started, out: output.bytes.length });
+    res.writeHead(200, {
+      "content-type": "video/mp4",
+      "content-length": output.bytes.length,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    });
+    res.end(output.bytes);
+  } catch (error) {
+    // A code and a duration, never ffmpeg's own message: it quotes file paths.
+    const reason = error.code ?? "render_failed";
+    log("slideshow", { correlation, outcome: reason, ms: Date.now() - started });
+    send(res, reason === "timeout" ? 504 : reason === "output_too_large" ? 413 : 422, { ok: false, reason });
+  } finally {
+    releaseSlot();
+  }
+}
+
 // ── Routes ───────────────────────────────────────────────────────────────────
 
 async function handleOcr(req, res, correlation) {
@@ -960,6 +1010,8 @@ const server = createServer(async (req, res) => {
           max_output_bytes: MAX_OUTPUT_BYTES,
         },
         probe: true,
+        // A deployment rolled back to an image without this route lacks it; Video Studio checks before relying on it.
+        slideshow: { max_scenes: MAX_SCENES, max_body_bytes: MAX_SLIDESHOW_BODY_BYTES },
         overpass: true,
         concurrency: MAX_CONCURRENT,
       });
@@ -987,6 +1039,10 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/convert") {
       return await handleConvert(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/slideshow") {
+      return await handleSlideshow(req, res, correlation);
     }
 
     if (req.method === "POST" && url.pathname === "/overpass") {
