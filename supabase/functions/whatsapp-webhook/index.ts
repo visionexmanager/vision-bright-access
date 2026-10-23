@@ -17,6 +17,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
+import { decideOrder, formatOrderList, listPendingOrders, parseOrderCommand } from "../_shared/ownerOrders.ts";
 import {
   createEmbedding,
   streamChatCompletionWithFallback,
@@ -684,6 +685,24 @@ async function handleOwnerCommand(
   // No prefix, no command. The owner is a customer here, which is the only way
   // they can see what a customer sees.
   if (ownerCommandBody(text) === null) return null;
+
+  // Subscription orders: listed, approved or rejected by the order's own
+  // reference. Read before the help fallback below, which would otherwise answer
+  // "/orders" with the list of commands. Never reached by a bare yes or no.
+  const orderCommand = parseOrderCommand(ownerCommandBody(text) ?? "");
+  if (orderCommand) {
+    await db.from("audit_logs").insert({
+      action: `owner_command_order_${orderCommand.kind}`,
+      entity_type: "owner_command",
+      entity_id: null,
+      metadata: orderCommand.kind === "decide"
+        ? { kind: orderCommand.approve ? "approve" : "reject", reference: orderCommand.reference }
+        : { kind: "list" },
+    });
+    return orderCommand.kind === "list"
+      ? formatOrderList(await listPendingOrders(db))
+      : await decideOrder(db, orderCommand);
+  }
 
   // Social media content: listed, shown, edited, redone, scheduled and
   // proposed from here. Read before the help fallback below, which would
