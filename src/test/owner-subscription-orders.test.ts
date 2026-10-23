@@ -14,7 +14,15 @@ import { describe, expect, it, vi } from "vitest";
 vi.stubGlobal("Deno", { env: { get: () => undefined } });
 
 const MODULE = "../../supabase/functions/_shared/ownerOrders.ts";
-const orders = await import(/* @vite-ignore */ MODULE) as typeof import("../../supabase/functions/_shared/ownerOrders.ts");
+// Typed by hand rather than with `typeof import(...)`: that would pull the Edge Function
+// graph into `tsc -b`, which does not compile it (it is checked with deno).
+type Command = { kind: "list" } | { kind: "decide"; approve: boolean; reference: string; note: string | null };
+interface Pending { reference_code: string; plan_id: string; months: number; price_usd: number | string; payment_method: string; created_at: string }
+const orders = await import(/* @vite-ignore */ MODULE) as {
+  parseOrderCommand(body: string): Command | null;
+  decideOrder(db: unknown, command: Extract<Command, { kind: "decide" }>): Promise<string>;
+  formatOrderList(rows: Pending[]): string;
+};
 
 const sql = readFileSync("supabase/migrations/20261087000000_owner_review_subscription_order.sql", "utf8").replace(/\r\n/g, "\n");
 const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8").replace(/\r\n/g, "\n");
