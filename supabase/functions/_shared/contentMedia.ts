@@ -258,6 +258,8 @@ export async function generateImage(
   prompt: string,
   size: string,
   pathPrefix: string,
+  /** Smaller files for callers that carry many pictures at once (the slideshow). */
+  extra?: { quality?: "low" | "medium"; jpeg?: boolean },
 ): Promise<MediaResult> {
   const now = deps.now ?? (() => Date.now());
   const started = now();
@@ -280,7 +282,11 @@ export async function generateImage(
       response = await deps.fetchImpl(`${OPENAI}/images/generations`, {
         method: "POST",
         headers: { Authorization: `Bearer ${deps.apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, prompt, size, n: 1 }),
+        body: JSON.stringify({
+          model, prompt, size, n: 1,
+          ...(extra?.quality ? { quality: extra.quality } : {}),
+          ...(extra?.jpeg ? { output_format: "jpeg" } : {}),
+        }),
       });
     } catch {
       return done({ ok: false, error: "provider_unreachable" }, false);
@@ -304,7 +310,11 @@ export async function generateImage(
       return done({ ok: false, error: first?.url ? "unexpected_url_response" : "no_image_returned" }, false);
     }
 
-    const url = await deps.upload(`${pathPrefix}.png`, decodeBase64(first.b64_json), "image/png");
+    const url = await deps.upload(
+      `${pathPrefix}.${extra?.jpeg ? "jpg" : "png"}`,
+      decodeBase64(first.b64_json),
+      extra?.jpeg ? "image/jpeg" : "image/png",
+    );
     return done(url ? { ok: true, kind: "image", url, prompt } : { ok: false, error: "upload_failed" }, true);
   }
 
