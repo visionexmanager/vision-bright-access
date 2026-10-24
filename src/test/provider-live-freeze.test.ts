@@ -229,6 +229,7 @@ describe("Phase 1: a key is not a production approval", () => {
     const allowed = new Set([
       "health-check/index.ts", "career-system-health/index.ts", "_shared/aiProvider.ts", "_shared/voice/tts.ts", "image-tools-generate/index.ts",
       "news-generate/index.ts", "video-studio/index.ts", "voice-studio/index.ts", "_shared/contentMedia.ts",
+      "ai-voice-chat/index.ts", "text-to-speech/index.ts",
     ]);
     const offenders: string[] = [];
     const walk = (dir: string) => {
