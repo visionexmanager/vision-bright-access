@@ -1,6 +1,8 @@
 name: ElevenLabs API smoke test
 
 on:
+  push:
+    branches: [codex/elevenlabs-second-tts-fallback]
   pull_request:
     branches: [main]
     paths:
