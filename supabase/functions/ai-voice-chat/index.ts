@@ -93,8 +93,9 @@ Deno.serve(async (req) => {
 
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
   const FISH_AUDIO_API_KEY = Deno.env.get("FISH_AUDIO_API_KEY");
-  if (!OPENAI_API_KEY && !FISH_AUDIO_API_KEY) {
-    return new Response(JSON.stringify({ error: "FISH_AUDIO_API_KEY or OPENAI_API_KEY not set" }), {
+  const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
+  if (!OPENAI_API_KEY && !FISH_AUDIO_API_KEY && !ELEVENLABS_API_KEY) {
+    return new Response(JSON.stringify({ error: "No TTS provider key configured" }), {
       status: 500, headers: { ...cors, "Content-Type": "application/json" },
     });
   }
@@ -169,7 +170,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── Step 2: Fish Audio first, with the former OpenAI voice as fallback ──
+  // ── Step 2: Fish Audio first, ElevenLabs second, OpenAI last ──────────
   let spoken = await synthesize({
     text: transcript,
     provider: "fish",
@@ -178,6 +179,16 @@ Deno.serve(async (req) => {
     format: "mp3",
     record: (execution) => recordTtsInBackground(execution),
   });
+  if (spoken.outcome === "failed" && ELEVENLABS_API_KEY) {
+    spoken = await synthesize({
+      text: transcript,
+      provider: "elevenlabs",
+      model: "eleven_multilingual_v2",
+      voice: "JBFqnCBsd6RMkjVDRZzb",
+      format: "mp3",
+      record: (execution) => recordTtsInBackground(execution),
+    });
+  }
   if (spoken.outcome === "failed" && OPENAI_API_KEY) {
     spoken = await synthesize({
       text: transcript,
