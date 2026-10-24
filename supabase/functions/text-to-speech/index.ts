@@ -59,8 +59,9 @@ Deno.serve(async (req) => {
 
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
   const FISH_AUDIO_API_KEY = Deno.env.get("FISH_AUDIO_API_KEY");
-  if (!OPENAI_API_KEY && !FISH_AUDIO_API_KEY) {
-    return new Response(JSON.stringify({ error: "FISH_AUDIO_API_KEY or OPENAI_API_KEY not set" }), {
+  const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
+  if (!OPENAI_API_KEY && !FISH_AUDIO_API_KEY && !ELEVENLABS_API_KEY) {
+    return new Response(JSON.stringify({ error: "No TTS provider key configured" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -108,8 +109,8 @@ Deno.serve(async (req) => {
       targets: [{ provider: "openai", model: "gpt-4o-mini-tts" }],
       bound: { characters: [...trimmed].length },
     }, async () => {
-      // Fish Audio is the default speech provider. Keep the former OpenAI
-      // voice as a fallback so a provider outage never becomes a lost answer.
+      // Fish Audio is primary, ElevenLabs is the second choice, and OpenAI
+      // remains the final fallback. Provider keys stay server-side.
       let synthesized = await synthesizeResponse({
         text: trimmed,
         provider: "fish",
@@ -118,6 +119,16 @@ Deno.serve(async (req) => {
         format: "mp3",
         record: (execution) => recordTtsInBackground(execution),
       });
+      if (synthesized.outcome === "failed" && ELEVENLABS_API_KEY) {
+        synthesized = await synthesizeResponse({
+          text: trimmed,
+          provider: "elevenlabs",
+          model: "eleven_multilingual_v2",
+          voice: "JBFqnCBsd6RMkjVDRZzb",
+          format: "mp3",
+          record: (execution) => recordTtsInBackground(execution),
+        });
+      }
       if (synthesized.outcome === "failed" && OPENAI_API_KEY) {
         synthesized = await synthesizeResponse({
           text: trimmed,

@@ -398,7 +398,9 @@ export async function synthesiseSpeech(params: {
   // than a lost answer.
   // Still the one shared seam. A cloned voice is a different provider, id and
   // model passed to the same function — not a second synthesis path.
-  const spoken = params.spoken ?? { ...defaultSpokenVoice(), voice: params.voice ?? DEFAULT_VOICE };
+  const spoken = params.spoken ?? (params.voice
+    ? { provider: "openai" as const, voice: params.voice, model: SPEECH_MODEL, instructions: SPEECH_STYLE }
+    : defaultSpokenVoice());
   let result = await synthesize({
     text: params.text,
     provider: spoken.provider,
@@ -411,10 +413,24 @@ export async function synthesiseSpeech(params: {
     record: params.record,
   });
 
-  // Fish Audio is first choice for default WhatsApp voice notes. If it is
-  // unavailable or rejects a request, preserve delivery by trying the former
-  // OpenAI voice. Explicitly chosen/cloned voices are never silently replaced.
-  if (result.outcome === "failed" && spoken.provider === "fish") {
+  // Fish Audio is primary for default WhatsApp voice notes. Try ElevenLabs
+  // second, then OpenAI. A custom Fish voice is not silently replaced by a
+  // different vendor's default voice.
+  const isDefaultFishVoice = spoken.provider === "fish" && !spoken.voice;
+  if (result.outcome === "failed" && isDefaultFishVoice) {
+    result = await synthesize({
+      text: params.text,
+      provider: "elevenlabs",
+      model: "eleven_multilingual_v2",
+      voice: "JBFqnCBsd6RMkjVDRZzb",
+      format: "opus",
+      fetchImpl: params.fetchImpl,
+      read: env,
+      record: params.record,
+    });
+  }
+
+  if (result.outcome === "failed" && isDefaultFishVoice) {
     result = await synthesize({
       text: params.text,
       provider: "openai",
