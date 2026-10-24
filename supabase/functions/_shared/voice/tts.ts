@@ -142,16 +142,10 @@ const OPENAI_MIME: Record<string, string> = {
 
 /** ElevenLabs mime, keyed on what the *caller asked for*. See `elevenLabsMime`. */
 const ELEVENLABS_MIME: Record<string, string> = {
-  mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg",
+  mp3: "audio/mpeg", wav: "audio/wav", opus: "audio/ogg", ogg: "audio/ogg",
 };
 
-/**
- * ElevenLabs returns mp3 for everything except `wav`, and the existing code
- * nonetheless labels the result by the *requested* format — so asking for
- * `ogg` yields mp3 bytes labelled `audio/ogg`. That is preserved here rather
- * than corrected: this phase changes no behaviour, and no current caller asks
- * ElevenLabs for `ogg`. It is written down so the next phase can decide.
- */
+/** ElevenLabs' Opus output is an Ogg container, suitable for WhatsApp voice notes. */
 function elevenLabsMime(format: TtsFormat): string {
   return ELEVENLABS_MIME[format] ?? "audio/mpeg";
 }
@@ -187,7 +181,11 @@ export function ttsRequestFor(
     // provider means "the caller did not choose an ElevenLabs model", because
     // `tts-1` is the OpenAI default that flows through the shared config.
     const model = providerModel(request);
-    const outputFormat = request.format === "wav" ? "pcm_16000" : "mp3_44100_128";
+    const outputFormat = request.format === "wav"
+      ? "pcm_16000"
+      : request.format === "opus" || request.format === "ogg"
+      ? "opus_48000_32"
+      : "mp3_44100_128";
     return {
       url: `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(request.voice)}?output_format=${outputFormat}`,
       init: {
