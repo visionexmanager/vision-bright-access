@@ -269,7 +269,7 @@ Deno.serve(async (req: Request) => {
     });
     // Only an automatically selected Fish provider fails over. An explicit
     // provider choice remains authoritative, as before.
-    if (result.outcome === "failed" && provider === "fish" && Deno.env.get("OPENAI_API_KEY")) {
+    if (result.outcome === "failed" && provider === "fish" && !requestedProvider && Deno.env.get("OPENAI_API_KEY")) {
       actualProvider = "openai";
       const openAiVoice = /^(alloy|ash|ballad|coral|echo|fable|marin|nova|onyx|sage|shimmer|verse|cedar)$/i.test(provider_voice_id)
         ? provider_voice_id
