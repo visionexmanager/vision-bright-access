@@ -105,7 +105,12 @@ export function formatOrderOutcome(reference: string, approve: boolean, result: 
 }
 
 /** Apply the decision. Every failure is a sentence; a database error never reaches the chat. */
-export async function decideOrder(db: Db, command: Extract<OrderCommand, { kind: "decide" }>): Promise<string> {
+export async function decideOrder(
+  db: Db,
+  command: Extract<OrderCommand, { kind: "decide" }>,
+  /** Called once, with the order's reference, when the decision was recorded. */
+  onDecided?: (reference: string) => void,
+): Promise<string> {
   const actor = await ownerActorId(db);
   if (!actor) return formatOrderOutcome(command.reference, command.approve, { ok: false, error: "no_admin" });
   const { data, error } = await db.rpc("owner_review_subscription_order", {

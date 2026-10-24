@@ -41,6 +41,15 @@ export async function fetchPaymentContact(): Promise<PaymentContact> {
   };
 }
 
+/**
+ * Best effort and never blocking: the order is already recorded, and the hourly
+ * sweep sends any notice this call misses. The function checks who is asking.
+ */
+function notifyOrderEvent(action: "owner_new_order" | "buyer_decided", reference: string | null | undefined): void {
+  if (!reference) return;
+  void supabase.functions.invoke("trial-billing", { body: { action, reference } }).catch(() => undefined);
+}
+
 export async function createSubscriptionOrder(
   planId: string,
   method: PaymentMethod,
@@ -54,6 +63,7 @@ export async function createSubscriptionOrder(
     _whatsapp_phone: whatsappPhone,
   });
   if (error) throw new Error(error.message);
+  notifyOrderEvent("owner_new_order", data?.reference_code);
   return data;
 }
 
@@ -86,5 +96,6 @@ export async function reviewSubscriptionOrder(args: {
     ? await supabase.rpc("approve_subscription_order", params)
     : await supabase.rpc("reject_subscription_order", params);
   if (error) throw new Error(error.message);
+  notifyOrderEvent("buyer_decided", data?.reference_code);
   return data;
 }

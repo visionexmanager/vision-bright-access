@@ -43,3 +43,24 @@ jobs:
           jq -c '{reminded, whatsapp, whatsappFailed, errors: (.errors | length)}' response.json || echo "unreadable response"
           rm -f response.json
           test "$status" = "200"
+
+      # Subscription orders: the owner's Approve / Reject message and the buyer's
+      # decision notice are sent the moment they happen. This sends any that did
+      # not go out (a template still in Meta's review, a failed delivery) and
+      # logs counts only.
+      - name: Send the order notices that are due
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          status=$(curl -sS -o response.json -w '%{http_code}' -X POST \
+            "$SUPABASE_URL/functions/v1/trial-billing" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"task":"order_notices"}')
+          echo "HTTP $status"
+          jq -c '{owner, buyer}' response.json || echo "unreadable response"
+          rm -f response.json
+          test "$status" = "200"

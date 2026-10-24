@@ -19,6 +19,12 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { handleOrderNoticeRequest, isOrderNoticeRequest } from "../_shared/subscriptionOrderHttp.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { resendEmailSender, sweepOrderNotices } from "../_shared/subscriptionOrderNotify.ts";
+import { installUsageMetering } from "../_shared/usageMeter.ts";
+
+installUsageMetering("trial-billing");
 import { sendWhatsAppTemplate, sendWhatsAppText } from "../_shared/whatsapp.ts";
 import {
   formatEndsAt,
@@ -62,6 +68,13 @@ async function sendEmail(to: string, subject: string, html: string) {
 }
 
 Deno.serve(async (req) => {
+  // Subscription-order notices come from the browser (a buyer, an admin), not
+  // the cron, and check their own caller. Everything below is the cron's.
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
+  let parsed: { task?: unknown; action?: unknown; reference?: unknown } | null = null;
+  try { parsed = await req.json(); } catch { /* no body */ }
+  if (isOrderNoticeRequest(parsed)) return await handleOrderNoticeRequest(req, parsed!);
+
   // ── Security: only accept requests with the correct cron secret ──
   const secret = Deno.env.get("CRON_SECRET");
   if (secret) {
@@ -77,11 +90,17 @@ Deno.serve(async (req) => {
   );
 
   // The hourly run asks for the reminders only; the daily run sends no body.
-  let task = "";
-  try {
-    const body = await req.json();
-    task = typeof body?.task === "string" ? body.task : "";
-  } catch { /* no body */ }
+  const task = typeof parsed?.task === "string" ? parsed.task : "";
+
+  // The sweep for subscription-order notices that did not go out the first time.
+  if (task === "order_notices") {
+    const swept = await sweepOrderNotices(
+      supabase,
+      { token: Deno.env.get("WHATSAPP_TOKEN"), phoneNumberId: Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") },
+      resendEmailSender(),
+    );
+    return new Response(JSON.stringify(swept), { status: 200, headers: { "Content-Type": "application/json" } });
+  }
 
   const results = {
     warned: 0, billed: 0, suspended: 0,
