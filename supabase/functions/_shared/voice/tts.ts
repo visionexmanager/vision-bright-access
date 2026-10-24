@@ -37,7 +37,7 @@ import { meteredFetch } from "../meteredFetch.ts";
  * it clones from a short sample and speaks Arabic, on the MISTRAL_API_KEY the
  * chat fallback already uses.
  */
-export type TtsProvider = "openai" | "elevenlabs" | "mistral";
+export type TtsProvider = "openai" | "elevenlabs" | "mistral" | "fish";
 
 /** Container formats a caller may ask for. */
 export type TtsFormat = "mp3" | "opus" | "wav" | "flac" | "aac" | "ogg";
@@ -109,6 +109,7 @@ export const KEY_FOR: Record<TtsProvider, string> = {
   openai: "OPENAI_API_KEY",
   elevenlabs: "ELEVENLABS_API_KEY",
   mistral: "MISTRAL_API_KEY",
+  fish: "FISH_AUDIO_API_KEY",
 };
 
 /** Voxtral's model id (docs.mistral.ai, read 2026-09-25). */
@@ -170,6 +171,9 @@ export function providerModel(request: Pick<TtsRequest, "provider" | "model">): 
   if (request.provider === "mistral") {
     return request.model?.startsWith("voxtral") ? request.model : MISTRAL_TTS_MODEL;
   }
+  if (request.provider === "fish") {
+    return request.model && request.model !== "tts-1" ? request.model : "s2.1-pro-free";
+  }
   return request.model;
 }
 
@@ -198,6 +202,17 @@ export function ttsRequestFor(
             speed: Math.min(1.2, Math.max(0.7, request.speed ?? 1)),
           },
         }),
+      },
+    };
+  }
+
+  if (request.provider === "fish") {
+    return {
+      url: "https://api.fish.audio/v1/tts",
+      init: {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", Accept: request.format === "opus" ? "audio/ogg" : request.format === "wav" ? "audio/wav" : "audio/mpeg", model: providerModel(request) },
+        body: JSON.stringify({ text: request.text, format: request.format === "wav" || request.format === "opus" ? request.format : "mp3", ...(request.voice && request.voice.length >= 24 ? { reference_id: request.voice } : {}) }),
       },
     };
   }
@@ -246,6 +261,7 @@ export function ttsRequestFor(
 export function mimeFor(provider: TtsProvider, format: TtsFormat): string {
   if (provider === "elevenlabs") return elevenLabsMime(format);
   if (provider === "mistral") return MISTRAL_MIME[MISTRAL_FORMAT[format]] ?? "audio/mpeg";
+  if (provider === "fish") return format === "wav" ? "audio/wav" : format === "opus" ? "audio/ogg" : "audio/mpeg";
   return OPENAI_MIME[OPENAI_FORMAT[format]] ?? "audio/mpeg";
 }
 
@@ -399,6 +415,9 @@ export function describeTtsFailure(failure: TtsFailure): string {
 
   if (failure.reason === "no_key") {
     if (failure.provider === "openai") return "OPENAI_API_KEY not configured";
+    if (failure.provider === "fish") {
+      return "FISH_AUDIO_API_KEY is not configured in Supabase Edge Function secrets.";
+    }
     if (failure.provider === "mistral") {
       return "MISTRAL_API_KEY is not configured in Supabase Edge Function secrets. " +
         "This voice was cloned via Mistral and needs that key to speak.";
@@ -418,6 +437,14 @@ export function describeTtsFailure(failure: TtsFailure): string {
         503: "OpenAI is temporarily unavailable. Please retry shortly.",
       };
       return map[status] ?? `OpenAI TTS error (${status}): ${detail}`;
+    }
+    if (provider === "fish") {
+      const map: Record<number, string> = {
+        401: "Fish Audio API key is invalid or revoked. Check FISH_AUDIO_API_KEY in Supabase secrets.",
+        403: "Fish Audio denied access; check API permissions and account quota.",
+        429: "Fish Audio rate limit or quota reached. Check account usage and retry later.",
+      };
+      return map[status] ?? `Fish Audio TTS error (${status}): ${detail}`;
     }
     if (provider === "mistral") {
       const map: Record<number, string> = {
@@ -439,7 +466,7 @@ export function describeTtsFailure(failure: TtsFailure): string {
     return map[status] ?? `ElevenLabs TTS error (${status}): ${detail}`;
   }
 
-  const name = failure.provider === "openai" ? "OpenAI" : failure.provider === "mistral" ? "Mistral" : "ElevenLabs";
+  const name = failure.provider === "openai" ? "OpenAI" : failure.provider === "mistral" ? "Mistral" : failure.provider === "fish" ? "Fish Audio" : "ElevenLabs";
   return failure.reason === "empty"
     ? `${name} returned no audio.`
     : `${name} could not be reached. Please retry shortly.`;

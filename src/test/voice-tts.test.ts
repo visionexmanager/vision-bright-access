@@ -340,3 +340,28 @@ describe("the WhatsApp default voice", () => {
     expect(await speechCacheKey(base)).toBe(await speechCacheKey({ ...base, instructions: undefined }));
   });
 });
+
+
+describe("Fish Audio is the first-choice WhatsApp synthesizer", () => {
+  it("uses the free Fish model without sending an unrelated OpenAI voice name", async () => {
+    const original = (globalThis as { Deno?: unknown }).Deno;
+    (globalThis as { Deno?: unknown }).Deno = {
+      env: { get: (name: string) => name === "FISH_AUDIO_API_KEY" ? "fish-key" : name === "OPENAI_API_KEY" ? "openai-key" : undefined },
+    };
+    try {
+      const voice = await import("../../supabase/functions/_shared/whatsappVoiceReply.ts");
+      const rec = recorder();
+      const result = await voice.synthesiseSpeech({
+        text: "مرحبا، كيف أستطيع مساعدتك؟",
+        fetchImpl: rec.fetchImpl,
+      });
+      expect(result).toMatchObject({ ok: true, mimeType: "audio/ogg" });
+      expect(rec.calls[0].url).toBe("https://api.fish.audio/v1/tts");
+      expect((rec.calls[0].init.headers as Record<string, string>).model).toBe("s2.1-pro-free");
+      expect(rec.calls[0].body).toEqual({ text: "مرحبا، كيف أستطيع مساعدتك؟", format: "opus" });
+      expect(JSON.stringify(rec.calls[0].body)).not.toContain("fish-key");
+    } finally {
+      (globalThis as { Deno?: unknown }).Deno = original;
+    }
+  });
+});

@@ -144,10 +144,11 @@ describe("provider selection is unchanged", () => {
     expect(studio).not.toMatch(/resolveProvider|from\("ph_providers"\)/);
   });
 
-  it("speech-generate still maps only real TTS slugs, falling back to OpenAI", () => {
+  it("speech-generate prefers Fish Audio and retains OpenAI as its automatic fallback", () => {
     const speech = readFileSync("supabase/functions/speech-generate/index.ts", "utf8");
-    const map = speech.slice(speech.indexOf("SLUG_TO_TTS_PROVIDER"), speech.indexOf("};", speech.indexOf("SLUG_TO_TTS_PROVIDER")));
-    expect(map).not.toMatch(/mock/);
-    expect(speech).toContain('return "openai";');
+    expect(speech).toContain('return "fish";');
+    expect(speech).toContain('actualProvider = "openai";');
+    expect(speech).toContain('"s2.1-pro-free"');
+    expect(speech).toContain('name === "fish"');
   });
 });

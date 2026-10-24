@@ -15,7 +15,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
-import { providerBySlug, recordResult, resolveProvider } from "../_shared/providerRouter.ts";
+import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
 import {
   describeTtsFailure,
   mimeFor,
@@ -39,40 +39,21 @@ installUsageMetering("speech-generate");
 function speechProviderOf(name: string): TtsProvider {
   // A parked provider cannot be named into service (providerState.ts).
   if (parkedProviderReason(name)) throw new Error(`Speech provider "${name}" is not configured.`);
-  if (name === "openai" || name === "elevenlabs" || name === "mistral") return name;
-  throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs, mistral`);
+  if (name === "openai" || name === "elevenlabs" || name === "mistral" || name === "fish") return name;
+  throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs, mistral, fish`);
 }
 
 /** The `ph_providers` row each provider is known by. */
-const TTS_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts" };
-const SLUG_TO_TTS_PROVIDER: Partial<Record<string, TtsProvider>> = {
-  "openai-tts": "openai",
-  "elevenlabs-tts": "elevenlabs",
-};
-
+const TTS_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts", fish: "fish-audio-tts" };
 /**
- * The provider to use when the caller did not name one.
- *
- * This was a hardcoded `"openai"` default. The router already scores exactly
- * this: which configured `tts` provider is eligible, healthiest and cheapest
- * right now — `openai-tts` today, by construction, since it is the only
- * `active` row. Routed rather than hardcoded so the default follows the
- * router's own health tracking as it changes, without this file noticing.
- *
- * An explicit `provider` in the request is never touched by this — a user's
- * own choice is honoured exactly as it always was, including when the router
- * would have picked something else.
+ * Fish Audio is the first-choice provider when the caller has not selected
+ * one. Explicit provider selections are preserved; the generation path keeps
+ * OpenAI as a fallback for the automatic Fish choice.
  */
 async function defaultTtsProvider(): Promise<TtsProvider> {
-  try {
-    const routed = await resolveProvider("tts");
-    const mapped = routed && SLUG_TO_TTS_PROVIDER[routed.provider.slug];
-    if (mapped) return mapped;
-  } catch {
-    // The router is best-effort here: a database hiccup must not be the
-    // reason Speech Studio cannot generate audio.
-  }
-  return "openai";
+  // Fish Audio is the default for new speech jobs; explicit provider choices
+  // still win, and OpenAI remains the fallback if Fish cannot synthesize.
+  return "fish";
 }
 
 /**
@@ -269,24 +250,41 @@ Deno.serve(async (req: Request) => {
   // Generate
   try {
     const startedAt = Date.now();
-    const result = await synthesize({
+    let actualProvider = provider;
+    let result = await synthesize({
       provider: speechProviderOf(provider),
       voice: provider_voice_id,
       text: text.trim(),
       speed,
       format: output_format as TtsFormat,
-      model,
+      model: provider === "fish" ? "s2.1-pro-free" : model,
     });
+    // Only an automatically selected Fish provider fails over. An explicit
+    // provider choice remains authoritative, as before.
+    if (result.outcome === "failed" && provider === "fish" && !requestedProvider && Deno.env.get("OPENAI_API_KEY")) {
+      actualProvider = "openai";
+      const openAiVoice = /^(alloy|ash|ballad|coral|echo|fable|marin|nova|onyx|sage|shimmer|verse|cedar)$/i.test(provider_voice_id)
+        ? provider_voice_id
+        : "nova";
+      result = await synthesize({
+        provider: "openai",
+        voice: openAiVoice,
+        text: text.trim(),
+        speed,
+        format: output_format as TtsFormat,
+        model: "gpt-4o-mini-tts",
+      });
+    }
     const elapsedMs = Date.now() - startedAt;
 
     if (result.outcome === "failed") {
-      await recordTtsResult({ provider, ms: elapsedMs, success: false, errorMessage: describeTtsFailure(result.failure) });
+      await recordTtsResult({ provider: actualProvider, ms: elapsedMs, success: false, errorMessage: describeTtsFailure(result.failure) });
       // Thrown, not returned: this endpoint's error path already turns a
       // thrown message into the JSON body the studio shows, and the wording
       // is the wording it has always shown.
       throw new Error(describeTtsFailure(result.failure));
     }
-    await recordTtsResult({ provider, ms: elapsedMs, success: true });
+    await recordTtsResult({ provider: actualProvider, ms: elapsedMs, success: true });
 
     const audioBase64 = bufferToBase64(result.bytes.buffer as ArrayBuffer);
     const durationSec = estimateDuration(text, speed);
@@ -302,7 +300,7 @@ Deno.serve(async (req: Request) => {
         filename,
         original_name: filename,
         asset_type:    "generated",
-        mime_type:     mimeFor(speechProviderOf(provider), output_format as TtsFormat),
+        mime_type:     mimeFor(speechProviderOf(actualProvider), output_format as TtsFormat),
         size_bytes:    sizeBytes,
         duration_sec:  durationSec,
         status:        "ready",
@@ -313,8 +311,8 @@ Deno.serve(async (req: Request) => {
           language,
           emotion,
           speed,
-          model,
-          provider,
+          model: actualProvider === "fish" ? "s2.1-pro-free" : actualProvider === "openai" && provider === "fish" ? "gpt-4o-mini-tts" : model,
+          provider: actualProvider,
           job_id: jobId,
         },
       })
@@ -326,6 +324,8 @@ Deno.serve(async (req: Request) => {
     // Complete the job
     await serviceClient.from("ams_speech_jobs").update({
       status:         "completed",
+      provider:        actualProvider,
+      model:           actualProvider === "fish" ? "s2.1-pro-free" : actualProvider === "openai" && provider === "fish" ? "gpt-4o-mini-tts" : model,
       asset_id:       assetId,
       duration_sec:   durationSec,
       file_size_bytes: sizeBytes,

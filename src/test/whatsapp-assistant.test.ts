@@ -1339,7 +1339,8 @@ describe("voice replies", () => {
     const source = readFileSync("supabase/functions/_shared/whatsappVoiceReply.ts", "utf8");
     // Every exit from the path says so: an unspoken reply used to be
     // indistinguishable from one nobody had asked to hear.
-    expect(source).toMatch(/console\.error\("\[whatsapp-tts\] no OPENAI_API_KEY/);
+    expect(source).toContain('fish: "FISH_AUDIO_API_KEY"');
+    expect(source).toContain('console.error(`[whatsapp-tts] no ${keyName} — the reply went out as text only`);');
     expect(source).toMatch(/console\.error\(`\[whatsapp-tts\] nothing was spoken/);
     // The success line moved onto its own `console.log(` line when it grew a
     // cache-reuse count, so the pattern matches the message rather than the
