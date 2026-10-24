@@ -1,0 +1,60 @@
+name: Fish Audio live smoke test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/fish-audio-live-smoke-check.yml"
+  push:
+    branches: [codex/fish-audio-live-smoke-check]
+    paths:
+      - ".github/workflows/fish-audio-live-smoke-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  fish-audio-live-tts:
+    name: Verify Fish Audio returns real audio
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check API key and synthesize English and Arabic samples
+        shell: bash
+        env:
+          FISH_AUDIO_API_KEY: ${{ secrets.FISH_AUDIO_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${FISH_AUDIO_API_KEY:-}" ]]; then
+            echo "::error::FISH_AUDIO_API_KEY is missing from GitHub Actions secrets."
+            exit 1
+          fi
+
+          synthesize() {
+            local label="$1"
+            local text="$2"
+            local output="/tmp/fish-audio-${label}.mp3"
+            local payload code size
+            payload="$(jq -n --arg text "$text" '{text: $text, format: "mp3"}')"
+            code="$(curl --silent --show-error --max-time 90 \
+              --output "$output" --write-out '%{http_code}' \
+              --request POST 'https://api.fish.audio/v1/tts' \
+              --header "Authorization: Bearer ${FISH_AUDIO_API_KEY}" \
+              --header 'Content-Type: application/json' \
+              --header 'Accept: audio/mpeg' \
+              --header 'model: s2.1-pro-free' \
+              --data "$payload" || true)"
+            if [[ "$code" != "200" ]]; then
+              echo "::error::Fish Audio $label request failed with HTTP ${code:-no-response}; response body omitted to avoid exposing sensitive details."
+              exit 1
+            fi
+            size="$(wc -c < "$output" | tr -d ' ')"
+            if [[ "$size" -lt 1000 ]]; then
+              echo "::error::Fish Audio $label returned too little data to be a valid audio sample (${size} bytes)."
+              exit 1
+            fi
+            echo "PASS: Fish Audio $label returned HTTP 200 and ${size} audio bytes."
+          }
+
+          synthesize english 'Visionex audio generation test.'
+          synthesize arabic 'مرحباً بكم في فيجنكس. هذا اختبار لتوليد الصوت.'
