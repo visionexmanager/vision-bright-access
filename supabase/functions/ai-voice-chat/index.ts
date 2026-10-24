@@ -92,8 +92,9 @@ Deno.serve(async (req) => {
   if (guard.outcome === "refused") return refusalResponse(guard.refusal, cors);
 
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-  if (!OPENAI_API_KEY) {
-    return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), {
+  const FISH_AUDIO_API_KEY = Deno.env.get("FISH_AUDIO_API_KEY");
+  if (!OPENAI_API_KEY && !FISH_AUDIO_API_KEY) {
+    return new Response(JSON.stringify({ error: "FISH_AUDIO_API_KEY or OPENAI_API_KEY not set" }), {
       status: 500, headers: { ...cors, "Content-Type": "application/json" },
     });
   }
@@ -168,17 +169,26 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── Step 2: Convert to expressive speech with gpt-4o-mini-tts ───────────
-  const spoken = await synthesize({
+  // ── Step 2: Fish Audio first, with the former OpenAI voice as fallback ──
+  let spoken = await synthesize({
     text: transcript,
-    provider: "openai",
-    model: "gpt-4o-mini-tts",
-    voice,
-    instructions: voiceStyle,
+    provider: "fish",
+    model: "s2.1-pro-free",
+    voice: "",
     format: "mp3",
-    // Provider registry, after success and off the response path (Phase 2K-1).
     record: (execution) => recordTtsInBackground(execution),
   });
+  if (spoken.outcome === "failed" && OPENAI_API_KEY) {
+    spoken = await synthesize({
+      text: transcript,
+      provider: "openai",
+      model: "gpt-4o-mini-tts",
+      voice,
+      instructions: voiceStyle,
+      format: "mp3",
+      record: (execution) => recordTtsInBackground(execution),
+    });
+  }
 
   if (spoken.outcome === "failed") {
     const status = spoken.failure.reason === "rejected" ? spoken.failure.status : 0;

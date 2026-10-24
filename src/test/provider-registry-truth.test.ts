@@ -26,9 +26,9 @@ describe("20261060 provider registry truth", () => {
     expect(SQL).not.toMatch(/slug = 'openai|slug = 'mistral|slug = 'groq|slug = 'gemini/);
   });
 
-  it("no code routes by these rows' status, so this changes what is reported, not what runs", () => {
+  it("Fish Audio is the speech default independently of registry status", () => {
     const video = readFileSync("supabase/functions/video-studio/index.ts", "utf8");
     expect(video).not.toContain('providerRoutableIn(dbService, "luma-video")');
-    expect(readFileSync("supabase/functions/speech-generate/index.ts", "utf8")).toContain('return "openai";');
+    expect(readFileSync("supabase/functions/speech-generate/index.ts", "utf8")).toContain('return "fish";');
   });
 });

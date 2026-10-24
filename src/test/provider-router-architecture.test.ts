@@ -97,9 +97,11 @@ describe("callers record against the provider actually used, not the one first s
     });
   }
 
-  it("speech-generate's router-backed default never blocks generation on a router fault", () => {
+  it("speech-generate defaults to Fish Audio without a registry dependency", () => {
     const fn = speechGenerate.slice(speechGenerate.indexOf("async function defaultTtsProvider"));
-    expect(fn.slice(0, fn.indexOf("\n}"))).toMatch(/catch\s*\{/);
+    const body = fn.slice(0, fn.indexOf("\n}"));
+    expect(body).toContain('return "fish";');
+    expect(body).not.toMatch(/resolveProvider|catch\s*\{/);
   });
 
   it("voice-studio chooses by environment key and records against the provider that cloned", () => {
