@@ -353,17 +353,19 @@ export const SPEECH_STYLE = [
  * default path changed when cloning arrived.
  */
 export const defaultSpokenVoice = (): SpokenVoice => ({
-  provider: "openai",
-  voice: DEFAULT_VOICE,
-  model: SPEECH_MODEL,
-  instructions: SPEECH_STYLE,
+  // Fish Audio is the first-choice synthesizer for default replies. Its hosted
+  // default voice is used unless the caller has explicitly selected a Fish
+  // model id; OpenAI remains the fallback below.
+  provider: "fish",
+  voice: "",
+  model: "s2.1-pro-free",
 });
 
 /**
  * `instructions` is OpenAI style direction and belongs to the default voice
  * only. A cloned voice has none: it already sounds like its owner.
  */
-export type SpokenVoice = { provider: "openai" | "elevenlabs" | "mistral"; voice: string; model: string; instructions?: string };
+export type SpokenVoice = { provider: "openai" | "elevenlabs" | "mistral" | "fish"; voice: string; model: string; instructions?: string };
 
 /** A resolved cloned voice, or the default when there is none. */
 export const spokenVoiceOf = (resolved: ResolvedVoice | null | undefined): SpokenVoice =>
@@ -397,7 +399,7 @@ export async function synthesiseSpeech(params: {
   // Still the one shared seam. A cloned voice is a different provider, id and
   // model passed to the same function — not a second synthesis path.
   const spoken = params.spoken ?? { ...defaultSpokenVoice(), voice: params.voice ?? DEFAULT_VOICE };
-  const result = await synthesize({
+  let result = await synthesize({
     text: params.text,
     provider: spoken.provider,
     model: spoken.model,
@@ -408,6 +410,23 @@ export async function synthesiseSpeech(params: {
     read: env,
     record: params.record,
   });
+
+  // Fish Audio is first choice for default WhatsApp voice notes. If it is
+  // unavailable or rejects a request, preserve delivery by trying the former
+  // OpenAI voice. Explicitly chosen/cloned voices are never silently replaced.
+  if (result.outcome === "failed" && spoken.provider === "fish") {
+    result = await synthesize({
+      text: params.text,
+      provider: "openai",
+      model: SPEECH_MODEL,
+      voice: DEFAULT_VOICE,
+      instructions: SPEECH_STYLE,
+      format: "opus",
+      fetchImpl: params.fetchImpl,
+      read: env,
+      record: params.record,
+    });
+  }
 
   if (result.outcome === "audio") return { ok: true, bytes: result.bytes, mimeType: result.mimeType };
 
