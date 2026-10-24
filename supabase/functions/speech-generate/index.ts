@@ -15,7 +15,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 
 import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
-import { providerBySlug, recordResult, resolveProvider } from "../_shared/providerRouter.ts";
+import { providerBySlug, recordResult } from "../_shared/providerRouter.ts";
 import {
   describeTtsFailure,
   mimeFor,
@@ -45,12 +45,6 @@ function speechProviderOf(name: string): TtsProvider {
 
 /** The `ph_providers` row each provider is known by. */
 const TTS_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts", fish: "fish-audio-tts" };
-const SLUG_TO_TTS_PROVIDER: Partial<Record<string, TtsProvider>> = {
-  "openai-tts": "openai",
-  "elevenlabs-tts": "elevenlabs",
-  "fish-audio-tts": "fish",
-};
-
 /**
  * The provider to use when the caller did not name one.
  *
@@ -314,7 +308,7 @@ Deno.serve(async (req: Request) => {
         filename,
         original_name: filename,
         asset_type:    "generated",
-        mime_type:     mimeFor(speechProviderOf(provider), output_format as TtsFormat),
+        mime_type:     mimeFor(speechProviderOf(actualProvider), output_format as TtsFormat),
         size_bytes:    sizeBytes,
         duration_sec:  durationSec,
         status:        "ready",
