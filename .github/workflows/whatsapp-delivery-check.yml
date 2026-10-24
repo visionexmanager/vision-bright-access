@@ -1,0 +1,47 @@
+name: WhatsApp delivery check
+
+# Read-only. Why would Meta stop calling the webhook? Reports whether the app is
+# still subscribed to the WhatsApp Business Account, where its callback points
+# (host only), and the sending number's status and quality. Nothing is posted
+# and no number, token or message text is printed: this repository is public.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check the subscription and the number
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask Meta
+        env:
+          WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          META_APP_ID: ${{ secrets.META_APP_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: |
+          set -uo pipefail
+          g="https://graph.facebook.com/v21.0"
+          auth="Authorization: Bearer $WHATSAPP_TOKEN"
+
+          echo "== number =="
+          curl -sS -m 30 -H "$auth" "$g/$WHATSAPP_PHONE_NUMBER_ID?fields=status,quality_rating,name_status,code_verification_status,platform_type,throughput,account_mode,health_status" \
+            | jq -c 'if .error then {error:{code:.error.code,type:.error.type,subcode:.error.error_subcode}} else del(.id) end'
+
+          waba=$(curl -sS -m 30 -H "$auth" "$g/$WHATSAPP_PHONE_NUMBER_ID?fields=whatsapp_business_account" | jq -r '.whatsapp_business_account.id // empty')
+          echo "== subscriptions on the business account (found: $([ -n "$waba" ] && echo yes || echo no)) =="
+          if [ -z "$waba" ]; then waba="1997975370907272"; fi
+          curl -sS -m 30 -H "$auth" "$g/$waba/subscribed_apps" \
+            | jq -c --arg app "$META_APP_ID" --arg host "$(echo "$SUPABASE_URL" | sed -E 's#https?://##')" '
+                if .error then {error:{code:.error.code,type:.error.type,subcode:.error.error_subcode}}
+                else {subscribed:(.data|length),
+                      ours:([.data[]|select(.whatsapp_business_api_data.id==$app)]|length),
+                      override_points_at_our_project:([.data[]|(.override_callback_uri // "")|contains($host)]|any)} end'
+
+          echo "== webhook handshake =="
+          code=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' "$SUPABASE_URL/functions/v1/whatsapp-webhook?hub.mode=subscribe&hub.verify_token=x&hub.challenge=1")
+          echo "wrong-token handshake -> $code (403 is correct)"
