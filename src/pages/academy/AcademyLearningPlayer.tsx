@@ -36,6 +36,18 @@ import type { AcademyQuizAttemptRow, AcademyQuizScope } from "@/lib/types/academ
 
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2];
 
+/** Shown instead of an empty player when a lesson has no media or text yet. */
+function LessonContentPending() {
+  return (
+    <div
+      role="status"
+      className="aspect-video w-full rounded-2xl bg-muted border-2 border-dashed border-border flex items-center justify-center p-6 text-center text-muted-foreground text-sm"
+    >
+      محتوى هذا الدرس قيد الإعداد ولم يُرفع بعد. يمكنك المتابعة إلى الدرس التالي.
+    </div>
+  );
+}
+
 export default function AcademyLearningPlayer() {
   const { courseId, lessonId } = useParams<{ courseId: string; lessonId: string }>();
   const navigate = useNavigate();
@@ -329,20 +341,24 @@ export default function AcademyLearningPlayer() {
                     </div>
                   </>
                 ) : (
-                  <div className="aspect-video w-full rounded-2xl bg-muted border-2 border-dashed border-border flex items-center justify-center text-muted-foreground text-sm">
-                    فيديو تجريبي — سيُستبدل بمحتوى حقيقي عند رفعه
-                  </div>
+                  <LessonContentPending />
                 )}
               </div>
             )}
 
-            {lesson.kind === "youtube" && lesson.youtube_video_id && (
+            {lesson.kind === "youtube" && (lesson.youtube_video_id ? (
               <div ref={mediaContainerRef}>
                 <YouTubeEmbed videoId={lesson.youtube_video_id} title={lesson.title} />
               </div>
+            ) : (
+              <LessonContentPending />
+            ))}
+
+            {lesson.kind === "text" && !lesson.body_markdown?.trim() && lesson.code_snippets.length === 0 && (
+              <LessonContentPending />
             )}
 
-            {lesson.kind === "text" && (
+            {lesson.kind === "text" && (!!lesson.body_markdown?.trim() || lesson.code_snippets.length > 0) && (
               <div className="bg-card p-6 rounded-2xl border border-border">
                 <div className="prose prose-sm dark:prose-invert max-w-none">
                   <ReactMarkdown>{lesson.body_markdown ?? ""}</ReactMarkdown>
