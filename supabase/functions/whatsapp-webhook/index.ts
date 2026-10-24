@@ -27,6 +27,12 @@ import {
   ProviderError,
 } from "../_shared/aiProvider.ts";
 import {
+  continuityDirective,
+  continuityStart,
+  isReplayable,
+  summaryIsFresh,
+} from "../_shared/whatsappContinuity.ts";
+import {
   budgetTurns,
   clampReply,
   collectStream,
@@ -1271,7 +1277,7 @@ Deno.serve(async (req) => {
       const SESSION_COLUMNS =
         `id, language, voice_mode, menu_sent_at, ai_thread_id, ai_thread_started_at, nav_path, current_feature, current_step, pending_operation, session_context, session_updated_at, ${PROFILE_COLUMNS}, `;
       const ESTABLISHED_COLUMNS =
-        "escalated, escalated_at, escalation_reason, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at";
+        "escalated, escalated_at, escalation_reason, control, blocked_until, rate_notified_at, rate_limit_hits, preferred_language, summary, summary_updated_at, summarized_message_count, voice_replies, verbosity, pending_vision_mode, pending_vision_target, pending_vision_at, last_latitude, last_longitude, last_place, last_location_at";
 
       const firstRead = await db
         .from("whatsapp_conversations")
@@ -5834,7 +5840,9 @@ Deno.serve(async (req) => {
       // `ai_thread_started_at` forward and nothing before it is replayed —
       // which is the whole of what that button does, since none of it is
       // deleted.
-      const threadStartedAt = (existing?.ai_thread_started_at as string | null) ?? null;
+      // Never further back than 24 hours either: a conversation stays one
+      // conversation for a day, and a thread older than that starts clean.
+      const threadStartedAt = continuityStart((existing?.ai_thread_started_at as string | null) ?? null, Date.now());
       const threadFilter = <T extends { gte: (column: string, value: string) => T }>(query: T): T =>
         threadStartedAt ? query.gte("created_at", threadStartedAt) : query;
 
@@ -5848,10 +5856,9 @@ Deno.serve(async (req) => {
         .limit(HISTORY_LIMIT);
 
 
+      const replayRows = (history ?? []).filter(isReplayable).reverse();
       const turns = budgetTurns(
-        (history ?? [])
-          .filter((row) => row.kind === null || row.kind === "reply")
-          .reverse()
+        replayRows
           .map((row) => ({
             role: row.direction === "inbound" ? ("user" as const) : ("assistant" as const),
             content: row.body as string,
@@ -5871,7 +5878,11 @@ Deno.serve(async (req) => {
           .eq("direction", "inbound"),
       );
 
-      let summary = (existing?.summary as string | null) ?? null;
+      // A summary older than the window is dropped, not replayed: it is the
+      // one place yesterday's conversation could otherwise leak into today's.
+      let summary = summaryIsFresh(existing?.summary_updated_at as string | null, Date.now())
+        ? ((existing?.summary as string | null) ?? null)
+        : null;
       if (needsSummary({
         inboundCount: inboundCount ?? 0,
         summarizedCount: (existing?.summarized_message_count as number) ?? 0,
@@ -5888,7 +5899,7 @@ Deno.serve(async (req) => {
             .range(HISTORY_LIMIT, HISTORY_LIMIT + 60);
 
           const material = (older ?? [])
-            .filter((row) => row.kind === null || row.kind === "reply")
+            .filter(isReplayable)
             .reverse()
             .map((row) => `${row.direction === "inbound" ? "Customer" : "Assistant"}: ${row.body}`)
             .join("\n")
@@ -6015,6 +6026,9 @@ Deno.serve(async (req) => {
             assistant.systemPrompt,
             languageDirective(answerIn),
             persona,
+            // Last day of this thread: the list just offered, short
+            // follow-ups, and the sender's own language and dialect.
+            continuityDirective({ question: questionText, rows: replayRows }),
             // The catalog, not the retrieved prose, is what this channel can
             // do — filtered by exactly the flags and capabilities that decide
             // whether a tap would work, so the list the model is given and the
