@@ -18,6 +18,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import { decideOrder, formatOrderList, listPendingOrders, parseOrderCommand } from "../_shared/ownerOrders.ts";
+import { isBareOrdersReply, ownerOrderMessage, parseOrderButton } from "../_shared/subscriptionOrderNotices.ts";
+import { notifyBuyerByReference } from "../_shared/subscriptionOrderNotify.ts";
 import {
   createEmbedding,
   streamChatCompletionWithFallback,
@@ -48,6 +50,7 @@ import {
   SUMMARY_INSTRUCTION,
   summaryPreamble,
   sendWhatsAppLocation,
+  sendWhatsAppInteractive,
   sendWhatsAppText,
   unsupportedTypeNotice,
   userAskedForHuman,
@@ -701,7 +704,11 @@ async function handleOwnerCommand(
     });
     return orderCommand.kind === "list"
       ? formatOrderList(await listPendingOrders(db))
-      : await decideOrder(db, orderCommand);
+      : await decideOrder(db, orderCommand, (reference) => {
+        // The buyer hears about it after the owner has their answer.
+        const work = notifyBuyerByReference(db, { token: context.whatsapp?.token, phoneNumberId: context.whatsapp?.phoneNumberId }, reference);
+        if (context.background) context.background(work); else void work;
+      });
   }
 
   // Social media content: listed, shown, edited, redone, scheduled and
@@ -1177,6 +1184,45 @@ Deno.serve(async (req) => {
       // Authorization is by configured number, checked before anything else.
       // A message from any other number is a customer message and is never
       // interpreted as a command, whatever it says.
+      // A tap on Approve / Reject. The id names the order, so it is decided by its
+      // own reference exactly like `/approve VX-…`; the button's title is never
+      // read as a bare yes. Only the owner's number gets here.
+      if (incoming.selection && isOwner(incoming.from, configuredOwner)) {
+        const tapped = parseOrderButton(incoming.selection);
+        if (tapped) {
+          await db.from("audit_logs").insert({
+            action: "owner_command_order_decide",
+            entity_type: "owner_command",
+            entity_id: null,
+            metadata: { kind: tapped.approve ? "approve" : "reject", reference: tapped.reference, via: "button" },
+          });
+          const outcome = await decideOrder(db, { kind: "decide", approve: tapped.approve, reference: tapped.reference, note: null }, (reference) => {
+            EdgeRuntime.waitUntil(notifyBuyerByReference(db, { token, phoneNumberId }, reference));
+          });
+          if (token && phoneNumberId) await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: outcome });
+          continue;
+        }
+      }
+
+      // «طلبات» on its own (the word the order template asks for): each waiting
+      // order with its two buttons.
+      if (incoming.text && isOwner(incoming.from, configuredOwner) && isBareOrdersReply(incoming.text)) {
+        const waiting = (await listPendingOrders(db)).slice(0, 5);
+        if (token && phoneNumberId) {
+          if (waiting.length === 0) {
+            await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: formatOrderList([]) });
+          }
+          for (const order of waiting) {
+            const message = ownerOrderMessage(order);
+            const sent = await sendWhatsAppInteractive({
+              phoneNumberId, token, to: incoming.from, interactive: message.interactive as unknown as Record<string, unknown>,
+            });
+            if (!sent) await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: message.text });
+          }
+        }
+        continue;
+      }
+
       if (incoming.text && isOwner(incoming.from, configuredOwner)) {
         // Artwork takes fifteen seconds for a picture and a couple of minutes
         // for a clip. `background` is how `/image` and `/video` answer first

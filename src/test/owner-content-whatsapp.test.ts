@@ -169,7 +169,7 @@ describe("the daily plan", () => {
       expect(example).toHaveLength(1);
       expect(body.length).toBeLessThan(1024);
     }
-    expect(readFileSync("scripts/whatsapp-templates.mjs", "utf8")).toContain("[PLAN_REMINDER_TEMPLATE, OWNER_CONTENT_TEMPLATE]");
+    expect(readFileSync("scripts/whatsapp-templates.mjs", "utf8")).toContain("[PLAN_REMINDER_TEMPLATE, OWNER_CONTENT_TEMPLATE, ...ORDER_TEMPLATES]");
   });
 });
 
