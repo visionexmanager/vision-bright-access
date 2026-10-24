@@ -65,15 +65,9 @@ const SLUG_TO_TTS_PROVIDER: Partial<Record<string, TtsProvider>> = {
  * would have picked something else.
  */
 async function defaultTtsProvider(): Promise<TtsProvider> {
-  try {
-    const routed = await resolveProvider("tts");
-    const mapped = routed && SLUG_TO_TTS_PROVIDER[routed.provider.slug];
-    if (mapped) return mapped;
-  } catch {
-    // The router is best-effort here: a database hiccup must not be the
-    // reason Speech Studio cannot generate audio.
-  }
-  return "openai";
+  // Fish Audio is the default for new speech jobs; explicit provider choices
+  // still win, and OpenAI remains the fallback if Fish cannot synthesize.
+  return "fish";
 }
 
 /**
@@ -270,24 +264,41 @@ Deno.serve(async (req: Request) => {
   // Generate
   try {
     const startedAt = Date.now();
-    const result = await synthesize({
+    let actualProvider = provider;
+    let result = await synthesize({
       provider: speechProviderOf(provider),
       voice: provider_voice_id,
       text: text.trim(),
       speed,
       format: output_format as TtsFormat,
-      model,
+      model: provider === "fish" ? "s2.1-pro-free" : model,
     });
+    // Only an automatically selected Fish provider fails over. An explicit
+    // provider choice remains authoritative, as before.
+    if (result.outcome === "failed" && provider === "fish" && Deno.env.get("OPENAI_API_KEY")) {
+      actualProvider = "openai";
+      const openAiVoice = /^(alloy|ash|ballad|coral|echo|fable|marin|nova|onyx|sage|shimmer|verse|cedar)$/i.test(provider_voice_id)
+        ? provider_voice_id
+        : "nova";
+      result = await synthesize({
+        provider: "openai",
+        voice: openAiVoice,
+        text: text.trim(),
+        speed,
+        format: output_format as TtsFormat,
+        model: "gpt-4o-mini-tts",
+      });
+    }
     const elapsedMs = Date.now() - startedAt;
 
     if (result.outcome === "failed") {
-      await recordTtsResult({ provider, ms: elapsedMs, success: false, errorMessage: describeTtsFailure(result.failure) });
+      await recordTtsResult({ provider: actualProvider, ms: elapsedMs, success: false, errorMessage: describeTtsFailure(result.failure) });
       // Thrown, not returned: this endpoint's error path already turns a
       // thrown message into the JSON body the studio shows, and the wording
       // is the wording it has always shown.
       throw new Error(describeTtsFailure(result.failure));
     }
-    await recordTtsResult({ provider, ms: elapsedMs, success: true });
+    await recordTtsResult({ provider: actualProvider, ms: elapsedMs, success: true });
 
     const audioBase64 = bufferToBase64(result.bytes.buffer as ArrayBuffer);
     const durationSec = estimateDuration(text, speed);
@@ -314,8 +325,8 @@ Deno.serve(async (req: Request) => {
           language,
           emotion,
           speed,
-          model,
-          provider,
+          model: actualProvider === "fish" ? "s2.1-pro-free" : actualProvider === "openai" && provider === "fish" ? "gpt-4o-mini-tts" : model,
+          provider: actualProvider,
           job_id: jobId,
         },
       })
@@ -327,6 +338,7 @@ Deno.serve(async (req: Request) => {
     // Complete the job
     await serviceClient.from("ams_speech_jobs").update({
       status:         "completed",
+      provider:        actualProvider,
       asset_id:       assetId,
       duration_sec:   durationSec,
       file_size_bytes: sizeBytes,
