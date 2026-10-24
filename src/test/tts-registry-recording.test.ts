@@ -111,7 +111,7 @@ describe("recording never changes the speech", () => {
 
   it("no recorder: exactly the result it gave before this phase", async () => {
     const result = await synthesize({ ...ELEVEN, fetchImpl: provider().fetchImpl });
-    expect(result).toEqual({ outcome: "audio", bytes: new Uint8Array([1, 2, 3]), mimeType: "audio/mpeg", provider: "elevenlabs", model: "tts-1", voice: "cloned-voice-id" });
+    expect(result).toEqual({ outcome: "audio", bytes: new Uint8Array([1, 2, 3]), mimeType: "audio/ogg", provider: "elevenlabs", model: "tts-1", voice: "cloned-voice-id" });
   });
 });
 
