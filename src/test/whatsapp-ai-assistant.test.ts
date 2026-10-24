@@ -190,11 +190,12 @@ describe("asking", () => {
     expect(webhook).toContain("budgetTurns(");
     expect(webhook).toContain("HISTORY_LIMIT");
     expect(webhook).toContain("needsSummary({");
-    expect(webhook).toMatch(/askAssistant\(\s*\{[\s\S]{0,1600}summary,[\s\S]{0,200}turns,/);
+    expect(webhook).toMatch(/askAssistant\(\s*\{[\s\S]{0,2200}summary,[\s\S]{0,200}turns,/);
   });
 
   it("11. scopes the thread so a new conversation starts clean, deleting nothing", () => {
-    expect(webhook).toContain("const threadStartedAt = (existing?.ai_thread_started_at as string | null) ?? null;");
+    // The new-conversation line still bounds the thread; it is now clamped to the last 24 hours.
+    expect(webhook).toContain("const threadStartedAt = continuityStart((existing?.ai_thread_started_at as string | null) ?? null, Date.now());");
     expect(webhook).toMatch(/threadFilter[\s\S]{0,200}gte\("created_at", threadStartedAt\)/);
     // All three reads — recent turns, the count, and the summary material.
     expect(webhook.match(/await threadFilter\(/g)?.length).toBe(3);

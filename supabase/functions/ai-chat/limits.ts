@@ -11,8 +11,33 @@ export const MAX_TOTAL_CHARS = 32_000;
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 
 export type BoundResult =
-  | { ok: true; messages: ChatTurn[] }
+  | { ok: true; messages: ChatTurn[]; earlier: string }
   | { ok: false; error: string };
+
+/** Characters of digest kept for turns that no longer fit the window. */
+export const MAX_EARLIER_CHARS = 1_500;
+
+/**
+ * What was dropped from the old end, as one line per question the user asked.
+ *
+ * Trimming used to forget silently, so a long chat lost the thing the user
+ * was working on. The user's own words are the cheapest faithful record of
+ * it; the assistant's long answers are not kept. Returned as plain text for
+ * the caller to place inside an untrusted-context block.
+ */
+export function digestEarlier(dropped: ChatTurn[]): string {
+  const lines: string[] = [];
+  let used = 0;
+  for (const turn of dropped) {
+    if (turn.role !== "user") continue;
+    const line = `- ${turn.content.replace(/\s+/g, " ").trim().slice(0, 140)}`;
+    if (line.length <= 2) continue;
+    if (used + line.length > MAX_EARLIER_CHARS) break;
+    lines.push(line);
+    used += line.length + 1;
+  }
+  return lines.join("\n");
+}
 
 /**
  * Validates and trims a conversation. Only "user" and "assistant" roles
@@ -44,7 +69,7 @@ export function boundMessages(input: unknown): BoundResult {
   }
   // A model call must start with the user; drop a leading assistant turn.
   while (kept.length > 1 && kept[0].role === "assistant") kept = kept.slice(1);
-  return { ok: true, messages: kept };
+  return { ok: true, messages: kept, earlier: digestEarlier(turns.slice(0, turns.length - kept.length)) };
 }
 
 // One implementation for every function that meters callers.
