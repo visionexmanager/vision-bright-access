@@ -333,6 +333,7 @@ Deno.serve(async (req: Request) => {
     await serviceClient.from("ams_speech_jobs").update({
       status:         "completed",
       provider:        actualProvider,
+      model:           actualProvider === "fish" ? "s2.1-pro-free" : actualProvider === "openai" && provider === "fish" ? "gpt-4o-mini-tts" : model,
       asset_id:       assetId,
       duration_sec:   durationSec,
       file_size_bytes: sizeBytes,
