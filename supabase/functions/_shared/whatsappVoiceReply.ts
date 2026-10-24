@@ -398,7 +398,9 @@ export async function synthesiseSpeech(params: {
   // than a lost answer.
   // Still the one shared seam. A cloned voice is a different provider, id and
   // model passed to the same function — not a second synthesis path.
-  const spoken = params.spoken ?? { ...defaultSpokenVoice(), voice: params.voice ?? DEFAULT_VOICE };
+  const spoken = params.spoken ?? (params.voice
+    ? { provider: "openai" as const, voice: params.voice, model: SPEECH_MODEL, instructions: SPEECH_STYLE }
+    : defaultSpokenVoice());
   let result = await synthesize({
     text: params.text,
     provider: spoken.provider,
