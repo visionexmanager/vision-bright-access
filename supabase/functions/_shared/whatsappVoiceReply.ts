@@ -435,7 +435,13 @@ export async function synthesiseSpeech(params: {
   // the log alone, and nothing here names the sender or the words.
   const { failure } = result;
   if (failure.reason === "no_key") {
-    console.error("[whatsapp-tts] no OPENAI_API_KEY — the reply went out as text only");
+    const keyName = {
+      openai: "OPENAI_API_KEY",
+      elevenlabs: "ELEVENLABS_API_KEY",
+      mistral: "MISTRAL_API_KEY",
+      fish: "FISH_AUDIO_API_KEY",
+    }[failure.provider];
+    console.error(`[whatsapp-tts] no ${keyName} — the reply went out as text only`);
   } else if (failure.reason === "rejected") {
     console.error("[whatsapp-tts] synthesis rejected:", failure.status);
   } else if (failure.reason === "empty") {
