@@ -230,7 +230,20 @@ async function gemini(key) {
   const base = "https://generativelanguage.googleapis.com/v1beta";
   const headers = { "x-goog-api-key": key, "Content-Type": "application/json" };
   const listing = await listIds(`${base}/models?pageSize=200`, headers, (j) => (j?.models ?? []).map((m) => m.name.replace(/^models\//, "")));
-  inventory.gemini = { list_status: listing.status, model_count: listing.ids.length };
+  const imageModels = listing.ids.filter((id) => /image/i.test(id) && !/embed|tts|audio/i.test(id));
+  inventory.gemini = { list_status: listing.status, model_count: listing.ids.length, image_models: imageModels.slice(0, 12) };
+  if (MEDIA) {
+    // Picture generation on the Gemini key: the way out when OpenAI images are unavailable.
+    for (const model of imageModels.filter((id) => id.startsWith("gemini-")).slice(0, 3)) {
+      await probe("gemini", "image_generation", model, async () => ({
+        ...(await post(`${base}/models/${model}:generateContent`, headers, {
+          contents: [{ role: "user", parts: [{ text: "A plain blue circle on a white background." }] }],
+          generationConfig: { responseModalities: ["IMAGE"] },
+        })),
+        check: (j) => (j?.candidates?.[0]?.content?.parts ?? []).some((p) => typeof (p.inlineData ?? p.inline_data)?.data === "string"),
+      }));
+    }
+  }
   for (const model of ["gemini-flash-latest", "gemini-flash-lite-latest"]) {
     await probe("gemini", "text", model, async () => ({
       ...(await post(`${base}/models/${model}:generateContent`, headers, { contents: [{ role: "user", parts: [{ text: "Reply with exactly the word OK." }] }], generationConfig: { maxOutputTokens: 512 } })),
