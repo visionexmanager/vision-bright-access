@@ -1,0 +1,41 @@
+name: ElevenLabs TTS smoke test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/voice/elevenlabs-tts-probe.ts"
+      - ".github/workflows/elevenlabs-smoke.yml"
+      - "supabase/functions/_shared/voice/tts.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elevenlabs-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Real ElevenLabs English + Arabic audio
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Generate and verify real audio (secret never logged)
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: deno run --no-lock --allow-net --allow-env --allow-write scripts/voice/elevenlabs-tts-probe.ts
+      - name: Keep audio samples for listening
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elevenlabs-english-arabic-audio
+          path: elevenlabs-probe/*.ogg
+          retention-days: 3
+          if-no-files-found: ignore
