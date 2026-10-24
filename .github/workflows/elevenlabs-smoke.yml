@@ -26,15 +26,21 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
     steps:
       - uses: actions/checkout@v7
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
       - name: Generate and verify real audio (secret never logged)
-        env:
-          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        if: env.ELEVENLABS_API_KEY != ''
         run: deno run --no-lock --allow-net --allow-env --allow-write scripts/voice/elevenlabs-tts-probe.ts
+      - name: Report missing key without pretending the smoke test ran
+        if: env.ELEVENLABS_API_KEY == ''
+        run: |
+          echo "::warning::Live ElevenLabs smoke test was skipped: repository secret ELEVENLABS_API_KEY is not configured."
+          echo "SKIPPED — add the repository Actions secret ELEVENLABS_API_KEY, then run this workflow manually." >> "$GITHUB_STEP_SUMMARY"
       - name: Keep audio samples for listening
         if: always()
         uses: actions/upload-artifact@v4
