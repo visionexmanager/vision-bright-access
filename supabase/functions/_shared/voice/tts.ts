@@ -261,7 +261,7 @@ export function ttsRequestFor(
 export function mimeFor(provider: TtsProvider, format: TtsFormat): string {
   if (provider === "elevenlabs") return elevenLabsMime(format);
   if (provider === "mistral") return MISTRAL_MIME[MISTRAL_FORMAT[format]] ?? "audio/mpeg";
-  if (provider === "fish") return format === "wav" ? "audio/wav" : format === "opus" || format === "ogg" ? "audio/ogg" : format === "flac" ? "audio/flac" : "audio/mpeg";
+  if (provider === "fish") return format === "wav" ? "audio/wav" : format === "opus" ? "audio/ogg" : "audio/mpeg";
   return OPENAI_MIME[OPENAI_FORMAT[format]] ?? "audio/mpeg";
 }
 
