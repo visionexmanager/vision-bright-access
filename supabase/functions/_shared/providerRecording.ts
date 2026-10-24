@@ -256,7 +256,7 @@ export async function recordSttAttempts(
 // wired to this, so nothing is recorded twice.
 
 /** The `openai-tts` / `elevenlabs-tts` / `mistral-tts` rows. */
-export const TTS_PROVIDER_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts" };
+export const TTS_PROVIDER_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts", fish: "fish-audio-tts" };
 
 /** One successful synthesis: a metric and a log row with the model id. Never throws. */
 export async function recordTtsExecution(db: RecordingDb, execution: TtsExecution): Promise<void> {
