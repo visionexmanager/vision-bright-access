@@ -4,9 +4,11 @@
  * Uses aiService.streamChat() (AI Service Layer) +
  * useSSEStream (shared SSE parser) — no direct fetch allowed here.
  */
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { chatHistoryKey, clearChatHistory, loadChatHistory, saveChatHistory } from "@/lib/ai/chatHistory";
 import { useSSEStream } from "@/lib/api/useSSEStream";
 import { aiService } from "@/services/ai/aiService";
 import {
@@ -100,10 +102,25 @@ export function useAIChat(options?: { assistantId?: string }) {
   const abortRef          = useRef<AbortController | null>(null);
   const cooldownTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const { lang }          = useLanguage();
+  const { user }          = useAuth();
+  const historyKey        = chatHistoryKey(user?.id, assistantId);
+  const historyKeyRef     = useRef(historyKey);
+  historyKeyRef.current   = historyKey;
   const { pathname }      = useLocation();
   const navigate          = useNavigate();
 
   const { consumeStream, isStreaming } = useSSEStream();
+
+  // The last 24 hours of this user's chat come back after a reload or a page
+  // change; they are the model's context for the next turn exactly as if the
+  // page had never closed. Loaded when the signed-in user (and so the key) changes.
+  useEffect(() => {
+    setMessages(loadChatHistory(historyKey));
+  }, [historyKey]);
+
+  useEffect(() => {
+    saveChatHistory(historyKeyRef.current, messages);
+  }, [messages]);
 
   const startCooldown = useCallback(() => {
     const COOLDOWN = 30;
@@ -263,6 +280,7 @@ export function useAIChat(options?: { assistantId?: string }) {
   const clearMessages = useCallback(() => {
     abortRef.current?.abort();
     setMessages([]);
+    clearChatHistory(historyKeyRef.current);
   }, []);
 
   const stopGeneration = useCallback(() => {

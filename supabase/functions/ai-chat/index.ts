@@ -10,7 +10,7 @@ import {
 } from "../_shared/aiProvider.ts";
 import { assistantTargets } from "../_shared/assistants.ts";
 import { boundMessages, callerAddress, callerHash, type ChatTurn } from "./limits.ts";
-import { sanitizeContext, UNTRUSTED_CONTEXT_RULES, untrustedContextBlock } from "./context.ts";
+import { CONTINUITY_RULES, sanitizeContext, UNTRUSTED_CONTEXT_RULES, untrustedContextBlock } from "./context.ts";
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
 import { expectedScriptForMessage } from "../_shared/answerLanguage.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
@@ -371,6 +371,7 @@ Deno.serve(async (req) => {
     // there must be one. Requiring a placeholder message would be a shape the
     // client has to know about for no reason.
     let messages: ChatTurn[] = [];
+    let earlier = "";
     if (assistantId !== "ivx-project-grader") {
       const bounded = boundMessages(rawMessages);
       if (!bounded.ok) {
@@ -380,6 +381,7 @@ Deno.serve(async (req) => {
         );
       }
       messages = bounded.messages;
+      earlier = bounded.earlier;
     }
 
     // ── Grading an IVX project ─────────────────────────────────────────
@@ -674,6 +676,8 @@ Help the user learn real-world business skills through the simulation named in t
     // ── Stream via the unified provider layer ──────────────────────────
     systemPrompt += buildMemoryPrompt(userMemory);
     systemPrompt += UNTRUSTED_CONTEXT_RULES;
+    systemPrompt += CONTINUITY_RULES;
+    systemPrompt += untrustedContextBlock({ earlier_in_this_conversation: earlier || undefined });
 
     const cleanMessages = messages;
 
