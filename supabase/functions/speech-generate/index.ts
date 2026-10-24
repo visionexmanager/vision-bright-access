@@ -39,15 +39,16 @@ installUsageMetering("speech-generate");
 function speechProviderOf(name: string): TtsProvider {
   // A parked provider cannot be named into service (providerState.ts).
   if (parkedProviderReason(name)) throw new Error(`Speech provider "${name}" is not configured.`);
-  if (name === "openai" || name === "elevenlabs" || name === "mistral") return name;
-  throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs, mistral`);
+  if (name === "openai" || name === "elevenlabs" || name === "mistral" || name === "fish") return name;
+  throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs, mistral, fish`);
 }
 
 /** The `ph_providers` row each provider is known by. */
-const TTS_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts" };
+const TTS_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts", fish: "fish-audio-tts" };
 const SLUG_TO_TTS_PROVIDER: Partial<Record<string, TtsProvider>> = {
   "openai-tts": "openai",
   "elevenlabs-tts": "elevenlabs",
+  "fish-audio-tts": "fish",
 };
 
 /**
