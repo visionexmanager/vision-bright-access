@@ -211,7 +211,7 @@ export function ttsRequestFor(
       url: "https://api.fish.audio/v1/tts",
       init: {
         method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", Accept: "audio/mpeg", model: providerModel(request) },
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", Accept: request.format === "opus" ? "audio/ogg" : request.format === "wav" ? "audio/wav" : "audio/mpeg", model: providerModel(request) },
         body: JSON.stringify({ text: request.text, format: request.format === "wav" || request.format === "opus" ? request.format : "mp3", ...(request.voice && request.voice.length >= 24 ? { reference_id: request.voice } : {}) }),
       },
     };
