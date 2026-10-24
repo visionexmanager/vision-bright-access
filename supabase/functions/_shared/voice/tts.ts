@@ -212,7 +212,7 @@ export function ttsRequestFor(
       init: {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", Accept: "audio/mpeg", model: providerModel(request) },
-        body: JSON.stringify({ text: request.text, format: request.format === "wav" || request.format === "opus" ? request.format : "mp3", ...(request.voice ? { reference_id: request.voice } : {}) }),
+        body: JSON.stringify({ text: request.text, format: request.format === "wav" || request.format === "opus" ? request.format : "mp3", ...(request.voice && request.voice.length >= 24 ? { reference_id: request.voice } : {}) }),
       },
     };
   }
