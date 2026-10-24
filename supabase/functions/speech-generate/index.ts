@@ -46,17 +46,9 @@ function speechProviderOf(name: string): TtsProvider {
 /** The `ph_providers` row each provider is known by. */
 const TTS_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts", fish: "fish-audio-tts" };
 /**
- * The provider to use when the caller did not name one.
- *
- * This was a hardcoded `"openai"` default. The router already scores exactly
- * this: which configured `tts` provider is eligible, healthiest and cheapest
- * right now — `openai-tts` today, by construction, since it is the only
- * `active` row. Routed rather than hardcoded so the default follows the
- * router's own health tracking as it changes, without this file noticing.
- *
- * An explicit `provider` in the request is never touched by this — a user's
- * own choice is honoured exactly as it always was, including when the router
- * would have picked something else.
+ * Fish Audio is the first-choice provider when the caller has not selected
+ * one. Explicit provider selections are preserved; the generation path keeps
+ * OpenAI as a fallback for the automatic Fish choice.
  */
 async function defaultTtsProvider(): Promise<TtsProvider> {
   // Fish Audio is the default for new speech jobs; explicit provider choices
