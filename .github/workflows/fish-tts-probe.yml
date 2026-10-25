@@ -1,0 +1,38 @@
+name: Fish Audio TTS probe
+
+# Read-only check that Fish Audio really synthesises English and Arabic with the
+# same request shape the Edge Functions send. Prints status and byte counts only.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/fish-tts-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Real Fish Audio English + Arabic audio
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FISH_AUDIO_API_KEY: ${{ secrets.FISH_AUDIO_API_KEY }}
+    steps:
+      - name: Synthesise
+        run: |
+          set -uo pipefail
+          fail=0
+          for lang in en ar; do
+            if [ "$lang" = en ]; then text="Hello, this is a short test."; else text="مرحبا، هذا اختبار قصير."; fi
+            for fmt in opus mp3; do
+              code=$(curl -sS -m 60 -o "out.$fmt" -w "%{http_code}" -X POST https://api.fish.audio/v1/tts \
+                -H "Authorization: Bearer $FISH_AUDIO_API_KEY" -H "Content-Type: application/json" -H "model: s2.1-pro-free" \
+                -d "$(jq -nc --arg t "$text" --arg f "$fmt" '{text:$t,format:$f}')")
+              size=$(stat -c %s "out.$fmt"); magic=$(head -c 4 "out.$fmt" | tr -d '\0' | cut -c1-4 | od -An -c | tr -s ' ')
+              echo "$lang $fmt http=$code bytes=$size magic=$magic"
+              if [ "$code" != 200 ] || [ "$size" -lt 1000 ]; then fail=1; head -c 200 "out.$fmt" | jq -c '{message,status}' 2>/dev/null; fi
+            done
+          done
+          exit $fail
