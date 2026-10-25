@@ -85,10 +85,12 @@ describe("no production path can reach them", () => {
     expect(union).not.toMatch(/nvidia|nim|bytez|fal/i);
   });
 
-  it("the deploy does not sync the NIM or Bytez keys into the Edge Function runtime", () => {
+  it("syncs the Bytez key server-side but keeps the unimplemented NIM key out", () => {
     const deploy = readFileSync(".github/workflows/deploy.yml", "utf8");
     const loop = deploy.match(/for name in ([^;]+); do/)?.[1] ?? "";
     expect(loop.length).toBeGreaterThan(100);
-    for (const k of ["NVIDIA_NIM_API_KEY", "BYTEZ_API_KEY"]) expect(loop.split(/\s+/)).not.toContain(k);
+    expect(loop.split(/\s+/)).toContain("BYTEZ_API_KEY");
+    expect(loop.split(/\s+/)).not.toContain("NVIDIA_NIM_API_KEY");
+    expect(deploy).toMatch(/BYTEZ_API_KEY:\s*\$\{\{ secrets\.BYTEZ_API_KEY \}\}/);
   });
 });
