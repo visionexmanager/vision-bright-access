@@ -86,7 +86,7 @@ function stateSecret(): string | undefined {
 // token and never a provider's error text. The code names what happened; the
 // screen turns it into a sentence in the operator's language.
 
-function backToScreen(outcome: string, platform?: string, returnTo?: string): Response {
+function backToScreen(outcome: string, platform?: string, returnTo?: string, detail?: string): Response {
   // Only a same-origin path is honoured. An absolute URL arriving in the state
   // would make this function an open redirector that a platform's consent page
   // links to, which is a phishing primitive rather than a convenience.
@@ -96,6 +96,9 @@ function backToScreen(outcome: string, platform?: string, returnTo?: string): Re
   const url = new URL(path, SITE_ORIGIN);
   url.searchParams.set("connection", outcome);
   if (platform) url.searchParams.set("platform", platform);
+  // The provider's error class and numeric codes, so a refusal can be told from
+  // another without reading logs this function does not write. Never a message.
+  if (detail && /^[A-Za-z0-9_-]{1,100}$/.test(detail)) url.searchParams.set("detail", detail);
   return new Response(null, { status: 303, headers: { Location: url.toString() } });
 }
 
@@ -254,7 +257,7 @@ Deno.serve(async (req) => {
         account?.handle ?? "",
         fetch as unknown as GrantFetch,
       );
-      if (!upgraded.ok) return backToScreen(upgraded.error!, platform, returnTo);
+      if (!upgraded.ok) return backToScreen(upgraded.error!, platform, returnTo, upgraded.detail);
 
       accessToken = upgraded.accessToken!;
       // Threads reports its user id on the authorisation response rather than
