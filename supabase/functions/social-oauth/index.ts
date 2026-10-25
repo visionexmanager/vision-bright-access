@@ -335,7 +335,11 @@ Deno.serve(async (req) => {
     // deployment even holds the credentials for each platform. The second is
     // knowable only here, because the browser must never see an env var.
     if (action === "status") {
-      const { data: accounts } = await service.rpc("social_connection_status");
+      // As the caller, not as the service role: the function checks
+      // auth.uid() for an admin, and the service role has no uid, so it was
+      // answering `forbidden` and the screen listed no account at all, however
+      // many were connected.
+      const { data: accounts } = await asCaller.rpc("social_connection_status");
 
       const providers = PLATFORMS.map((platform) => {
         const provider = PROVIDERS[platform];
