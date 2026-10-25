@@ -247,8 +247,8 @@ export default function PomodoroTimer() {
         >
           {running ? <><Pause className="w-5 h-5" /> {t("pomodoro.stop")}</> : <><Play className="w-5 h-5" /> {getButtonLabel()}</>}
         </Button>
-        <Button variant="outline" size="icon" className="h-auto w-14 rounded-2xl" onClick={() => reset()}>
-          <RotateCcw className="w-5 h-5" />
+        <Button variant="outline" size="icon" className="h-auto w-14 rounded-2xl" onClick={() => reset()} aria-label={t("sim.board.reset")}>
+          <RotateCcw className="w-5 h-5" aria-hidden="true" />
         </Button>
       </div>
 

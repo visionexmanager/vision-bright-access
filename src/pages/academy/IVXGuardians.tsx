@@ -118,7 +118,7 @@ export default function IVXGuardians() {
   if (signedOut) {
     return (
       <Layout>
-        <main className="mx-auto max-w-2xl px-4 py-10" dir={dir}>
+        <div className="mx-auto max-w-2xl px-4 py-10" dir={dir}>
           <h1 className="text-2xl font-bold">{translateText("Parents and teachers")}</h1>
           <p className="mt-4" role="status">
             {translateText("Sign in to invite somebody, or to follow a student who invited you.")}
@@ -126,14 +126,14 @@ export default function IVXGuardians() {
           <Button asChild variant="outline" className="mt-4">
             <Link to="/academy/ivx">{translateText("Back to IVX")}</Link>
           </Button>
-        </main>
+        </div>
       </Layout>
     );
   }
 
   return (
     <Layout>
-      <main className="mx-auto max-w-3xl px-4 py-10" dir={dir}>
+      <div className="mx-auto max-w-3xl px-4 py-10" dir={dir}>
         <p className="text-sm text-muted-foreground">
           <Link to="/academy/ivx" className="underline">IVX</Link>
         </p>
@@ -355,7 +355,7 @@ export default function IVXGuardians() {
             )}
           </div>
         </section>
-      </main>
+      </div>
     </Layout>
   );
 }

@@ -181,8 +181,19 @@ describe("the tutor panel is usable without sight", () => {
 
   it("sits outside the practice page's assertive region", () => {
     const practice = source("src/pages/academy/IVXPractice.tsx");
+    // The live region is the <div aria-live="assertive"> that opens just before
+    // `live`; walk the div depth from its opening tag to find where it closes.
     const live = practice.indexOf('aria-live="assertive"');
-    const closeOfLive = practice.indexOf("</div>", practice.indexOf("</section>", live) - 200);
+    const open = practice.lastIndexOf("<div", live);
+    const tag = /<div[\s>]|<\/div>/g;
+    tag.lastIndex = open;
+    let depth = 0;
+    let closeOfLive = -1;
+    for (let m = tag.exec(practice); m; m = tag.exec(practice)) {
+      depth += m[0] === "</div>" ? -1 : 1;
+      if (depth === 0) { closeOfLive = m.index; break; }
+    }
+    expect(closeOfLive).toBeGreaterThan(live);
     expect(practice.indexOf("<IVXTutor")).toBeGreaterThan(closeOfLive);
   });
 });

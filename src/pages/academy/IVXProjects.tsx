@@ -43,7 +43,7 @@ export default function IVXProjects() {
 
   return (
     <Layout>
-      <main className="mx-auto max-w-3xl px-4 py-10" dir={dir}>
+      <div className="mx-auto max-w-3xl px-4 py-10" dir={dir}>
         <p className="text-sm text-muted-foreground">
           <Link to="/academy/ivx" className="underline">IVX</Link>
         </p>
@@ -101,7 +101,7 @@ export default function IVXProjects() {
             ))}
           </ul>
         )}
-      </main>
+      </div>
     </Layout>
   );
 }
