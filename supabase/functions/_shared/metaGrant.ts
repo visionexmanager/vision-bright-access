@@ -186,6 +186,39 @@ export async function listGrantedPermissions(
   return granted;
 }
 
+/**
+ * Who a Threads token belongs to, and what it was actually allowed to do.
+ *
+ * Threads has no permissions endpoint and its token responses carry no scope,
+ * so the grant is read from behaviour instead of assumed from the request: the
+ * profile call proves threads_basic, and the publishing-limit edge, which
+ * answers only when threads_content_publish was granted, proves that one. A
+ * permission the person left unticked on the consent screen is therefore
+ * reported as missing, never as granted because Visionex asked for it.
+ */
+export async function inspectThreadsGrant(
+  accessToken: string,
+  fetchImpl: GrantFetch,
+): Promise<{ id?: string; username?: string; grantedScopes: string[] }> {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+
+  const me = new URL(`${THREADS_GRAPH}/v1.0/me`);
+  me.searchParams.set("fields", "id,username");
+  const profile = await readJson(() => fetchImpl(me.toString(), { method: "GET", headers }));
+  const id = profile ? nonEmpty(profile.id) : undefined;
+  if (!id) return { grantedScopes: [] };
+
+  const limit = new URL(`${THREADS_GRAPH}/v1.0/${encodeURIComponent(id)}/threads_publishing_limit`);
+  limit.searchParams.set("fields", "quota_usage");
+  const publishing = await readJson(() => fetchImpl(limit.toString(), { method: "GET", headers }));
+
+  return {
+    id,
+    username: nonEmpty(profile?.username),
+    grantedScopes: publishing ? ["threads_basic", "threads_content_publish"] : ["threads_basic"],
+  };
+}
+
 export interface ManagedPage {
   readonly id: string;
   readonly name?: string;
@@ -425,7 +458,15 @@ export async function upgradeMetaGrant(
     if (!long.ok) return { ok: false, error: long.error, detail: long.detail };
     // The Threads user id arrives with the authorisation response, not here, so
     // the caller keeps whatever normaliseTokenResponse() already found.
-    return { ok: true, accessToken: long.accessToken, expiresAt: long.expiresAt ?? null };
+    const seen = await inspectThreadsGrant(long.accessToken!, fetchImpl);
+    return {
+      ok: true,
+      accessToken: long.accessToken,
+      externalAccountId: seen.id,
+      expiresAt: long.expiresAt ?? null,
+      handle: seen.username,
+      grantedScopes: seen.grantedScopes,
+    };
   }
 
   const long = await exchangeLongLivedUser(
