@@ -46,3 +46,21 @@ Found through Openverse (https://api.openverse.org), filtered to CC0 / public-do
 | `car-tire-screech` | [SFX] car screech 2 | waveplaySFX | CC0 1.0 | https://freesound.org/people/waveplaySFX/sounds/233558 | 0 s, 1.15 s | -18.2 LUFS | `car-tire-screech.mp3` | `cd75326f3b50f6eacf3ab67c69008f08bcbea1ee6d878378b38725adfbe350cb` |
 
 Not covered: `car-brake` has no approved source yet. The one CC0 candidate found ("Truck Brakes", 27 s, continuous) could not be checked for fit without listening, so it was not shipped.
+
+## Shared-event Freesound CC0 derivatives (added 2026-10-25)
+
+Same source, licence and processing as the section above (Openverse, CC0, Freesound 128 kbps previews; trimmed, 4 ms fade-in, up to 40 ms fade-out, stereo 48 kHz, 192 kbps MP3). Levels: short impacts were raised so the peak sits near -1.8 dBFS, but never so far that the clip's RMS passes -20 dBFS; the pencil clip was loudness-normalised to -20 LUFS. These are the top-scoring automatic candidates of docs/ARCADE_AUDIO_CANDIDATES.md; none has been auditioned.
+
+| Registry ID | Freesound item | Creator | Licence | Landing page | Trim | Production file | SHA-256 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `card-flip` | Card.wav | CaptainYulef | CC0 1.0 | https://freesound.org/people/CaptainYulef/sounds/638697 | 0 s, 0.96 s | `card-flip.mp3` | `f8ef8cb6ef78fa4a143142ffcad82778a9caf5d759790b05589545dbe2f2a195` |
+| `card-shuffle` | shuffle.wav | deathpie | CC0 1.0 | https://freesound.org/people/deathpie/sounds/19245 | 0 s, 0.68 s | `card-shuffle.mp3` | `1459fb2763022224be44bd11fb9b69bf5be8b2567ba1b9e1e42c2f1307102f70` |
+| `answer-correct` | correct | ertfelda | CC0 1.0 | https://freesound.org/people/ertfelda/sounds/243701 | 0 s, 0.31 s | `answer-correct.mp3` | `5e3d2a54b3d76f7dd1294dabca5a65127b9a68de2b227afd3dc0593ff8cb7d19` |
+| `answer-wrong` | buzzer2.wav | hypocore | CC0 1.0 | https://freesound.org/people/hypocore/sounds/164089 | 0 s, 1.0 s | `answer-wrong.mp3` | `2dc1b02749691ed711b143148fa32159aecaab717cdf1736b5d63506a9fb1b96` |
+| `key-click` | qKey.wav | UberBosser | CC0 1.0 | https://freesound.org/people/UberBosser/sounds/421583 | 0 s, 0.16 s | `key-click.mp3` | `9c5bdca35c456358015b0efd284012dab16b667e5483973fc931ab9ab120abdd` |
+| `typewriter-key` | keyboard5.wav | jim-ph | CC0 1.0 | https://freesound.org/people/jim-ph/sounds/194799 | 0 s, 0.40 s | `typewriter-key.mp3` | `16bce83b5f0fc743db33c21753938223232cbf46efcfc7229d95ac5af67c8fea` |
+| `pencil-write` | PEN SIGNATURE SIGNING 2.wav | ListenTonyBoy | CC0 1.0 | https://freesound.org/people/ListenTonyBoy/sounds/326961 | 0 s, 2.0 s | `pencil-write.mp3` | `0dc4770ae5b66ab2639bc1bdfbba1477961d89c5908dadd18c9647648d196e19` |
+| `coin-pickup` | Retro, Coin 02.wav | MATRIXXX_ | CC0 1.0 | https://freesound.org/people/MATRIXXX_/sounds/402288 | 0 s, 0.44 s | `coin-pickup.mp3` | `d78b56ee081ac28f7ff0676cd52e46220b08d2ad7b4087ba049e39f8052c96f9` |
+| `piano-note` | Mi.WAV | LuckyLux | CC0 1.0 | https://freesound.org/people/LuckyLux/sounds/386721 | 0 s, 2.0 s | `piano-note.mp3` | `9233ea9fb1e89a43f6af7d4bcf59ba169e29045ca96337b6ba5fc27a43806982` |
+| `drum-hit` | Rpeople_Snare2.wav | rhythmpeople | CC0 1.0 | https://freesound.org/people/rhythmpeople/sounds/165208 | 0 s, 0.33 s | `drum-hit.mp3` | `81ff24c7ee19f8ed34450e61272db53a1c0a7f36354b6770ea28b070614f5102` |
+| `metronome-click` | Quick Clack | effectator | CC0 1.0 | https://freesound.org/people/effectator/sounds/443328 | 0 s, 0.14 s | `metronome-click.mp3` | `a2abd2ddf9de26d4e3567bb58347e5fc5616d60a78be171d48b8e035c18dc83e` |

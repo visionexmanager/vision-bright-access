@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef } from "react";
 import { useSound } from "@/contexts/SoundContext";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
 
 // ─── Low-level Web Audio helpers (mirrors SoundContext internals) ─────────────
 let _ctx: AudioContext | null = null;
@@ -453,6 +454,14 @@ export function arcadeVictory() {
 
 export type GameSoundFn = () => void;
 
+/** The recorded sound when it can play, the synthesised one when it cannot. */
+function recorded(assetId: string, fallback: GameSoundFn, options?: { volume?: number; playbackRate?: number }): GameSoundFn {
+  return () => { void playProductionSound(assetId, options).then((played) => { if (!played) fallback(); }); };
+}
+
+// The piano recording is an E4 (about 329.1 Hz); other notes re-pitch it, within an octave either way.
+const PIANO_SAMPLE_MIDI = 64;
+
 export function useGameSounds() {
   const { enabled } = useSound();
   const enabledRef = useRef(enabled);
@@ -471,10 +480,17 @@ export function useGameSounds() {
     dominoThud:    wrap(dominoThud),
     dominoInvalid: wrap(dominoInvalid),
     dominoSlide:   wrap(dominoSlide),
+    // Recorded effects shared by many games (the synthesised sound plays if the recording cannot)
+    answerCorrect:  wrap(recorded("answer-correct", logiCorrect, { volume: 0.7 })),
+    answerWrong:    wrap(recorded("answer-wrong", logiWrong, { volume: 0.6 })),
+    keyClick:       wrap(recorded("key-click", techClick, { volume: 0.6 })),
+    pencilWrite:    wrap(recorded("pencil-write", arcadePickup, { volume: 0.7 })),
+    drumHit:        wrap(recorded("drum-hit", arcadeMove, { volume: 0.8 })),
+    metronomeClick: wrap(recorded("metronome-click", logiTick, { volume: 0.7 })),
     // Cards (Briscola, Card99, UnoUltra)
-    cardFlip:    wrap(cardFlip),
-    cardShuffle: wrap(cardShuffle),
-    cardDeal:    wrap(cardDeal),
+    cardFlip:    wrap(recorded("card-flip", cardFlip)),
+    cardShuffle: wrap(recorded("card-shuffle", cardShuffle)),
+    cardDeal:    wrap(recorded("card-flip", cardDeal, { playbackRate: 1.12 })),
     cardWin:     wrap(cardWin),
     cardLose:    wrap(cardLose),
     // Farkle
@@ -520,7 +536,12 @@ export function useGameSounds() {
     racingFinish:     wrap(racingFinish),
     racingCrash:      wrap(racingCrash),
     // MusicEarMaster
-    musicNote:    (midi: number) => { if (enabledRef.current) musicNote(midi); },
+    musicNote:    (midi: number) => {
+      if (!enabledRef.current) return;
+      const rate = Math.pow(2, (midi - PIANO_SAMPLE_MIDI) / 12);
+      if (rate < 0.5 || rate > 2) { musicNote(midi); return; }
+      recorded("piano-note", () => musicNote(midi), { playbackRate: rate, volume: 0.9 })();
+    },
     musicCorrect: wrap(musicCorrect),
     musicWrong:   wrap(musicWrong),
     // LaptopTechMaster
@@ -529,7 +550,7 @@ export function useGameSounds() {
     techBoot:   wrap(techBoot),
     techError:  wrap(techError),
     // TradeTycoon
-    tradeCoin:         wrap(tradeCoin),
+    tradeCoin:         wrap(recorded("coin-pickup", tradeCoin, { volume: 0.8 })),
     tradeCashRegister: wrap(tradeCashRegister),
     tradeMarketRise:   wrap(tradeMarketRise),
     tradeMarketFall:   wrap(tradeMarketFall),

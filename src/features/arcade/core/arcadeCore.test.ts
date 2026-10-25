@@ -48,10 +48,10 @@ describe("Visionex Arcade core", () => {
   });
 
   it("plays only approved sounds and blocks pending replacements", async () => {
-    expect(audioLibrary.playable()).toHaveLength(18);
+    expect(audioLibrary.playable()).toHaveLength(29);
     const audits = auditAudioLibrary(AUDIO_LIBRARY);
-    expect(audits.filter(({ result }) => result.valid)).toHaveLength(18);
-    expect(audits.filter(({ result }) => !result.valid)).toHaveLength(AUDIO_LIBRARY.length - 18);
+    expect(audits.filter(({ result }) => result.valid)).toHaveLength(29);
+    expect(audits.filter(({ result }) => !result.valid)).toHaveLength(AUDIO_LIBRARY.length - 29);
     await expect(new AdvancedAudioEngine().preload("car-brake")).rejects.toThrow("blocked");
   });
 

@@ -9,7 +9,7 @@ vi.mock("@/contexts/LanguageContext", () => {
 });
 
 const sounds = {
-  arcadeMove: vi.fn(), arcadePickup: vi.fn(), arcadeLevelUp: vi.fn(),
+  arcadeMove: vi.fn(), arcadePickup: vi.fn(), arcadeLevelUp: vi.fn(), pencilWrite: vi.fn(),
   arcadeDanger: vi.fn(), arcadeCrash: vi.fn(), arcadeVictory: vi.fn(),
 };
 vi.mock("@/hooks/useGameSounds", () => ({ useGameSounds: () => sounds }));

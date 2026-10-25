@@ -6,7 +6,7 @@ describe("production Arcade audio assets", () => {
   it("keeps every playable asset licensed and quality-gated", () => {
     const playable = AUDIO_LIBRARY.filter((asset) => asset.quality === "production");
 
-    expect(playable).toHaveLength(18);
+    expect(playable).toHaveLength(29);
     expect(playable.every((asset) => validateAudioAsset(asset).valid)).toBe(true);
     expect(playable.every((asset) => asset.sources.every((source) => source.src.startsWith("/audio/arcade/")))).toBe(true);
     expect(playable.every((asset) => asset.licenseStatus === "approved")).toBe(true);
