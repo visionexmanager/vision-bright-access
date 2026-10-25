@@ -424,6 +424,8 @@ Deno.serve(async (req) => {
         account_id: account.id,
         authorize_url: authorizeUrl(
           provider, credentials.clientId!, redirectUri(), state, challenge,
+          // Only the two providers that sign in through the Meta app.
+          platform === "facebook" || platform === "instagram" ? env("META_LOGIN_CONFIG_ID") : undefined,
         ),
       });
     }
