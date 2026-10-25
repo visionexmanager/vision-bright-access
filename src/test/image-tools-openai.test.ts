@@ -137,11 +137,16 @@ describe("the handler", () => {
     expect(handler.match(/chargeDailyLimit\(/g)).toHaveLength(1);
   });
 
-  it("the live probe calls this exact edit, and runs again whenever it changes", () => {
+  it("the live probe calls this exact edit, and proves it daily and on request", () => {
     const probe = readFileSync("scripts/ai-eval/live-route-contract.ts", "utf8");
     expect(probe).toContain('import { editWithOpenAI } from "../../supabase/functions/_shared/providers/openaiImageEdit.ts";');
     expect(probe).toContain("await run(`image tool ${mode}`");
-    expect(readFileSync(".github/workflows/live-route-contract.yml", "utf8")).toContain("supabase/functions/_shared/providers/openaiImageEdit.ts");
+    // It spends real money on OpenAI, so it is not run on every push: the daily
+    // schedule proves the edit, and a PR can ask for it with the label.
+    const workflow = readFileSync(".github/workflows/live-route-contract.yml", "utf8");
+    expect(workflow).toContain("schedule:");
+    expect(workflow).toContain("live-route-probe");
+    expect(workflow).not.toMatch(/pull_request:\s*\n\s*paths:/);
   });
 
   it("logs the mode, provider, model, outcome and time — no prompt, no key", () => {
