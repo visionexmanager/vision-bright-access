@@ -207,7 +207,7 @@ function useRaceEngine(onFinish: (distance: number, fuel: number) => void) {
   }, [racing, speed, lap, fuel, distance, onFinish, racingCheckpoint, racingFinish]);
 
   const accelerate = () => { setSpeed((s) => Math.min(s + 10, 100)); racingRev(); void playProductionSound("car-engine-acceleration", { volume:0.78 }); };
-  const brake = () => { setSpeed((s) => Math.max(s - 20, 0)); racingScreech(); };
+  const brake = () => { setSpeed((s) => Math.max(s - 20, 0)); void playProductionSound("car-tire-screech", { volume: 0.55 }).then((played) => { if (!played) racingScreech(); }); };
   const nitro = useCallback(() => {
     setFuel((f) => {
       if (f < 20) return f;

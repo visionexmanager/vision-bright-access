@@ -28,6 +28,19 @@ const mixkit = (
   notes: `Original WAV downloaded from Mixkit and web-mastered by Visionex. Provenance: public/audio/arcade/ASSET_MANIFEST.md`,
 });
 
+const cc0 = (
+  asset: Omit<AudioAssetDefinition, "quality" | "sources" | "sourceAttribution" | "license" | "licenseStatus">,
+  source: { title: string; creator: string },
+): AudioAssetDefinition => ({
+  ...asset,
+  quality: "production",
+  sources: [{ src:`/audio/arcade/${asset.id}.mp3`, codec:"mp3", bitrateKbps:192, sampleRateHz:48_000 }],
+  sourceAttribution: `Freesound — "${source.title}" by ${source.creator} (CC0, found through Openverse)`,
+  license: "Creative Commons CC0 1.0 Universal — public-domain dedication; attribution not required",
+  licenseStatus: "approved",
+  notes: `Freesound CC0 preview (128 kbps MP3 source) trimmed and mastered by Visionex. Provenance: public/audio/arcade/ASSET_MANIFEST.md`,
+});
+
 export const AUDIO_LIBRARY: readonly AudioAssetDefinition[] = [
   mixkit({ id:"ui-select", name:"Arcade UI Select", gameIds:["*"], category:"ui", channel:"effects", maxInstances:3, normalizedLufs:-18 }, 3124, "Modern technology select"),
   mixkit({ id:"button-confirm", name:"Natural Button Confirm", gameIds:["*"], category:"button", channel:"effects", maxInstances:3, normalizedLufs:-18 }, 2867, "Confirmation tone"),
@@ -35,15 +48,15 @@ export const AUDIO_LIBRARY: readonly AudioAssetDefinition[] = [
   mixkit({ id:"puzzle-success", name:"Calm Puzzle Success", gameIds:["memory","word-puzzle","logiquest","quiz-challenge"], category:"victory", channel:"effects", maxInstances:2, normalizedLufs:-16 }, 2870, "Correct answer tone"),
   mixkit({ id:"puzzle-failure", name:"Soft Puzzle Failure", gameIds:["memory","word-puzzle","logiquest","quiz-challenge"], category:"failure", channel:"effects", maxInstances:2, normalizedLufs:-18 }, 946, "Wrong answer fail notification"),
   mixkit({ id:"wood-piece-place", name:"Solid Wood Piece Placement", gameIds:["visionopoly","dominoes","chess","backgammon","ludo"], category:"game-effect", channel:"effects", maxInstances:4, normalizedLufs:-18 }, 2182, "Wood hard hit"),
-  required({ id:"chess-piece-move", name:"Solid Wood Chess Piece Move", gameIds:["chess"], category:"game-effect", channel:"effects", maxInstances:4, normalizedLufs:-18 }),
-  required({ id:"chess-piece-capture", name:"Solid Wood Chess Piece Capture", gameIds:["chess"], category:"game-effect", channel:"effects", maxInstances:3, normalizedLufs:-18 }),
+  cc0({ id:"chess-piece-move", name:"Solid Wood Chess Piece Move", gameIds:["chess"], category:"game-effect", channel:"effects", maxInstances:4, normalizedLufs:-18 }, { title:"Chess Pieces hitting wooden board.wav", creator:"XfiXy8" }),
+  cc0({ id:"chess-piece-capture", name:"Solid Wood Chess Piece Capture", gameIds:["chess"], category:"game-effect", channel:"effects", maxInstances:3, normalizedLufs:-18 }, { title:"Forcefully knocking over chess piece, with roll FINAL.wav", creator:"mht23SD" }),
   mixkit({ id:"card-place", name:"Real Card Table Placement", gameIds:["uno-ultra","briscola","card-99"], category:"game-effect", channel:"effects", maxInstances:4, normalizedLufs:-18 }, 2001, "Poker card placement"),
-  required({ id:"dice-roll", name:"Real Dice Roll on Wood", gameIds:["farkle","visionopoly"], category:"game-effect", channel:"effects", maxInstances:2, normalizedLufs:-18 }),
+  cc0({ id:"dice-roll", name:"Real Dice Roll on Wood", gameIds:["farkle","visionopoly"], category:"game-effect", channel:"effects", maxInstances:2, normalizedLufs:-18 }, { title:"dice roll_wooden table_1.wav", creator:"ekfink" }),
   mixkit({ id:"car-engine-idle", name:"Performance Engine Idle", gameIds:["velocity-racing"], category:"environment", channel:"ambient", maxInstances:1, normalizedLufs:-22 }, 1535, "Car ignition"),
   mixkit({ id:"car-engine-acceleration", name:"Performance Engine Acceleration", gameIds:["velocity-racing"], category:"game-effect", channel:"effects", maxInstances:1, normalizedLufs:-18 }, 1560, "Transport car start"),
-  required({ id:"car-gear-shift", name:"Mechanical Gear Shift", gameIds:["velocity-racing"], category:"game-effect", channel:"effects", maxInstances:2, normalizedLufs:-18 }),
+  cc0({ id:"car-gear-shift", name:"Mechanical Gear Shift", gameIds:["velocity-racing"], category:"game-effect", channel:"effects", maxInstances:2, normalizedLufs:-18 }, { title:"Column Gear Select Up (mono).wav", creator:"E-Audio" }),
   required({ id:"car-brake", name:"Performance Brake", gameIds:["velocity-racing"], category:"game-effect", channel:"effects", maxInstances:2, normalizedLufs:-18 }),
-  required({ id:"car-tire-screech", name:"Real Tire Friction", gameIds:["velocity-racing"], category:"game-effect", channel:"effects", maxInstances:2, normalizedLufs:-18 }),
+  cc0({ id:"car-tire-screech", name:"Real Tire Friction", gameIds:["velocity-racing"], category:"game-effect", channel:"effects", maxInstances:2, normalizedLufs:-18 }, { title:"[SFX] car screech 2", creator:"waveplaySFX" }),
   mixkit({ id:"jungle-ambience", name:"Natural Jungle Ambience", gameIds:["jungle-survival"], category:"environment", channel:"ambient", loop:true, maxInstances:1, normalizedLufs:-24 }, 2434, "Birds in the jungle"),
   mixkit({ id:"kitchen-ambience", name:"Professional Kitchen Ambience", gameIds:["star-chef"], category:"environment", channel:"ambient", loop:true, maxInstances:1, normalizedLufs:-24 }, 1831, "Gas stove hum"),
   mixkit({ id:"natural-victory", name:"Premium Victory Resolve", gameIds:["*"], category:"victory", channel:"music", maxInstances:1, normalizedLufs:-16 }, 502, "Auditorium moderate applause and cheering"),

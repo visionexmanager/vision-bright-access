@@ -32,3 +32,17 @@ Visionex converted each WAV to stereo MP3 at 48 kHz and 192 kbps, applying EBU R
 ## Approval boundary
 
 This manifest approves only the thirteen files listed above. Narration, children's voices, adaptive music, dice, chess, gear-shift, brake, and tyre assets remain blocked in the registry until a matching licensed recording is acquired and reviewed. No preview URL or undocumented sound is an approved fallback.
+
+## Freesound CC0 derivatives (added 2026-10-25)
+
+Found through Openverse (https://api.openverse.org), filtered to CC0 / public-domain licences, so no attribution is required. Source files are Freesound preview MP3s (128 kbps), the best quality available without a Freesound account, so the delivered 192 kbps MP3 carries no more detail than its source. Each clip was trimmed to the sound itself, given a 4 ms fade-in and 40 ms fade-out, converted to stereo 48 kHz and encoded as 192 kbps MP3. Sustained sounds were loudness-normalised (EBU R128, -18 LUFS, -1.5 dBTP); single impacts (dice, capture, gear) were peak-normalised to about -1.8 dBFS, because a short impact cannot reach -18 LUFS without clipping. The measured integrated loudness is listed.
+
+| Registry ID | Freesound item | Creator | Licence | Landing page | Trim | Integrated | Production file | SHA-256 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `dice-roll` | dice roll_wooden table_1.wav | ekfink | CC0 1.0 | https://freesound.org/people/ekfink/sounds/235484 | 0.15 s, 1.9 s | -25.7 LUFS | `dice-roll.mp3` | `13c1b4c63a23e058b868c90f58aa93b549224b047a165349437d02de4712b925` |
+| `chess-piece-move` | Chess Pieces hitting wooden board.wav | XfiXy8 | CC0 1.0 | https://freesound.org/people/XfiXy8/sounds/467282 | 0 s, 0.9 s | -19.4 LUFS | `chess-piece-move.mp3` | `b2858b141c1ec1e984599b8cca914a563cbb2a740cf038d8295c8010a082075c` |
+| `chess-piece-capture` | Forcefully knocking over chess piece, with roll FINAL.wav | mht23SD | CC0 1.0 | https://freesound.org/people/mht23SD/sounds/707342 | 0.10 s, 0.7 s | -29.3 LUFS | `chess-piece-capture.mp3` | `7e3e2e55e991017c29ebf886f9593fea0311fa0e1ec09fdb7ea0d81aa7f9dbf4` |
+| `car-gear-shift` | Column Gear Select Up (mono).wav | E-Audio | CC0 1.0 | https://freesound.org/people/E-Audio/sounds/118243 | whole, 0.73 s | -19.6 LUFS | `car-gear-shift.mp3` | `e58b2327850a72897d09988792aef58545782d91796e1722237db71451bb3a9b` |
+| `car-tire-screech` | [SFX] car screech 2 | waveplaySFX | CC0 1.0 | https://freesound.org/people/waveplaySFX/sounds/233558 | 0 s, 1.15 s | -18.2 LUFS | `car-tire-screech.mp3` | `cd75326f3b50f6eacf3ab67c69008f08bcbea1ee6d878378b38725adfbe350cb` |
+
+Not covered: `car-brake` has no approved source yet. The one CC0 candidate found ("Truck Brakes", 27 s, continuous) could not be checked for fit without listening, so it was not shipped.
