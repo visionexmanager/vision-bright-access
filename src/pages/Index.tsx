@@ -30,6 +30,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { headlineGap } from "@/lib/headlineGap";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSound } from "@/contexts/SoundContext";
 import { AnimatedSection, StaggerGrid, StaggerItem } from "@/components/AnimatedSection";
@@ -140,7 +141,7 @@ export default function Index() {
             {t("home.badge")}
           </div>
           <h1 id="hero-heading" className="type-display mb-6 text-balance">
-            {t("home.title")}
+            {t("home.title")}{headlineGap(lang, t("home.title"))}
             <span className="text-primary">{t("home.titleHighlight")}</span>
           </h1>
           {/* Short promise only. The full platform description now introduces the

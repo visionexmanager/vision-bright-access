@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isPasswordBreached } from "@/lib/pwnedPassword";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { headlineGap } from "@/lib/headlineGap";
 import { SocialAuthButtons } from "@/components/SocialAuthButtons";
 import { useDeviceId } from "@/hooks/useDeviceId";
 import { useAuth } from "@/contexts/AuthContext";
@@ -174,7 +175,7 @@ export default function Signup() {
                 {t("home.badge")}
               </div>
               <h2 className="text-3xl font-bold leading-tight">
-                {t("home.title")}<span className="text-primary">{t("home.titleHighlight")}</span>
+                {t("home.title")}{headlineGap(lang, t("home.title"))}<span className="text-primary">{t("home.titleHighlight")}</span>
               </h2>
               <p className="mt-3 text-muted-foreground">{t("home.subtitle")}</p>
             </div>
