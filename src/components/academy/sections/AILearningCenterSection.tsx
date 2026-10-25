@@ -116,7 +116,7 @@ export const AILearningCenterSection = memo(function AILearningCenterSection({
               </div>
               <div>
                 <h3 className="text-lg font-black leading-tight">{t("academy.ui.munirTitle").replace("{level}", displayProfile.level)}</h3>
-                <p className="text-primary text-[10px] font-bold uppercase tracking-widest">
+                <p className="text-teal-300 dark:text-teal-700 text-[10px] font-bold uppercase tracking-widest">
                   {isStreaming ? t("academy.ui.typing") : t("academy.ui.guidanceTitle")}
                 </p>
               </div>

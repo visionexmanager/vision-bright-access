@@ -8,8 +8,8 @@ const LABELS: Record<AcademyCourseDifficulty, string> = {
 };
 
 const STYLES: Record<AcademyCourseDifficulty, string> = {
-  beginner: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  intermediate: "bg-yellow-400/10 text-yellow-600 border-yellow-400/20",
+  beginner: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
+  intermediate: "bg-yellow-400/10 text-yellow-700 dark:text-yellow-400 border-yellow-400/20",
   advanced: "bg-red-500/10 text-red-600 border-red-500/20",
 };
 
