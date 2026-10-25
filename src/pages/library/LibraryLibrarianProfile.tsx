@@ -105,7 +105,7 @@ export default function LibraryLibrarianProfile() {
                 {favoriteTopics.map((topic) => (
                   <Badge key={topic.entity_id} variant="secondary" className="gap-1 pe-1">
                     <Link to={`/library/knowledge-graph/${topic.slug}`} className="hover:underline">{topic.name}</Link>
-                    <Button type="button" variant="ghost" size="icon" className="h-4 w-4" onClick={() => void toggleFavoriteTopic(topic.entity_id, true)} aria-label={t("library.researchAssistant.remove")}>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => void toggleFavoriteTopic(topic.entity_id, true)} aria-label={t("library.researchAssistant.remove")}>
                       <X className="h-3 w-3" aria-hidden="true" />
                     </Button>
                   </Badge>

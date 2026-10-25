@@ -402,11 +402,11 @@ export function Navbar() {
           <LanguageSwitcher />
           <ThemeToggle />
           {user && (
-            <Link to="/profile" onClick={() => setMenuOpen(false)}>
-              <Button variant="ghost" size="icon" aria-label={t("nav.profile")}>
+            <Button asChild variant="ghost" size="icon">
+              <Link to="/profile" aria-label={t("nav.profile")} onClick={() => setMenuOpen(false)}>
                 <User className="h-5 w-5" aria-hidden="true" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           )}
           <Button
             ref={toggleRef}

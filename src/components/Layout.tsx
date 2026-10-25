@@ -17,10 +17,15 @@ import { AcademyNav } from "@/components/academy/AcademyNav";
 import { AdSenseSlot, openConsentPreferences } from "@/features/ads";
 
 import { FOOTER_GROUPS } from "@/components/footerGroups";
+import { routeTitle } from "@/lib/routeTitle";
 
 // Lazy-load the AI chat widget — it's a floating button that users open on demand.
 // This keeps the Layout chunk lean and defers the react-markdown + voice-chat weight.
 const AIChat = lazy(() => import("./AIChat").then((m) => ({ default: m.AIChat })));
+
+// The title index.html ships, and the last one derived from a page heading.
+const DEFAULT_TITLE = typeof document !== "undefined" ? document.title : "";
+let lastDerivedTitle: string | null = null;
 
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -38,7 +43,22 @@ export function Layout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isEmbedded) return;
-    setRouteAnnouncement(`${t("nav.mainContent") || "Main content"}: ${document.title}`);
+    // A page's own title is set in an effect of its own, and lazy pages render
+    // after this one runs, so read the title once the route has settled.
+    const timer = window.setTimeout(() => {
+      if (pathname === "/") {
+        if (lastDerivedTitle && document.title === lastDerivedTitle) document.title = DEFAULT_TITLE;
+        lastDerivedTitle = null;
+      } else {
+        const next = routeTitle(document.title, DEFAULT_TITLE, lastDerivedTitle, document.querySelector("main h1")?.textContent);
+        if (next) {
+          document.title = next;
+          lastDerivedTitle = next;
+        }
+      }
+      setRouteAnnouncement(`${t("nav.mainContent") || "Main content"}: ${document.title}`);
+    }, 350);
+    return () => window.clearTimeout(timer);
   }, [pathname, isEmbedded, t]);
 
   /* In embedded mode (inside LegalCenter Sheet) — render content only */
@@ -92,7 +112,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <ul className="space-y-2.5">
                   {group.links.map((l) => (
                     <li key={l.to}>
-                      <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground hover:translate-x-0.5 transition-all inline-block">
+                      <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground hover:translate-x-0.5 transition-all inline-block py-0.5">
                         {t(l.labelKey)}
                       </Link>
                     </li>
@@ -105,13 +125,13 @@ export function Layout({ children }: { children: ReactNode }) {
           {/* Bottom bar */}
           <div className="mt-10 border-t border-border/40 pt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
             <div className="flex items-center gap-4">
-              <Link to="/legal" className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+              <Link to="/legal" className="inline-flex min-h-6 items-center text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
                 {t("footer.link.legalCenter")} →
               </Link>
               <button
                 type="button"
                 onClick={openConsentPreferences}
-                className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                className="inline-flex min-h-6 items-center text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
               >
                 {t("cookie.label")}
               </button>

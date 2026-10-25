@@ -107,7 +107,7 @@ export default function IVXProject() {
   if (refusal) {
     return (
       <Layout>
-        <main className="mx-auto max-w-2xl px-4 py-10" dir={dir}>
+        <div className="mx-auto max-w-2xl px-4 py-10" dir={dir}>
           <p role="status">
             {refusal === "not_authenticated"
               ? translateText("Sign in to work on a project.")
@@ -116,7 +116,7 @@ export default function IVXProject() {
           <Button asChild variant="outline" className="mt-4">
             <Link to="/academy/ivx/projects">{translateText("All projects")}</Link>
           </Button>
-        </main>
+        </div>
       </Layout>
     );
   }
@@ -124,9 +124,9 @@ export default function IVXProject() {
   if (!project) {
     return (
       <Layout>
-        <main className="mx-auto max-w-2xl px-4 py-10" dir={dir}>
+        <div className="mx-auto max-w-2xl px-4 py-10" dir={dir}>
           <p role="status">{translateText("Loading…")}</p>
-        </main>
+        </div>
       </Layout>
     );
   }
@@ -137,7 +137,7 @@ export default function IVXProject() {
 
   return (
     <Layout>
-      <main className="mx-auto max-w-3xl px-4 py-10" dir={dir}>
+      <div className="mx-auto max-w-3xl px-4 py-10" dir={dir}>
         <p className="text-sm text-muted-foreground">
           <Link to="/academy/ivx/projects" className="underline">{translateText("Projects")}</Link>
         </p>
@@ -249,7 +249,7 @@ export default function IVXProject() {
             </article>
           )}
         </div>
-      </main>
+      </div>
     </Layout>
   );
 }

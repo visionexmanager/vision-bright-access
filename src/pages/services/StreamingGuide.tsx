@@ -117,7 +117,7 @@ export default function StreamingGuide() {
 
   return (
     <Layout>
-      <main className="mx-auto max-w-7xl space-y-8 px-4 py-8" dir={dir} aria-labelledby="streaming-guide-title">
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-8" dir={dir} aria-labelledby="streaming-guide-title">
         <section className="overflow-hidden rounded-2xl border border-violet-500/20 bg-gradient-to-br from-slate-950 via-violet-950/80 to-blue-950 p-7 text-white sm:p-9">
           <div className="max-w-3xl space-y-3">
             <Badge className="border-violet-300/30 bg-violet-400/15 text-violet-100">
@@ -238,7 +238,7 @@ export default function StreamingGuide() {
             ? "Visionex لا يستضيف الأفلام أو المسلسلات ولا يبيع اشتراكات هذه المنصات. الدليل يعرض روابطها الرسمية فقط، والتوفر يتغير حسب البلد."
             : "Visionex does not host movies or series or sell these subscriptions. This directory only links to official services, and availability varies by country."}
         </aside>
-      </main>
+      </div>
     </Layout>
   );
 }

@@ -140,7 +140,7 @@ export default function IVXPractice() {
 
   return (
     <Layout>
-      <main className="mx-auto max-w-2xl px-4 py-10" dir={dir}>
+      <div className="mx-auto max-w-2xl px-4 py-10" dir={dir}>
         <p className="text-sm text-muted-foreground">
           <Link to="/academy/ivx" className="underline">IVX</Link>
           {question && <> — {question.skill_title}</>}
@@ -292,7 +292,7 @@ export default function IVXPractice() {
             <IVXTutor questionId={question.question_id} />
           </section>
         )}
-      </main>
+      </div>
     </Layout>
   );
 }

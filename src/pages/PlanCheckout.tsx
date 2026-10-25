@@ -121,7 +121,7 @@ export default function PlanCheckout() {
 
   return (
     <Layout>
-      <main className="mx-auto max-w-2xl px-4 py-12" dir={dir}>
+      <div className="mx-auto max-w-2xl px-4 py-12" dir={dir}>
         <Link to={PRICING_PATH} className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
           <ArrowLeft className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
           {t("planCheckout.back")}
@@ -307,7 +307,7 @@ export default function PlanCheckout() {
             )}
           </>
         )}
-      </main>
+      </div>
     </Layout>
   );
 }
