@@ -66,6 +66,17 @@ export const AUDIO_LIBRARY: readonly AudioAssetDefinition[] = [
   required({ id:"music-menu", name:"Arcade Menu Score", gameIds:["*"], category:"music", channel:"music", loop:true, maxInstances:1, normalizedLufs:-23 }),
   required({ id:"music-active", name:"Adaptive Active Gameplay Score", gameIds:["*"], category:"music", channel:"music", loop:true, maxInstances:1, normalizedLufs:-23 }),
   required({ id:"music-danger", name:"Adaptive Danger Gameplay Score", gameIds:["*"], category:"music", channel:"music", loop:true, maxInstances:1, normalizedLufs:-23 }),
+  cc0({ id:"card-flip", name:"Real Card Flip", gameIds:["uno-ultra","briscola","card-99","solitaire","spider-solitaire","freecell"], category:"game-effect", channel:"effects", maxInstances:4, normalizedLufs:-18 }, { title:"Card.wav", creator:"CaptainYulef" }),
+  cc0({ id:"card-shuffle", name:"Real Card Shuffle", gameIds:["uno-ultra","briscola","card-99","solitaire","spider-solitaire","freecell"], category:"game-effect", channel:"effects", maxInstances:2, normalizedLufs:-18 }, { title:"shuffle.wav", creator:"deathpie" }),
+  cc0({ id:"answer-correct", name:"Quiz Correct Answer", gameIds:["trivia","geography-quiz","history-quiz","nature-quiz","science-quiz","space-quiz","sports-quiz","technology-quiz"], category:"game-effect", channel:"effects", maxInstances:2, normalizedLufs:-18 }, { title:"correct", creator:"ertfelda" }),
+  cc0({ id:"answer-wrong", name:"Quiz Wrong Answer", gameIds:["trivia","geography-quiz","history-quiz","nature-quiz","science-quiz","space-quiz","sports-quiz","technology-quiz"], category:"game-effect", channel:"effects", maxInstances:2, normalizedLufs:-18 }, { title:"buzzer2.wav", creator:"hypocore" }),
+  cc0({ id:"key-click", name:"Keyboard Key Click", gameIds:["typing-speed"], category:"game-effect", channel:"effects", maxInstances:6, normalizedLufs:-18 }, { title:"qKey.wav", creator:"UberBosser" }),
+  cc0({ id:"typewriter-key", name:"Typewriter Key", gameIds:["typing-speed","spelling-master"], category:"game-effect", channel:"effects", maxInstances:6, normalizedLufs:-18 }, { title:"keyboard5.wav", creator:"jim-ph" }),
+  cc0({ id:"pencil-write", name:"Pencil on Paper", gameIds:["sudoku"], category:"game-effect", channel:"effects", maxInstances:2, normalizedLufs:-18 }, { title:"PEN SIGNATURE SIGNING 2.wav", creator:"ListenTonyBoy" }),
+  cc0({ id:"coin-pickup", name:"Coin Pickup", gameIds:["trade-tycoon"], category:"game-effect", channel:"effects", maxInstances:3, normalizedLufs:-18 }, { title:"Retro, Coin 02.wav", creator:"MATRIXXX_" }),
+  cc0({ id:"piano-note", name:"Piano Note (E4, re-pitched per key)", gameIds:["piano-trainer","melody-memory","music-ear","rhythm-keys"], category:"game-effect", channel:"effects", maxInstances:4, normalizedLufs:-18 }, { title:"Mi.WAV", creator:"LuckyLux" }),
+  cc0({ id:"drum-hit", name:"Snare Drum Hit", gameIds:["rhythm-keys","beat-matcher","rhythm-navigation"], category:"game-effect", channel:"effects", maxInstances:3, normalizedLufs:-18 }, { title:"Rpeople_Snare2.wav", creator:"rhythmpeople" }),
+  cc0({ id:"metronome-click", name:"Metronome Click", gameIds:["beat-matcher"], category:"game-effect", channel:"effects", maxInstances:3, normalizedLufs:-18 }, { title:"Quick Clack", creator:"effectator" }),
 ];
 
 const byId = new Map(AUDIO_LIBRARY.map((asset) => [asset.id, asset]));

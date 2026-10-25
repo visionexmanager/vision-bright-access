@@ -23,7 +23,7 @@ describe("Arcade enterprise release contracts",()=>{
   });
   it("does not misrepresent pending audio as production-ready",()=>{
     expect(AUDIO_LIBRARY.length).toBeGreaterThan(0);
-    expect(AUDIO_LIBRARY.filter(item=>item.quality==="production" && item.licenseStatus==="approved")).toHaveLength(18);
+    expect(AUDIO_LIBRARY.filter(item=>item.quality==="production" && item.licenseStatus==="approved")).toHaveLength(29);
     expect(AUDIO_LIBRARY.filter(item=>item.quality==="replacement-required" && item.licenseStatus==="pending")).toHaveLength(6);
     expect(readFileSync("docs/ARCADE_RELEASE_AUDIT.md","utf8")).toContain("BLOCKED");
   });
