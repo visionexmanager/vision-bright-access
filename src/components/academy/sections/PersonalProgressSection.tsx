@@ -80,7 +80,7 @@ export const PersonalProgressSection = memo(function PersonalProgressSection({
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">{t("academy.ui.statVx")}</span>
-            <span className="font-bold text-emerald-600">{totalPoints.toLocaleString()}</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-400">{totalPoints.toLocaleString()}</span>
           </div>
         </div>
       </div>

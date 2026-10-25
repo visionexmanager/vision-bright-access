@@ -71,7 +71,7 @@ export const CourseCard = memo(function CourseCard({ course }: CourseCardProps) 
             {hours > 0 ? `${hours} ${lang === "ar" ? "ساعة" : hours === 1 ? "hour" : "hours"}` : (lang === "ar" ? "قيد الإعداد" : "In preparation")}
           </span>
           {course.is_free ? (
-            <span className="font-bold text-emerald-600">{lang === "ar" ? "مجانية" : "Free"}</span>
+            <span className="font-bold text-emerald-700 dark:text-emerald-400">{lang === "ar" ? "مجانية" : "Free"}</span>
           ) : (
             <span className="font-bold text-primary flex items-center gap-1">
               <Zap className="w-3 h-3" aria-hidden="true" />

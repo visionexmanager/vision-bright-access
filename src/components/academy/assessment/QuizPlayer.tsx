@@ -126,7 +126,7 @@ export function QuizPlayer({ quiz, questions, userId, onPassed }: QuizPlayerProp
         <div className="text-center space-y-2">
           {result.passed ? <Award className="w-12 h-12 mx-auto text-emerald-500" aria-hidden="true" /> : <XCircle className="w-12 h-12 mx-auto text-destructive" aria-hidden="true" />}
           <h3 className="text-2xl font-black text-foreground">{result.score_percent}%</h3>
-          <p className={`font-bold ${result.passed ? "text-emerald-600" : "text-destructive"}`}>
+          <p className={`font-bold ${result.passed ? "text-emerald-700 dark:text-emerald-400" : "text-destructive"}`}>
             {result.passed ? "أحسنت! لقد اجتزت الاختبار" : "لم تصل للحد الأدنى للنجاح"}
           </p>
           {result.pending_manual_grading && (
@@ -148,7 +148,7 @@ export function QuizPlayer({ quiz, questions, userId, onPassed }: QuizPlayerProp
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">{i + 1}. {q.prompt}</p>
                     {q.explanation && <p className="text-xs text-muted-foreground mt-1">{q.explanation}</p>}
-                    {!r?.auto_graded && <p className="text-xs text-yellow-600 mt-1">بانتظار مراجعة المدرّس</p>}
+                    {!r?.auto_graded && <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">بانتظار مراجعة المدرّس</p>}
                   </div>
                   <span className="text-xs text-muted-foreground shrink-0">{r?.points_earned ?? 0}/{q.points}</span>
                 </div>
