@@ -1252,7 +1252,13 @@ describe("the publishing surface is exactly one worker", () => {
     // renaming it out of the pattern would have passed this test while leaving
     // the real invariant unguarded.
     expect(workflows.filter((f) => /publish|social|reap/i.test(f)).sort())
-      .toEqual(["social-accounts-check.yml", "social-publish-cron.yml", "social-publish-inspect.yml"]);
+      .toEqual(["social-accounts-check.yml", "social-publish-cron.yml", "social-publish-inspect.yml", "social-token-refresh.yml"]);
+
+    // The fourth file extends Threads tokens and posts nothing: it talks to
+    // social-oauth, never to the publishing worker.
+    const refresh = readFileSync(".github/workflows/social-token-refresh.yml", "utf8");
+    expect(refresh).not.toMatch(/functions\/v1\/social-publish/);
+    expect(refresh).toContain("functions/v1/social-oauth");
 
     const check = readFileSync(".github/workflows/social-accounts-check.yml", "utf8");
     // The token check only reads: every request is a GET, none reaches a
