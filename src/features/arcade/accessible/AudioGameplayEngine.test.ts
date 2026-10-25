@@ -13,6 +13,6 @@ describe("Audio Gameplay Engine", () => {
 
   it("announces direction but refuses unapproved spatial audio", async () => {
     const engine = new AudioGameplayEngine();
-    await expect(engine.direction("right", "The item is to your right.", "dice-roll")).resolves.toBe(false);
+    await expect(engine.direction("right", "The item is to your right.", "car-brake")).resolves.toBe(false);
   });
 });
