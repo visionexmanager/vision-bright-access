@@ -1,0 +1,31 @@
+name: TTS quota check
+
+# Read-only. Reports how much of the monthly ElevenLabs character allowance and
+# the Fish Audio credit is left. Prints numbers only, never a key.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check TTS provider quota
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask the providers
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          FISH_AUDIO_API_KEY: ${{ secrets.FISH_AUDIO_API_KEY }}
+        run: |
+          set -uo pipefail
+          echo "== elevenlabs =="
+          curl -sS -m 30 -H "xi-api-key: $ELEVENLABS_API_KEY" https://api.elevenlabs.io/v1/user/subscription \
+            | jq -c 'if .detail then {error:(.detail.status // "error")} else {tier,status,used:.character_count,limit:.character_limit,resets:(.next_character_count_reset_unix|todate?)} end'
+          echo "== fish audio =="
+          curl -sS -m 30 -H "Authorization: Bearer $FISH_AUDIO_API_KEY" https://api.fish.audio/wallet/self/api-credit \
+            | jq -c 'if (type=="object" and (.credit != null)) then {credit,has_free_credit} else {error:(.message // .status // "unexpected response")} end'
+          curl -sS -m 30 -H "Authorization: Bearer $FISH_AUDIO_API_KEY" https://api.fish.audio/wallet/self/package \
+            | jq -c 'if type=="object" then (del(.user_id) | with_entries(select(.value|type!="object"))) else . end' | head -c 600
