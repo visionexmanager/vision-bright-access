@@ -364,9 +364,9 @@ async function openrouter(key) {
 }
 
 async function bytez(key) {
-  // Bytez takes a bare `Authorization: <key>`; OpenAI-compatible chat lives
+  // Bytez documents `Authorization: Key <key>`; OpenAI-compatible chat lives
   // under https://api.bytez.com/models/v2/openai/v1.
-  const auth = (k) => ({ Authorization: k, "Content-Type": "application/json" });
+  const auth = (k) => ({ Authorization: `Key ${k}`, "Content-Type": "application/json" });
   const listing = await call("https://api.bytez.com/models/v2/list/models?task=chat", { headers: auth(key) });
   const rows = Array.isArray(listing.body?.output) ? listing.body.output : [];
   // Key names of the body only: 200 with no rows needs explaining, not guessing.

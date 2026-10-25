@@ -121,7 +121,7 @@ async function bytez(key) {
   facts.bytez = { key_length_class: key.length > 40 ? "long" : "short" };
   const base = "https://api.bytez.com/models/v2";
   // Both header forms the docs have shown, so the auth failure mode is visible.
-  for (const [label, auth] of [["bare", key], ["Key-prefix", `Key ${key}`], ["Bearer", `Bearer ${key}`]]) {
+  for (const [label, auth] of [["Key-prefix", `Key ${key}`], ["bare", key], ["Bearer", `Bearer ${key}`]]) {
     const r = await call(`${base}/list/models`, { headers: { Authorization: auth } });
     const list = Array.isArray(r.body?.output) ? r.body.output : [];
     row("bytez", `list(${label})`, "-", r, r.status === 200 && list.length > 0, `rows=${list.length}`);
@@ -133,11 +133,11 @@ async function bytez(key) {
       break;
     }
   }
-  const auth = facts.bytez.auth_form === "Key-prefix" ? `Key ${key}` : facts.bytez.auth_form === "Bearer" ? `Bearer ${key}` : key;
+  const auth = facts.bytez.auth_form === "bare" ? key : facts.bytez.auth_form === "Bearer" ? `Bearer ${key}` : `Key ${key}`;
   // Is the empty listing ours alone? The same listing with no key, per task.
   for (const task of ["chat", "text-generation"]) {
     const pub = await call(`${base}/list/models?task=${task}`, {});
-    const mine = await call(`${base}/list/models?task=${task}`, { headers: { Authorization: key } });
+    const mine = await call(`${base}/list/models?task=${task}`, { headers: { Authorization: `Key ${key}` } });
     const n = (r) => (Array.isArray(r.body?.output) ? r.body.output.length : 0);
     row("bytez", `list?task=${task}(no-key)`, "-", pub, n(pub) > 0, `rows=${n(pub)}`);
     row("bytez", `list?task=${task}(our key)`, "-", mine, n(mine) > 0, `rows=${n(mine)}`);
