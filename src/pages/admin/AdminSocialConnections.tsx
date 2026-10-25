@@ -186,8 +186,18 @@ export default function AdminSocialConnections() {
   }, [params, setParams, t]);
 
   const accountsByPlatform = useMemo(() => {
+    // One card per platform, so when a platform has several rows (an earlier
+    // attempt under another handle, say) the one that was actually connected,
+    // most recently, is the one shown. Last-write-wins put an unconnected
+    // leftover in front of the real account, and the review and activation
+    // buttons then acted on the wrong row.
+    const connectedAt = (account: AccountRow) =>
+      account.last_connected_at ? Date.parse(account.last_connected_at) || 0 : 0;
     const map = new Map<string, AccountRow>();
-    for (const account of status?.accounts ?? []) map.set(account.platform, account);
+    for (const account of status?.accounts ?? []) {
+      const current = map.get(account.platform);
+      if (!current || connectedAt(account) > connectedAt(current)) map.set(account.platform, account);
+    }
     return map;
   }, [status]);
 
