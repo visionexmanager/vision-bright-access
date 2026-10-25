@@ -14,7 +14,10 @@ import { describe, expect, it, vi } from "vitest";
 const tts = await import("../../supabase/functions/_shared/voice/tts.ts");
 
 const KEYS = (name: string) =>
-  name === "OPENAI_API_KEY" ? "openai-key" : name === "ELEVENLABS_API_KEY" ? "eleven-key" : undefined;
+  name === "OPENAI_API_KEY" ? "openai-key"
+    : name === "ELEVENLABS_API_KEY" ? "eleven-key"
+    : name === "GOOGLE_CLOUD_TTS_API_KEY" ? "google-key"
+    : undefined;
 
 /** A provider that answers with audio, and records what it was asked. */
 function recorder(bytes = new Uint8Array([1, 2, 3]), status = 200) {
@@ -89,6 +92,20 @@ describe("what each caller asks for", () => {
     expect((rec.calls[0].body.voice_settings as { speed: number }).speed).toBe(1.2);
   });
 
+  it("builds a Google Cloud TTS request with a server-side API key and a locale-specific voice", () => {
+    const request = tts.ttsRequestFor({
+      text: "مرحبا", provider: "google", model: "google-cloud-tts", voice: "ar-XA-Standard-A", format: "mp3", speed: 1.1,
+    }, "google-secret");
+    expect(request.url).toBe("https://texttospeech.googleapis.com/v1/text:synthesize");
+    expect(request.init.headers).toMatchObject({ "x-goog-api-key": "google-secret", "Content-Type": "application/json" });
+    expect(JSON.parse(String(request.init.body))).toEqual({
+      input: { text: "مرحبا" },
+      voice: { languageCode: "ar-XA", name: "ar-XA-Standard-A" },
+      audioConfig: { audioEncoding: "MP3", speakingRate: 1.1 },
+    });
+    expect(String(request.init.body)).not.toContain("google-secret");
+  });
+
   it("keeps the rule that `tts-1` reaching ElevenLabs means its own default", () => {
     // Preserved from `speech-generate`, where the shared config carries the
     // OpenAI default model even when the chosen provider is ElevenLabs.
@@ -118,6 +135,18 @@ describe("what comes back", () => {
     expect(result).toMatchObject({ provider: "openai", model: "tts-1", voice: "alloy" });
   });
 
+  it("decodes Google's base64 audioContent into playable audio bytes", async () => {
+    const fetchImpl = (() => Promise.resolve(new Response(JSON.stringify({ audioContent: "AQID" }), {
+      status: 200, headers: { "Content-Type": "application/json" },
+    }))) as unknown as typeof fetch;
+    const result = await tts.synthesize({
+      text: "hello", provider: "google", model: "google-cloud-tts", voice: "en-US-Standard-C",
+      format: "mp3", fetchImpl, read: KEYS,
+    });
+    expect(result).toMatchObject({ outcome: "audio", provider: "google", mimeType: "audio/mpeg" });
+    if (result.outcome === "audio") expect(result.bytes).toEqual(new Uint8Array([1, 2, 3]));
+  });
+
   it("labels each format the way the callers already labelled it", () => {
     expect(tts.mimeFor("openai", "mp3")).toBe("audio/mpeg");
     expect(tts.mimeFor("openai", "wav")).toBe("audio/wav");
@@ -127,6 +156,8 @@ describe("what comes back", () => {
     expect(tts.mimeFor("elevenlabs", "wav")).toBe("audio/wav");
     // Carried over rather than corrected: ElevenLabs returns mp3 bytes here.
     expect(tts.mimeFor("elevenlabs", "ogg")).toBe("audio/ogg");
+    expect(tts.mimeFor("google", "mp3")).toBe("audio/mpeg");
+    expect(tts.mimeFor("google", "wav")).toBe("audio/wav");
   });
 });
 
@@ -142,7 +173,7 @@ describe("when it fails", () => {
   });
 
   it("names the missing key, per provider", async () => {
-    for (const provider of ["openai", "elevenlabs"] as const) {
+    for (const provider of ["openai", "elevenlabs", "google"] as const) {
       const result = await tts.synthesize({
         text: "hello", provider, model: "m", voice: "v", format: "mp3",
         fetchImpl: recorder().fetchImpl, read: () => undefined,

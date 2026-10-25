@@ -39,12 +39,13 @@ installUsageMetering("speech-generate");
 function speechProviderOf(name: string): TtsProvider {
   // A parked provider cannot be named into service (providerState.ts).
   if (parkedProviderReason(name)) throw new Error(`Speech provider "${name}" is not configured.`);
-  if (name === "openai" || name === "elevenlabs" || name === "mistral" || name === "fish") return name;
-  throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs, mistral, fish`);
+  if (name === "openai" || name === "elevenlabs" || name === "mistral" || name === "fish" || name === "google") return name;
+  if (name === "google-cloud-tts") return "google";
+  throw new Error(`Unknown speech provider: "${name}". Supported: openai, elevenlabs, mistral, fish, google`);
 }
 
 /** The `ph_providers` row each provider is known by. */
-const TTS_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts", fish: "fish-audio-tts" };
+const TTS_SLUG: Record<TtsProvider, string> = { openai: "openai-tts", elevenlabs: "elevenlabs-tts", mistral: "mistral-tts", fish: "fish-audio-tts", google: "google-cloud-tts" };
 /**
  * Fish Audio is the first-choice provider when the caller has not selected
  * one. Explicit provider selections are preserved; the generation path keeps
@@ -260,7 +261,20 @@ Deno.serve(async (req: Request) => {
       model: provider === "fish" ? "s2.1-pro-free" : model,
     });
     // Only an automatically selected Fish provider fails over. An explicit
-    // provider choice remains authoritative, as before.
+    // provider choice remains authoritative, as before. Google Cloud TTS is
+    // tried before OpenAI when configured, to use its free standard-voice quota.
+    if (result.outcome === "failed" && provider === "fish" && !requestedProvider && Deno.env.get("GOOGLE_CLOUD_TTS_API_KEY")) {
+      actualProvider = "google";
+      const googleVoice = language.toLowerCase().startsWith("ar") ? "ar-XA-Standard-A" : "en-US-Standard-C";
+      result = await synthesize({
+        provider: "google",
+        voice: googleVoice,
+        text: text.trim(),
+        speed,
+        format: output_format as TtsFormat,
+        model: "google-cloud-tts",
+      });
+    }
     if (result.outcome === "failed" && provider === "fish" && !requestedProvider && Deno.env.get("OPENAI_API_KEY")) {
       actualProvider = "openai";
       const openAiVoice = /^(alloy|ash|ballad|coral|echo|fable|marin|nova|onyx|sage|shimmer|verse|cedar)$/i.test(provider_voice_id)
@@ -311,7 +325,7 @@ Deno.serve(async (req: Request) => {
           language,
           emotion,
           speed,
-          model: actualProvider === "fish" ? "s2.1-pro-free" : actualProvider === "openai" && provider === "fish" ? "gpt-4o-mini-tts" : model,
+          model: actualProvider === "fish" ? "s2.1-pro-free" : actualProvider === "google" ? "google-cloud-tts" : actualProvider === "openai" && provider === "fish" ? "gpt-4o-mini-tts" : model,
           provider: actualProvider,
           job_id: jobId,
         },
@@ -325,7 +339,7 @@ Deno.serve(async (req: Request) => {
     await serviceClient.from("ams_speech_jobs").update({
       status:         "completed",
       provider:        actualProvider,
-      model:           actualProvider === "fish" ? "s2.1-pro-free" : actualProvider === "openai" && provider === "fish" ? "gpt-4o-mini-tts" : model,
+      model:           actualProvider === "fish" ? "s2.1-pro-free" : actualProvider === "google" ? "google-cloud-tts" : actualProvider === "openai" && provider === "fish" ? "gpt-4o-mini-tts" : model,
       asset_id:       assetId,
       duration_sec:   durationSec,
       file_size_bytes: sizeBytes,
@@ -347,7 +361,7 @@ Deno.serve(async (req: Request) => {
       job_id:       jobId,
       asset_id:     assetId,
       audio_base64: audioBase64,
-      mime_type:    mimeFor(speechProviderOf(provider), output_format as TtsFormat),
+      mime_type:    mimeFor(speechProviderOf(actualProvider), output_format as TtsFormat),
       duration_sec: durationSec,
       size_bytes:   sizeBytes,
       output_format,

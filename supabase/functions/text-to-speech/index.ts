@@ -60,7 +60,8 @@ Deno.serve(async (req) => {
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
   const FISH_AUDIO_API_KEY = Deno.env.get("FISH_AUDIO_API_KEY");
   const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
-  if (!OPENAI_API_KEY && !FISH_AUDIO_API_KEY && !ELEVENLABS_API_KEY) {
+  const GOOGLE_CLOUD_TTS_API_KEY = Deno.env.get("GOOGLE_CLOUD_TTS_API_KEY");
+  if (!OPENAI_API_KEY && !FISH_AUDIO_API_KEY && !ELEVENLABS_API_KEY && !GOOGLE_CLOUD_TTS_API_KEY) {
     return new Response(JSON.stringify({ error: "No TTS provider key configured" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -125,6 +126,19 @@ Deno.serve(async (req) => {
           provider: "elevenlabs",
           model: "eleven_multilingual_v2",
           voice: "JBFqnCBsd6RMkjVDRZzb",
+          format: "mp3",
+          record: (execution) => recordTtsInBackground(execution),
+        });
+      }
+      // Google Cloud TTS is the next fallback. It has a monthly free quota for
+      // supported voice families and is useful when premium voice credits run out.
+      if (synthesized.outcome === "failed" && GOOGLE_CLOUD_TTS_API_KEY) {
+        const googleVoice = /[\u0600-\u06FF]/.test(trimmed) ? "ar-XA-Standard-A" : "en-US-Standard-C";
+        synthesized = await synthesizeResponse({
+          text: trimmed,
+          provider: "google",
+          model: "google-cloud-tts",
+          voice: googleVoice,
           format: "mp3",
           record: (execution) => recordTtsInBackground(execution),
         });

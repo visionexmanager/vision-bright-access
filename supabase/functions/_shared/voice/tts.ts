@@ -37,7 +37,7 @@ import { meteredFetch } from "../meteredFetch.ts";
  * it clones from a short sample and speaks Arabic, on the MISTRAL_API_KEY the
  * chat fallback already uses.
  */
-export type TtsProvider = "openai" | "elevenlabs" | "mistral" | "fish";
+export type TtsProvider = "openai" | "elevenlabs" | "mistral" | "fish" | "google";
 
 /** Container formats a caller may ask for. */
 export type TtsFormat = "mp3" | "opus" | "wav" | "flac" | "aac" | "ogg";
@@ -110,6 +110,7 @@ export const KEY_FOR: Record<TtsProvider, string> = {
   elevenlabs: "ELEVENLABS_API_KEY",
   mistral: "MISTRAL_API_KEY",
   fish: "FISH_AUDIO_API_KEY",
+  google: "GOOGLE_CLOUD_TTS_API_KEY",
 };
 
 /** Voxtral's model id (docs.mistral.ai, read 2026-09-25). */
@@ -204,6 +205,23 @@ export function ttsRequestFor(
     };
   }
 
+  if (request.provider === "google") {
+    const languageCode = request.voice.match(/^[a-z]{2,3}-[A-Z]{2,3}/)?.[0] ?? "en-US";
+    const audioEncoding = request.format === "wav" ? "LINEAR16" : request.format === "opus" || request.format === "ogg" ? "OGG_OPUS" : "MP3";
+    return {
+      url: "https://texttospeech.googleapis.com/v1/text:synthesize",
+      init: {
+        method: "POST",
+        headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          input: { text: request.text },
+          voice: { languageCode, name: request.voice.startsWith(languageCode + "-") ? request.voice : `${languageCode}-Standard-A` },
+          audioConfig: { audioEncoding, ...(request.speed !== undefined ? { speakingRate: Math.min(4, Math.max(0.25, request.speed)) } : {}) },
+        }),
+      },
+    };
+  }
+
   if (request.provider === "fish") {
     return {
       url: "https://api.fish.audio/v1/tts",
@@ -257,6 +275,7 @@ export function ttsRequestFor(
 
 /** The mime type a successful call yields, for the provider and format asked for. */
 export function mimeFor(provider: TtsProvider, format: TtsFormat): string {
+  if (provider === "google") return format === "wav" ? "audio/wav" : format === "opus" || format === "ogg" ? "audio/ogg" : "audio/mpeg";
   if (provider === "elevenlabs") return elevenLabsMime(format);
   if (provider === "mistral") return MISTRAL_MIME[MISTRAL_FORMAT[format]] ?? "audio/mpeg";
   if (provider === "fish") return format === "wav" ? "audio/wav" : format === "opus" ? "audio/ogg" : "audio/mpeg";
@@ -271,10 +290,11 @@ export function mimeFor(provider: TtsProvider, format: TtsFormat): string {
  * is decoded here — once, for every caller.
  */
 async function audioBytesOf(provider: TtsProvider, response: Response): Promise<Uint8Array> {
-  if (provider !== "mistral") return new Uint8Array(await response.arrayBuffer());
-  const body = await response.json() as { audio_data?: unknown };
-  if (typeof body?.audio_data !== "string") return new Uint8Array(0);
-  const binary = atob(body.audio_data);
+  if (provider !== "mistral" && provider !== "google") return new Uint8Array(await response.arrayBuffer());
+  const body = await response.json() as { audio_data?: unknown; audioContent?: unknown };
+  const encoded = provider === "google" ? body?.audioContent : body?.audio_data;
+  if (typeof encoded !== "string") return new Uint8Array(0);
+  const binary = atob(encoded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
@@ -310,20 +330,20 @@ export async function synthesizeResponse(
   const started = Date.now();
   const call = await callProvider(request);
   if (call.outcome !== "response") return call;
-  if (request.provider === "mistral") {
-    // Mistral's body is JSON, not audio, so it cannot be streamed onward as-is;
+  if (request.provider === "mistral" || request.provider === "google") {
+    // Mistral and Google Cloud TTS return JSON containing base64 audio, not raw audio;
     // it is decoded and handed back as an audio response instead.
     let bytes: Uint8Array;
     try {
-      bytes = await audioBytesOf("mistral", call.response);
+      bytes = await audioBytesOf(request.provider, call.response);
     } catch {
-      return { outcome: "failed", failure: { reason: "transport", provider: "mistral" } };
+      return { outcome: "failed", failure: { reason: "transport", provider: request.provider } };
     }
-    if (bytes.byteLength === 0) return { outcome: "failed", failure: { reason: "empty", provider: "mistral" } };
+    if (bytes.byteLength === 0) return { outcome: "failed", failure: { reason: "empty", provider: request.provider } };
     reportExecution(request, started);
     return {
       outcome: "response",
-      response: new Response(bytes.slice().buffer, { headers: { "Content-Type": mimeFor("mistral", request.format) } }),
+      response: new Response(bytes.slice().buffer, { headers: { "Content-Type": mimeFor(request.provider, request.format) } }),
     };
   }
   // The provider answered with audio; the body is the caller's to stream.
@@ -412,6 +432,7 @@ export function describeTtsFailure(failure: TtsFailure): string {
   if (failure.reason === "invalid_input") return "text is required";
 
   if (failure.reason === "no_key") {
+    if (failure.provider === "google") return "GOOGLE_CLOUD_TTS_API_KEY is not configured in Supabase Edge Function secrets.";
     if (failure.provider === "openai") return "OPENAI_API_KEY not configured";
     if (failure.provider === "fish") {
       return "FISH_AUDIO_API_KEY is not configured in Supabase Edge Function secrets.";
@@ -426,6 +447,15 @@ export function describeTtsFailure(failure: TtsFailure): string {
 
   if (failure.reason === "rejected") {
     const { provider, status, detail } = failure;
+    if (provider === "google") {
+      const map: Record<number, string> = {
+        400: "Google Cloud TTS rejected the request. Check the selected voice and audio format.",
+        401: "Google Cloud TTS authentication failed. Check GOOGLE_CLOUD_TTS_API_KEY.",
+        403: "Google Cloud TTS access denied. Enable the API and check API-key restrictions and billing.",
+        429: "Google Cloud TTS quota or rate limit reached. Check Google Cloud quotas.",
+      };
+      return map[status] ?? `Google Cloud TTS error (${status}): ${detail}`;
+    }
     if (provider === "openai") {
       const map: Record<number, string> = {
         401: "OpenAI API key is invalid or revoked. Check OPENAI_API_KEY in Supabase secrets.",
@@ -464,7 +494,7 @@ export function describeTtsFailure(failure: TtsFailure): string {
     return map[status] ?? `ElevenLabs TTS error (${status}): ${detail}`;
   }
 
-  const name = failure.provider === "openai" ? "OpenAI" : failure.provider === "mistral" ? "Mistral" : failure.provider === "fish" ? "Fish Audio" : "ElevenLabs";
+  const name = failure.provider === "google" ? "Google Cloud TTS" : failure.provider === "openai" ? "OpenAI" : failure.provider === "mistral" ? "Mistral" : failure.provider === "fish" ? "Fish Audio" : "ElevenLabs";
   return failure.reason === "empty"
     ? `${name} returned no audio.`
     : `${name} could not be reached. Please retry shortly.`;
