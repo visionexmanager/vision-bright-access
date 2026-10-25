@@ -91,3 +91,11 @@ Built and tested, and inert until an admin switches the provider on. The switch 
 | NVIDIA NIM | none: no production path without NVIDIA AI Enterprise | licence |
 
 In #355, inactive and error rows are **excluded** from the chat chains, not demoted.
+
+
+## Bytez integration follow-up (2026-10-25)
+
+- The deployment workflow now includes `BYTEZ_API_KEY` in the optional secondary-provider secret sync. The key remains server-side in Supabase; it is not a frontend variable. This only takes effect after this change is merged and a successful deploy runs.
+- Bytez smoke and diagnosis requests now prefer the documented `Authorization: Key <key>` header.
+- A separate manually triggered workflow, `.github/workflows/bytez-api-check.yml`, checks only Bytez. Its default mode lists the chat catalog and does not intentionally run inference; inference is a separate opt-in because it may consume credits. It never logs the key or provider response body.
+- Bytez remains **not production-routed** until the catalog returns a usable model and a real inference passes. Key propagation is necessary, but cannot fix an empty catalog returned by Bytez. See [Bytez issue #66](https://github.com/Bytez-com/docs/issues/66).

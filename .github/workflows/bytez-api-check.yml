@@ -1,0 +1,87 @@
+name: Bytez API check
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_inference:
+        description: "Run one tiny chat inference if Bytez returns a chat model (may consume Bytez credits)"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  bytez:
+    name: Check Bytez catalog and optional inference
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check Bytez API
+        env:
+          BYTEZ_API_KEY: ${{ secrets.BYTEZ_API_KEY }}
+          RUN_INFERENCE: ${{ inputs.run_inference }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${BYTEZ_API_KEY:-}" ]]; then
+            echo "::error::BYTEZ_API_KEY is missing from GitHub Actions secrets."
+            exit 1
+          fi
+          response=$(curl --silent --show-error --max-time 20 \
+            -w '\n%{http_code}' \
+            'https://api.bytez.com/models/v2/list/models?task=chat' \
+            -H "Authorization: Key $BYTEZ_API_KEY")
+          code="$(printf '%s\n' "$response" | tail -n 1)"
+          body="$(printf '%s' "$response" | sed '$d')"
+          if [[ "$code" != "200" ]]; then
+            echo "::error::Bytez model catalog returned HTTP $code; response body intentionally not printed."
+            exit 1
+          fi
+          count="$(printf '%s' "$body" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);console.log(Array.isArray(j.output)?j.output.length:0)}catch{console.log(-1)}})')"
+          echo "Bytez chat catalog HTTP 200; model count: $count"
+          {
+            echo "## Bytez API check"
+            echo ""
+            echo "- API key was present in the GitHub runner; its value was not printed."
+            echo "- Auth header used: `Authorization: Key [redacted]`."
+            echo "- Chat catalog HTTP status: $code."
+            echo "- Chat model count: $count."
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$count" == "0" ]]; then
+            echo "::error::Bytez accepted the catalog request but returned zero chat models. No inference was attempted; this is an upstream/account catalog blocker, not proof of a working integration."
+            exit 1
+          fi
+          if [[ "$count" == "-1" ]]; then
+            echo "::error::Bytez returned an unparseable catalog response. Response body intentionally not printed."
+            exit 1
+          fi
+          if [[ "$RUN_INFERENCE" != "true" ]]; then
+            echo "Catalog is non-empty. Inference was not requested; no model credits were intentionally consumed."
+            exit 0
+          fi
+          model="$(printf '%s' "$body" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const rows=Array.isArray(j.output)?j.output:[];const m=rows.find(x=>x.task==="chat"&&typeof x.modelId==="string");console.log(m?.modelId??"")}catch{console.log("")}})')"
+          if [[ -z "$model" ]]; then
+            echo "::error::The catalog has rows but no model marked for chat; no inference was attempted."
+            exit 1
+          fi
+          payload="$(node -e 'process.stdout.write(JSON.stringify({model:process.argv[1],messages:[{role:"user",content:"Reply with exactly OK."}],max_tokens:16}))' "$model")"
+          infer=$(curl --silent --show-error --max-time 60 -w '\n%{http_code}' \
+            -X POST 'https://api.bytez.com/models/v2/openai/v1/chat/completions' \
+            -H "Authorization: Key $BYTEZ_API_KEY" \
+            -H 'Content-Type: application/json' \
+            --data "$payload")
+          infer_code="$(printf '%s\n' "$infer" | tail -n 1)"
+          infer_body="$(printf '%s' "$infer" | sed '$d')"
+          if [[ "$infer_code" != "200" ]]; then
+            echo "::error::Bytez inference failed with HTTP $infer_code. Response body intentionally not printed."
+            exit 1
+          fi
+          ok="$(printf '%s' "$infer_body" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const t=j.choices?.[0]?.message?.content??j.output??"";console.log(String(t).trim().length>0?"yes":"no")}catch{console.log("no")}})')"
+          if [[ "$ok" != "yes" ]]; then
+            echo "::error::Bytez returned HTTP 200 but no readable generated text; response body intentionally not printed."
+            exit 1
+          fi
+          echo "Bytez inference passed for catalog model: $model (response content not logged)."
+          echo "- Inference: PASS for catalog-selected model `$model`; generated content was not logged." >> "$GITHUB_STEP_SUMMARY"
