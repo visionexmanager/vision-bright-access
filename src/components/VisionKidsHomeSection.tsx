@@ -62,12 +62,12 @@ export function VisionKidsHomeSection() {
                   ))}
                 </ul>
 
-                <Link to="/kids" onClick={() => playSound("navigate")}>
-                  <Button size="lg" className="px-8 py-6 text-lg font-semibold">
+                <Button asChild size="lg" className="px-8 py-6 text-lg font-semibold">
+                  <Link to="/kids" onClick={() => playSound("navigate")}>
                     {t("home.kids.cta")}
                     <ArrowRight className="ms-2 h-5 w-5 rtl:rotate-180" aria-hidden="true" />
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
 
               {/* Visual */}

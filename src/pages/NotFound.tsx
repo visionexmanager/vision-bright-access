@@ -21,11 +21,11 @@ const NotFound = () => {
           <h1 className="mb-4 text-3xl font-bold">{t("notFound.title")}</h1>
           <p className="mb-8 text-lg text-muted-foreground">{t("notFound.message")}</p>
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link to="/">
-              <Button size="lg" className="text-base font-semibold">
-                <Home className="me-2 h-5 w-5" /> {t("notFound.link")}
-              </Button>
-            </Link>
+            <Button asChild size="lg" className="text-base font-semibold">
+              <Link to="/">
+                <Home className="me-2 h-5 w-5" aria-hidden="true" /> {t("notFound.link")}
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="lg"

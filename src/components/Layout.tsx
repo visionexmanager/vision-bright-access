@@ -92,7 +92,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <ul className="space-y-2.5">
                   {group.links.map((l) => (
                     <li key={l.to}>
-                      <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground hover:translate-x-0.5 transition-all inline-block">
+                      <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground hover:translate-x-0.5 transition-all inline-block py-0.5">
                         {t(l.labelKey)}
                       </Link>
                     </li>
@@ -105,13 +105,13 @@ export function Layout({ children }: { children: ReactNode }) {
           {/* Bottom bar */}
           <div className="mt-10 border-t border-border/40 pt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
             <div className="flex items-center gap-4">
-              <Link to="/legal" className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
+              <Link to="/legal" className="inline-flex min-h-6 items-center text-xs font-semibold text-primary hover:text-primary/80 transition-colors">
                 {t("footer.link.legalCenter")} →
               </Link>
               <button
                 type="button"
                 onClick={openConsentPreferences}
-                className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                className="inline-flex min-h-6 items-center text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
               >
                 {t("cookie.label")}
               </button>
