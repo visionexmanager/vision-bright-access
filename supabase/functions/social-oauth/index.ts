@@ -54,6 +54,7 @@ import {
   upgradeMetaGrant,
   type GrantFetch,
 } from "../_shared/metaGrant.ts";
+import { needsAttention, refreshExpiringThreads } from "../_shared/publishing/threadsTokenRefresh.ts";
 
 /** Where the operator is sent back to, and the only page this function links to. */
 const CONNECTIONS_PATH = "/admin/social-connections";
@@ -304,6 +305,65 @@ Deno.serve(async (req) => {
   }
 
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  // ── The scheduled refresh: the one call that is not an operator's ────────
+  //
+  // A Threads token dies after about 60 days unless it is extended while still
+  // valid, and nothing was extending it. A daily workflow presents CRON_SECRET
+  // here and may do exactly one thing: extend Threads tokens that are running
+  // out. It fails closed (no secret set, nobody gets in), it reaches no
+  // publishing code, and the report holds account ids and outcome codes only.
+  const cronSecret = env("CRON_SECRET");
+  if (cronSecret && req.headers.get("Authorization") === `Bearer ${cronSecret}`) {
+    const cronBody = await req.json().catch(() => ({}));
+    if (cronBody.action !== "refresh_tokens") return json({ error: "Unauthorized" }, 401);
+    if (!encryptionKey) return json({ ok: false, error: "encryption_key_missing" }, 503);
+
+    try {
+      const service = serviceClient();
+      const { data: accounts } = await service.from("social_accounts").select("id").eq("platform", "threads");
+      const ids = ((accounts ?? []) as Array<{ id: string }>).map((account) => account.id);
+      const { data: stored } = ids.length === 0
+        ? { data: [] }
+        : await service.from("social_account_tokens")
+          .select("account_id, expires_at, rotated_at").in("account_id", ids);
+      const rows = (stored ?? []) as Array<{ account_id: string; expires_at: string | null; rotated_at: string | null }>;
+
+      const reports = await refreshExpiringThreads({
+        list: () => Promise.resolve(rows.map((row) => ({
+          accountId: row.account_id, expiresAt: row.expires_at, writtenAt: row.rotated_at,
+        }))),
+        accessToken: async (accountId) => {
+          const { data } = await service.rpc("resolve_social_account_token", {
+            _account_id: accountId, _key: encryptionKey,
+          });
+          const row = data as Record<string, unknown> | null;
+          return row?.ok === true && typeof row.access_token === "string" ? row.access_token : null;
+        },
+        extend: (accessToken) => refreshThreadsToken(accessToken, fetch as unknown as GrantFetch),
+        store: async (accountId, accessToken, expiresAt) => {
+          const { data } = await service.rpc("store_social_account_token", {
+            _account_id: accountId,
+            _key: encryptionKey,
+            _access_token: accessToken,
+            _refresh_token: null,
+            _expires_at: expiresAt,
+            // Empty, so the stored scopes and user id are kept as they were.
+            _scopes: [],
+            _external_user_id: null,
+            _token_type: "bearer",
+            _refresh_expires_at: null,
+          });
+          return (data as Record<string, unknown> | null)?.ok === true;
+        },
+        now: () => Date.now(),
+      });
+
+      return json({ ok: !needsAttention(reports), reports });
+    } catch {
+      return json({ ok: false, error: "internal_error" }, 500);
+    }
+  }
 
   // ── POST: the operator's own session ──────────────────────────────────────
   try {
