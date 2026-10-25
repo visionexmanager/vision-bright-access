@@ -90,8 +90,12 @@ describe("the function connects and cannot publish", () => {
       "api.x.com/2/tweets",
       "api.linkedin.com/rest/posts",
     ]) {
-      expect(fn, endpoint).not.toContain(endpoint);
-      expect(grant, endpoint).not.toContain(endpoint);
+      // The one read-only exception: Threads answers /threads_publishing_limit
+      // only to a token that was granted threads_content_publish, which is how
+      // the connection learns what it may do. It posts nothing.
+      const readOnly = (source: string) => source.replaceAll("/threads_publishing_limit", "");
+      expect(readOnly(fn), endpoint).not.toContain(endpoint);
+      expect(readOnly(grant), endpoint).not.toContain(endpoint);
     }
   });
 

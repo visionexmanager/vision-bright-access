@@ -260,17 +260,23 @@ describe("the whole upgrade, per platform", () => {
   });
 
   it("exchanges a Threads token without touching the Graph host", async () => {
-    const net = scriptedFetch([{ body: { access_token: "threads-long", expires_in: 5184000 } }]);
+    // The exchange, then the profile and the publishing-limit edge that tell
+    // the connection who this is and what it was allowed to do.
+    const net = scriptedFetch([
+      { body: { access_token: "threads-long", expires_in: 5184000 } },
+      { body: { id: "42", username: "vx" } },
+      { body: { data: [] } },
+    ]);
     const result = await upgradeMetaGrant("threads", "id", "secret", "short", "@vx", net.impl);
 
     expect(result.ok).toBe(true);
     expect(result.accessToken).toBe("threads-long");
-    expect(net.calls).toBe(1);
-    expect(net.urls[0]).toContain("graph.threads.net");
+    expect(net.calls).toBe(3);
+    expect(net.urls.every((u) => u.includes("graph.threads.net"))).toBe(true);
     expect(net.urls[0]).toContain("grant_type=th_exchange_token");
     // A separate product. Reusing the Graph host fails at authorize with an
     // error that reads like a scope problem.
-    expect(net.urls[0]).not.toContain("graph.facebook.com");
+    expect(net.urls.some((u) => u.includes("graph.facebook.com"))).toBe(false);
   });
 
   it("stops at the first failed step and makes no further call", async () => {

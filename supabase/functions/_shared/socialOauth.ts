@@ -489,7 +489,10 @@ export function normaliseTokenResponse(raw: unknown, nowMs = Date.now()): Normal
     ? inner.refresh_token
     : undefined;
 
+  // Threads answers `user_id` as a JSON number, which a string-only check
+  // dropped, so a connected account was stored without its id.
   const externalUserId = [inner.open_id, inner.user_id, inner.id]
+    .map((value) => typeof value === "number" && Number.isFinite(value) ? String(value) : value)
     .find((value): value is string => typeof value === "string" && value.trim() !== "");
 
   return {
