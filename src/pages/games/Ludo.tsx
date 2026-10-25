@@ -282,6 +282,9 @@ export default function Ludo() {
                     type="button"
                     role="gridcell"
                     disabled={!movable}
+                    // An empty, unclickable square carries nothing to announce: 209 of the
+                    // 225 cells were unnamed buttons in the screen-reader tree.
+                    aria-hidden={here.length === 0 ? true : undefined}
                     onClick={() => movable && mine && moveToken(mine.token)}
                     aria-label={
                       here.length === 0
