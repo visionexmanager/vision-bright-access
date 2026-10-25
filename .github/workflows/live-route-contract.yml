@@ -16,21 +16,11 @@ on:
   # (providerRecording.ts). A verdict older than 14 days is ignored.
   schedule:
     - cron: "41 5 * * *"   # every day 05:41 UTC
+  # Not on every push: this probe spends real money on OpenAI (images, edits,
+  # a realtime session), and a branch cannot certify a model anyway. A pull
+  # request runs it once, deliberately, when it carries the label below.
   pull_request:
-    paths:
-      - scripts/ai-eval/live-route-contract.ts
-      - .github/workflows/live-route-contract.yml
-      # The modules whose routes it proves: a change to any of them is proven again.
-      - supabase/functions/_shared/aiProvider.ts
-      - supabase/functions/_shared/geminiProvider.ts
-      - supabase/functions/_shared/assistants.ts
-      - supabase/functions/_shared/generators.ts
-      - supabase/functions/_shared/visionAnalysts.ts
-      - supabase/functions/_shared/whatsappUnderstand.ts
-      - supabase/functions/_shared/providerRecording.ts
-      - supabase/functions/_shared/voice/tts.ts
-      - supabase/functions/_shared/voice/stt.ts
-      - supabase/functions/_shared/providers/openaiImageEdit.ts
+    types: [labeled]
 
 concurrency:
   group: live-route-contract-${{ github.ref }}
@@ -42,7 +32,7 @@ permissions:
 jobs:
   contracts:
     name: Live route contracts
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event.label.name == 'live-route-probe' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
