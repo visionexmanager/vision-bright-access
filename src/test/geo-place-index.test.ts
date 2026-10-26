@@ -51,9 +51,9 @@ describe("placeKey", () => {
 
 function client(rows: Array<{ name: string; country_code: string | null; latitude: number; longitude: number }> | null, error: unknown = null) {
   const keys: string[] = [];
-  const db: PlaceIndexClient = {
-    rpc: (_fn, args) => { keys.push(args._key); return Promise.resolve({ data: rows, error }); },
-  };
+  const db = {
+    rpc: (_fn: string, args: { _key: string }) => { keys.push(args._key); return Promise.resolve({ data: rows, error }); },
+  } as unknown as PlaceIndexClient;
   return { db, keys };
 }
 
@@ -69,7 +69,7 @@ describe("lookupLocalPlace", () => {
   it("is a miss, never an error, when the index has nothing, fails or throws", async () => {
     expect(await lookupLocalPlace(client([]).db, "Nowhere", "en")).toBeNull();
     expect(await lookupLocalPlace(client(null, { message: "x" }).db, "Amman", "en")).toBeNull();
-    const throwing: PlaceIndexClient = { rpc: () => { throw new Error("down"); } };
+    const throwing = { rpc: () => { throw new Error("down"); } } as unknown as PlaceIndexClient;
     expect(await lookupLocalPlace(throwing, "Amman", "en")).toBeNull();
     expect(await lookupLocalPlace(client([]).db, "   ", "en")).toBeNull();
   });
