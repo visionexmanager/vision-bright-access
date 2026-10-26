@@ -80,8 +80,8 @@ describe("the wiring", () => {
     const rule = readFileSync("supabase/migrations/20261094000000_nearest_city_prefers_large.sql", "utf8");
     expect(rule).toContain("ORDER BY (n.km <= 15) DESC");
     expect(rule).toContain("CASE WHEN n.km <= 15 THEN n.population END DESC NULLS LAST");
-    expect(rule).toMatch(/REVOKE ALL ON FUNCTION public.nearest_geo_place([^)]*) FROM PUBLIC, anon, authenticated/);
-    expect(rule).toMatch(/GRANT EXECUTE ON FUNCTION public.nearest_geo_place([^)]*) TO service_role/);
+    expect(rule).toMatch(/REVOKE ALL ON FUNCTION public\.nearest_geo_place\([^)]*\) FROM PUBLIC, anon, authenticated/);
+    expect(rule).toMatch(/GRANT EXECUTE ON FUNCTION public\.nearest_geo_place\([^)]*\) TO service_role/);
     expect(rule).toMatch(/SET search_path = public/);
   });
 
