@@ -212,8 +212,10 @@ export default function AdminSocialConnections() {
     return data;
   };
 
-  const connect = async (provider: ProviderRow) => {
-    const handle = (handles[provider.platform] ?? "").trim();
+  const connect = async (provider: ProviderRow, savedHandle = "") => {
+    // Reconnecting hides the handle field, so fall back to the handle the
+    // account was connected under instead of demanding it again.
+    const handle = (handles[provider.platform] ?? savedHandle).trim();
     if (!handle) {
       toast.error(t("social.connections.handleRequired"));
       return;
@@ -457,7 +459,7 @@ export default function AdminSocialConnections() {
                         )}
 
                         {provider.configured && !provider.blocked_reason && (
-                          <Button onClick={() => void connect(provider)} disabled={working}>
+                          <Button onClick={() => void connect(provider, account?.handle ?? "")} disabled={working}>
                             {working
                               ? <Loader2 className="me-2 h-4 w-4 animate-spin" aria-hidden="true" />
                               : <Link2 className="me-2 h-4 w-4" aria-hidden="true" />}
