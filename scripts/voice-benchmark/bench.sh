@@ -32,8 +32,6 @@ command -v docker >/dev/null 2>&1 || { echo "FAILED: docker is not available to 
 cat > "$W/inner.py" <<'PY'
 import os, re, subprocess, sys, time, urllib.request, wave
 
-import numpy as np
-
 AR = "مرحبا بكم في فيجن إكس، منصة تجمع الأخبار والتعلم والألعاب والأدوات لأصحاب البصر الضعيف والمكفوفين في عشرين لغة"
 EN = "Welcome to Visionex, a platform that brings together news, learning, games and tools for blind and low vision people in twenty languages."
 HF = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
@@ -67,6 +65,7 @@ for lang, text in (("ar", AR), ("en", EN)):
     print(f"TTS {lang}: synth_seconds={took:.1f} audio_seconds={audio:.1f} rtf={took/audio:.2f} (includes loading the model)")
 
 def load16k(path):
+    import numpy as np  # installed by pip above, so imported only now
     # Decode the WAV directly and resample to the 16 kHz Whisper expects, so no
     # audio library is involved in the measurement.
     with wave.open(path) as w:
