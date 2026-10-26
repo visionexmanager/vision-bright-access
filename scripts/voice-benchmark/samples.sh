@@ -39,10 +39,25 @@ for lang, url in VOICES.items():
     for suffix in ("", ".json"):
         urllib.request.urlretrieve(url + suffix, f"{lang}.onnx{suffix}")
 
+def piper(lang, text, out, scale=1.0):
+    # length-scale below 1 speaks faster. The flag has been spelled both ways
+    # across Piper releases, so try the current spelling first.
+    base = [sys.executable, "-m", "piper", "-m", f"{lang}.onnx", "-f", out]
+    for flag in ("--length-scale", "--length_scale"):
+        r = subprocess.run(base + [flag, str(scale)], input=text, capture_output=True, text=True)
+        if r.returncode == 0:
+            return r
+    return r
+
 for name, (lang, text) in SAMPLES.items():
-    r = subprocess.run([sys.executable, "-m", "piper", "-m", f"{lang}.onnx", "-f", f"{name}.wav"],
-                       input=text, capture_output=True, text=True)
+    r = piper(lang, text, f"{name}.wav")
     print(("ok   " if r.returncode == 0 else "FAILED ") + name)
+
+# The Arabic voice reads slowly. The same sentence at four speeds, to choose by ear
+# (1.0 is the default speed, smaller is faster).
+for scale in (0.85, 0.75, 0.65):
+    r = piper("ar", SAMPLES["ar-2-weather"][1], f"ar-speed-{scale}.wav", scale)
+    print(("ok   " if r.returncode == 0 else "FAILED ") + f"ar-speed-{scale}")
 
 # ── One recording that speaks both languages ────────────────────────────────
 # Each Piper voice knows one language: the Arabic voice cannot pronounce "Visionex".
@@ -56,6 +71,7 @@ MIXED = {
     "mixed-2-social": "تم نشر منشورك بنجاح على Facebook و Instagram و Threads، ويمكنك مشاهدته من لوحة الإدارة.",
     "mixed-3-numbers": "أرسلت رسالة واتساب إلى الرقم 962 7 9999 9999 باستخدام WhatsApp Business، وتكلفتها 5 دولارات.",
 }
+ARABIC_SCALE = 0.75  # the Arabic pieces of a mixed recording are spoken faster
 LATIN = re.compile(r"[A-Za-z][A-Za-z0-9&'.\-]*(?:\s+[A-Za-z][A-Za-z0-9&'.\-]*)*")
 
 def runs(text):
@@ -70,10 +86,9 @@ def runs(text):
     # Punctuation and spaces alone are not worth a voice.
     return [(lang, t) for lang, t in out if re.search(r"\w", t)]
 
-def speak(lang, text):
+def speak(lang, text, scale=1.0):
     path = "piece.wav"
-    r = subprocess.run([sys.executable, "-m", "piper", "-m", f"{lang}.onnx", "-f", path],
-                       input=text, capture_output=True, text=True)
+    r = piper(lang, text, path, scale)
     if r.returncode != 0:
         return None
     with wave.open(path) as w:
@@ -83,7 +98,7 @@ def speak(lang, text):
 for name, text in MIXED.items():
     pieces, rate = [], None
     for lang, part in runs(text):
-        got = speak(lang, part)
+        got = speak(lang, part, ARABIC_SCALE if lang == "ar" else 1.0)
         if got is None:
             continue
         r_, data = got
