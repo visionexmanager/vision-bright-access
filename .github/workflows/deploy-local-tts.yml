@@ -1,0 +1,172 @@
+name: Deploy local TTS
+
+# Piper text-to-speech for Arabic and English in one recording, onto the server.
+#
+# ── What this does NOT do ───────────────────────────────────────────────────
+#
+# It does not touch nginx and exposes nothing: the container publishes to
+# 127.0.0.1 only, so from outside the server it does not exist. Nothing in the
+# product calls it yet; a later change wires the media processor to it. This step
+# only proves that it builds, runs and speaks, with the website's configuration
+# untouched.
+#
+# The container is limited to two cores and 3 GB, read-only, without capabilities,
+# and never runs as root. The shared secret is the processor's PROCESSOR_TOKEN,
+# delivered through a file that Docker consumes and that is then deleted, so it
+# never appears in argv.
+#
+# Idempotent: the image is rebuilt and the container replaced each time.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "status = report only. deploy = build and run. selftest = prove it speaks, refuses what it should, and answers nobody without the token."
+        required: true
+        default: status
+        type: choice
+        options: [status, deploy, selftest]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-tts
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Local TTS (${{ inputs.action }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          for v in HOST USER KEY TOKEN; do [ -z "${!v}" ] && { echo "::error::Missing secret for $v"; exit 1; }; done
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_deploy
+            ConnectTimeout 15
+            BatchMode yes
+            ServerAliveInterval 30
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'echo connected' >/dev/null
+
+      - name: Report what is there now
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE'
+          echo "container : $(sudo docker ps -a --filter name=visionex-local-tts --format '{{.Status}}' 2>/dev/null | head -1)"
+          echo "free RAM  : $(free -m | awk '/^Mem:/{print $7" MB available"}')"
+          echo "free disk : $(df -h / | awk 'NR==2{print $4}')"
+          echo "load      : $(cut -d' ' -f1-3 /proc/loadavg)"
+          REMOTE
+
+      - name: Copy the service source
+        if: inputs.action == 'deploy'
+        run: |
+          set -uo pipefail
+          ssh target 'mkdir -p ~/visionex-local-tts'
+          scp -r services/local-tts/. target:~/visionex-local-tts/
+          echo "Source copied."
+
+      - name: Send the token
+        if: inputs.action == 'deploy'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          printf 'TTS_TOKEN=%s\n' "$TOKEN" | ssh target 'umask 077 && cat > ~/.visionex-tts.env'
+          echo "Token delivered."
+
+      - name: Build and run
+        if: inputs.action == 'deploy'
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          cd ~/visionex-local-tts
+          echo "Building…"
+          sudo docker build -t visionex-local-tts:latest . >/dev/null
+          echo "Built."
+          sudo docker rm -f visionex-local-tts >/dev/null 2>&1 || true
+          sudo docker run -d \
+            --name visionex-local-tts \
+            --restart unless-stopped \
+            --publish 127.0.0.1:8090:8090 \
+            --env-file ~/.visionex-tts.env \
+            --memory 3g \
+            --cpus 2 \
+            --pids-limit 128 \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=128m \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            visionex-local-tts:latest >/dev/null
+          rm -f ~/.visionex-tts.env
+          echo "Started."
+          REMOTE
+
+      - name: Self-test
+        if: inputs.action != 'status'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          # Its own connection, because stdin can carry only one thing (a heredoc
+          # wins over a pipe). The file is written under umask 077, read once and
+          # deleted, and the token is never in argv.
+          printf 'TOKEN=%s\n' "$TOKEN" | ssh target 'umask 077 && cat > ~/.vx-tts-test.env'
+          ssh target 'bash -s' <<'REMOTE'
+          . ~/.vx-tts-test.env
+          rm -f ~/.vx-tts-test.env
+          URL=http://127.0.0.1:8090
+          for i in $(seq 1 30); do curl -fsS --max-time 3 $URL/healthz >/dev/null 2>&1 && break; sleep 2; done
+          echo "health          : $(curl -s --max-time 5 $URL/healthz)"
+
+          code() { curl -s -o "$3" -w '%{http_code}' --max-time "${4:-120}" -X POST "$URL/speak" -H 'Content-Type: application/json' ${1:+-H "Authorization: Bearer $1"} --data "$2"; }
+          TXT='{"text":"مرحبا بكم في Visionex، منصة تجمع الأخبار والتعلم لأصحاب البصر الضعيف."}'
+
+          echo "no token        : $(code '' "$TXT" /dev/null) (expect 401)"
+          echo "wrong token     : $(code wrong "$TXT" /dev/null) (expect 401)"
+          echo "empty text      : $(code "$TOKEN" '{"text":"  "}' /dev/null) (expect 400)"
+          echo "bad json        : $(code "$TOKEN" 'nope' /dev/null) (expect 400)"
+          echo "other script    : $(code "$TOKEN" '{"text":"Привет, мир"}' /dev/null) (expect 422)"
+          echo "too long        : $(code "$TOKEN" "{\"text\":\"$(head -c 1300 /dev/zero | tr '\0' 'a')\"}" /dev/null) (expect 413)"
+
+          START=$(date +%s)
+          OK=$(code "$TOKEN" "$TXT" /tmp/vx-tts-test.wav)
+          END=$(date +%s)
+          BYTES=$(stat -c %s /tmp/vx-tts-test.wav 2>/dev/null || echo 0)
+          MAGIC=$(head -c 4 /tmp/vx-tts-test.wav 2>/dev/null)
+          # 16-bit mono: the header is 44 bytes, so audio seconds = (bytes - 44) / (2 x sample rate).
+          RATE=$(od -An -tu4 -j24 -N4 /tmp/vx-tts-test.wav 2>/dev/null | tr -d ' ')
+          echo "mixed sentence  : HTTP $OK, $BYTES bytes, header '$MAGIC', sample rate ${RATE:-?}, took $((END-START))s"
+          if [ "$OK" = 200 ] && [ "$MAGIC" = RIFF ] && [ "$BYTES" -gt 50000 ]; then
+            echo "audio seconds   : $(awk -v b="$BYTES" -v r="${RATE:-22050}" 'BEGIN{printf "%.1f", (b-44)/(2*r)}')"
+          else
+            echo "FATAL: the mixed sentence was not spoken."
+            sudo docker logs --tail 30 visionex-local-tts 2>&1 | sed 's/^/  log: /'
+            rm -f /tmp/vx-tts-test.wav
+            exit 1
+          fi
+          rm -f /tmp/vx-tts-test.wav
+          echo "container limits: $(sudo docker inspect visionex-local-tts --format 'mem={{.HostConfig.Memory}} cpus={{.HostConfig.NanoCpus}} readonly={{.HostConfig.ReadonlyRootfs}} user={{.Config.User}}')"
+          REMOTE
