@@ -62,7 +62,7 @@ describe.skipIf(!python)("the cut and the refusals (needs python on the machine)
 
   it("knows exactly the eighteen languages in the lock and normalises codes", () => {
     expect(JSON.parse(run("print(json.dumps(sorted(server.VOICES)))"))).toEqual(Object.keys(lock.voices).sort());
-    expect(run('print(server.normalise_language("pt-BR"), server.normalise_language("AR"), server.normalise_language(None))')).toBe("pt ar ");
+    expect(run('print(server.normalise_language("pt-BR"), server.normalise_language("AR"), server.normalise_language(None))')).toBe("pt ar");
   });
 });
 
