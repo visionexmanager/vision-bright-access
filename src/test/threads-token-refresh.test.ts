@@ -111,8 +111,8 @@ describe("the wiring", () => {
     expect(workflow).toContain("functions/v1/social-oauth");
   });
 
-  it("runs every day and fails the job when a person must act", () => {
-    expect(workflow).toMatch(/schedule:\s*\n\s*- cron: "17 4 \* \* \*"/);
+  it("runs every half hour and fails the job when a person must act", () => {
+    expect(workflow).toMatch(/schedule:\s*\r?\n\s*- cron: "17,47 \* \* \* \*"/);
     expect(workflow).toContain("refresh_tokens");
     expect(workflow).toContain("exit 1");
   });
