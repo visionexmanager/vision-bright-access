@@ -44,7 +44,7 @@ def run(cmd, **kw):
     return subprocess.run(cmd, capture_output=True, text=True, **kw)
 
 t = time.time()
-r = run([sys.executable, "-m", "pip", "install", "-q", "--no-cache-dir", "piper-tts", "faster-whisper"])
+r = run([sys.executable, "-m", "pip", "install", "-q", "--no-cache-dir", "piper-tts", "faster-whisper", "av>=13"])
 if r.returncode != 0:
     print("FAILED: pip install"); print(r.stderr[-400:]); sys.exit(1)
 print(f"install_seconds={time.time()-t:.0f}")
