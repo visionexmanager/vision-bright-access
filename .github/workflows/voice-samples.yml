@@ -1,0 +1,68 @@
+name: Voice samples
+
+# Makes six short Piper audio samples (three Arabic, three English) on the server
+# and offers them as a downloadable artifact, so a person can listen and judge
+# the voice before anything depends on it. Manual only. The sentences are fixed
+# test text and the files hold no private data. The working directory on the
+# server is removed afterwards.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: voice-samples
+  cancel-in-progress: false
+
+jobs:
+  samples:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          for v in HOST USER KEY; do [ -z "${!v}" ] && { echo "::error::Missing secret for $v"; exit 1; }; done
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_deploy
+            ConnectTimeout 15
+            BatchMode yes
+            ServerAliveInterval 30
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'echo connected' >/dev/null
+
+      - name: Make the samples
+        run: ssh target 'bash -s' < scripts/voice-benchmark/samples.sh
+
+      - name: Copy them out
+        run: |
+          mkdir -p samples
+          scp -q 'target:/var/tmp/vxsamples/*.wav' samples/
+          ls -l samples
+
+      - name: Remove the working directory on the server
+        if: always()
+        run: ssh target 'docker run --rm -v /var/tmp/vxsamples:/w alpine find /w -mindepth 1 -delete; rmdir /var/tmp/vxsamples' || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: piper-samples
+          path: samples/*.wav
+          retention-days: 7
