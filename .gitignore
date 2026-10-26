@@ -45,6 +45,8 @@ supabase/.temp/
 
 # One-off utility / fix scripts (not part of the app)
 *.py
+# ...except the local text-to-speech service, whose source is Python.
+!services/local-tts/*.py
 set-supabase-secret.sh
 
 # Codex / AI tool artifacts
