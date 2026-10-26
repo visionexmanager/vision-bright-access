@@ -1,10 +1,12 @@
 name: Social token refresh
 
-# Keeps the Threads connection alive. A Threads token lasts about 60 days and
-# can be extended only while it is still valid, so this runs every day and
-# extends any Threads token with 30 days or less left (a token younger than 24
-# hours is skipped, which Threads requires). Facebook and Instagram hold page
-# tokens that do not expire and are not touched.
+# Keeps the connections alive. A Threads token lasts about 60 days and can be
+# extended only while it is still valid, so any Threads token with 30 days or
+# less left is extended (one younger than 24 hours is skipped, which Threads
+# requires). YouTube, TikTok and X hold an hour-scale access token with a
+# refresh token, renewed when under 50 minutes remain, which is why this runs
+# every half hour. Facebook and Instagram hold page tokens that do not expire
+# and are not touched.
 #
 # It posts nothing. The job fails, and GitHub emails the owner, when a token
 # could not be extended or has already expired and the account must be
@@ -13,7 +15,7 @@ name: Social token refresh
 
 on:
   schedule:
-    - cron: "17 4 * * *"   # every day 04:17 UTC
+    - cron: "17,47 * * * *"   # every half hour
   workflow_dispatch:
 
 permissions:
@@ -45,7 +47,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"action":"refresh_tokens"}')
           echo "HTTP $status"
-          jq -c '{ok, reports: [.reports[]? | {accountId, outcome, expiresAt}], error}' response.json || true
+          jq -c '{ok, reports: [.reports[]? | {accountId, outcome, expiresAt}], oauth2: [.oauth2[]? | {accountId, platform, outcome}], error}' response.json || true
           if [ "$status" != "200" ]; then
             echo "::error::The refresh endpoint answered HTTP $status."
             exit 1
