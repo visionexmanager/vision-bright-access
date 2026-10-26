@@ -76,6 +76,15 @@ describe("the wiring", () => {
     expect(readFileSync("scripts/datahub/load-geonames.mjs", "utf8")).toContain("feature_code: c[7]");
   });
 
+  it("prefers the populous city within 15 km over a nearer neighbourhood, and keeps the grants", () => {
+    const rule = readFileSync("supabase/migrations/20261094000000_nearest_city_prefers_large.sql", "utf8");
+    expect(rule).toContain("ORDER BY (n.km <= 15) DESC");
+    expect(rule).toContain("CASE WHEN n.km <= 15 THEN n.population END DESC NULLS LAST");
+    expect(rule).toMatch(/REVOKE ALL ON FUNCTION public\.nearest_geo_place\([^)]*\) FROM PUBLIC, anon, authenticated/);
+    expect(rule).toMatch(/GRANT EXECUTE ON FUNCTION public\.nearest_geo_place\([^)]*\) TO service_role/);
+    expect(rule).toMatch(/SET search_path = public/);
+  });
+
   it("loads one display name per place and language, preferring the preferred one", () => {
     expect(loader).toContain("geo_place_labels");
     expect(loader).toMatch(/c\[4\] === "1" \? 0/);
