@@ -92,7 +92,7 @@ import {
   NEARBY_RADIUS_M,
   reverseGeocode,
 } from "../_shared/whatsappGeo.ts";
-import { lookupLocalPlace } from "../_shared/whatsappPlaceIndex.ts";
+import { lookupLocalPlace, nearestLocalCity } from "../_shared/whatsappPlaceIndex.ts";
 import {
   asksForEmergencyCare,
   asksToExplainReport,
@@ -3106,7 +3106,11 @@ Deno.serve(async (req) => {
         const place = await viaCache(
           reverseKey(latitude, longitude, answerLanguage),
           "reverse",
-          () => reverseGeocode(latitude, longitude, answerLanguage),
+          // The outside services name the district, which is what a pin is for.
+          // The local city index is the last resort, so "the map service isn't
+          // responding" is no longer the whole answer.
+          async () => (await reverseGeocode(latitude, longitude, answerLanguage))
+            ?? nearestLocalCity(service(), latitude, longitude, answerLanguage),
         );
 
         // No name is not no answer.
@@ -4518,7 +4522,8 @@ Deno.serve(async (req) => {
           : await viaCache(
             reverseKey(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
             "reverse",
-            () => reverseGeocode(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
+            async () => (await reverseGeocode(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage))
+              ?? nearestLocalCity(service(), rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
           );
         // As with a fresh pin: the coordinates are on file and exact, so an
         // unnameable place is still an answerable question.
@@ -5007,10 +5012,16 @@ Deno.serve(async (req) => {
           continue;
         }
         if (!placeName) {
+          // A weather line needs a city, not a district, so the local index
+          // answers first and the outside services only when it has no city
+          // close enough.
           const place = await viaCache(
-            reverseKey(latitude, longitude, answerLanguage),
+            // Its own cache entry: a city-only answer must never be served to
+            // a pin that wants the district.
+            `${reverseKey(latitude, longitude, answerLanguage)}:city`,
             "reverse",
-            () => reverseGeocode(latitude, longitude, answerLanguage),
+            async () => (await nearestLocalCity(service(), latitude, longitude, answerLanguage))
+              ?? reverseGeocode(latitude, longitude, answerLanguage),
           );
           placeName = place ? shortPlaceLabel(place) : "";
         }

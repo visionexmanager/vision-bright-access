@@ -35,6 +35,10 @@ for (const line of readFileSync(cities, "utf8").split("\n")) {
 }
 
 const perPlace = new Map();
+// One display name per place and language: a preferred name beats an ordinary
+// one, which beats a short or colloquial form. Names are shown to senders, so
+// they are kept as written; only the match key is folded.
+const labels = new Map();
 const rows = [];
 let considered = 0;
 
@@ -47,6 +51,14 @@ for await (const line of lines) {
   const language = (c[2] ?? "").split("-")[0].toLowerCase();
   if (!LANGUAGES.has(language) || c[7] === "1") continue;
   considered += 1;
+
+  const display = (c[3] ?? "").trim();
+  if (display) {
+    const rank = c[4] === "1" ? 0 : c[5] === "1" || c[6] === "1" ? 2 : 1;
+    const slot = `${placeId}|${language}`;
+    const kept = labels.get(slot);
+    if (!kept || rank < kept.rank) labels.set(slot, { place_id: placeId, lang: language, label: display, rank });
+  }
 
   const k = placeKey(c[3] ?? "");
   if (!k) continue;
@@ -71,4 +83,17 @@ for (let i = 0; i < rows.length; i += 1000) {
     process.exit(1);
   }
 }
-console.log(`read ${considered} names in the site's languages; sent ${rows.length} keys for ${perPlace.size} places`);
+const labelRows = [...labels.values()].map(({ rank, ...row }) => row);
+const labelUrl = `${base}/rest/v1/geo_place_labels?on_conflict=place_id,lang`;
+for (let i = 0; i < labelRows.length; i += 1000) {
+  const res = await fetch(labelUrl, {
+    method: "POST",
+    headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify(labelRows.slice(i, i + 1000)),
+  });
+  if (!res.ok) {
+    console.error(`label batch at ${i} failed with HTTP ${res.status}`);
+    process.exit(1);
+  }
+}
+console.log(`read ${considered} names in the site's languages; sent ${rows.length} keys for ${perPlace.size} places and ${labelRows.length} labels`);
