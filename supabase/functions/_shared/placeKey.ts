@@ -7,8 +7,11 @@
 //
 // What it folds, and why:
 //   - case and Unicode compatibility forms, so "Ｔｏｋｙｏ" and "tokyo" meet;
-//   - combining marks, so Arabic and Hebrew vowel signs, Latin accents
-//     ("São Paulo") and Vietnamese tone marks do not make one city two keys;
+//   - the combining marks that are optional where they are used: Latin, Greek
+//     and Cyrillic accents ("São Paulo", Vietnamese tone marks), Arabic
+//     tashkeel and Hebrew points. Indic and Thai marks are NOT folded: there
+//     they are vowel signs, part of the word, and stripping them turned Hindi
+//     «दिल्ली» into «दलल»;
 //   - the three Arabic letter variants people type interchangeably
 //     (أ إ آ -> ا, ى -> ي), which is the difference between finding «القاهرة»
 //     and not when a phone keyboard offers the wrong alef.
@@ -18,7 +21,7 @@
 export function placeKey(name: string): string {
   return name
     .normalize("NFKD")
-    .replace(/\p{M}+/gu, "")
+    .replace(/[̀-֑ͯ-ׇً-ٰٟۖ-ۭ]/g, "")
     .toLowerCase()
     .replace(/[أإآٱ]/g, "ا")
     .replace(/ى/g, "ي")

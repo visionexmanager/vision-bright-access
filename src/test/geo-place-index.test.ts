@@ -26,6 +26,14 @@ describe("placeKey", () => {
     expect(placeKey("بَيْرُوت")).toBe(placeKey("بيروت"));
   });
 
+  it("keeps the vowel signs of Indic and Thai scripts, where they are part of the word", () => {
+    expect(placeKey("दिल्ली")).toBe("दिल्ली");
+    expect(placeKey("मुंबई")).toBe("मुंबई");
+    expect(placeKey("ঢাকা").length).toBeGreaterThanOrEqual(4);
+    expect(placeKey("กรุงเทพมหานคร")).toContain("ุ");
+    expect(placeKey("दिल्ली")).not.toBe(placeKey("दलल"));
+  });
+
   it("keeps scripts apart and keeps non-Latin names intact", () => {
     for (const name of ["Москва", "東京", "서울", "تهران", "תל אביב", "इस्तांबुल", "Αθήνα", "กรุงเทพมหานคร"]) {
       expect(placeKey(name).length).toBeGreaterThan(0);
