@@ -92,6 +92,7 @@ import {
   NEARBY_RADIUS_M,
   reverseGeocode,
 } from "../_shared/whatsappGeo.ts";
+import { lookupLocalPlace } from "../_shared/whatsappPlaceIndex.ts";
 import {
   asksForEmergencyCare,
   asksToExplainReport,
@@ -4911,7 +4912,8 @@ Deno.serve(async (req) => {
         const found = await viaCache(
           geocodeKey(placeRequest, answerLanguage),
           "geocode",
-          () => geocodePlace(placeRequest, answerLanguage),
+          async () => (await lookupLocalPlace(service(), placeRequest, answerLanguage))
+            ?? geocodePlace(placeRequest, answerLanguage),
         );
 
         if (!found) {
@@ -4974,7 +4976,8 @@ Deno.serve(async (req) => {
           const geocoded = await viaCache(
             geocodeKey(weatherRequest.place, answerLanguage),
             "geocode",
-            () => geocodePlace(weatherRequest.place as string, answerLanguage),
+            async () => (await lookupLocalPlace(service(), weatherRequest.place as string, answerLanguage))
+              ?? geocodePlace(weatherRequest.place as string, answerLanguage),
           );
           if (!geocoded) {
             await reply(placeNotFoundNotice(answerLanguage, weatherRequest.place), "unsupported");

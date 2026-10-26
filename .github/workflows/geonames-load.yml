@@ -1,0 +1,35 @@
+name: Load GeoNames place index
+
+# Fills the local place index (geo_places, geo_place_names) from GeoNames
+# cities15000. Manual, and safe to rerun: the loader upserts. It prints counts
+# only; this repository is public and no row content is logged.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geonames-load
+  cancel-in-progress: false
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Download cities15000
+        run: |
+          curl -fsSL -m 120 -o cities15000.zip https://download.geonames.org/export/dump/cities15000.zip
+          unzip -o -q cities15000.zip cities15000.txt
+          wc -l < cities15000.txt
+      - name: Load the index
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/datahub/load-geonames.mjs cities15000.txt
