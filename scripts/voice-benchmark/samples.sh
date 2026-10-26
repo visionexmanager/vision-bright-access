@@ -43,6 +43,64 @@ for name, (lang, text) in SAMPLES.items():
     r = subprocess.run([sys.executable, "-m", "piper", "-m", f"{lang}.onnx", "-f", f"{name}.wav"],
                        input=text, capture_output=True, text=True)
     print(("ok   " if r.returncode == 0 else "FAILED ") + name)
+
+# ── One recording that speaks both languages ────────────────────────────────
+# Each Piper voice knows one language: the Arabic voice cannot pronounce "Visionex".
+# So the text is cut into runs by script, each run is spoken by the voice that
+# knows it, and the pieces are joined with a short pause.
+import re, wave
+import numpy as np
+
+MIXED = {
+    "mixed-1-brand": "مرحبا بكم في Visionex، منصة تجمع الأخبار والتعلم والألعاب لأصحاب البصر الضعيف.",
+    "mixed-2-social": "تم نشر منشورك بنجاح على Facebook و Instagram و Threads، ويمكنك مشاهدته من لوحة الإدارة.",
+    "mixed-3-numbers": "أرسلت رسالة واتساب إلى الرقم 962 7 9999 9999 باستخدام WhatsApp Business، وتكلفتها 5 دولارات.",
+}
+LATIN = re.compile(r"[A-Za-z][A-Za-z0-9&'.\-]*(?:\s+[A-Za-z][A-Za-z0-9&'.\-]*)*")
+
+def runs(text):
+    out, pos = [], 0
+    for m in LATIN.finditer(text):
+        if m.start() > pos:
+            out.append(("ar", text[pos:m.start()]))
+        out.append(("en", m.group()))
+        pos = m.end()
+    if pos < len(text):
+        out.append(("ar", text[pos:]))
+    # Punctuation and spaces alone are not worth a voice.
+    return [(lang, t) for lang, t in out if re.search(r"\w", t)]
+
+def speak(lang, text):
+    path = "piece.wav"
+    r = subprocess.run([sys.executable, "-m", "piper", "-m", f"{lang}.onnx", "-f", path],
+                       input=text, capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    with wave.open(path) as w:
+        rate, raw = w.getframerate(), w.readframes(w.getnframes())
+    return rate, np.frombuffer(raw, dtype=np.int16)
+
+for name, text in MIXED.items():
+    pieces, rate = [], None
+    for lang, part in runs(text):
+        got = speak(lang, part)
+        if got is None:
+            continue
+        r_, data = got
+        if rate is None:
+            rate = r_
+        if r_ != rate:  # the two voices are not guaranteed to share a sample rate
+            idx = np.linspace(0, len(data) - 1, int(len(data) * rate / r_))
+            data = np.interp(idx, np.arange(len(data)), data).astype(np.int16)
+        pieces.append(data)
+        pieces.append(np.zeros(int(rate * 0.12), dtype=np.int16))
+    if not pieces:
+        print("FAILED " + name)
+        continue
+    with wave.open(f"{name}.wav", "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate)
+        w.writeframes(np.concatenate(pieces).tobytes())
+    print(f"ok   {name}  ({len(runs(text))} pieces)")
 PY
 
 timeout 900 nice -n 19 docker run --rm --cpus=3 --memory=6g -v "$W":/w -w /w -e PYTHONUNBUFFERED=1 python:3.12-slim python /w/make.py
