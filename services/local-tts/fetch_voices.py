@@ -1,24 +1,32 @@
-"""Download the two Piper voices at build time and refuse anything that is not the
-exact file that was reviewed: the voice repository is fetched at a fixed commit and
-each model's SHA-256 is checked."""
+"""Download the Piper voices named in voices.json at build time, and refuse anything
+that is not the exact file that was reviewed: the voice repository is fetched at a
+fixed commit and each model's SHA-256 is checked against the lock file.
+
+voices.json is the single list of what the service can speak. Adding a language
+means adding an entry there (with the SHA-256 from the voice repository) and
+nothing else."""
 
 import hashlib
+import json
+import os
+import shutil
 import urllib.request
 
-REV = "5041a7a49ae5b3a0f30e6837769eb03fdbb231bd"
-BASE = f"https://huggingface.co/rhasspy/piper-voices/resolve/{REV}"
-VOICES = {
-    "ar": ("ar/ar_JO/kareem/medium/ar_JO-kareem-medium",
-           "9e95cab07b679da603bba17c4dec7ab3111320571964ee95c0379603c086491e"),
-    "en": ("en/en_US/lessac/medium/en_US-lessac-medium",
-           "5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f"),
-}
+LOCK = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "voices.json"), encoding="utf-8"))
+BASE = f"https://huggingface.co/rhasspy/piper-voices/resolve/{LOCK['revision']}"
+TARGET = "/models"
 
-for lang, (path, sha) in VOICES.items():
-    urllib.request.urlretrieve(f"{BASE}/{path}.onnx", f"/models/{lang}.onnx")
-    urllib.request.urlretrieve(f"{BASE}/{path}.onnx.json", f"/models/{lang}.onnx.json")
-    with open(f"/models/{lang}.onnx", "rb") as f:
-        got = hashlib.sha256(f.read()).hexdigest()
-    if got != sha:
+for lang, voice in LOCK["voices"].items():
+    model = f"{TARGET}/{lang}.onnx"
+    urllib.request.urlretrieve(f"{BASE}/{voice['onnx']}", model)
+    urllib.request.urlretrieve(f"{BASE}/{voice['config']}", f"{model}.json")
+    digest = hashlib.sha256()
+    with open(model, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            digest.update(chunk)
+    if digest.hexdigest() != voice["sha256"]:
         raise SystemExit(f"the {lang} model does not match its pinned SHA-256")
-print("voices verified")
+
+# The server reads the same list at run time.
+shutil.copy(os.path.join(os.path.dirname(os.path.abspath(__file__)), "voices.json"), f"{TARGET}/voices.json")
+print(f"{len(LOCK['voices'])} voices verified")

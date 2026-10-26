@@ -1,4 +1,4 @@
-# Local text-to-speech: Piper voices for Arabic and English in one recording.
+# Local text-to-speech: Piper voices for eighteen of the site's languages.
 #
 # A separate container, not part of the media processor. That service is plain Node
 # with no dependencies on purpose, because it parses files that arrive from the
@@ -6,15 +6,15 @@
 #
 # Everything is pinned: the Python image by tag, piper-tts by version, and each
 # voice by the commit of the voice repository AND by the SHA-256 of the model file
-# (see fetch_voices.py). A build that downloads anything else fails.
+# (voices.json is the lock; see fetch_voices.py). A build that downloads anything else fails.
 
 FROM python:3.12-slim
 
 # numpy is named explicitly: the service uses it to join the pieces.
 RUN pip install --no-cache-dir "piper-tts==1.8.0" numpy
 
-COPY fetch_voices.py /tmp/fetch_voices.py
-RUN mkdir /models && python /tmp/fetch_voices.py && rm /tmp/fetch_voices.py
+COPY fetch_voices.py voices.json /tmp/
+RUN mkdir /models && python /tmp/fetch_voices.py && rm /tmp/fetch_voices.py /tmp/voices.json
 
 WORKDIR /app
 COPY server.py ./

@@ -1,0 +1,149 @@
+{
+  "revision": "5041a7a49ae5b3a0f30e6837769eb03fdbb231bd",
+  "voices": {
+    "ar": {
+      "key": "ar_JO-kareem-medium",
+      "onnx": "ar/ar_JO/kareem/medium/ar_JO-kareem-medium.onnx",
+      "config": "ar/ar_JO/kareem/medium/ar_JO-kareem-medium.onnx.json",
+      "sha256": "9e95cab07b679da603bba17c4dec7ab3111320571964ee95c0379603c086491e",
+      "script": "arabic",
+      "length_scale": 0.65
+    },
+    "bn": {
+      "key": "bn_BD-google-medium",
+      "onnx": "bn/bn_BD/google/medium/bn_BD-google-medium.onnx",
+      "config": "bn/bn_BD/google/medium/bn_BD-google-medium.onnx.json",
+      "sha256": "f2e7518ed5534a755024a48c71b80bf617efaf12570bbdf3ce255a9526a8afd3",
+      "script": "bengali",
+      "length_scale": 1
+    },
+    "de": {
+      "key": "de_DE-thorsten-medium",
+      "onnx": "de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx",
+      "config": "de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx.json",
+      "sha256": "7e64762d8e5118bb578f2eea6207e1a35a8e0c30595010b666f983fc87bb7819",
+      "script": "latin",
+      "length_scale": 1
+    },
+    "en": {
+      "key": "en_US-lessac-medium",
+      "onnx": "en/en_US/lessac/medium/en_US-lessac-medium.onnx",
+      "config": "en/en_US/lessac/medium/en_US-lessac-medium.onnx.json",
+      "sha256": "5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f",
+      "script": "latin",
+      "length_scale": 1
+    },
+    "es": {
+      "key": "es_ES-davefx-medium",
+      "onnx": "es/es_ES/davefx/medium/es_ES-davefx-medium.onnx",
+      "config": "es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json",
+      "sha256": "6658b03b1a6c316ee4c265a9896abc1393353c2d9e1bca7d66c2c442e222a917",
+      "script": "latin",
+      "length_scale": 1
+    },
+    "fa": {
+      "key": "fa_IR-gyro-medium",
+      "onnx": "fa/fa_IR/gyro/medium/fa_IR-gyro-medium.onnx",
+      "config": "fa/fa_IR/gyro/medium/fa_IR-gyro-medium.onnx.json",
+      "sha256": "37dfae43c82ee38ca9e6aac4ffef76a74d6b282ccbc397b27761f35d355c99ba",
+      "script": "arabic",
+      "length_scale": 1
+    },
+    "fr": {
+      "key": "fr_FR-siwis-medium",
+      "onnx": "fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx",
+      "config": "fr/fr_FR/siwis/medium/fr_FR-siwis-medium.onnx.json",
+      "sha256": "641d1ab097da2b81128c076810edb052b385decc8be3381814802a64a73baf99",
+      "script": "latin",
+      "length_scale": 1
+    },
+    "hi": {
+      "key": "hi_IN-priyamvada-medium",
+      "onnx": "hi/hi_IN/priyamvada/medium/hi_IN-priyamvada-medium.onnx",
+      "config": "hi/hi_IN/priyamvada/medium/hi_IN-priyamvada-medium.onnx.json",
+      "sha256": "aa63bcf2cd493b55a450f280e23cf77f03afc9af7015e6e5acd43b652f166c88",
+      "script": "devanagari",
+      "length_scale": 1
+    },
+    "id": {
+      "key": "id_ID-news_tts-medium",
+      "onnx": "id/id_ID/news_tts/medium/id_ID-news_tts-medium.onnx",
+      "config": "id/id_ID/news_tts/medium/id_ID-news_tts-medium.onnx.json",
+      "sha256": "ed8f02aa593f7af6b19acbdb8142e0da0dd72f46194eb33d38e0eb10a52597e8",
+      "script": "latin",
+      "length_scale": 1
+    },
+    "it": {
+      "key": "it_IT-paola-medium",
+      "onnx": "it/it_IT/paola/medium/it_IT-paola-medium.onnx",
+      "config": "it/it_IT/paola/medium/it_IT-paola-medium.onnx.json",
+      "sha256": "6fc918b5a0ea6137382833dddfa567bffbe6a5060c02043c87192ee59c04210c",
+      "script": "latin",
+      "length_scale": 1
+    },
+    "ko": {
+      "key": "ko_KR-kss-medium",
+      "onnx": "ko/ko_KR/kss/medium/ko_KR-kss-medium.onnx",
+      "config": "ko/ko_KR/kss/medium/ko_KR-kss-medium.onnx.json",
+      "sha256": "624fd774e26895f24bebae1bd9a3379e3394baeade4b584924f83e414096e2c9",
+      "script": "hangul",
+      "length_scale": 1
+    },
+    "nl": {
+      "key": "nl_NL-alex-medium",
+      "onnx": "nl/nl_NL/alex/medium/nl_NL-alex-medium.onnx",
+      "config": "nl/nl_NL/alex/medium/nl_NL-alex-medium.onnx.json",
+      "sha256": "22f0497c4d895a09fbc6a469459aa8954ea0955d3c6e19dbcc2e23acbb93e30b",
+      "script": "latin",
+      "length_scale": 1
+    },
+    "pl": {
+      "key": "pl_PL-gosia-medium",
+      "onnx": "pl/pl_PL/gosia/medium/pl_PL-gosia-medium.onnx",
+      "config": "pl/pl_PL/gosia/medium/pl_PL-gosia-medium.onnx.json",
+      "sha256": "38f66464240ed74f186e6b7dc13c6e3b22e023426299f25c2b3cc9dfa9373fbc",
+      "script": "latin",
+      "length_scale": 1
+    },
+    "pt": {
+      "key": "pt_BR-faber-medium",
+      "onnx": "pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx",
+      "config": "pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx.json",
+      "sha256": "858555e3a064209c57088fe6bd70c4c3dc54d03eaa00c45d5ecaf43a33f95aa7",
+      "script": "latin",
+      "length_scale": 1
+    },
+    "ru": {
+      "key": "ru_RU-irina-medium",
+      "onnx": "ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx",
+      "config": "ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx.json",
+      "sha256": "8ff38212d23da300bbe3705c645e6e5b9475f0bfde01558eb17813e22acaaaaa",
+      "script": "cyrillic",
+      "length_scale": 1
+    },
+    "tr": {
+      "key": "tr_TR-dfki-medium",
+      "onnx": "tr/tr_TR/dfki/medium/tr_TR-dfki-medium.onnx",
+      "config": "tr/tr_TR/dfki/medium/tr_TR-dfki-medium.onnx.json",
+      "sha256": "2844717f524ab965d3fe86e60562cbb601d3e456836efcc2196cc3a14112a8fb",
+      "script": "latin",
+      "length_scale": 1
+    },
+    "ur": {
+      "key": "ur_PK-aegis_female-medium",
+      "onnx": "ur/ur_PK/aegis_female/medium/ur_PK-aegis_female-medium.onnx",
+      "config": "ur/ur_PK/aegis_female/medium/ur_PK-aegis_female-medium.onnx.json",
+      "sha256": "3ec306035cfd0bbc22342fee5890450708a16dd231809522731678aa583c961f",
+      "script": "arabic",
+      "length_scale": 1
+    },
+    "vi": {
+      "key": "vi_VN-vais1000-medium",
+      "onnx": "vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx",
+      "config": "vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx.json",
+      "sha256": "ec7c89e2c85f4d1edc24b6120c18aaf1bda614f06b511567eb9c7c0de15e2dab",
+      "script": "latin",
+      "length_scale": 1
+    }
+  }
+}

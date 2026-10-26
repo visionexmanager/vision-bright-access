@@ -1,17 +1,21 @@
-"""Local text-to-speech for Visionex: Arabic and English in one recording.
+"""Local text-to-speech for Visionex, in eighteen of the site's languages.
 
-Each Piper voice knows one language. The Arabic voice cannot pronounce "Visionex",
-so the text is cut into runs by script, each run is spoken by the voice that knows
-it, and the pieces are joined with a short pause. Arabic is spoken at the pace the
-owner chose by ear (length-scale 0.65, faster than Piper's default).
+Each Piper voice knows one language. For a language written in Latin letters the
+whole text goes to its voice. For a language written in another script (Arabic,
+Persian, Urdu, Bengali, Hindi, Russian, Korean) the Latin runs inside it, such as
+"Visionex" or "WhatsApp Business", are spoken by the English voice, because the
+native voice cannot pronounce them: the text is cut into runs by script, each run
+is spoken by the voice that knows it, and the pieces are joined with a short pause.
 
-Only Arabic and English are supported. Text in any other script is refused with
-`unsupported_language`, so the caller can use another provider for it rather than
-have it read in a voice that does not know the language.
+voices.json is the list of what can be spoken, with each voice pinned by SHA-256 and
+its pace (Arabic is spoken at the length-scale the owner chose by ear, 0.65). Text
+in a script the chosen language does not use is refused with `unsupported_language`,
+and so is a language with no voice, so the caller can use another provider instead
+of having text read in a voice that does not know it.
 
 What this service will not do:
   * log the text. The repository is public and so are its CI logs; a log line
-    carries a length and an outcome, never a word of what was said;
+    carries a language, a length and an outcome, never a word of what was said;
   * answer an unbounded request: the body, the text and the number of syntheses
     running at once are all capped;
   * run as root or write anywhere but a small temporary directory (see the
@@ -19,6 +23,7 @@ What this service will not do:
 """
 
 import hmac
+import io
 import json
 import os
 import re
@@ -43,45 +48,77 @@ MAX_CONCURRENT = 2
 PIECE_TIMEOUT_S = 45
 PAUSE_S = 0.12
 
-# Piper length-scale: below 1 speaks faster.
-LENGTH_SCALE = {"ar": 0.65, "en": 1.0}
+
+def _load_voices():
+    here = os.path.dirname(os.path.abspath(__file__))
+    for path in (os.path.join(MODELS, "voices.json"), os.path.join(here, "voices.json")):
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)["voices"]
+    return {}
+
+
+VOICES = _load_voices()
+
+# The letters each script may contain. Latin is always allowed on top of a native
+# script, for the names that are spoken by the English voice.
+LATIN_BASIC = r"A-Za-z"
+SCRIPT_RANGES = {
+    "latin": r"A-Za-zÀ-ɏḀ-ỿ",
+    "arabic": r"؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿",
+    "bengali": r"ঀ-৿",
+    "devanagari": r"ऀ-ॿ",
+    "cyrillic": r"Ѐ-ӿ",
+    "hangul": r"가-힯ᄀ-ᇿ㄰-㆏",
+}
 
 # A run starts and ends on a letter or digit, so a sentence's full stop is not read as part of the name.
 _WORD = r"[A-Za-z](?:[A-Za-z0-9&'.\-]*[A-Za-z0-9])?"
 LATIN_RUN = re.compile(_WORD + r"(?:\s+" + _WORD + r")*")
-ARABIC_LETTER = re.compile(r"[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]")
-# Any letter that is neither Latin nor Arabic: Cyrillic, CJK, Devanagari, Greek...
-OTHER_SCRIPT = re.compile(r"[^\W\d_]", re.UNICODE)
 
 
-def split_runs(text):
-    """Cut text into [(lang, piece)] runs, "en" for Latin runs and "ar" for the rest."""
+def normalise_language(value):
+    return str(value or "").strip().lower().replace("_", "-").split("-")[0][:3]
+
+
+def script_of(lang):
+    return VOICES[lang]["script"]
+
+
+def split_runs(text, lang="ar"):
+    """Cut text into [(voice language, piece)] runs.
+
+    A language in Latin letters is one run. Any other language keeps its own runs
+    and hands the Latin ones to the English voice."""
+    if script_of(lang) == "latin":
+        return [(lang, text)] if re.search(r"\w", text) else []
     out, pos = [], 0
     for m in LATIN_RUN.finditer(text):
         if m.start() > pos:
-            out.append(("ar", text[pos:m.start()]))
+            out.append((lang, text[pos:m.start()]))
         out.append(("en", m.group()))
         pos = m.end()
     if pos < len(text):
-        out.append(("ar", text[pos:]))
+        out.append((lang, text[pos:]))
     # Punctuation and spaces alone are not worth a voice.
-    return [(lang, piece) for lang, piece in out if re.search(r"\w", piece)]
+    return [(voice, piece) for voice, piece in out if re.search(r"\w", piece)]
 
 
-def unsupported(text):
-    """True when the text holds a letter that is neither Arabic nor Latin."""
-    for ch in text:
-        if ch.isalpha() and not ARABIC_LETTER.match(ch) and not re.match(r"[A-Za-z]", ch):
-            return True
-    return False
+def unsupported(text, lang="ar"):
+    """True when the text holds a letter the chosen language's script does not use."""
+    allowed = SCRIPT_RANGES[script_of(lang)]
+    if script_of(lang) != "latin":
+        allowed += LATIN_BASIC
+    pattern = re.compile(f"[{allowed}]")
+    return any(ch.isalpha() and not pattern.match(ch) for ch in text)
 
 
-def synth_piece(lang, piece, workdir):
+def synth_piece(voice, piece, workdir):
     """Speak one run with its voice. Returns (sample_rate, int16 bytes) or None."""
     out = os.path.join(workdir, "piece.wav")
-    model = os.path.join(MODELS, f"{lang}.onnx")
+    model = os.path.join(MODELS, f"{voice}.onnx")
     cmd = [sys.executable, "-m", "piper", "-m", model, "-f", out,
-           "--length-scale", str(LENGTH_SCALE[lang])]
+           "--length-scale", str(VOICES[voice]["length_scale"])]
     try:
         result = subprocess.run(cmd, input=piece, capture_output=True, text=True,
                                 timeout=PIECE_TIMEOUT_S)
@@ -93,22 +130,21 @@ def synth_piece(lang, piece, workdir):
         return w.getframerate(), w.readframes(w.getnframes())
 
 
-def synthesize(text):
+def synthesize(text, lang):
     """The whole recording as WAV bytes, or None if a piece could not be spoken."""
-    import io
     import numpy as np
 
     pieces, rate = [], None
     with tempfile.TemporaryDirectory(dir="/tmp") as workdir:
-        for lang, piece in split_runs(text):
-            got = synth_piece(lang, piece, workdir)
+        for voice, piece in split_runs(text, lang):
+            got = synth_piece(voice, piece, workdir)
             if got is None:
                 return None
             piece_rate, raw = got
             data = np.frombuffer(raw, dtype=np.int16)
             if rate is None:
                 rate = piece_rate
-            if piece_rate != rate:  # the two voices need not share a sample rate
+            if piece_rate != rate:  # the voices need not share a sample rate
                 idx = np.linspace(0, len(data) - 1, int(len(data) * rate / piece_rate))
                 data = np.interp(idx, np.arange(len(data)), data).astype(np.int16)
             pieces.append(data)
@@ -131,7 +167,7 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "visionex-local-tts"
     sys_version = ""
 
-    def log_message(self, fmt, *args):  # never the request line: it names the path only, but keep it silent
+    def log_message(self, fmt, *args):  # silent: a request line is not worth the risk of a log
         pass
 
     def _send(self, status, body, content_type="application/json"):
@@ -152,8 +188,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/healthz":
-            ready = all(os.path.exists(os.path.join(MODELS, f"{lang}.onnx")) for lang in LENGTH_SCALE)
-            return self._send(200 if ready else 503, {"ok": ready, "languages": sorted(LENGTH_SCALE)})
+            ready = bool(VOICES) and all(os.path.exists(os.path.join(MODELS, f"{lang}.onnx")) for lang in VOICES)
+            return self._send(200 if ready else 503, {"ok": ready, "languages": sorted(VOICES)})
         return self._send(404, {"error": "not_found"})
 
     def do_POST(self):
@@ -172,27 +208,28 @@ class Handler(BaseHTTPRequestHandler):
         try:
             payload = json.loads(self.rfile.read(length))
             text = payload["text"]
+            lang = normalise_language(payload.get("language", "ar"))
         except Exception:
             return self._send(400, {"error": "bad_json"})
         if not isinstance(text, str) or not text.strip():
             return self._send(400, {"error": "empty_text"})
         if len(text) > MAX_TEXT_CHARS:
             return self._send(413, {"error": "text_too_long", "max_chars": MAX_TEXT_CHARS})
-        if unsupported(text):
+        if lang not in VOICES or unsupported(text, lang):
             return self._send(422, {"error": "unsupported_language"})
-        if not split_runs(text):
+        if not split_runs(text, lang):
             return self._send(422, {"error": "nothing_to_say"})
 
         if not _slots.acquire(blocking=False):
             return self._send(429, {"error": "busy"})
         started = time.time()
         try:
-            wav = synthesize(text)
+            wav = synthesize(text, lang)
         finally:
             _slots.release()
 
-        # A length and an outcome, never the text.
-        print(f"speak chars={len(text)} ok={wav is not None} seconds={time.time() - started:.1f}", flush=True)
+        # A language, a length and an outcome, never the text.
+        print(f"speak lang={lang} chars={len(text)} ok={wav is not None} seconds={time.time() - started:.1f}", flush=True)
         if wav is None:
             return self._send(500, {"error": "synthesis_failed"})
         return self._send(200, wav, "audio/wav")
