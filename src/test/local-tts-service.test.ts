@@ -9,6 +9,10 @@ import { describe, expect, it } from "vitest";
 const server = readFileSync("services/local-tts/server.py", "utf8");
 const dockerfile = readFileSync("services/local-tts/Dockerfile", "utf8");
 const fetcher = readFileSync("services/local-tts/fetch_voices.py", "utf8");
+const lock = JSON.parse(readFileSync("services/local-tts/voices.json", "utf8")) as {
+  revision: string;
+  voices: Record<string, { sha256: string; script: string; length_scale: number; onnx: string }>;
+};
 const deploy = readFileSync(".github/workflows/deploy-local-tts.yml", "utf8");
 
 const python = ["python3", "python"].find((bin) => spawnSync(bin, ["--version"]).status === 0);
@@ -23,7 +27,7 @@ function run(code: string): string {
 
 describe.skipIf(!python)("the cut and the refusals (needs python on the machine)", () => {
   it("speaks Latin runs in English and the rest in Arabic", () => {
-    const out = JSON.parse(run('print(json.dumps(server.split_runs("مرحبا بكم في Visionex، منصة تجمع الأخبار على Facebook و Instagram.")))'));
+    const out = JSON.parse(run('print(json.dumps(server.split_runs("مرحبا بكم في Visionex، منصة تجمع الأخبار على Facebook و Instagram.", "ar")))'));
     expect(out.map(([lang]: [string]) => lang)).toEqual(["ar", "en", "ar", "en", "ar", "en"]);
     expect(out[1][1]).toBe("Visionex");
     expect(out[3][1]).toBe("Facebook");
@@ -33,25 +37,56 @@ describe.skipIf(!python)("the cut and the refusals (needs python on the machine)
   });
 
   it("keeps a multi-word English name as one run and drops pieces with nothing to say", () => {
-    const out = JSON.parse(run('print(json.dumps(server.split_runs("عبر WhatsApp Business ، !!")))'));
+    const out = JSON.parse(run('print(json.dumps(server.split_runs("عبر WhatsApp Business ، !!", "ar")))'));
     expect(out.map(([lang, text]: [string, string]) => `${lang}:${text.trim()}`)).toEqual(["ar:عبر", "en:WhatsApp Business"]);
   });
 
-  it("refuses a script it has no voice for, so the caller can use another provider", () => {
-    expect(run('print(server.unsupported("Привет"))')).toBe("True");
-    expect(run('print(server.unsupported("你好"))')).toBe("True");
-    expect(run('print(server.unsupported("café"))')).toBe("True");
-    expect(run('print(server.unsupported("مرحبا Visionex 962 7"))')).toBe("False");
+  it("refuses a script the chosen language does not use, so the caller can use another provider", () => {
+    expect(run('print(server.unsupported("Привет", "ar"))')).toBe("True");
+    expect(run('print(server.unsupported("你好", "ar"))')).toBe("True");
+    expect(run('print(server.unsupported("नमस्ते", "ar"))')).toBe("True");
+    expect(run('print(server.unsupported("مرحبا Visionex 962 7", "ar"))')).toBe("False");
+    expect(run('print(server.unsupported("Привет, Visionex", "ru"))')).toBe("False");
+    expect(run('print(server.unsupported("Привет", "fr"))')).toBe("True");
+    expect(run('print(server.unsupported("café à Genève", "fr"))')).toBe("False");
+    expect(run('print(server.unsupported("Chào mừng bạn đến với Visionex", "vi"))')).toBe("False");
+    expect(run('print(server.unsupported("Visionex에 오신 것을 환영합니다", "ko"))')).toBe("False");
+    expect(run('print(server.unsupported("Visionex में आपका स्वागत है", "hi"))')).toBe("False");
+  });
+
+  it("hands a Latin-script language to its own voice whole, and the Latin runs of the others to English", () => {
+    expect(JSON.parse(run('print(json.dumps(server.split_runs("Bienvenue sur Visionex et Facebook.", "fr")))'))).toEqual([["fr", "Bienvenue sur Visionex et Facebook."]]);
+    expect(JSON.parse(run('print(json.dumps(server.split_runs("Добро пожаловать в Visionex.", "ru")))')).map(([v]: [string]) => v)).toEqual(["ru", "en"]);
+    expect(JSON.parse(run('print(json.dumps(server.split_runs("به Visionex خوش آمدید", "fa")))')).map(([v]: [string]) => v)).toEqual(["fa", "en", "fa"]);
+  });
+
+  it("knows exactly the eighteen languages in the lock and normalises codes", () => {
+    expect(JSON.parse(run("print(json.dumps(sorted(server.VOICES)))"))).toEqual(Object.keys(lock.voices).sort());
+    expect(run('print(server.normalise_language("pt-BR"), server.normalise_language("AR"), server.normalise_language(None))')).toBe("pt ar");
   });
 });
 
 describe("what the service promises", () => {
-  it("speaks Arabic at the pace the owner chose and English at the default", () => {
-    expect(server).toMatch(/LENGTH_SCALE = \{"ar": 0\.65, "en": 1\.0\}/);
+  it("speaks Arabic at the pace the owner chose and every other language at the default", () => {
+    expect(lock.voices.ar.length_scale).toBe(0.65);
+    for (const [lang, voice] of Object.entries(lock.voices)) {
+      if (lang !== "ar") expect(voice.length_scale, lang).toBe(1.0);
+    }
+  });
+
+  it("covers eighteen languages, each pinned by SHA-256 and a known script", () => {
+    expect(Object.keys(lock.voices).sort()).toEqual(
+      ["ar", "bn", "de", "en", "es", "fa", "fr", "hi", "id", "it", "ko", "nl", "pl", "pt", "ru", "tr", "ur", "vi"],
+    );
+    for (const [lang, voice] of Object.entries(lock.voices)) {
+      expect(voice.sha256, lang).toMatch(/^[0-9a-f]{64}$/);
+      expect(["latin", "arabic", "bengali", "devanagari", "cyrillic", "hangul"], lang).toContain(voice.script);
+    }
+    expect(lock.voices.en.script).toBe("latin");
   });
 
   it("never logs the text, only a length and an outcome", () => {
-    expect(server).toContain('print(f"speak chars={len(text)} ok={wav is not None}');
+    expect(server).toContain('print(f"speak lang={lang} chars={len(text)} ok={wav is not None}');
     expect(server).not.toMatch(/print\([^)]*\btext\b(?!\))[^)]*\)(?![^\n]*chars=)/);
     expect(server).toMatch(/def log_message[^\n]*\n\s+pass/);
   });
@@ -64,9 +99,9 @@ describe("what the service promises", () => {
   });
 
   it("pins the voices by commit and by SHA-256 and runs as a non-root user", () => {
-    expect(fetcher).toMatch(/REV = "[0-9a-f]{40}"/);
-    expect(fetcher.match(/"[0-9a-f]{64}"/g)?.length).toBe(2);
+    expect(lock.revision).toMatch(/^[0-9a-f]{40}$/);
     expect(fetcher).toContain("does not match its pinned SHA-256");
+    expect(fetcher).toContain("voices.json");
     expect(dockerfile).toMatch(/piper-tts==\d+\.\d+\.\d+/);
     expect(dockerfile).toMatch(/USER 10001/);
   });
@@ -86,6 +121,13 @@ describe("the deployment", () => {
     expect(deploy).toContain("umask 077");
     expect(deploy).not.toMatch(/--env\s+TTS_TOKEN/);
     expect(deploy).not.toMatch(/docker run[^\n]*TOKEN=/);
+  });
+
+  it("speaks a greeting in every language of the lock during the self-test", () => {
+    for (const lang of Object.keys(lock.voices)) {
+      expect(deploy, lang).toMatch(new RegExp(String.raw`^\s+${lang}\|`, "m"));
+    }
+    expect(deploy).toContain('[ "$FAIL" -eq 0 ]');
   });
 
   it("proves the refusals as well as the speech", () => {

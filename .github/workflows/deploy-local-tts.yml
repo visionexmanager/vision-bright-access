@@ -168,5 +168,44 @@ jobs:
             exit 1
           fi
           rm -f /tmp/vx-tts-test.wav
+
+          # One greeting in every language the service claims, each of which must
+          # come back as audio. A language that cannot be spoken fails the job.
+          PASS=0; FAIL=0; FAILED=""
+          while IFS='|' read -r LANG TEXT; do
+            [ -z "$LANG" ] && continue
+            BODY=$(printf '{"language":"%s","text":"%s"}' "$LANG" "$TEXT")
+            S=$(date +%s)
+            C=$(code "$TOKEN" "$BODY" /tmp/vx-tts-lang.wav)
+            E=$(date +%s)
+            B=$(stat -c %s /tmp/vx-tts-lang.wav 2>/dev/null || echo 0)
+            if [ "$C" = 200 ] && [ "$(head -c 4 /tmp/vx-tts-lang.wav)" = RIFF ] && [ "$B" -gt 20000 ]; then
+              PASS=$((PASS+1)); echo "language $LANG : ok, $B bytes, $((E-S))s"
+            else
+              FAIL=$((FAIL+1)); FAILED="$FAILED $LANG"; echo "language $LANG : FAILED (HTTP $C, $B bytes)"
+            fi
+          done <<'GREETINGS'
+          ar|مرحبا بكم في Visionex.
+          bn|Visionex-এ আপনাকে স্বাগতম।
+          de|Willkommen bei Visionex.
+          en|Welcome to Visionex.
+          es|Bienvenido a Visionex.
+          fa|به Visionex خوش آمدید.
+          fr|Bienvenue sur Visionex.
+          hi|Visionex में आपका स्वागत है।
+          id|Selamat datang di Visionex.
+          it|Benvenuto su Visionex.
+          ko|Visionex에 오신 것을 환영합니다.
+          nl|Welkom bij Visionex.
+          pl|Witamy w Visionex.
+          pt|Bem-vindo ao Visionex.
+          ru|Добро пожаловать в Visionex.
+          tr|Visionex'e hoş geldiniz.
+          ur|Visionex میں خوش آمدید۔
+          vi|Chào mừng bạn đến với Visionex.
+          GREETINGS
+          rm -f /tmp/vx-tts-lang.wav
+          echo "languages       : $PASS spoken, $FAIL failed$FAILED"
+          [ "$FAIL" -eq 0 ] || { sudo docker logs --tail 20 visionex-local-tts 2>&1 | sed 's/^/  log: /'; exit 1; }
           echo "container limits: $(sudo docker inspect visionex-local-tts --format 'mem={{.HostConfig.Memory}} cpus={{.HostConfig.NanoCpus}} readonly={{.HostConfig.ReadonlyRootfs}} user={{.Config.User}}')"
           REMOTE
