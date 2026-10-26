@@ -32,6 +32,8 @@ command -v docker >/dev/null 2>&1 || { echo "FAILED: docker is not available to 
 cat > "$W/inner.py" <<'PY'
 import os, re, subprocess, sys, time, urllib.request, wave
 
+import numpy as np
+
 AR = "مرحبا بكم في فيجن إكس، منصة تجمع الأخبار والتعلم والألعاب والأدوات لأصحاب البصر الضعيف والمكفوفين في عشرين لغة"
 EN = "Welcome to Visionex, a platform that brings together news, learning, games and tools for blind and low vision people in twenty languages."
 HF = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
@@ -64,6 +66,15 @@ for lang, text in (("ar", AR), ("en", EN)):
         audio = w.getnframes() / w.getframerate()
     print(f"TTS {lang}: synth_seconds={took:.1f} audio_seconds={audio:.1f} rtf={took/audio:.2f} (includes loading the model)")
 
+def load16k(path):
+    # Decode the WAV directly and resample to the 16 kHz Whisper expects, so no
+    # audio library is involved in the measurement.
+    with wave.open(path) as w:
+        rate, raw = w.getframerate(), w.readframes(w.getnframes())
+    x = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+    n = int(len(x) * 16000 / rate)
+    return np.interp(np.linspace(0, len(x) - 1, n), np.arange(len(x)), x).astype(np.float32)
+
 def norm(s):
     return re.sub(r"[^\w\s]", " ", s.lower()).split()
 
@@ -82,13 +93,13 @@ for size in ("base", "small"):
         if not os.path.exists(f"{lang}.wav"):
             continue
         t = time.time()
-        segs, info = model.transcribe(f"{lang}.wav", language=lang, beam_size=1)
+        segs, info = model.transcribe(load16k(f"{lang}.wav"), language=lang, beam_size=1)
         text = " ".join(s.text for s in segs)
         took = time.time() - t
         ref, got = norm(refs[lang]), norm(text)
         hit = sum(1 for w in ref if w in got)
-        print(f"STT {size} {lang}: load_s={load:.1f} transcribe_s={took:.1f} audio_s={info.duration:.1f} "
-              f"rtf={took/max(info.duration, 0.01):.2f} words_matched={hit}/{len(ref)} threads={threads}")
+        print(f"STT {size} {lang}: load_s={load:.1f} transcribe_s={took:.1f} audio_s={len(load16k(f"{lang}.wav"))/16000:.1f} "
+              f"rtf={took/max(len(load16k(f"{lang}.wav"))/16000, 0.01):.2f} words_matched={hit}/{len(ref)} threads={threads}")
 PY
 
 timeout 1500 nice -n 19 docker run --rm --cpus=3 --memory=6g -v "$W":/w -w /w -e PYTHONUNBUFFERED=1 python:3.12-slim python /w/inner.py
