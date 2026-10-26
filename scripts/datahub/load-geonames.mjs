@@ -37,6 +37,7 @@ for (const line of readFileSync(file, "utf8").split("\n")) {
     longitude,
     population: Number(c[14]) || null,
     timezone: c[17] || null,
+    feature_code: c[7] || null,
   });
 
   const keys = new Set();

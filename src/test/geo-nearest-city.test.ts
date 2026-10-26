@@ -67,6 +67,15 @@ describe("the wiring", () => {
     expect(migration).toMatch(/SET search_path = public/);
   });
 
+  it("leaves districts out: the feature code is stored and the lookup skips city sections", () => {
+    const fix = readFileSync("supabase/migrations/20261093000000_geo_places_feature_code.sql", "utf8");
+    expect(fix).toMatch(/ADD COLUMN IF NOT EXISTS feature_code text/);
+    expect(fix).toContain("coalesce(p.feature_code, '') <> 'PPLX'");
+    expect(fix).toMatch(/GRANT EXECUTE ON FUNCTION public\.nearest_geo_place\([^)]*\) TO service_role/);
+    expect(fix).toMatch(/REVOKE ALL ON FUNCTION public\.nearest_geo_place\([^)]*\) FROM PUBLIC, anon, authenticated/);
+    expect(readFileSync("scripts/datahub/load-geonames.mjs", "utf8")).toContain("feature_code: c[7]");
+  });
+
   it("loads one display name per place and language, preferring the preferred one", () => {
     expect(loader).toContain("geo_place_labels");
     expect(loader).toMatch(/c\[4\] === "1" \? 0/);
