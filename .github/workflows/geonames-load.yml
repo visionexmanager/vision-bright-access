@@ -17,7 +17,7 @@ concurrency:
 jobs:
   load:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -33,3 +33,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/datahub/load-geonames.mjs cities15000.txt
+      - name: Add the per-language names
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl -fsSL -m 600 -o alternateNamesV2.zip https://download.geonames.org/export/dump/alternateNamesV2.zip
+          unzip -p alternateNamesV2.zip alternateNamesV2.txt | node scripts/datahub/load-geonames-alternates.mjs cities15000.txt
