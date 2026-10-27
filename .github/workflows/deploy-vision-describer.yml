@@ -1,0 +1,182 @@
+name: Vision describer
+
+# Starts, stops and tests the small vision model that describes photographs on
+# the production server (Qwen3-VL 4B under llama.cpp, quantised, CPU).
+#
+# It is the last resort behind the paid providers, off by default, and this
+# workflow is the server half of "off": nothing runs until `start` is chosen,
+# and `stop` removes the container. The other half is the `LOCAL_DESCRIBE`
+# secret on the Edge Function, which has to be `on` before the webhook ever
+# calls it. See supabase/functions/_shared/whatsappLocalDescribe.ts.
+#
+# ── What it touches ─────────────────────────────────────────────────────────
+#
+# One container, `visionex-describer`, published on the Docker bridge address
+# only: reachable from the media processor container, not from the internet and
+# not from other hosts. It is limited to three cores and 6 GB, so the website
+# and the processor keep one core and the rest of the memory. nginx is not
+# touched. The model files (about 3 GB) are cached in
+# /var/lib/visionex/describer-cache so a restart does not download them again.
+#
+# The media processor must have been redeployed once after this change so that
+# it knows where the model is (DESCRIBER_URL); `test` checks that.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "status = report only. start = run the model container. stop = remove it. test = prove the processor reaches it and describes a drawn image."
+        required: true
+        default: status
+        type: choice
+        options: [status, start, stop, test]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vision-describer
+  cancel-in-progress: false
+
+jobs:
+  describer:
+    name: Vision describer
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          for v in HOST USER KEY; do [ -z "${!v}" ] && { echo "::error::Missing secret for $v"; exit 1; }; done
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_deploy
+            ConnectTimeout 15
+            BatchMode yes
+            ServerAliveInterval 30
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'echo connected' >/dev/null
+
+      - name: Report what is there now
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          echo '```'
+          echo "container : $(sudo docker ps -a --filter name=^visionex-describer$ --format '{{.Status}}' | head -1)"
+          echo "bridge    : $(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null)"
+          echo "load      : $(cut -d' ' -f1-3 /proc/loadavg) on $(nproc) cores"
+          echo "free RAM  : $(free -m | awk '/^Mem:/{print $7" MB available"}')"
+          echo "disk free : $(df -BG --output=avail /var/lib | tail -1 | tr -d ' ')"
+          echo "cache     : $(sudo du -sh /var/lib/visionex/describer-cache 2>/dev/null | cut -f1)"
+          echo '```'
+          REMOTE
+
+      - name: Start the model
+        if: inputs.action == 'start'
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          FREE=$(free -m | awk '/^Mem:/{print $7}')
+          if [ "$FREE" -lt 9000 ]; then
+            echo "Refusing to start: only ${FREE} MB available, the model needs about 6 GB beside the website."
+            exit 1
+          fi
+          GW=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
+          [ -n "$GW" ] || { echo "No bridge gateway address."; exit 1; }
+
+          sudo mkdir -p /var/lib/visionex/describer-cache
+          sudo docker rm -f visionex-describer >/dev/null 2>&1 || true
+          echo "Pulling llama.cpp…"
+          sudo docker pull ghcr.io/ggml-org/llama.cpp:server >/dev/null
+          echo "Starting (the first start downloads the model, a few minutes)…"
+          # -np 1: one description at a time, the whole context for it. The
+          # media processor refuses a second request instead of queueing it.
+          sudo docker run -d \
+            --name visionex-describer \
+            --restart unless-stopped \
+            --publish "$GW:8098:8080" \
+            --cpus 3 --memory 6g --pids-limit 512 \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --volume /var/lib/visionex/describer-cache:/root/.cache \
+            ghcr.io/ggml-org/llama.cpp:server \
+            -hf bartowski/Qwen_Qwen3-VL-4B-Instruct-GGUF:Q4_K_M \
+            --host 0.0.0.0 --port 8080 -c 4096 -np 1 -t 3 --no-webui >/dev/null
+
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 3 "http://$GW:8098/health" >/dev/null 2>&1; then
+              echo "ready after about $((i * 5)) seconds at $GW:8098"
+              exit 0
+            fi
+            sudo docker ps -q --filter name=^visionex-describer$ | grep -q . || break
+            sleep 5
+          done
+          echo "The model did not become ready. Last log lines:"
+          sudo docker logs --tail 15 visionex-describer 2>&1 | cut -c1-200
+          exit 1
+          REMOTE
+
+      - name: Stop the model
+        if: inputs.action == 'stop'
+        run: |
+          set -uo pipefail
+          ssh target 'sudo docker rm -f visionex-describer >/dev/null 2>&1; echo "removed; the cached model files are kept"' | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The processor, not the model, is what the Edge Function calls, so this
+      # goes through the processor: from inside its container to the model, then
+      # a drawn picture through /describe with the real token.
+      - name: Test through the processor
+        if: inputs.action == 'test'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          [ -n "${TOKEN:-}" ] || { echo '::error::PROCESSOR_TOKEN is not set.'; exit 1; }
+
+          echo "── the processor reaches the model"
+          ssh target 'sudo docker exec visionex-media node -e "
+            const u = process.env.DESCRIBER_URL;
+            if (!u) { console.log(\"DESCRIBER_URL is not set: redeploy the media processor first\"); process.exit(2); }
+            fetch(u + \"/health\").then(r => { console.log(\"model health:\", r.status); process.exit(r.ok ? 0 : 3); })
+              .catch(e => { console.log(\"unreachable:\", e.cause?.code ?? e.message); process.exit(4); });
+          "'
+          rc=$?
+          [ $rc -eq 0 ] || { echo "::error::The processor cannot reach the model (exit $rc)."; exit 1; }
+
+          echo "── a drawn picture: red circle left, blue square right"
+          ssh target 'sudo docker exec visionex-media ffmpeg -nostdin -loglevel error -y \
+            -f lavfi -i "color=c=white:s=480x320,drawbox=x=60:y=90:w=140:h=140:color=red:t=fill,drawbox=x=280:y=90:w=140:h=140:color=blue:t=fill" \
+            -frames:v 1 -f image2pipe -c:v png - > /tmp/vx-describe-test.png; stat -c%s /tmp/vx-describe-test.png'
+
+          for lang in en ar; do
+            echo "── describe, lang=$lang"
+            printf 'Authorization: Bearer %s\n' "$TOKEN" | ssh target "curl -sS --max-time 130 -H @- -H 'content-type: image/png' --data-binary @/tmp/vx-describe-test.png 'http://127.0.0.1:8081/describe?lang=$lang'" \
+              | tee /tmp/describe-$lang.json | cut -c1-600
+            echo
+            if ! grep -q '"readable":true' /tmp/describe-$lang.json; then
+              echo "::error::No description came back for lang=$lang."
+              exit 1
+            fi
+          done
+          ssh target 'rm -f /tmp/vx-describe-test.png'
+          echo "Both languages described the drawn picture."
+
+      - name: Forget the key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy ~/.ssh/config

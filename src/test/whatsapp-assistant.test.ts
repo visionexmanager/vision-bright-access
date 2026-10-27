@@ -993,7 +993,7 @@ describe("attachment understanding", () => {
 
   it("passes an unreadable verdict through instead of dressing it up", () => {
     // The webhook must not turn readable:false into a description.
-    expect(webhook).toContain("!seen.readable");
+    expect(webhook).toContain("!answered.readable");
     expect(webhook).toContain('unreadableNotice(answerLanguage, "image")');
     expect(webhook).toContain("!read.value.readable");
   });
