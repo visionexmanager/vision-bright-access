@@ -456,6 +456,7 @@ export async function synthesiseSpeech(params: {
       elevenlabs: "ELEVENLABS_API_KEY",
       mistral: "MISTRAL_API_KEY",
       fish: "FISH_AUDIO_API_KEY",
+      google: "GOOGLE_CLOUD_TTS_API_KEY",
     }[failure.provider];
     console.error(`[whatsapp-tts] no ${keyName} — the reply went out as text only`);
   } else if (failure.reason === "rejected") {
