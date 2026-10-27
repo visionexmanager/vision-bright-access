@@ -734,6 +734,39 @@ jobs:
 
           rm -f /tmp/vx-ocr-test.png /tmp/vx-ar.png /tmp/vx-im-err
 
+      # A real printed Arabic paragraph, drawn with a shaping text renderer and
+      # checked in as a fixture. The probe above draws one short phrase with
+      # pango, which says nothing about whether the model works: it read
+      # "nothing" while the same container read real documents. This is the
+      # image the container is actually meant to read, and it is asserted.
+      - name: Prove it can read printed Arabic
+        if: inputs.action == 'selftest'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+          [ -n "${TOKEN:-}" ] || { echo '::error::PROCESSOR_TOKEN is not set.'; exit 1; }
+
+          say '## Printed Arabic'
+          say "model on the server: $(ssh target 'sudo docker exec visionex-media sha256sum /usr/share/tesseract-ocr/5/tessdata/ara.traineddata' | cut -c1-16) (expect ab9d157d8e38ca00)"
+          BODY=$(curl -s --max-time 60 \
+            -H "authorization: Bearer $TOKEN" \
+            -H 'content-type: image/png' \
+            --data-binary @services/media-processor/fixtures/arabic-printed.png \
+            'https://visionex.app/internal/media/ocr?lang=ara%2Beng')
+          say '```'
+          say "$(printf '%s' "$BODY" | head -c 700)"
+          say '```'
+          # Counts and a code only; the service never logs words.
+          say "service log: $(ssh target 'sudo docker logs --tail 60 visionex-media 2>&1 | grep "\"ocr\"" | tail -1' | cut -c1-300)"
+
+          case "$BODY" in
+            *'"readable":true'*العربية*اليسار*) say 'Printed Arabic was read, in the right words.' ;;
+            *'"readable":true'*) say '::error::Arabic came back readable but the expected words are missing.'; exit 1 ;;
+            *) say '::error::The service did not read a clean printed Arabic paragraph.'; exit 1 ;;
+          esac
+
       # ── Barcodes: the capability that is not English-only ────────────────────
       #
       # Local OCR reads English and nothing else on this box, so it serves half
