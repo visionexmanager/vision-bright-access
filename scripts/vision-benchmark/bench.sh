@@ -254,7 +254,7 @@ PY
 florence() {
   echo "== florence2 (microsoft/Florence-2-large)"
   nice -n 19 timeout 1500 docker run --rm --cpus=3 --memory=7g -v "$W":/w -w /w -e HF_HOME=/w/cache -e PYTHONUNBUFFERED=1 python:3.12-slim sh -c '
-    pip install -q --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu >/dev/null 2>&1 &&
+    pip install -q --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu >/dev/null 2>&1 &&
     pip install -q --no-cache-dir "transformers==4.46.3" einops timm pillow numpy >/dev/null 2>&1 &&
     python /w/florence.py' || echo "FAILED: florence-2 step"
 }
