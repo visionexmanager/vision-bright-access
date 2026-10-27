@@ -30,6 +30,7 @@ import {
   processorAvailable,
   processorConfig,
   probeMediaLocally,
+  videoSheetLocally,
   type ProcessorConfig,
 } from "./whatsappProcessor.ts";
 import { transcribe } from "./voice/stt.ts";
@@ -225,6 +226,15 @@ export async function understandVideo(params: {
   return await understandVideoWhole({ ...params, targets });
 }
 
+/**
+ * The sentence that tells the model what the sheet is. The frames are not evenly
+ * spaced, so it is given the second each one was taken at and told why.
+ */
+export function videoSheetPrompt(times: number[]): string {
+  const seconds = times.map((t) => String(Math.round(t * 10) / 10)).join(", ");
+  return `The picture is a sheet of ${times.length} frames from the clip, in order from left to right and top to bottom, taken at these seconds: ${seconds}. They are not evenly spaced: they were chosen at the moments the picture changes, so a change between two frames is a real event in the clip. Black bars are only padding.`;
+}
+
 /** A clip read as a sheet of frames plus a transcript. Null when neither could be had. */
 async function understandVideoFromFramesAndSpeech(params: {
   bytes: Uint8Array;
@@ -236,26 +246,49 @@ async function understandVideoFromFramesAndSpeech(params: {
   transcribeImpl?: typeof transcribe;
 }): Promise<UnderstandResult | null> {
   const config = params.processor === undefined ? processorConfig() : params.processor;
-  const probed = config
-    ? await probeMediaLocally({ bytes: params.bytes, config, fetchImpl: params.fetchImpl })
+  // The words are transcribed while the frames are chosen.
+  const heardPending = (params.transcribeImpl ?? transcribe)({ bytes: params.bytes, mimeType: params.mimeType }).catch(() => null);
+
+  // The processor's own choice of frames first: the first, the last and the
+  // moments the picture changes, nine of them at a size where text can be read.
+  // A deployment without the route, or one that fails, falls through to the
+  // equal-interval sheet below, which is exactly what ran before.
+  const smart = config
+    ? await videoSheetLocally({ bytes: params.bytes, config, fetchImpl: params.fetchImpl })
     : { ok: false as const, code: "not_configured" };
-  const interval = sheetInterval(probed.ok ? probed.durationSeconds : null);
-  const [sheet, heard] = await Promise.all([
-    config
-      ? convertMediaLocally({ bytes: params.bytes, query: `to=jpg&sheet=${interval}&quality=balanced`, config, fetchImpl: params.fetchImpl })
-      : Promise.resolve({ ok: false as const, code: "not_configured" }),
-    (params.transcribeImpl ?? transcribe)({ bytes: params.bytes, mimeType: params.mimeType }).catch(() => null),
-  ]);
-  const frames = sheet.ok && sheet.bytes ? sheet.bytes : null;
+
+  let frames: Uint8Array | null = null;
+  let frameTimes: number[] | null = null;
+  let interval = "";
+  let sheetNote = "";
+  if (smart.ok) {
+    frames = smart.bytes;
+    frameTimes = smart.times;
+    sheetNote = `smart:${smart.times.length}`;
+  } else {
+    const probed = config
+      ? await probeMediaLocally({ bytes: params.bytes, config, fetchImpl: params.fetchImpl })
+      : { ok: false as const, code: "not_configured" };
+    interval = sheetInterval(probed.ok ? probed.durationSeconds : null);
+    const sheet = config
+      ? await convertMediaLocally({ bytes: params.bytes, query: `to=jpg&sheet=${interval}&quality=balanced`, config, fetchImpl: params.fetchImpl })
+      : { ok: false as const, code: "not_configured" };
+    frames = sheet.ok && sheet.bytes ? sheet.bytes : null;
+    sheetNote = frames ? `even:${smart.code}` : `no:${sheet.ok ? "empty" : sheet.code}`;
+  }
+
+  const heard = await heardPending;
   const transcript = heard && heard.outcome === "transcript" ? heard.text.trim().slice(0, VIDEO_TRANSCRIPT_BUDGET) : "";
   // Codes and sizes only: the frames and the words are somebody's private clip.
-  console.info(`[whatsapp-video] frames=${frames ? "yes" : `no:${sheet.ok ? "empty" : sheet.code}`} speech=${transcript ? `${transcript.length}ch` : "none"} interval=${interval}s`);
+  console.info(`[whatsapp-video] frames=${frames ? "yes" : sheetNote} sheet=${sheetNote} speech=${transcript ? `${transcript.length}ch` : "none"}${interval ? ` interval=${interval}s` : ""}`);
   if (!frames && !transcript) return null;
 
   const userText = [
     params.question || "What happens in this clip, and what should the customer do about it?",
     frames
-      ? `The picture is a sheet of up to ${VIDEO_SHEET_FRAMES} frames from the clip, in order from left to right and top to bottom, one every ${interval} seconds.`
+      ? frameTimes
+        ? videoSheetPrompt(frameTimes)
+        : `The picture is a sheet of up to ${VIDEO_SHEET_FRAMES} frames from the clip, in order from left to right and top to bottom, one every ${interval} seconds.`
       : "No frames could be taken from the clip: answer only from what is said in it, and say that you could not see it.",
     transcript
       ? `What is said in the clip (a machine transcript; it may contain mistakes):\n"""\n${transcript}\n"""`
