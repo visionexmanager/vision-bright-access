@@ -11,15 +11,16 @@ import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  SHEET_CELL_PX,
   SHEET_COLUMNS,
   SHEET_FRAMES,
+  SHEET_SHAPES,
   frameCountFor,
   parseSceneScan,
   pickFrameTimes,
   sceneScanArgs,
   sheetBuildArgs,
   sheetLayout,
+  sheetShape,
 } from "../../services/media-processor/src/videosheet.mjs";
 
 const scan = (pairs: Array<[number, number]>) =>
@@ -109,10 +110,33 @@ describe("pickFrameTimes", () => {
 });
 
 describe("the ffmpeg arguments", () => {
-  it("lays cells out left to right and top to bottom", () => {
-    expect(sheetLayout(5)).toBe("0_0|448_0|896_0|0_448|448_448");
+  it("lays cells out left to right and top to bottom, to the clip's shape", () => {
+    expect(sheetLayout(5)).toBe("0_0|448_0|896_0|0_252|448_252");
+    expect(sheetLayout(5, "landscape")).toBe("0_0|448_0|896_0|0_252|448_252");
+    expect(sheetLayout(5, "portrait")).toBe("0_0|252_0|504_0|0_448|252_448");
+    expect(sheetLayout(4, "square")).toBe("0_0|336_0|672_0|0_336");
     expect(SHEET_COLUMNS).toBe(3);
-    expect(SHEET_CELL_PX).toBe(448);
+  });
+
+  it("keeps every sheet's short side near 768, where vision models stop shrinking it", () => {
+    for (const { cellW, cellH } of Object.values(SHEET_SHAPES) as Array<{ cellW: number; cellH: number }>) {
+      const w = SHEET_COLUMNS * cellW;
+      const h = Math.ceil(SHEET_FRAMES / SHEET_COLUMNS) * cellH;
+      expect(Math.min(w, h)).toBeLessThanOrEqual(1008);
+      expect(Math.min(w, h)).toBeGreaterThanOrEqual(756);
+      expect(cellW % 2).toBe(0);
+      expect(cellH % 2).toBe(0);
+    }
+  });
+
+  it("chooses the shape from the clip's dimensions", () => {
+    expect(sheetShape(1920, 1080)).toBe("landscape");
+    expect(sheetShape(720, 1280)).toBe("portrait");
+    expect(sheetShape(1080, 1080)).toBe("square");
+    expect(sheetShape(1440, 1080)).toBe("landscape"); // 4:3
+    expect(sheetShape(null, null)).toBe("landscape");
+    expect(sheetShape(undefined, 0)).toBe("landscape");
+    expect(sheetShape(0, 100)).toBe("landscape");
   });
 
   it("seeks once per time and passes only numbers the module produced", () => {
@@ -122,8 +146,20 @@ describe("the ffmpeg arguments", () => {
     expect(args.filter((a) => a === "-i")).toHaveLength(3);
     const graph = args[args.indexOf("-filter_complex") + 1];
     expect(graph).toContain("xstack=inputs=3:layout=0_0|448_0|896_0");
+    expect(graph).toContain("scale=448:252:force_original_aspect_ratio=decrease");
     expect(args.slice(-1)).toEqual(["/tmp/out.jpg"]);
     expect(args).toContain("-map_metadata");
+  });
+
+  it("cuts portrait cells for a portrait clip", () => {
+    const graph = sheetBuildArgs("/tmp/in", "/tmp/out.jpg", [0.3, 6.1], "portrait").join(" ");
+    expect(graph).toContain("scale=252:448:force_original_aspect_ratio=decrease");
+    expect(graph).toContain("layout=0_0|252_0");
+  });
+
+  it("falls back to landscape for a shape it does not know", () => {
+    const graph = sheetBuildArgs("/tmp/in", "/tmp/out.jpg", [0.3, 6.1], "../../etc").join(" ");
+    expect(graph).toContain("scale=448:252");
   });
 
   it("builds a single frame without a stack", () => {
@@ -136,6 +172,33 @@ describe("the ffmpeg arguments", () => {
     const args = sceneScanArgs("/tmp/in").join(" ");
     expect(args).toContain("scale=160:-2");
     expect(args).toContain("metadata=print:file=-");
+    // Five frames a second keep the printed list small enough for the service's 64 KB.
+    expect(args).toContain("fps=5");
+    expect(args).toContain("gt(scene,0.15)");
+  });
+});
+
+describe("weak scene changes", () => {
+  it("are taken where the chosen frames leave a wide gap, as in a 3.6 s scene change that scores 0.2", () => {
+    // A 10.4 s clip with a weak cut at 7.2: the first, the last and a strong cut
+    // at 3.6 leave 3.6 s on each side, so the weak cut is far from every frame.
+    const t = pickFrameTimes(10.4, [{ t: 3.6, score: 0.28 }, { t: 7.2, score: 0.2 }]);
+    expect(t.some((v) => Math.abs(v - 7.3) < 0.011)).toBe(true);
+  });
+
+  it("do not displace even coverage when they are close to frames already chosen", () => {
+    const noise = Array.from({ length: 60 }, (_, i) => ({ t: 0.5 + i * 0.3, score: 0.16 }));
+    const t = pickFrameTimes(20, noise);
+    expect(t).toHaveLength(SHEET_FRAMES);
+    const gaps = t.slice(1).map((v, i) => v - t[i]);
+    // Camera shake everywhere must still leave the clip covered without a hole.
+    expect(Math.max(...gaps)).toBeLessThan(20 / SHEET_FRAMES * 2);
+  });
+
+  it("let a strong cut win over a weak one at the same place", () => {
+    const t = pickFrameTimes(20, [{ t: 10, score: 0.17 }, { t: 10.2, score: 0.9 }]);
+    expect(t).toContain(10.3);
+    expect(t).not.toContain(10.1);
   });
 });
 
@@ -172,6 +235,31 @@ describe.skipIf(!ffmpeg)("with the real ffmpeg", () => {
       expect(statSync(out).size).toBeGreaterThan(1000);
       // A JPEG: starts with the SOI marker.
       expect([...readFileSync(out).subarray(0, 2)]).toEqual([0xff, 0xd8]);
+      // A 16:9 clip gets 16:9 cells: 3 x 3 of 448 x 252.
+      const size = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", out], { encoding: "utf8" });
+      expect(size.stdout.trim()).toBe("1344,756");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("builds a portrait sheet with no wasted bars for a portrait clip", () => {
+    const dir = mkdtempSync(join(tmpdir(), "vsheet-p-"));
+    try {
+      const clip = join(dir, "clip.mp4");
+      const make = spawnSync("ffmpeg", [
+        "-v", "error", "-y",
+        "-f", "lavfi", "-i", "color=c=red:s=360x640:d=4:r=25",
+        "-f", "lavfi", "-i", "testsrc2=s=360x640:d=4:r=25",
+        "-filter_complex", "[0:v][1:v]concat=n=2:v=1:a=0,format=yuv420p[v]",
+        "-map", "[v]", "-c:v", "mpeg4", clip,
+      ]);
+      expect(make.status).toBe(0);
+      const out = join(dir, "sheet.jpg");
+      const built = spawnSync("ffmpeg", sheetBuildArgs(clip, out, pickFrameTimes(8, []), sheetShape(360, 640)), { encoding: "utf8" });
+      expect(built.status).toBe(0);
+      const size = spawnSync("ffprobe", ["-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", out], { encoding: "utf8" });
+      expect(size.stdout.trim()).toBe("756,1344");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -132,7 +132,8 @@ describe("reading a clip with no provider that takes video whole", () => {
     expect(calls.map((c) => c.url.replace(/\?.*/, ""))).toEqual(["https://media.example/video-sheet", "https://media.example/probe", "https://media.example/convert", "https://api.openai.com/v1/chat/completions"]);
     expect(calls[2].url).toBe("https://media.example/convert?to=jpg&sheet=5&quality=balanced");
     const request = JSON.parse(calls[3].body);
-    expect(request.model).toBe("gpt-4o-mini");
+    // A sheet of frames is a picture, so the stronger model leads (as for a photograph).
+    expect(request.model).toBe("gpt-4.1");
     const text = JSON.stringify(request.messages);
     expect(text).toContain("data:image/jpeg;base64,");
     expect(text).toContain("one every 5 seconds");
