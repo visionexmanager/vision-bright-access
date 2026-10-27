@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { assessRecognition } from "../../services/media-processor/src/limits.mjs";
 
@@ -70,6 +71,47 @@ describe("assessRecognition", () => {
 
   it("returns counts and a code, never the words", () => {
     const a = assessRecognition(tsv(clean(3)));
-    expect(Object.keys(a).sort()).toEqual(["confidence", "digitWords", "reason", "trusted", "words"]);
+    expect(Object.keys(a).sort()).toEqual(["confidence", "digitWords", "embeddedLatin", "reason", "trusted", "words"]);
+  });
+});
+
+describe("assessRecognition: a Latin guess inside an Arabic sentence", () => {
+  // Words carry the block.par.line so the check can tell a line from a page.
+  const line = (words: Array<[string, number]>, lineNo = 1) =>
+    words.map(([text, conf], i) => `5\t1\t1\t1\t${lineNo}\t${i + 1}\t0\t0\t10\t10\t${conf}\t${text}`);
+  const page = (rows: string[]) => [HEADER, ...rows].join("\n");
+  const arabic = (n: number): Array<[string, number]> =>
+    Array.from({ length: n }, (_, i) => [`كلمة${"ابتثجح"[i % 6]}`, 92]);
+
+  it("flags an English word between Arabic words at middling confidence (the 2026-10-27 case)", () => {
+    const words: Array<[string, number]> = [...arabic(5), ["Bae", 80], ...arabic(2)];
+    const a = assessRecognition(page(line(words)));
+    expect(a.embeddedLatin).toBe(1);
+    expect(a.trusted).toBe(false);
+    expect(a.reason).toBe("script_mixed");
+  });
+
+  it("leaves a bilingual sign alone: English on its own line", () => {
+    const rows = [...line(arabic(4), 1), ...line([["EXIT", 80], ["GATE", 82]], 2)];
+    const a = assessRecognition(page(rows));
+    expect(a.embeddedLatin).toBe(0);
+    expect(a.trusted).toBe(true);
+  });
+
+  it("leaves a confidently read brand inside an Arabic sentence alone", () => {
+    const words: Array<[string, number]> = [...arabic(3), ["WiFi", 96], ...arabic(3)];
+    expect(assessRecognition(page(line(words))).trusted).toBe(true);
+  });
+
+  it("does not flag a Latin word at the start or end of a line", () => {
+    const words: Array<[string, number]> = [["Hotel", 75], ...arabic(4), ["Cafe", 75]];
+    expect(assessRecognition(page(line(words))).embeddedLatin).toBe(0);
+  });
+
+  it("the service re-reads such a page with Arabic alone and keeps it only if trusted", () => {
+    const server = readFileSync("services/media-processor/src/server.mjs", "utf8");
+    expect(server).toContain('assessment.reason === "script_mixed" && language === "ara+eng"');
+    expect(server).toContain('runOcr(bytes, "ara", psm, oem)');
+    expect(server).toContain("if (secondAssessment.trusted) {");
   });
 });

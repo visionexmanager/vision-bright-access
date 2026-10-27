@@ -642,9 +642,23 @@ async function handleOcr(req, res, correlation) {
 
   const startedAt = Date.now();
   try {
-    const { text: raw, tsv } = await runOcr(bytes, language, psm, oem);
+    let { text: raw, tsv } = await runOcr(bytes, language, psm, oem);
+    let assessment = assessRecognition(tsv);
+    // The English model guessed a Latin word inside an Arabic sentence. Arabic
+    // alone reads that line correctly, so read it again with Arabic alone and
+    // keep the second read only if it is trusted on its own.
+    let reread = null;
+    if (assessment.reason === "script_mixed" && language === "ara+eng") {
+      const second = await runOcr(bytes, "ara", psm, oem);
+      const secondAssessment = assessRecognition(second.tsv);
+      reread = secondAssessment.trusted ? "ara" : "ara_declined";
+      if (secondAssessment.trusted) {
+        raw = second.text;
+        tsv = second.tsv;
+        assessment = secondAssessment;
+      }
+    }
     const text = raw.slice(0, MAX_TEXT_CHARS).trim();
-    const assessment = assessRecognition(tsv);
     // Text that exists but is not trusted is reported as unreadable, so the
     // caller gives the image to the vision model rather than reading it out.
     const usable = textIsUsable(text) && assessment.trusted;
@@ -659,6 +673,7 @@ async function handleOcr(req, res, correlation) {
       // Counts and a code, never words.
       confidence: assessment.confidence,
       declined: assessment.reason,
+      reread,
       lang: language,
       psm: psm ?? "default",
       code: oem ?? "default",

@@ -762,7 +762,9 @@ jobs:
           say "service log: $(ssh target 'sudo docker logs --tail 60 visionex-media 2>&1 | grep "\"ocr\"" | tail -1' | cut -c1-300)"
 
           case "$BODY" in
-            *'"readable":true'*العربية*اليسار*) say 'Printed Arabic was read, in the right words.' ;;
+            # «عدة» is the word `ara+eng` alone turns into "Bae"; seeing it proves
+            # the Arabic-only re-read is live, not just that Arabic reads.
+            *'"readable":true'*العربية*عدة*اليسار*) say 'Printed Arabic was read, in the right words.' ;;
             *'"readable":true'*) say '::error::Arabic came back readable but the expected words are missing.'; exit 1 ;;
             *) say '::error::The service did not read a clean printed Arabic paragraph.'; exit 1 ;;
           esac
