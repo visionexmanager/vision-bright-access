@@ -70,6 +70,7 @@ import {
   isSupportedOem,
   parseBarcodeOutput,
   textIsUsable,
+  assessRecognition,
 } from "./limits.mjs";
 import {
   AUDIO_TARGETS,
@@ -274,10 +275,15 @@ function runOcr(bytes, language, psm, oem) {
       const args = [input, join(dir, "out"), "-l", language];
       if (psm) args.push("--psm", psm);
       if (oem) args.push("--oem", oem);
+      // The word table beside the text: it is what says how sure the engine was.
+      args.push("txt", "tsv");
       return args;
     },
     ok: (code) => code === 0,
-    read: ({ dir }) => readFile(join(dir, "out.txt"), "utf8"),
+    read: async ({ dir }) => ({
+      text: await readFile(join(dir, "out.txt"), "utf8"),
+      tsv: await readFile(join(dir, "out.tsv"), "utf8").catch(() => ""),
+    }),
   });
 }
 
@@ -619,9 +625,12 @@ async function handleOcr(req, res, correlation) {
 
   const startedAt = Date.now();
   try {
-    const raw = await runOcr(bytes, language, psm, oem);
+    const { text: raw, tsv } = await runOcr(bytes, language, psm, oem);
     const text = raw.slice(0, MAX_TEXT_CHARS).trim();
-    const usable = textIsUsable(text);
+    const assessment = assessRecognition(tsv);
+    // Text that exists but is not trusted is reported as unreadable, so the
+    // caller gives the image to the vision model rather than reading it out.
+    const usable = textIsUsable(text) && assessment.trusted;
 
     log("ocr", {
       correlation,
@@ -630,6 +639,9 @@ async function handleOcr(req, res, correlation) {
       // A length, never the text.
       chars: text.length,
       usable,
+      // Counts and a code, never words.
+      confidence: assessment.confidence,
+      declined: assessment.reason,
       lang: language,
       psm: psm ?? "default",
       code: oem ?? "default",

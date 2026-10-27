@@ -36,7 +36,22 @@ RUN apt-get update \
       ffmpeg \
       zbar-tools \
       poppler-utils \
+      curl \
+      ca-certificates \
  && rm -rf /var/lib/apt/lists/*
+
+# ── The Arabic model: tessdata_best, pinned ──────────────────────────────────
+#
+# The Debian package ships the "fast" Arabic model. Measured 2026-10-27 on a real
+# printed certificate and a real Lebanese residence form, tessdata_best read the
+# body text with the words in the right order, including the full legal warning
+# sentence. The sha256 is of the 4.1.0 tag, so a moved branch cannot swap it, and
+# the build fails if the download is not exactly this file.
+RUN curl -fsSL -o /tmp/ara.traineddata \
+      https://github.com/tesseract-ocr/tessdata_best/raw/4.1.0/ara.traineddata \
+ && echo "ab9d157d8e38ca00e7e39c7d5363a5239e053f5b0dbdb3167dde9d8124335896  /tmp/ara.traineddata" | sha256sum -c - \
+ && install -m 0644 /tmp/ara.traineddata "$(dirname "$(find /usr/share -name ara.traineddata | head -n1)")/ara.traineddata" \
+ && rm /tmp/ara.traineddata
 
 # ── Who it runs as ───────────────────────────────────────────────────────────
 #
