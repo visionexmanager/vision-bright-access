@@ -1266,16 +1266,22 @@ export type Database = {
         Row: {
           channel: string
           notified_at: string
+          renotice_count: number
+          renotice_window_start: string | null
           subject: string
         }
         Insert: {
           channel: string
           notified_at?: string
+          renotice_count?: number
+          renotice_window_start?: string | null
           subject: string
         }
         Update: {
           channel?: string
           notified_at?: string
+          renotice_count?: number
+          renotice_window_start?: string | null
           subject?: string
         }
         Relationships: []
@@ -3399,6 +3405,36 @@ export type Database = {
         }
         Relationships: []
       }
+      assistant_local_answer_daily: {
+        Row: {
+          answers: number
+          channel: string
+          day: string
+          est_avoided_input_tokens: number
+          intent: string
+          locale: string
+          plan_class: string
+        }
+        Insert: {
+          answers?: number
+          channel: string
+          day: string
+          est_avoided_input_tokens?: number
+          intent: string
+          locale: string
+          plan_class: string
+        }
+        Update: {
+          answers?: number
+          channel?: string
+          day?: string
+          est_avoided_input_tokens?: number
+          intent?: string
+          locale?: string
+          plan_class?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -3485,6 +3521,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      bazaar_notification_log: {
+        Row: {
+          created_at: string
+          dedupe_key: string | null
+          event_type: string
+          external: boolean
+          id: number
+          product_id: string | null
+          shop_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key?: string | null
+          event_type: string
+          external?: boolean
+          id?: number
+          product_id?: string | null
+          shop_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string | null
+          event_type?: string
+          external?: boolean
+          id?: number
+          product_id?: string | null
+          shop_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       bazaar_order_items: {
         Row: {
@@ -15211,6 +15280,7 @@ export type Database = {
           created_at: string
           ended_at: string | null
           group_id: string | null
+          has_password: boolean
           id: string
           is_private: boolean
           max_users: number
@@ -15218,7 +15288,6 @@ export type Database = {
           recording_active: boolean
           room_name: string
           room_password: string | null
-          has_password: boolean
           scheduled_at: string | null
           status: string
           topic: string | null
@@ -15228,6 +15297,7 @@ export type Database = {
           created_at?: string
           ended_at?: string | null
           group_id?: string | null
+          has_password?: boolean
           id?: string
           is_private?: boolean
           max_users?: number
@@ -15235,7 +15305,6 @@ export type Database = {
           recording_active?: boolean
           room_name: string
           room_password?: string | null
-          has_password?: boolean
           scheduled_at?: string | null
           status?: string
           topic?: string | null
@@ -15245,6 +15314,7 @@ export type Database = {
           created_at?: string
           ended_at?: string | null
           group_id?: string | null
+          has_password?: boolean
           id?: string
           is_private?: boolean
           max_users?: number
@@ -15252,7 +15322,6 @@ export type Database = {
           recording_active?: boolean
           room_name?: string
           room_password?: string | null
-          has_password?: boolean
           scheduled_at?: string | null
           status?: string
           topic?: string | null
@@ -22637,6 +22706,27 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_limits: {
+        Row: {
+          key: string
+          note: string | null
+          updated_at: string
+          value_int: number | null
+        }
+        Insert: {
+          key: string
+          note?: string | null
+          updated_at?: string
+          value_int?: number | null
+        }
+        Update: {
+          key?: string
+          note?: string | null
+          updated_at?: string
+          value_int?: number | null
+        }
+        Relationships: []
+      }
       organization_assignment_completions: {
         Row: {
           assignment_id: string
@@ -24134,6 +24224,30 @@ export type Database = {
           },
         ]
       }
+      realtime_sessions: {
+        Row: {
+          ended_at: string | null
+          id: string
+          reserved_minutes: number
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          reserved_minutes: number
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          reserved_minutes?: number
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       reviews: {
         Row: {
           author_id: string
@@ -24830,9 +24944,11 @@ export type Database = {
       subscription_orders: {
         Row: {
           admin_notes: string | null
+          buyer_notified_at: string | null
           created_at: string
           id: string
           months: number
+          owner_notified_at: string | null
           payment_method: string
           plan_id: string
           price_usd: number
@@ -24847,9 +24963,11 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          buyer_notified_at?: string | null
           created_at?: string
           id?: string
           months?: number
+          owner_notified_at?: string | null
           payment_method: string
           plan_id: string
           price_usd: number
@@ -24864,9 +24982,11 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          buyer_notified_at?: string | null
           created_at?: string
           id?: string
           months?: number
+          owner_notified_at?: string | null
           payment_method?: string
           plan_id?: string
           price_usd?: number
@@ -25725,6 +25845,65 @@ export type Database = {
           },
         ]
       }
+      voice_room_join_failures: {
+        Row: {
+          at: string
+          id: number
+          kind: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          at?: string
+          id?: number
+          kind: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          at?: string
+          id?: number
+          kind?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      voice_room_joins: {
+        Row: {
+          first_joined_at: string
+          last_joined_at: string
+          paid_vx: number
+          password_stamp: string | null
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          first_joined_at?: string
+          last_joined_at?: string
+          paid_vx?: number
+          password_stamp?: string | null
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          first_joined_at?: string
+          last_joined_at?: string
+          paid_vx?: number
+          password_stamp?: string | null
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_room_joins_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "voice_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voice_room_members: {
         Row: {
           id: string
@@ -25769,6 +25948,27 @@ export type Database = {
           },
         ]
       }
+      voice_room_secrets: {
+        Row: {
+          kind: string
+          password_hash: string
+          room_id: string
+          updated_at: string
+        }
+        Insert: {
+          kind: string
+          password_hash: string
+          room_id: string
+          updated_at?: string
+        }
+        Update: {
+          kind?: string
+          password_hash?: string
+          room_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       voice_rooms: {
         Row: {
           allow_camera: boolean
@@ -25777,6 +25977,7 @@ export type Database = {
           allow_screen_share: boolean
           cost_vx: number
           created_at: string
+          has_password: boolean
           id: string
           is_active: boolean
           is_default: boolean
@@ -25787,7 +25988,6 @@ export type Database = {
           room_mode: string | null
           room_name: string
           room_password: string | null
-          has_password: boolean
           room_topic: string | null
           room_type: string
           scheduled_at: string | null
@@ -25800,6 +26000,7 @@ export type Database = {
           allow_screen_share?: boolean
           cost_vx?: number
           created_at?: string
+          has_password?: boolean
           id?: string
           is_active?: boolean
           is_default?: boolean
@@ -25810,7 +26011,6 @@ export type Database = {
           room_mode?: string | null
           room_name?: string
           room_password?: string | null
-          has_password?: boolean
           room_topic?: string | null
           room_type?: string
           scheduled_at?: string | null
@@ -25823,6 +26023,7 @@ export type Database = {
           allow_screen_share?: boolean
           cost_vx?: number
           created_at?: string
+          has_password?: boolean
           id?: string
           is_active?: boolean
           is_default?: boolean
@@ -25833,7 +26034,6 @@ export type Database = {
           room_mode?: string | null
           room_name?: string
           room_password?: string | null
-          has_password?: boolean
           room_topic?: string | null
           room_type?: string
           scheduled_at?: string | null
@@ -26966,6 +27166,24 @@ export type Database = {
           },
         ]
       }
+      whatsapp_notice_log: {
+        Row: {
+          id: number
+          kind: string
+          sent_at: string
+        }
+        Insert: {
+          id?: number
+          kind: string
+          sent_at?: string
+        }
+        Update: {
+          id?: number
+          kind?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_speech_cache: {
         Row: {
           cache_key: string
@@ -27532,13 +27750,16 @@ export type Database = {
         Args: { p_email: string; p_points: number; p_reason?: string }
         Returns: Json
       }
+      admin_ai_cost_daily: { Args: { _days?: number }; Returns: Json }
+      admin_ai_reconciliation: { Args: { _days?: number }; Returns: Json }
+      admin_assistant_local_answers: {
+        Args: { _days?: number; _usd_per_1m_input_tokens?: number }
+        Returns: Json
+      }
       admin_grant_points: {
         Args: { _points: number; _reason: string; _user_id: string }
         Returns: undefined
       }
-      admin_ai_cost_daily: { Args: { _days?: number }; Returns: Json }
-      admin_ai_reconciliation: { Args: { _days?: number }; Returns: Json }
-      admin_user_balances: { Args: never; Returns: Json }
       admin_set_service_pricing: {
         Args: {
           _admin_only?: boolean
@@ -27553,6 +27774,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_user_balances: { Args: never; Returns: Json }
       ai_eligible_plans: { Args: never; Returns: string[] }
       ai_learning_dashboard: { Args: { _days?: number }; Returns: Json }
       ai_price_rates_valid: {
@@ -27561,6 +27783,10 @@ export type Database = {
       }
       ai_subscription_gate: {
         Args: { _channel: string; _subject: string; _user_id?: string }
+        Returns: string
+      }
+      ai_subscription_gate_meta: {
+        Args: { _sender_id: string }
         Returns: string
       }
       ai_subscription_gate_whatsapp: {
@@ -27596,9 +27822,11 @@ export type Database = {
         Args: { _admin_notes?: string; _order_id: string }
         Returns: {
           admin_notes: string | null
+          buyer_notified_at: string | null
           created_at: string
           id: string
           months: number
+          owner_notified_at: string | null
           payment_method: string
           plan_id: string
           price_usd: number
@@ -27758,6 +27986,16 @@ export type Database = {
       ban_user: {
         Args: { _reason: string; _user_id: string }
         Returns: undefined
+      }
+      bazaar_notify_claim: {
+        Args: {
+          _event_type: string
+          _key?: string
+          _product_id?: string
+          _shop_id: string
+          _user_id: string
+        }
+        Returns: Json
       }
       billing_consume: {
         Args: {
@@ -28023,9 +28261,11 @@ export type Database = {
             }
             Returns: {
               admin_notes: string | null
+              buyer_notified_at: string | null
               created_at: string
               id: string
               months: number
+              owner_notified_at: string | null
               payment_method: string
               plan_id: string
               price_usd: number
@@ -28054,9 +28294,11 @@ export type Database = {
             }
             Returns: {
               admin_notes: string | null
+              buyer_notified_at: string | null
               created_at: string
               id: string
               months: number
+              owner_notified_at: string | null
               payment_method: string
               plan_id: string
               price_usd: number
@@ -29399,6 +29641,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      owner_review_subscription_order: {
+        Args: {
+          _actor_id: string
+          _approve: boolean
+          _note?: string
+          _reference: string
+        }
+        Returns: Json
+      }
       pause_library_ai_memory: { Args: never; Returns: undefined }
       ph_get_provider_stats: {
         Args: { p_hours?: number; p_provider_id: string }
@@ -29443,6 +29694,15 @@ export type Database = {
       purchase_kids_product: { Args: { _product_id: string }; Returns: Json }
       question_fingerprint: { Args: { _text: string }; Returns: string }
       radio_cleanup_expired: { Args: never; Returns: undefined }
+      realtime_end: {
+        Args: { _failed?: boolean; _reservation_id: string; _user_id: string }
+        Returns: Json
+      }
+      realtime_reserve: { Args: { _user_id: string }; Returns: Json }
+      realtime_session_minutes_used: {
+        Args: { _ended: string; _reserved: number; _started: string }
+        Returns: number
+      }
       reap_stale_content_publications: {
         Args: { _limit?: number; _stale_after?: string }
         Returns: Json
@@ -29512,6 +29772,16 @@ export type Database = {
         Args: { _rate?: number; _seconds_delta: number }
         Returns: undefined
       }
+      record_local_answer: {
+        Args: {
+          _channel: string
+          _est_tokens?: number
+          _intent: string
+          _locale: string
+          _user_id: string
+        }
+        Returns: undefined
+      }
       record_security_event: {
         Args: {
           _detail?: Json
@@ -29575,9 +29845,11 @@ export type Database = {
         Args: { _admin_notes?: string; _order_id: string }
         Returns: {
           admin_notes: string | null
+          buyer_notified_at: string | null
           created_at: string
           id: string
           months: number
+          owner_notified_at: string | null
           payment_method: string
           plan_id: string
           price_usd: number
@@ -30137,6 +30409,17 @@ export type Database = {
         }[]
       }
       visit_kids_region: { Args: { _region_slug: string }; Returns: boolean }
+      voice_room_join: {
+        Args: {
+          _is_admin?: boolean
+          _kind: string
+          _listener?: boolean
+          _password: string
+          _room_id: string
+          _user_id: string
+        }
+        Returns: Json
+      }
       vs_expired_sample_batch: {
         Args: { _limit?: number }
         Returns: {
