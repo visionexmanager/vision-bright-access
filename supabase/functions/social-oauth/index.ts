@@ -55,6 +55,7 @@ import {
   type GrantFetch,
 } from "../_shared/metaGrant.ts";
 import { needsAttention, refreshExpiringThreads } from "../_shared/publishing/threadsTokenRefresh.ts";
+import { oauth2NeedsAttention, refreshExpiringOAuth2 } from "../_shared/publishing/oauth2TokenRefresh.ts";
 
 /** Where the operator is sent back to, and the only page this function links to. */
 const CONNECTIONS_PATH = "/admin/social-connections";
@@ -359,7 +360,67 @@ Deno.serve(async (req) => {
         now: () => Date.now(),
       });
 
-      return json({ ok: !needsAttention(reports), reports });
+      // The OAuth 2.0 platforms (YouTube, TikTok, X) hold an hour-scale access
+      // token and a refresh token. Same rule as above: renew what is running
+      // out, touch nothing else, report ids and outcomes only.
+      const oauth2Platforms = PLATFORMS.filter((p) => PROVIDERS[p].refreshStrategy === "oauth2");
+      const { data: oauth2Accounts } = await service
+        .from("social_accounts").select("id, platform").in("platform", oauth2Platforms);
+      const platformOf = new Map(
+        ((oauth2Accounts ?? []) as Array<{ id: string; platform: string }>).map((a) => [a.id, a.platform]),
+      );
+      const { data: oauth2Stored } = platformOf.size === 0
+        ? { data: [] }
+        : await service.from("social_account_tokens")
+          .select("account_id, expires_at").in("account_id", [...platformOf.keys()]);
+
+      const oauth2Reports = await refreshExpiringOAuth2({
+        list: () => Promise.resolve(
+          ((oauth2Stored ?? []) as Array<{ account_id: string; expires_at: string | null }>).map((row) => ({
+            accountId: row.account_id,
+            platform: platformOf.get(row.account_id) ?? "",
+            expiresAt: row.expires_at,
+          })),
+        ),
+        refresh: async (accountId, platform) => {
+          const provider = PROVIDERS[platform as Platform];
+          const credentials = readCredentials(provider, env);
+          if (!provider || !credentials.configured) return "refresh_failed";
+          const { data: current } = await service.rpc("resolve_social_account_token", {
+            _account_id: accountId, _key: encryptionKey,
+          });
+          const refreshToken = (current as Record<string, unknown> | null)?.refresh_token;
+          if (typeof refreshToken !== "string" || !refreshToken) return "reconnect_required";
+
+          const token = await exchange(provider, credentials.clientId!, credentials.clientSecret!, {
+            grant_type: "refresh_token",
+            refresh_token: refreshToken,
+          });
+          if (!token.ok) return "refresh_failed";
+
+          const { data: saved } = await service.rpc("store_social_account_token", {
+            _account_id: accountId,
+            _key: encryptionKey,
+            _access_token: token.accessToken,
+            _refresh_token: token.refreshToken ?? null,
+            _expires_at: token.expiresAt ?? null,
+            // Empty: a refresh that does not restate the grant must not be read
+            // as a fresh grant, so the stored scopes are kept.
+            _scopes: token.scopes ?? [],
+            _external_user_id: token.externalUserId ?? null,
+            _token_type: token.tokenType ?? "bearer",
+            _refresh_expires_at: token.refreshExpiresAt ?? null,
+          });
+          return (saved as Record<string, unknown> | null)?.ok === true ? "refreshed" : "refresh_failed";
+        },
+        now: () => Date.now(),
+      });
+
+      return json({
+        ok: !needsAttention(reports) && !oauth2NeedsAttention(oauth2Reports),
+        reports,
+        oauth2: oauth2Reports,
+      });
     } catch {
       return json({ ok: false, error: "internal_error" }, 500);
     }

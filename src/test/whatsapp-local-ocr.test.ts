@@ -80,25 +80,23 @@ describe("which conversations local OCR may answer", () => {
     expect(localOcrLanguage("en")).toBe("eng");
   });
 
-  it("does not answer Arabic, because Arabic recognition does not work here", async () => {
-    // Measured, not assumed: a clean 96pt Noto Sans Arabic image read as empty
-    // across both language settings, four segmentation modes and every engine
-    // mode the build has, with an English control reading perfectly throughout.
+  it("answers Arabic with the Arabic and English models together", async () => {
+    // tessdata_best read a real certificate and residence form correctly.
     const { localOcrLanguage } = await load();
-    expect(localOcrLanguage("ar")).toBeNull();
+    expect(localOcrLanguage("ar")).toBe("ara+eng");
   });
 
-  it("does not quietly send English for an Arabic conversation", async () => {
-    // The rejected middle path. Signage in the region is routinely bilingual,
-    // so `eng` would read the English half of a sign, report a clean success,
-    // and stop the model being called at all — telling a blind Arabic speaker
-    // half of what is in front of them, confidently.
+  it("never sends plain English for an Arabic conversation", async () => {
+    // Signage in the region is routinely bilingual, so `eng` would read the
+    // English half of a sign, report a clean success, and stop the model being
+    // called at all — telling a blind Arabic speaker half of what is in front
+    // of them, confidently.
     const { localOcrLanguage } = await load();
     expect(localOcrLanguage("ar")).not.toBe("eng");
   });
 
-  it("answers no other language either", async () => {
-    // Only `eng` and `ara` are in the container, and `ara` does not work.
+  it("answers no other language", async () => {
+    // Only `eng` and `ara` are in the container.
     const { localOcrLanguage } = await load();
     for (const other of ["fr", "es", "ur", "fa", "hi", "tr", "sw"]) {
       expect(localOcrLanguage(other)).toBeNull();
@@ -111,7 +109,7 @@ describe("which conversations local OCR may answer", () => {
     const result = await readTextLocally({
       bytes: IMAGE,
       mimeType: "image/jpeg",
-      answerLanguage: "ar",
+      answerLanguage: "fr",
       config: CONFIG,
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });

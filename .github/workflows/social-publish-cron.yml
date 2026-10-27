@@ -53,6 +53,18 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Renew expiring platform tokens first
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # A YouTube access token lives an hour. Renewing here means a manual
+          # run never starts with a dead one. A failure is reported by the
+          # scheduled refresh job, so it does not block the drain.
+          curl -s -o /dev/null -m 60 -X POST "$SUPABASE_URL/functions/v1/social-oauth" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"action":"refresh_tokens"}' || true
       - name: Drain the publishing queue
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
