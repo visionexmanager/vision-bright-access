@@ -97,6 +97,16 @@ import {
   isSupportedOfficeKind,
 } from "./office.mjs";
 import {
+  SCENE_SCAN_TIMEOUT_MS,
+  SHEET_BUILD_TIMEOUT_MS,
+  SHEET_CELL_PX,
+  SHEET_FRAMES,
+  parseSceneScan,
+  pickFrameTimes,
+  sceneScanArgs,
+  sheetBuildArgs,
+} from "./videosheet.mjs";
+import {
   DESCRIBE_LANGUAGES,
   DESCRIBE_RESIZE_TIMEOUT_MS,
   DESCRIBE_TIMEOUT_MS,
@@ -457,6 +467,97 @@ async function handleProbe(req, res, correlation) {
       ok: false,
       reason: error.code === "timeout" ? "timeout" : "unreadable_media",
     });
+  } finally {
+    releaseSlot();
+  }
+}
+
+/**
+ * One picture of a clip, for a vision model: the frames that matter, not the
+ * frames that happen to fall on a grid. See `videosheet.mjs` for why.
+ *
+ * The body is the clip; the answer is a JPEG, with the seconds each cell was
+ * taken at in `x-frame-times` so the caller can say so in its prompt. If the
+ * scene scan fails or times out the sheet is still built, from evenly spaced
+ * frames: a worse sheet is better than none.
+ */
+async function handleVideoSheet(req, res, correlation) {
+  if (tooBusy(res, correlation)) return;
+  const bytes = await receiveMedia(req, res, correlation);
+  if (!bytes) return;
+
+  await acquireSlot();
+  const started = Date.now();
+  try {
+    const info = await runTool({
+      bytes,
+      prefix: "vsheet-probe-",
+      command: "ffprobe",
+      timeoutMs: PROBE_TIMEOUT_MS,
+      build: (input) => probeArgs(input),
+      ok: (code) => code === 0,
+      read: ({ stdout }) => readProbe(stdout),
+      failure: "unreadable_media",
+    });
+    if (!info || info.kind !== "video" || !(info.durationSeconds > 0)) {
+      log("video_sheet", { correlation, outcome: "not_a_video" });
+      return send(res, 422, { ok: false, reason: "not_a_video" });
+    }
+
+    let cuts = [];
+    let scanned = true;
+    try {
+      cuts = await runTool({
+        bytes,
+        prefix: "vsheet-scan-",
+        command: "ffmpeg",
+        timeoutMs: SCENE_SCAN_TIMEOUT_MS,
+        build: (input) => sceneScanArgs(input),
+        ok: (code) => code === 0,
+        read: ({ stdout }) => parseSceneScan(stdout),
+        failure: "scan_failed",
+      });
+    } catch {
+      scanned = false;
+    }
+
+    const times = pickFrameTimes(info.durationSeconds, cuts);
+    const sheet = await runTool({
+      bytes,
+      prefix: "vsheet-",
+      command: "ffmpeg",
+      timeoutMs: SHEET_BUILD_TIMEOUT_MS,
+      build: (input, dir) => sheetBuildArgs(input, join(dir, "sheet.jpg"), times),
+      ok: (code) => code === 0,
+      read: async ({ dir }) => {
+        const produced = await readFile(join(dir, "sheet.jpg"));
+        if (produced.length === 0) throw new Error("empty_output");
+        return produced;
+      },
+      failure: "conversion_failed",
+    });
+
+    log("video_sheet", {
+      correlation,
+      ms: Date.now() - started,
+      seconds: info.durationSeconds,
+      frames: times.length,
+      cuts: cuts.length,
+      scanned,
+      out: sheet.length,
+    });
+    res.writeHead(200, {
+      "content-type": "image/jpeg",
+      "content-length": sheet.length,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "x-frame-times": times.join(","),
+    });
+    res.end(sheet);
+  } catch (error) {
+    const reason = error.code ?? (error.message === "empty_output" ? "empty_output" : "conversion_failed");
+    log("video_sheet", { correlation, outcome: reason, ms: Date.now() - started });
+    send(res, reason === "timeout" ? 504 : 422, { ok: false, reason });
   } finally {
     releaseSlot();
   }
@@ -1139,6 +1240,8 @@ const server = createServer(async (req, res) => {
           max_output_bytes: MAX_OUTPUT_BYTES,
         },
         probe: true,
+        // Scene-aware frame sheet for a vision model; a caller checks before relying on it.
+        video_sheet: { frames: SHEET_FRAMES, cell_px: SHEET_CELL_PX },
         // A deployment rolled back to an image without this route lacks it; Video Studio checks before relying on it.
         slideshow: { max_scenes: MAX_SCENES, max_body_bytes: MAX_SLIDESHOW_BODY_BYTES },
         overpass: true,
@@ -1170,6 +1273,10 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/probe") {
       return await handleProbe(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/video-sheet") {
+      return await handleVideoSheet(req, res, correlation);
     }
 
     if (req.method === "POST" && url.pathname === "/convert") {

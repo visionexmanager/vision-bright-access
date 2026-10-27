@@ -31,11 +31,17 @@ const answer = (value: unknown) => new Response(JSON.stringify({
 }));
 
 type Call = { url: string; body: string };
-function stubFetch(opts: { duration?: number | null; sheet?: "ok" | "fail" } = {}) {
+function stubFetch(opts: { duration?: number | null; sheet?: "ok" | "fail"; smart?: "ok" | "missing"; times?: string } = {}) {
   const calls: Call[] = [];
   const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
     const u = String(url);
     calls.push({ url: u, body: typeof init?.body === "string" ? init.body : "" });
+    if (u.endsWith("/video-sheet")) {
+      // Default: a deployment that predates the route, so the equal-interval path runs.
+      return opts.smart === "ok"
+        ? new Response(JPEG, { headers: { "content-type": "image/jpeg", "x-frame-times": opts.times ?? "0.3,3.2,6.1,14.1,15.1,19.5" } })
+        : new Response("not found", { status: 404 });
+    }
     if (u.endsWith("/probe")) return new Response(JSON.stringify({ ok: true, durationSeconds: opts.duration ?? 30, kind: "video" }));
     if (u.includes("/convert?")) {
       return opts.sheet === "fail"
@@ -62,6 +68,58 @@ describe("the frame sheet's spacing", () => {
   });
 });
 
+describe("the scene-aware sheet", () => {
+  it("is asked for first, and replaces the equal-interval conversion and probe", async () => {
+    const { calls, fetchImpl } = stubFetch({ smart: "ok" });
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const out = await understand.understandVideo({
+      bytes: CLIP, mimeType: "video/mp4", question: "What is on the screen?", languageName: "English",
+      processor: PROC, fetchImpl, transcribeImpl: heard("the code is 4417"),
+    });
+    expect(out?.readable).toBe(true);
+    expect(calls.map((c) => c.url)).toEqual(["https://media.example/video-sheet", "https://api.openai.com/v1/chat/completions"]);
+    const text = JSON.stringify(JSON.parse(calls[1].body).messages);
+    expect(text).toContain("data:image/jpeg;base64,");
+    expect(text).toContain("a sheet of 6 frames");
+    expect(text).toContain("taken at these seconds: 0.3, 3.2, 6.1, 14.1, 15.1, 19.5");
+    expect(text).toContain("not evenly spaced");
+    expect(text).not.toContain("one every");
+    const logged = info.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toMatch(/\[whatsapp-video\] frames=yes sheet=smart:6 speech=\d+ch/);
+    expect(logged).not.toContain("4417");
+  });
+
+  it("falls back to the equal-interval sheet when the route is missing", async () => {
+    const { calls, fetchImpl } = stubFetch({ smart: "missing", duration: 30 });
+    const out = await understand.understandVideo({
+      bytes: CLIP, mimeType: "video/mp4", question: "", languageName: "English",
+      processor: PROC, fetchImpl, transcribeImpl: unheard,
+    });
+    expect(out?.readable).toBe(true);
+    expect(calls.map((c) => c.url.replace(/\?.*/, "")).slice(0, 3)).toEqual([
+      "https://media.example/video-sheet", "https://media.example/probe", "https://media.example/convert",
+    ]);
+  });
+
+  it("never reads a header it cannot trust: no valid times means no sheet", async () => {
+    const { videoSheetLocally } = await import("../../supabase/functions/_shared/whatsappProcessor.ts");
+    const answering = (headers: Record<string, string>, status = 200) =>
+      (async () => new Response(status === 200 ? JPEG : "x", { status, headers })) as unknown as typeof fetch;
+    const run = (f: typeof fetch) => videoSheetLocally({ bytes: CLIP, config: PROC, fetchImpl: f });
+
+    expect(await run(answering({ "x-frame-times": "1.5,abc,2.5,-4,1e9" }))).toMatchObject({ ok: true, times: [1.5, 2.5] });
+    expect(await run(answering({ "x-frame-times": "abc,,-1" }))).toEqual({ ok: false, code: "bad_response" });
+    expect(await run(answering({}))).toEqual({ ok: false, code: "bad_response" });
+    expect(await run(answering({}, 404))).toEqual({ ok: false, code: "upstream" });
+    expect(await run(answering({}, 503))).toEqual({ ok: false, code: "busy" });
+    expect(await run(answering({}, 422))).toEqual({ ok: false, code: "unreadable_media" });
+    expect(await videoSheetLocally({ bytes: CLIP, config: null })).toEqual({ ok: false, code: "not_configured" });
+    const many = Array.from({ length: 40 }, (_, i) => i).join(",");
+    const capped = await run(answering({ "x-frame-times": many }));
+    expect(capped.ok && capped.times.length).toBe(16);
+  });
+});
+
 describe("reading a clip with no provider that takes video whole", () => {
   it("frames and speech: one vision call carrying the sheet and the transcript", async () => {
     const { calls, fetchImpl } = stubFetch({ duration: 30 });
@@ -71,9 +129,9 @@ describe("reading a clip with no provider that takes video whole", () => {
       processor: PROC, fetchImpl, transcribeImpl: heard("my code has expired and I cannot log in"),
     });
     expect(out).toEqual({ readable: true, answer: "The clip shows a login screen and the person says the code expired." });
-    expect(calls.map((c) => c.url.replace(/\?.*/, ""))).toEqual(["https://media.example/probe", "https://media.example/convert", "https://api.openai.com/v1/chat/completions"]);
-    expect(calls[1].url).toBe("https://media.example/convert?to=jpg&sheet=5&quality=balanced");
-    const request = JSON.parse(calls[2].body);
+    expect(calls.map((c) => c.url.replace(/\?.*/, ""))).toEqual(["https://media.example/video-sheet", "https://media.example/probe", "https://media.example/convert", "https://api.openai.com/v1/chat/completions"]);
+    expect(calls[2].url).toBe("https://media.example/convert?to=jpg&sheet=5&quality=balanced");
+    const request = JSON.parse(calls[3].body);
     expect(request.model).toBe("gpt-4o-mini");
     const text = JSON.stringify(request.messages);
     expect(text).toContain("data:image/jpeg;base64,");
@@ -81,7 +139,7 @@ describe("reading a clip with no provider that takes video whole", () => {
     expect(text).toContain("my code has expired and I cannot log in");
     // The log carries codes and sizes, never what was said.
     const logged = info.mock.calls.map((c) => String(c[0])).join("\n");
-    expect(logged).toMatch(/\[whatsapp-video\] frames=yes speech=\d+ch interval=5s/);
+    expect(logged).toMatch(/\[whatsapp-video\] frames=yes sheet=even:upstream speech=\d+ch interval=5s/);
     expect(logged).not.toContain("expired");
   });
 

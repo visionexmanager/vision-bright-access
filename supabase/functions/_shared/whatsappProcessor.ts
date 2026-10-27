@@ -207,6 +207,58 @@ export async function convertMediaLocally(params: {
   }
 }
 
+/**
+ * One picture of a clip for a vision model, with the second each cell was taken
+ * at. The processor picks the frames (first, last, the scene changes, then the
+ * widest gaps) where the older `sheet=` conversion took equal intervals.
+ *
+ * A deployment that predates the route answers 404, which comes back as
+ * `upstream`; the caller then falls back to the equal-interval sheet.
+ */
+export async function videoSheetLocally(params: {
+  bytes: Uint8Array;
+  config?: ProcessorConfig | null;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+}): Promise<{ ok: true; bytes: Uint8Array; times: number[] } | { ok: false; code: string }> {
+  const config = params.config === undefined ? processorConfig() : params.config;
+  if (!config) return { ok: false, code: "not_configured" };
+  if (params.bytes.byteLength > MAX_CONVERT_UPLOAD_BYTES) return { ok: false, code: "too_large" };
+
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), params.timeoutMs ?? CONVERT_TIMEOUT_MS);
+  try {
+    const response = await (params.fetchImpl ?? fetch)(`${config.url}/video-sheet`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { authorization: `Bearer ${config.token}`, "content-type": "application/octet-stream" },
+      body: imageBody(params.bytes),
+    });
+    if (!response.ok) {
+      if (response.status === 503) return { ok: false, code: "busy" };
+      if (response.status === 504) return { ok: false, code: "timeout" };
+      return { ok: false, code: response.status === 422 ? "unreadable_media" : "upstream" };
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength === 0) return { ok: false, code: "empty_output" };
+    // Numbers only, bounded: the header is read back into a prompt.
+    const times = (response.headers.get("x-frame-times") ?? "")
+      .split(",")
+      // `Number("")` is 0, so an empty segment would pass for the first second.
+      .filter((v) => v.trim() !== "")
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v) && v >= 0 && v < 100_000)
+      .slice(0, 16);
+    if (times.length === 0) return { ok: false, code: "bad_response" };
+    return { ok: true, bytes, times };
+  } catch (e) {
+    const aborted = e instanceof Error && e.name === "AbortError";
+    return { ok: false, code: aborted ? "timeout" : "network" };
+  } finally {
+    clearTimeout(deadline);
+  }
+}
+
 // ── Is the processor there, and does it take our token? ───────────────────────
 
 /** What the function can say about the processor without sending it a file. */
