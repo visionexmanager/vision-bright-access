@@ -1,0 +1,55 @@
+name: Voice benchmark
+
+# Measures local text-to-speech (Piper) and speech-to-text (Whisper) on the
+# production server, to decide whether they can replace paid voice calls.
+#
+# Manual only, and measurement only: scripts/voice-benchmark/bench.sh works in one
+# temporary directory that it deletes, installs nothing system-wide, runs at the
+# lowest priority and refuses to start when the server is busy. The repository is
+# public and these logs are world-readable, so the script prints timings and scores
+# and two fixed test sentences, never a secret.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: voice-benchmark
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          for v in HOST USER KEY; do [ -z "${!v}" ] && { echo "::error::Missing secret for $v"; exit 1; }; done
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_deploy
+            ConnectTimeout 15
+            BatchMode yes
+            ServerAliveInterval 30
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'echo connected' >/dev/null
+
+      - name: Measure
+        run: ssh target 'bash -s' < scripts/voice-benchmark/bench.sh

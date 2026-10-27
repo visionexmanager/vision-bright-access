@@ -399,12 +399,23 @@ export function authorizeUrl(
   redirectUri: string,
   state: string,
   challenge?: string,
+  /**
+   * A Facebook Login for Business configuration id. An app of that type ignores
+   * `scope` and grants only what its configuration lists, so when one is set
+   * it replaces the scope list instead of travelling beside it.
+   */
+  loginConfigId?: string,
 ): string {
   const url = new URL(provider.authorizeUrl);
   url.searchParams.set(provider.clientIdParam, clientId);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", provider.scopes.join(provider.scopeSeparator));
+  if (loginConfigId) {
+    url.searchParams.set("config_id", loginConfigId);
+    url.searchParams.set("override_default_response_type", "true");
+  } else {
+    url.searchParams.set("scope", provider.scopes.join(provider.scopeSeparator));
+  }
   url.searchParams.set("state", state);
   for (const [name, value] of Object.entries(provider.extraAuthorizeParams)) {
     url.searchParams.set(name, value);
@@ -478,7 +489,10 @@ export function normaliseTokenResponse(raw: unknown, nowMs = Date.now()): Normal
     ? inner.refresh_token
     : undefined;
 
+  // Threads answers `user_id` as a JSON number, which a string-only check
+  // dropped, so a connected account was stored without its id.
   const externalUserId = [inner.open_id, inner.user_id, inner.id]
+    .map((value) => typeof value === "number" && Number.isFinite(value) ? String(value) : value)
     .find((value): value is string => typeof value === "string" && value.trim() !== "");
 
   return {

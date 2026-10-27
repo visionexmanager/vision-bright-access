@@ -37,7 +37,7 @@ describe("Arcade audio quality gate", () => {
   it("reports approved and pending production slots independently", () => {
     const report = createAudioQualityReport();
     expect(report.total).toBe(AUDIO_LIBRARY.length);
-    expect(report.approved).toBe(13);
+    expect(report.approved).toBe(29);
     expect(report.blocked).toBe(report.total - report.approved);
     expect(report.replacementRequired).toHaveLength(report.blocked);
   });

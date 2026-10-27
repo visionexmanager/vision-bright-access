@@ -77,7 +77,7 @@ export default function Pricing() {
 
   return (
     <Layout>
-      <main className="mx-auto max-w-6xl px-4 py-12" dir={dir}>
+      <div className="mx-auto max-w-6xl px-4 py-12" dir={dir}>
         <h1 className="text-3xl font-black md:text-4xl">{t("plans.title")}</h1>
         <p className="mt-3 max-w-2xl text-muted-foreground">
           {t("plans.intro")}
@@ -213,7 +213,7 @@ export default function Pricing() {
             {t("plans.alwaysFree")}
           </p>
         </section>
-      </main>
+      </div>
     </Layout>
   );
 }

@@ -39,7 +39,7 @@ function UpgradeNotice({ section, onTrial }: { section: SectionKey; onTrial: boo
 
   return (
     <Layout>
-    <main className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center px-4 py-16 text-center" dir={dir}>
+    <div className="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center px-4 py-16 text-center" dir={dir}>
       {/* The heading is what a screen reader lands on, so it names the section
           rather than saying "access denied" — somebody who followed a link
           needs to know which door this is. */}
@@ -56,7 +56,7 @@ function UpgradeNotice({ section, onTrial }: { section: SectionKey; onTrial: boo
       </Link>
 
       <p className="mt-6 text-sm text-muted-foreground">{t("planGate.stillFree")}</p>
-    </main>
+    </div>
     </Layout>
   );
 }

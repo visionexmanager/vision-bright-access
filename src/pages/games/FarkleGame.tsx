@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSound } from "@/contexts/SoundContext";
 import { useGameSounds } from "@/hooks/useGameSounds";
+import { playProductionSound } from "@/features/arcade/audio/playProductionSound";
 import { useHighScore } from "@/hooks/useHighScore";
 import { GameHeader } from "@/components/game/GameHeader";
 import { HowToPlay } from "@/components/game/HowToPlay";
@@ -107,7 +108,7 @@ function FarkleSolo() {
   const [rolling, setRolling]     = useState(false);
 
   const roll = useCallback(() => {
-    setRolling(true); diceRoll();
+    setRolling(true); void playProductionSound("dice-roll", { volume: 0.8 }).then((played) => { if (!played) diceRoll(); });
     setTimeout(() => {
       const n = 6 - kept.length;
       const newDice = rollDice(n);
@@ -225,7 +226,7 @@ function FarkleMultiplayer() {
 
   const roll = useCallback(() => {
     if (!mp.isMyTurn || rolling) return;
-    setRolling(true); diceRoll();
+    setRolling(true); void playProductionSound("dice-roll", { volume: 0.8 }).then((played) => { if (!played) diceRoll(); });
     setTimeout(() => {
       const n = 6 - kept.length;
       const newDice = rollDice(n);

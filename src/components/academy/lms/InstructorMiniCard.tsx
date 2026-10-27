@@ -40,7 +40,7 @@ export function InstructorMiniCard({ instructor }: InstructorMiniCardProps) {
           <p className="text-xs text-muted-foreground truncate">{localized?.headline ?? instructor.headline}</p>
         )}
         {instructor.rating != null && (
-          <p className="text-xs text-yellow-600 flex items-center gap-1 mt-0.5">
+          <p className="text-xs text-yellow-700 dark:text-yellow-400 flex items-center gap-1 mt-0.5">
             <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" aria-hidden="true" />
             {instructor.rating.toFixed(1)} · {instructor.courses_count} {lang === "ar" ? "دورة" : instructor.courses_count === 1 ? "course" : "courses"}
           </p>

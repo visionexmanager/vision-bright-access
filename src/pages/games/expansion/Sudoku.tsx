@@ -96,7 +96,7 @@ export default function Sudoku({ seed, initialDifficulty = "medium" }: { seed?: 
         else next[row][column].add(value);
         return next;
       });
-      sounds.arcadeMove();
+      sounds.pencilWrite();
       return;
     }
 
@@ -108,7 +108,7 @@ export default function Sudoku({ seed, initialDifficulty = "medium" }: { seed?: 
         sounds.arcadeDanger();
         announce(ar ? `${value} يتعارض هنا.` : `${value} conflicts here.`, "assertive");
       } else if (value) {
-        sounds.arcadePickup();
+        sounds.pencilWrite();
       } else {
         sounds.arcadeMove();
       }

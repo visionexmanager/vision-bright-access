@@ -180,7 +180,12 @@ jobs:
           # Written under `umask 077` and consumed by `--env-file` below, so the
           # value never appears in argv on either hop — a token in
           # `docker run --env` is visible in `ps` to every user on the box.
-          printf 'PROCESSOR_TOKEN=%s\n' "$TOKEN" \
+          #
+          # DESCRIBER_URL is where the optional local vision model answers
+          # (deploy-vision-describer.yml). Nothing listens there until someone
+          # starts that container, and /describe is never called until the Edge
+          # Function's LOCAL_DESCRIBE secret is `on`, so setting it is inert.
+          printf 'PROCESSOR_TOKEN=%s\nDESCRIBER_URL=http://host.docker.internal:8098\n' "$TOKEN" \
             | ssh target 'umask 077 && cat > ~/.visionex-processor.env'
           echo "Token delivered."
 
@@ -207,6 +212,7 @@ jobs:
             --restart unless-stopped \
             --publish 127.0.0.1:8081:8081 \
             --env-file ~/.visionex-processor.env \
+            --add-host host.docker.internal:host-gateway \
             --memory 2g \
             --cpus 2 \
             --pids-limit 256 \

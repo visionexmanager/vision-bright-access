@@ -32,7 +32,7 @@ export default function IVX() {
 
   return (
     <Layout>
-      <main className="mx-auto max-w-5xl px-4 py-10" dir={dir}>
+      <div className="mx-auto max-w-5xl px-4 py-10" dir={dir}>
         <header>
           <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             {translateText("Visionex Academy")}
@@ -187,7 +187,7 @@ export default function IVX() {
             <Link to="/academy/ivx/guardians">{translateText("Manage who can see my progress")}</Link>
           </Button>
         </section>
-      </main>
+      </div>
     </Layout>
   );
 }

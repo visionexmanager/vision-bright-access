@@ -104,6 +104,19 @@ export interface LongLivedToken {
   readonly accessToken?: string;
   readonly expiresAt?: string;
   readonly error?: MetaGrantError;
+  /** Meta's own error class and numeric codes, e.g. "OAuthException-190-463". Never a message. */
+  readonly detail?: string;
+}
+
+/**
+ * The error class and numeric codes of a Meta failure body, and nothing else.
+ * The free-text message is left out: it can quote what was sent.
+ */
+function metaErrorDetail(body: unknown): string | undefined {
+  const error = (body as { error?: Record<string, unknown> } | null)?.error;
+  if (!error || typeof error !== "object") return undefined;
+  const part = (value: unknown) => /^[A-Za-z0-9_]{1,32}$/.test(String(value ?? "")) ? String(value) : "x";
+  return [part(error.type), part(error.code), part(error.error_subcode)].join("-");
 }
 
 /**
@@ -171,6 +184,39 @@ export async function listGrantedPermissions(
     if (name && row.status === "granted") granted.push(name);
   }
   return granted;
+}
+
+/**
+ * Who a Threads token belongs to, and what it was actually allowed to do.
+ *
+ * Threads has no permissions endpoint and its token responses carry no scope,
+ * so the grant is read from behaviour instead of assumed from the request: the
+ * profile call proves threads_basic, and the publishing-limit edge, which
+ * answers only when threads_content_publish was granted, proves that one. A
+ * permission the person left unticked on the consent screen is therefore
+ * reported as missing, never as granted because Visionex asked for it.
+ */
+export async function inspectThreadsGrant(
+  accessToken: string,
+  fetchImpl: GrantFetch,
+): Promise<{ id?: string; username?: string; grantedScopes: string[] }> {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+
+  const me = new URL(`${THREADS_GRAPH}/v1.0/me`);
+  me.searchParams.set("fields", "id,username");
+  const profile = await readJson(() => fetchImpl(me.toString(), { method: "GET", headers }));
+  const id = profile ? nonEmpty(profile.id) : undefined;
+  if (!id) return { grantedScopes: [] };
+
+  const limit = new URL(`${THREADS_GRAPH}/v1.0/${encodeURIComponent(id)}/threads_publishing_limit`);
+  limit.searchParams.set("fields", "quota_usage");
+  const publishing = await readJson(() => fetchImpl(limit.toString(), { method: "GET", headers }));
+
+  return {
+    id,
+    username: nonEmpty(profile?.username),
+    grantedScopes: publishing ? ["threads_basic", "threads_content_publish"] : ["threads_basic"],
+  };
 }
 
 export interface ManagedPage {
@@ -322,9 +368,17 @@ export async function exchangeLongLivedThreads(
   url.searchParams.set("client_secret", clientSecret);
   url.searchParams.set("access_token", shortLivedToken);
 
-  const body = await readJson(() => fetchImpl(url.toString(), { method: "GET" }));
+  // Not readJson: that discards an error body, and this one is the only way to
+  // learn why Threads refused. Only its class and numeric codes are kept.
+  let detail: string | undefined;
+  const body = await readJson(async () => {
+    const response = await fetchImpl(url.toString(), { method: "GET" });
+    const text = await response.json().catch(() => null);
+    detail = metaErrorDetail(text) ?? (response.ok ? undefined : "http");
+    return { ok: response.ok, json: async () => text };
+  });
   const token = nonEmpty(body?.access_token);
-  if (!token) return { ok: false, error: "threads_exchange_failed" };
+  if (!token) return { ok: false, error: "threads_exchange_failed", detail: detail ?? "no_token" };
 
   return { ok: true, accessToken: token, expiresAt: expiryFrom(body?.expires_in, nowMs) };
 }
@@ -379,6 +433,8 @@ export interface UpgradedGrant {
    */
   readonly grantedScopes?: string[];
   readonly error?: MetaGrantError;
+  /** Meta's error class and numeric codes when it refused, for the redirect back to the screen. */
+  readonly detail?: string;
 }
 
 /**
@@ -399,10 +455,18 @@ export async function upgradeMetaGrant(
 ): Promise<UpgradedGrant> {
   if (platform === "threads") {
     const long = await exchangeLongLivedThreads(clientSecret, shortLivedToken, fetchImpl, nowMs);
-    if (!long.ok) return { ok: false, error: long.error };
+    if (!long.ok) return { ok: false, error: long.error, detail: long.detail };
     // The Threads user id arrives with the authorisation response, not here, so
     // the caller keeps whatever normaliseTokenResponse() already found.
-    return { ok: true, accessToken: long.accessToken, expiresAt: long.expiresAt ?? null };
+    const seen = await inspectThreadsGrant(long.accessToken!, fetchImpl);
+    return {
+      ok: true,
+      accessToken: long.accessToken,
+      externalAccountId: seen.id,
+      expiresAt: long.expiresAt ?? null,
+      handle: seen.username,
+      grantedScopes: seen.grantedScopes,
+    };
   }
 
   const long = await exchangeLongLivedUser(

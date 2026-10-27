@@ -1,0 +1,58 @@
+name: Social token refresh
+
+# Keeps the connections alive. A Threads token lasts about 60 days and can be
+# extended only while it is still valid, so any Threads token with 30 days or
+# less left is extended (one younger than 24 hours is skipped, which Threads
+# requires). YouTube, TikTok and X hold an hour-scale access token with a
+# refresh token, renewed when under 50 minutes remain, which is why this runs
+# every half hour. Facebook and Instagram hold page tokens that do not expire
+# and are not touched.
+#
+# It posts nothing. The job fails, and GitHub emails the owner, when a token
+# could not be extended or has already expired and the account must be
+# reconnected. The report names account ids and outcome codes only; this
+# repository is public and no token, handle or post text is printed.
+
+on:
+  schedule:
+    - cron: "17,47 * * * *"   # every half hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: social-token-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Extend expiring Threads tokens
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Extend
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -uo pipefail
+          if [ -z "$SUPABASE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::Repository secrets SUPABASE_URL and CRON_SECRET must be configured."
+            exit 1
+          fi
+          status=$(curl -s -o response.json -w "%{http_code}" -m 60 -X POST \
+            "$SUPABASE_URL/functions/v1/social-oauth" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"action":"refresh_tokens"}')
+          echo "HTTP $status"
+          jq -c '{ok, reports: [.reports[]? | {accountId, outcome, expiresAt}], oauth2: [.oauth2[]? | {accountId, platform, outcome}], error}' response.json || true
+          if [ "$status" != "200" ]; then
+            echo "::error::The refresh endpoint answered HTTP $status."
+            exit 1
+          fi
+          if [ "$(jq -r '.ok' response.json)" != "true" ]; then
+            echo "::error::A Threads token could not be extended or has expired: reconnect it on /admin/social-connections."
+            exit 1
+          fi

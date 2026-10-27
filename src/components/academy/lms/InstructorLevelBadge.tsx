@@ -6,7 +6,7 @@ const CONFIG: Record<AcademyInstructorLevel, { label: string; icon: typeof Spark
   new: { label: "مدرّس جديد", icon: Sparkles, className: "bg-muted text-muted-foreground border-border" },
   rising: { label: "مدرّس صاعد", icon: TrendingUp, className: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
   expert: { label: "مدرّس خبير", icon: Award, className: "bg-primary/10 text-primary border-primary/20" },
-  master: { label: "مدرّس متمرّس", icon: Crown, className: "bg-yellow-400/10 text-yellow-600 border-yellow-400/20" },
+  master: { label: "مدرّس متمرّس", icon: Crown, className: "bg-yellow-400/10 text-yellow-700 dark:text-yellow-400 border-yellow-400/20" },
 };
 
 export function InstructorLevelBadge({ level }: { level: AcademyInstructorLevel }) {

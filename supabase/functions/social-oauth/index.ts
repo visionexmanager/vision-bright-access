@@ -54,6 +54,8 @@ import {
   upgradeMetaGrant,
   type GrantFetch,
 } from "../_shared/metaGrant.ts";
+import { needsAttention, refreshExpiringThreads } from "../_shared/publishing/threadsTokenRefresh.ts";
+import { oauth2NeedsAttention, refreshExpiringOAuth2 } from "../_shared/publishing/oauth2TokenRefresh.ts";
 
 /** Where the operator is sent back to, and the only page this function links to. */
 const CONNECTIONS_PATH = "/admin/social-connections";
@@ -86,7 +88,7 @@ function stateSecret(): string | undefined {
 // token and never a provider's error text. The code names what happened; the
 // screen turns it into a sentence in the operator's language.
 
-function backToScreen(outcome: string, platform?: string, returnTo?: string): Response {
+function backToScreen(outcome: string, platform?: string, returnTo?: string, detail?: string): Response {
   // Only a same-origin path is honoured. An absolute URL arriving in the state
   // would make this function an open redirector that a platform's consent page
   // links to, which is a phishing primitive rather than a convenience.
@@ -96,6 +98,9 @@ function backToScreen(outcome: string, platform?: string, returnTo?: string): Re
   const url = new URL(path, SITE_ORIGIN);
   url.searchParams.set("connection", outcome);
   if (platform) url.searchParams.set("platform", platform);
+  // The provider's error class and numeric codes, so a refusal can be told from
+  // another without reading logs this function does not write. Never a message.
+  if (detail && /^[A-Za-z0-9_-]{1,100}$/.test(detail)) url.searchParams.set("detail", detail);
   return new Response(null, { status: 303, headers: { Location: url.toString() } });
 }
 
@@ -254,7 +259,7 @@ Deno.serve(async (req) => {
         account?.handle ?? "",
         fetch as unknown as GrantFetch,
       );
-      if (!upgraded.ok) return backToScreen(upgraded.error!, platform, returnTo);
+      if (!upgraded.ok) return backToScreen(upgraded.error!, platform, returnTo, upgraded.detail);
 
       accessToken = upgraded.accessToken!;
       // Threads reports its user id on the authorisation response rather than
@@ -302,6 +307,125 @@ Deno.serve(async (req) => {
 
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
+  // ── The scheduled refresh: the one call that is not an operator's ────────
+  //
+  // A Threads token dies after about 60 days unless it is extended while still
+  // valid, and nothing was extending it. A daily workflow presents CRON_SECRET
+  // here and may do exactly one thing: extend Threads tokens that are running
+  // out. It fails closed (no secret set, nobody gets in), it reaches no
+  // publishing code, and the report holds account ids and outcome codes only.
+  const cronSecret = env("CRON_SECRET");
+  if (cronSecret && req.headers.get("Authorization") === `Bearer ${cronSecret}`) {
+    const cronBody = await req.json().catch(() => ({}));
+    if (cronBody.action !== "refresh_tokens") return json({ error: "Unauthorized" }, 401);
+    if (!encryptionKey) return json({ ok: false, error: "encryption_key_missing" }, 503);
+
+    try {
+      const service = serviceClient();
+      const { data: accounts } = await service.from("social_accounts").select("id").eq("platform", "threads");
+      const ids = ((accounts ?? []) as Array<{ id: string }>).map((account) => account.id);
+      const { data: stored } = ids.length === 0
+        ? { data: [] }
+        : await service.from("social_account_tokens")
+          .select("account_id, expires_at, rotated_at").in("account_id", ids);
+      const rows = (stored ?? []) as Array<{ account_id: string; expires_at: string | null; rotated_at: string | null }>;
+
+      const reports = await refreshExpiringThreads({
+        list: () => Promise.resolve(rows.map((row) => ({
+          accountId: row.account_id, expiresAt: row.expires_at, writtenAt: row.rotated_at,
+        }))),
+        accessToken: async (accountId) => {
+          const { data } = await service.rpc("resolve_social_account_token", {
+            _account_id: accountId, _key: encryptionKey,
+          });
+          const row = data as Record<string, unknown> | null;
+          return row?.ok === true && typeof row.access_token === "string" ? row.access_token : null;
+        },
+        extend: (accessToken) => refreshThreadsToken(accessToken, fetch as unknown as GrantFetch),
+        store: async (accountId, accessToken, expiresAt) => {
+          const { data } = await service.rpc("store_social_account_token", {
+            _account_id: accountId,
+            _key: encryptionKey,
+            _access_token: accessToken,
+            _refresh_token: null,
+            _expires_at: expiresAt,
+            // Empty, so the stored scopes and user id are kept as they were.
+            _scopes: [],
+            _external_user_id: null,
+            _token_type: "bearer",
+            _refresh_expires_at: null,
+          });
+          return (data as Record<string, unknown> | null)?.ok === true;
+        },
+        now: () => Date.now(),
+      });
+
+      // The OAuth 2.0 platforms (YouTube, TikTok, X) hold an hour-scale access
+      // token and a refresh token. Same rule as above: renew what is running
+      // out, touch nothing else, report ids and outcomes only.
+      const oauth2Platforms = PLATFORMS.filter((p) => PROVIDERS[p].refreshStrategy === "oauth2");
+      const { data: oauth2Accounts } = await service
+        .from("social_accounts").select("id, platform").in("platform", oauth2Platforms);
+      const platformOf = new Map(
+        ((oauth2Accounts ?? []) as Array<{ id: string; platform: string }>).map((a) => [a.id, a.platform]),
+      );
+      const { data: oauth2Stored } = platformOf.size === 0
+        ? { data: [] }
+        : await service.from("social_account_tokens")
+          .select("account_id, expires_at").in("account_id", [...platformOf.keys()]);
+
+      const oauth2Reports = await refreshExpiringOAuth2({
+        list: () => Promise.resolve(
+          ((oauth2Stored ?? []) as Array<{ account_id: string; expires_at: string | null }>).map((row) => ({
+            accountId: row.account_id,
+            platform: platformOf.get(row.account_id) ?? "",
+            expiresAt: row.expires_at,
+          })),
+        ),
+        refresh: async (accountId, platform) => {
+          const provider = PROVIDERS[platform as Platform];
+          const credentials = readCredentials(provider, env);
+          if (!provider || !credentials.configured) return "refresh_failed";
+          const { data: current } = await service.rpc("resolve_social_account_token", {
+            _account_id: accountId, _key: encryptionKey,
+          });
+          const refreshToken = (current as Record<string, unknown> | null)?.refresh_token;
+          if (typeof refreshToken !== "string" || !refreshToken) return "reconnect_required";
+
+          const token = await exchange(provider, credentials.clientId!, credentials.clientSecret!, {
+            grant_type: "refresh_token",
+            refresh_token: refreshToken,
+          });
+          if (!token.ok) return "refresh_failed";
+
+          const { data: saved } = await service.rpc("store_social_account_token", {
+            _account_id: accountId,
+            _key: encryptionKey,
+            _access_token: token.accessToken,
+            _refresh_token: token.refreshToken ?? null,
+            _expires_at: token.expiresAt ?? null,
+            // Empty: a refresh that does not restate the grant must not be read
+            // as a fresh grant, so the stored scopes are kept.
+            _scopes: token.scopes ?? [],
+            _external_user_id: token.externalUserId ?? null,
+            _token_type: token.tokenType ?? "bearer",
+            _refresh_expires_at: token.refreshExpiresAt ?? null,
+          });
+          return (saved as Record<string, unknown> | null)?.ok === true ? "refreshed" : "refresh_failed";
+        },
+        now: () => Date.now(),
+      });
+
+      return json({
+        ok: !needsAttention(reports) && !oauth2NeedsAttention(oauth2Reports),
+        reports,
+        oauth2: oauth2Reports,
+      });
+    } catch {
+      return json({ ok: false, error: "internal_error" }, 500);
+    }
+  }
+
   // ── POST: the operator's own session ──────────────────────────────────────
   try {
     const authHeader = req.headers.get("Authorization");
@@ -332,7 +456,11 @@ Deno.serve(async (req) => {
     // deployment even holds the credentials for each platform. The second is
     // knowable only here, because the browser must never see an env var.
     if (action === "status") {
-      const { data: accounts } = await service.rpc("social_connection_status");
+      // As the caller, not as the service role: the function checks
+      // auth.uid() for an admin, and the service role has no uid, so it was
+      // answering `forbidden` and the screen listed no account at all, however
+      // many were connected.
+      const { data: accounts } = await asCaller.rpc("social_connection_status");
 
       const providers = PLATFORMS.map((platform) => {
         const provider = PROVIDERS[platform];
@@ -424,6 +552,8 @@ Deno.serve(async (req) => {
         account_id: account.id,
         authorize_url: authorizeUrl(
           provider, credentials.clientId!, redirectUri(), state, challenge,
+          // Only the two providers that sign in through the Meta app.
+          platform === "facebook" || platform === "instagram" ? env("META_LOGIN_CONFIG_ID") : undefined,
         ),
       });
     }

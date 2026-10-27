@@ -54,6 +54,28 @@ export const VISION_TARGETS: ProviderTarget[] = [
 ];
 
 /**
+ * Describing a photograph for someone who cannot see it: the one image mode
+ * where the answer *is* the product, so it leads with the stronger model.
+ *
+ * gpt-4.1 is already live on this key (the assistants' first choice) and reads
+ * detail, spatial layout and small text noticeably better than gpt-4o-mini.
+ * Every other image mode keeps `VISION_TARGETS`: reading a label or finding an
+ * object is bounded, and the cheaper model is enough there.
+ *
+ * Cost, per photograph (OpenAI list prices, an estimate to be checked against
+ * the first week of real usage rather than a measurement):
+ *   gpt-4.1       $2.00 in / $8.00 out per 1M tokens, about 0.5 cent
+ *   gpt-4o-mini   $0.15 in / $0.60 out per 1M tokens, about 0.15 cent
+ * so roughly three times the price for describe photographs only. The existing
+ * chain follows as the fallback: a refusal or a rate limit on gpt-4.1 costs one
+ * failed round trip and the photograph is still described.
+ */
+export const DESCRIBE_TARGETS: ProviderTarget[] = [
+  { provider: "openai", model: "gpt-4.1" },
+  ...VISION_TARGETS,
+];
+
+/**
  * Readers for a document that arrives as text — a PDF's text layer, DOC/DOCX,
  * TXT. No image is sent, so the chain need not be vision-capable, and it no
  * longer rests on two vendors: Luna answers when gpt-4o-mini alone is refused,

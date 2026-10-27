@@ -178,9 +178,9 @@ export function StudioLayout({ children }: StudioLayoutProps) {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 min-w-0 overflow-auto">
+        <div className="flex-1 min-w-0 overflow-auto">
           {children}
-        </main>
+        </div>
       </div>
       </div>
     </Layout>

@@ -82,7 +82,7 @@ export default function Games() {
           </div>
         </section>
 
-        <main className="section-container py-10">
+        <div className="section-container py-10">
           <WatchAdButton variant="banner" className="mb-8" />
           <section aria-label={t("games.arcade.today.label")} className="mb-8 grid gap-4 lg:grid-cols-2"><article className="relative isolate overflow-hidden rounded-3xl border border-amber-300/20 p-6"><img src={tournamentBanner} alt="" width={1672} height={941} loading="lazy" decoding="async" className="absolute inset-0 -z-20 h-full w-full object-cover"/><div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#070914] via-[#070914]/85 to-[#070914]/30 rtl:bg-gradient-to-l"/><p className="text-xs font-black uppercase tracking-[.2em] text-amber-300">{t("games.arcade.tournament.eyebrow")}</p><h2 className="mt-2 text-2xl font-black">Visionex Weekly Masters</h2><p className="mt-2 text-sm text-slate-200">{t("games.arcade.tournament.note")}</p><Button asChild className="mt-5"><Link to="/games/tournaments">{t("games.arcade.tournament.cta")}</Link></Button></article><article className="rounded-3xl border border-cyan-300/20 bg-gradient-to-br from-cyan-300/10 to-transparent p-6"><p className="text-xs font-black uppercase tracking-[.2em] text-cyan-300">{t("games.arcade.challenge.eyebrow")}</p><h2 className="mt-2 text-2xl font-black">{t("games.arcade.challenge.title")}</h2><p className="mt-2 text-sm text-slate-300">{t("games.arcade.challenge.note")}</p><Button asChild variant="outline" className="mt-5 border-white/20 bg-black/20 text-white hover:bg-white/10 hover:text-white"><Link to="/games/challenges">{t("games.arcade.challenge.cta")}</Link></Button></article></section>
 
@@ -120,7 +120,7 @@ export default function Games() {
             </>
           )}
           <AdBanner slot="3569383992" format="horizontal" className="mt-4" />
-        </main>
+        </div>
       </div>
     </Layout>
   );

@@ -186,8 +186,18 @@ export default function AdminSocialConnections() {
   }, [params, setParams, t]);
 
   const accountsByPlatform = useMemo(() => {
+    // One card per platform, so when a platform has several rows (an earlier
+    // attempt under another handle, say) the one that was actually connected,
+    // most recently, is the one shown. Last-write-wins put an unconnected
+    // leftover in front of the real account, and the review and activation
+    // buttons then acted on the wrong row.
+    const connectedAt = (account: AccountRow) =>
+      account.last_connected_at ? Date.parse(account.last_connected_at) || 0 : 0;
     const map = new Map<string, AccountRow>();
-    for (const account of status?.accounts ?? []) map.set(account.platform, account);
+    for (const account of status?.accounts ?? []) {
+      const current = map.get(account.platform);
+      if (!current || connectedAt(account) > connectedAt(current)) map.set(account.platform, account);
+    }
     return map;
   }, [status]);
 
@@ -202,8 +212,10 @@ export default function AdminSocialConnections() {
     return data;
   };
 
-  const connect = async (provider: ProviderRow) => {
-    const handle = (handles[provider.platform] ?? "").trim();
+  const connect = async (provider: ProviderRow, savedHandle = "") => {
+    // Reconnecting hides the handle field, so fall back to the handle the
+    // account was connected under instead of demanding it again.
+    const handle = (handles[provider.platform] ?? savedHandle).trim();
     if (!handle) {
       toast.error(t("social.connections.handleRequired"));
       return;
@@ -447,7 +459,7 @@ export default function AdminSocialConnections() {
                         )}
 
                         {provider.configured && !provider.blocked_reason && (
-                          <Button onClick={() => void connect(provider)} disabled={working}>
+                          <Button onClick={() => void connect(provider, account?.handle ?? "")} disabled={working}>
                             {working
                               ? <Loader2 className="me-2 h-4 w-4 animate-spin" aria-hidden="true" />
                               : <Link2 className="me-2 h-4 w-4" aria-hidden="true" />}

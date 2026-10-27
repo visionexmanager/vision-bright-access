@@ -45,10 +45,10 @@ export const AcademyHero = memo(function AcademyHero({
           </h1>
           <div className="flex flex-wrap gap-2 mt-2.5">
             <span className="px-2.5 py-0.5 bg-primary/10 text-primary rounded-lg text-xs font-bold border border-primary/20">{displayProfile.level}</span>
-            <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-500/20">
+            <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold border border-emerald-500/20">
               {interpolate(t("academy.curriculum"), { country: displayProfile.country })}
             </span>
-            <span className="px-2.5 py-0.5 bg-yellow-400/10 text-yellow-600 rounded-lg text-xs font-bold border border-yellow-400/20">
+            <span className="px-2.5 py-0.5 bg-yellow-400/10 text-yellow-700 dark:text-yellow-400 rounded-lg text-xs font-bold border border-yellow-400/20">
               <Zap className="inline w-3 h-3 me-1" aria-hidden="true" />{totalPoints.toLocaleString()} VX
             </span>
           </div>

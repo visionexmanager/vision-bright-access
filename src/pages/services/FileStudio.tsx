@@ -258,7 +258,7 @@ export default function FileStudio() {
         className="sr-only"
       />
 
-      <main id="main-content" className="section-container py-8 space-y-8">
+      <div className="section-container py-8 space-y-8">
 
         {/* ── Page header ── */}
         <AnimatedSection>
@@ -679,7 +679,7 @@ export default function FileStudio() {
             </p>
           </div>
         </AnimatedSection>
-      </main>
+      </div>
     </Layout>
   );
 }

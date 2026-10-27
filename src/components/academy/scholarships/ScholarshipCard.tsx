@@ -8,8 +8,8 @@ const STATUS_LABEL: Record<AcademyScholarshipStatus, string> = {
   open: "مفتوحة", closing_soon: "تنتهي قريباً", closed: "مغلقة", upcoming: "قادمة",
 };
 const STATUS_CLASS: Record<AcademyScholarshipStatus, string> = {
-  open: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-  closing_soon: "bg-yellow-400/10 text-yellow-600 border-yellow-400/20",
+  open: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
+  closing_soon: "bg-yellow-400/10 text-yellow-700 dark:text-yellow-400 border-yellow-400/20",
   closed: "bg-muted text-muted-foreground border-border",
   upcoming: "bg-blue-500/10 text-blue-600 border-blue-500/20",
 };

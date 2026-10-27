@@ -70,6 +70,7 @@ import { recordSttAttempts } from "../_shared/providerRecording.ts";
 import {
   understandDocument,
   understandImage,
+  DESCRIBE_TARGETS,
   understandVideo,
   VIDEO_READING_AVAILABLE,
 } from "../_shared/whatsappUnderstand.ts";
@@ -92,6 +93,7 @@ import {
   NEARBY_RADIUS_M,
   reverseGeocode,
 } from "../_shared/whatsappGeo.ts";
+import { lookupLocalPlace, nearestLocalCity } from "../_shared/whatsappPlaceIndex.ts";
 import {
   asksForEmergencyCare,
   asksToExplainReport,
@@ -485,6 +487,7 @@ import {
   type VisionMode,
 } from "../_shared/whatsappVisionModes.ts";
 import { readTextLocally } from "../_shared/whatsappLocalOcr.ts";
+import { describeLocally } from "../_shared/whatsappLocalDescribe.ts";
 import {
   barcodeGroundTruth,
   productCodes,
@@ -3105,7 +3108,11 @@ Deno.serve(async (req) => {
         const place = await viaCache(
           reverseKey(latitude, longitude, answerLanguage),
           "reverse",
-          () => reverseGeocode(latitude, longitude, answerLanguage),
+          // The outside services name the district, which is what a pin is for.
+          // The local city index is the last resort, so "the map service isn't
+          // responding" is no longer the whole answer.
+          async () => (await reverseGeocode(latitude, longitude, answerLanguage))
+            ?? nearestLocalCity(service(), latitude, longitude, answerLanguage),
         );
 
         // No name is not no answer.
@@ -3535,10 +3542,36 @@ Deno.serve(async (req) => {
               : incoming.media.caption ?? "",
             languageName: LANGUAGE_ENDONYM[answerLanguage],
             systemPrompt: barcodeTruth ? `${basePrompt ?? ""} ${barcodeTruth}`.trim() : basePrompt,
+            // The stronger model only where the description is the answer.
+            targets: (!mode || mode === "describe") && !explainReportImage ? DESCRIBE_TARGETS : undefined,
           });
+
+          // ── The small model on the server, only when every paid one failed ──
+          //
+          // `!seen` means no provider produced an answer at all: out of credit,
+          // rate-limited, down. A model that answered "I could not read it" is
+          // an answer and is not second-guessed here. Off unless
+          // LOCAL_DESCRIBE=on and the server's model is running; either missing
+          // leaves `answered` null and the sender gets exactly what they got before.
+          let answered = seen;
+          if (!seen && (!mode || mode === "describe") && !explainReportImage) {
+            const local = await describeLocally({
+              bytes: inspected.bytes,
+              mimeType: media.mimeType,
+              answerLanguage,
+            });
+            // Outcome and duration only. Never the description.
+            log("local_describe", {
+              ok: local.ok,
+              reason: local.ok ? "described" : local.reason,
+              chars: local.ok ? local.text.length : 0,
+              ms: local.ok ? local.ms : 0,
+            });
+            if (local.ok) answered = { readable: true, answer: local.text };
+          }
           // "I could not read it" is a real answer and is passed on as one,
           // rather than being dressed up as a description.
-          if (!seen || !seen.readable || !seen.answer) {
+          if (!answered || !answered.readable || !answered.answer) {
             // Unless the scanner read something the model could not. A
             // photograph of a QR code on a poster is exactly that case: the
             // model sees a square it cannot decode and gives up, while the link
@@ -3552,7 +3585,7 @@ Deno.serve(async (req) => {
           }
           await spent("image");
           const imageAnswer = clampReply(
-            barcodeText ? `${seen.answer}\n\n${barcodeText}` : seen.answer,
+            barcodeText ? `${answered.answer}\n\n${barcodeText}` : answered.answer,
           );
           // Appended by code on this path too. A photographed page and a PDF
           // are the same report; they must not carry different caveats.
@@ -4517,7 +4550,8 @@ Deno.serve(async (req) => {
           : await viaCache(
             reverseKey(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
             "reverse",
-            () => reverseGeocode(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
+            async () => (await reverseGeocode(rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage))
+              ?? nearestLocalCity(service(), rememberedLocation.latitude, rememberedLocation.longitude, answerLanguage),
           );
         // As with a fresh pin: the coordinates are on file and exact, so an
         // unnameable place is still an answerable question.
@@ -4911,7 +4945,8 @@ Deno.serve(async (req) => {
         const found = await viaCache(
           geocodeKey(placeRequest, answerLanguage),
           "geocode",
-          () => geocodePlace(placeRequest, answerLanguage),
+          async () => (await lookupLocalPlace(service(), placeRequest, answerLanguage))
+            ?? geocodePlace(placeRequest, answerLanguage),
         );
 
         if (!found) {
@@ -4974,7 +5009,8 @@ Deno.serve(async (req) => {
           const geocoded = await viaCache(
             geocodeKey(weatherRequest.place, answerLanguage),
             "geocode",
-            () => geocodePlace(weatherRequest.place as string, answerLanguage),
+            async () => (await lookupLocalPlace(service(), weatherRequest.place as string, answerLanguage))
+              ?? geocodePlace(weatherRequest.place as string, answerLanguage),
           );
           if (!geocoded) {
             await reply(placeNotFoundNotice(answerLanguage, weatherRequest.place), "unsupported");
@@ -5004,10 +5040,16 @@ Deno.serve(async (req) => {
           continue;
         }
         if (!placeName) {
+          // A weather line needs a city, not a district, so the local index
+          // answers first and the outside services only when it has no city
+          // close enough.
           const place = await viaCache(
-            reverseKey(latitude, longitude, answerLanguage),
+            // Its own cache entry: a city-only answer must never be served to
+            // a pin that wants the district.
+            `${reverseKey(latitude, longitude, answerLanguage)}:city`,
             "reverse",
-            () => reverseGeocode(latitude, longitude, answerLanguage),
+            async () => (await nearestLocalCity(service(), latitude, longitude, answerLanguage))
+              ?? reverseGeocode(latitude, longitude, answerLanguage),
           );
           placeName = place ? shortPlaceLabel(place) : "";
         }

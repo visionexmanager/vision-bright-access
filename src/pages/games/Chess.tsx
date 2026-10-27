@@ -98,7 +98,7 @@ export default function Chess() {
     setLastMoveTo(move.to);
     setSelected(null);
     playSound(move.captured ? "points" : "click");
-    void playProductionSound("wood-piece-place", { playbackRate:move.captured ? 0.86 : 1.04 });
+    void playProductionSound(move.captured ? "chess-piece-capture" : "chess-piece-move");
   }, [position, ar, playSound]);
 
   const onSquareClick = (index: number) => {
@@ -143,7 +143,7 @@ export default function Chess() {
         setPosition(makeMove(position, move));
         setLastMoveTo(move.to);
         playSound(move.captured ? "points" : "click");
-        void playProductionSound("wood-piece-place", { playbackRate:move.captured ? 0.86 : 0.96 });
+        void playProductionSound(move.captured ? "chess-piece-capture" : "chess-piece-move");
       }
       setThinking(false);
     }, 260);

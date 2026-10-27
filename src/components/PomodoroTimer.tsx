@@ -241,14 +241,14 @@ export default function PomodoroTimer() {
           onClick={() => setRunning(!running)}
           className={`flex-1 py-5 h-auto rounded-2xl font-bold text-base gap-2 ${
             isFocus
-              ? "bg-orange-500 hover:bg-orange-600 text-white"
-              : "bg-emerald-500 hover:bg-emerald-600 text-white"
+              ? "bg-orange-700 hover:bg-orange-800 text-white"
+              : "bg-emerald-700 hover:bg-emerald-800 text-white"
           }`}
         >
           {running ? <><Pause className="w-5 h-5" /> {t("pomodoro.stop")}</> : <><Play className="w-5 h-5" /> {getButtonLabel()}</>}
         </Button>
-        <Button variant="outline" size="icon" className="h-auto w-14 rounded-2xl" onClick={() => reset()}>
-          <RotateCcw className="w-5 h-5" />
+        <Button variant="outline" size="icon" className="h-auto w-14 rounded-2xl" onClick={() => reset()} aria-label={t("sim.board.reset")}>
+          <RotateCcw className="w-5 h-5" aria-hidden="true" />
         </Button>
       </div>
 
