@@ -297,7 +297,11 @@ async function understandVideoFromFramesAndSpeech(params: {
 
   try {
     const { result } = await structuredCompletionWithFallback({
-      targets: frames ? VISION_TARGETS : TEXT_READERS,
+      // The stronger model leads where there is a picture to read, as it does for a
+      // photograph: a sheet of nine frames is a picture, and on-screen text in a clip
+      // is what the sender usually wants. About $0.003 a clip at gpt-4.1's rates
+      // (see DESCRIBE_TARGETS); the cheaper models stay behind it as the fallback.
+      targets: frames ? DESCRIBE_TARGETS : TEXT_READERS,
       system: attachmentSystemPrompt(params.languageName, "video"),
       userText,
       ...(frames ? { image: toDataUrl(frames, "image/jpeg") } : {}),

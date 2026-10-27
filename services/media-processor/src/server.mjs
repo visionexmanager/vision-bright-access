@@ -99,12 +99,13 @@ import {
 import {
   SCENE_SCAN_TIMEOUT_MS,
   SHEET_BUILD_TIMEOUT_MS,
-  SHEET_CELL_PX,
   SHEET_FRAMES,
+  SHEET_SHAPES,
   parseSceneScan,
   pickFrameTimes,
   sceneScanArgs,
   sheetBuildArgs,
+  sheetShape,
 } from "./videosheet.mjs";
 import {
   DESCRIBE_LANGUAGES,
@@ -522,12 +523,14 @@ async function handleVideoSheet(req, res, correlation) {
     }
 
     const times = pickFrameTimes(info.durationSeconds, cuts);
+    // Cells take the clip's shape; see videosheet.mjs for why.
+    const shape = sheetShape(info.video?.width, info.video?.height);
     const sheet = await runTool({
       bytes,
       prefix: "vsheet-",
       command: "ffmpeg",
       timeoutMs: SHEET_BUILD_TIMEOUT_MS,
-      build: (input, dir) => sheetBuildArgs(input, join(dir, "sheet.jpg"), times),
+      build: (input, dir) => sheetBuildArgs(input, join(dir, "sheet.jpg"), times, shape),
       ok: (code) => code === 0,
       read: async ({ dir }) => {
         const produced = await readFile(join(dir, "sheet.jpg"));
@@ -542,6 +545,7 @@ async function handleVideoSheet(req, res, correlation) {
       ms: Date.now() - started,
       seconds: info.durationSeconds,
       frames: times.length,
+      shape,
       cuts: cuts.length,
       scanned,
       out: sheet.length,
@@ -552,6 +556,7 @@ async function handleVideoSheet(req, res, correlation) {
       "cache-control": "no-store",
       "x-content-type-options": "nosniff",
       "x-frame-times": times.join(","),
+      "x-sheet-shape": shape,
     });
     res.end(sheet);
   } catch (error) {
@@ -1241,7 +1246,7 @@ const server = createServer(async (req, res) => {
         },
         probe: true,
         // Scene-aware frame sheet for a vision model; a caller checks before relying on it.
-        video_sheet: { frames: SHEET_FRAMES, cell_px: SHEET_CELL_PX },
+        video_sheet: { frames: SHEET_FRAMES, shapes: Object.keys(SHEET_SHAPES) },
         // A deployment rolled back to an image without this route lacks it; Video Studio checks before relying on it.
         slideshow: { max_scenes: MAX_SCENES, max_body_bytes: MAX_SLIDESHOW_BODY_BYTES },
         overpass: true,

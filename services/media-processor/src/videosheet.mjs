@@ -16,33 +16,70 @@
 // It looks for the moments the picture changes (ffmpeg's own scene score, on a
 // cheap 160-pixel copy of the clip), keeps the first frame, the last frame and
 // the strongest changes, and spends any remaining cells in the biggest gaps so
-// a clip with no cuts at all still ends up evenly covered. Nine cells of 448
-// pixels, in a 3 × 3 grid, in time order.
+// a clip with no cuts at all still ends up evenly covered. Nine cells in a
+// 3 × 3 grid, in time order.
 //
-// The cells are square and letterboxed whatever the clip's shape, because the
-// tile layout needs equal cells and a phone clip is as likely to be 9:16 as
-// 16:9. The times travel back with the picture so the model is told when each
-// frame is, not left to assume they are evenly spaced.
+// ── Why the cells take the clip's shape ─────────────────────────────────────
+//
+// The first cut of this used square cells whatever the clip. A 16:9 clip then
+// filled half of each cell and the rest was black bars, and the sheet was
+// 1344 pixels square. Vision models shrink an image until its short side fits
+// (OpenAI's high-detail mode stops at 768), so that square reached the model at
+// about 57% of its size with half of it black: a frame arrived roughly 256
+// pixels wide. A landscape clip now gets 448 × 252 cells (a sheet 1344 × 756,
+// which is not shrunk) and a portrait clip 252 × 448, so every pixel is picture
+// and the frames arrive at the size they were cut.
+//
+// The times travel back with the picture so the model is told when each frame
+// is, not left to assume they are evenly spaced.
 //
 // Pure functions only: the tests run them without ffmpeg.
 
 export const SHEET_COLUMNS = 3;
 export const SHEET_FRAMES = 9;
-export const SHEET_CELL_PX = 448;
 
-/** ffmpeg's scene score runs 0 to 1; around 0.25 is a clear cut or a new screen. */
-export const SCENE_THRESHOLD = 0.25;
+/** Cell sizes by the clip's shape, all even (the encoder and `pad` need that). */
+export const SHEET_SHAPES = {
+  landscape: { cellW: 448, cellH: 252 },
+  portrait: { cellW: 252, cellH: 448 },
+  square: { cellW: 336, cellH: 336 },
+};
+
+/**
+ * Which shape a clip is, from its dimensions. Unknown dimensions are landscape,
+ * which is what most clips are and what the first version assumed.
+ */
+export function sheetShape(width, height) {
+  const ratio = Number(width) / Number(height);
+  if (!Number.isFinite(ratio) || ratio <= 0) return "landscape";
+  if (ratio >= 1.2) return "landscape";
+  if (ratio <= 0.84) return "portrait";
+  return "square";
+}
+
+/**
+ * ffmpeg's scene score runs 0 to 1. Above 0.25 is a clear cut or a new screen;
+ * between 0.15 and 0.25 is a real change that is easy to miss (two solid
+ * backgrounds of similar brightness score about 0.2), but is also what a
+ * handheld camera can produce, so those are used more carefully (see below).
+ */
+export const STRONG_SCENE = 0.25;
+export const SCENE_THRESHOLD = 0.15;
 
 /** The scan decodes the whole clip, at a size where that is cheap. */
 export const SCENE_SCAN_TIMEOUT_MS = 30_000;
 /** Pulling nine frames out by seeking is quick. */
 export const SHEET_BUILD_TIMEOUT_MS = 40_000;
 
+/**
+ * Five frames a second are enough to see a cut and keep the output small: the
+ * scan prints a line per selected frame, and the service keeps only 64 KB of it.
+ */
 export function sceneScanArgs(input) {
   return [
     "-nostdin", "-hide_banner", "-loglevel", "error", "-i", input,
     "-an", "-sn",
-    "-vf", `scale=160:-2,select='gt(scene,${SCENE_THRESHOLD})',metadata=print:file=-:key=lavfi.scene_score`,
+    "-vf", `fps=5,scale=160:-2,select='gt(scene,${SCENE_THRESHOLD})',metadata=print:file=-:key=lavfi.scene_score`,
     "-f", "null", "-",
   ];
 }
@@ -82,9 +119,13 @@ export function frameCountFor(durationSeconds) {
 /**
  * Seconds at which to take frames, ascending, rounded to a hundredth.
  *
- * The first frame and the last are always in. The strongest cuts follow, never
- * closer together than a sixteenth of the clip, so one flickering moment cannot
- * spend every cell. Whatever is left halves the widest gap, repeatedly.
+ * The first frame and the last are always in. Cuts follow, strongest first. A
+ * strong cut (0.25 and over) needs only a thirty-sixth of the clip between it
+ * and any frame already chosen, so one flickering moment cannot spend every
+ * cell. A weak cut needs a ninth: it is taken only where the frames chosen so
+ * far leave a wide gap, which is where a missed change is likely to be hiding
+ * and where camera shake costs nothing. Whatever is left halves the widest gap,
+ * repeatedly.
  */
 export function pickFrameTimes(durationSeconds, cuts = []) {
   const d = Number(durationSeconds);
@@ -95,12 +136,12 @@ export function pickFrameTimes(durationSeconds, cuts = []) {
   const end = Math.max(start, d - Math.min(0.5, d * 0.1));
   const chosen = n === 1 ? [start] : [start, end];
 
-  const minGap = d / (SHEET_FRAMES * 4);
   const strongest = [...cuts]
     .filter((c) => Number.isFinite(c.t) && c.t > start && c.t < end)
     .sort((a, b) => b.score - a.score);
   for (const cut of strongest) {
     if (chosen.length >= n) break;
+    const minGap = cut.score >= STRONG_SCENE ? d / (SHEET_FRAMES * 4) : d / SHEET_FRAMES;
     // A tenth of a second in, so the frame is the new scene and not the dissolve into it.
     const at = Math.min(cut.t + 0.1, end);
     if (chosen.every((t) => Math.abs(t - at) >= minGap)) chosen.push(at);
@@ -125,37 +166,40 @@ export function pickFrameTimes(durationSeconds, cuts = []) {
 }
 
 /** `x_y` for each cell, left to right and top to bottom, for ffmpeg's xstack. */
-export function sheetLayout(count, columns = SHEET_COLUMNS, cell = SHEET_CELL_PX) {
+export function sheetLayout(count, shape = "landscape", columns = SHEET_COLUMNS) {
+  const { cellW, cellH } = SHEET_SHAPES[shape] ?? SHEET_SHAPES.landscape;
   const cells = [];
   for (let i = 0; i < count; i++) {
-    cells.push(`${(i % columns) * cell}_${Math.floor(i / columns) * cell}`);
+    cells.push(`${(i % columns) * cellW}_${Math.floor(i / columns) * cellH}`);
   }
   return cells.join("|");
 }
 
 /**
- * The ffmpeg command that seeks to each time, scales it into a square cell and
- * tiles the cells into one JPEG. Times are numbers this module produced, never
- * caller text, and they are formatted here.
+ * The ffmpeg command that seeks to each time, scales it into a cell and tiles
+ * the cells into one JPEG. Times are numbers this module produced and the shape
+ * is a key of a fixed table, never caller text.
  */
-export function sheetBuildArgs(input, output, times) {
-  const cell = SHEET_CELL_PX;
+export function sheetBuildArgs(input, output, times, shape = "landscape") {
+  const { cellW, cellH } = SHEET_SHAPES[shape] ?? SHEET_SHAPES.landscape;
   const args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y"];
   for (const t of times) args.push("-ss", t.toFixed(2), "-i", input);
 
+  // `decrease` then `pad` keeps the picture whole when the clip's ratio is not
+  // exactly the cell's (a 4:3 clip in a 16:9 cell gets thin side bars).
   const cells = times.map((_, i) =>
-    `[${i}:v]scale=${cell}:${cell}:force_original_aspect_ratio=decrease,` +
-    `pad=${cell}:${cell}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1[c${i}]`
+    `[${i}:v]scale=${cellW}:${cellH}:force_original_aspect_ratio=decrease,` +
+    `pad=${cellW}:${cellH}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1[c${i}]`
   );
   const inputs = times.map((_, i) => `[c${i}]`).join("");
   const stack = times.length === 1
     ? `${inputs}null[sheet]`
-    : `${inputs}xstack=inputs=${times.length}:layout=${sheetLayout(times.length)}:fill=black[sheet]`;
+    : `${inputs}xstack=inputs=${times.length}:layout=${sheetLayout(times.length, shape)}:fill=black[sheet]`;
 
   args.push(
     "-filter_complex", [...cells, stack].join(";"),
     "-map", "[sheet]", "-frames:v", "1",
-    "-c:v", "mjpeg", "-q:v", "4", "-map_metadata", "-1",
+    "-c:v", "mjpeg", "-q:v", "3", "-map_metadata", "-1",
     output,
   );
   return args;

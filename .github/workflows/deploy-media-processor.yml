@@ -791,7 +791,10 @@ jobs:
             --data-binary @/tmp/vx-clip.mp4 \
             'https://visionex.app/internal/media/video-sheet')
           TIMES=$(grep -i '^x-frame-times:' /tmp/vx-sheet.hdr | tr -d '\r' | cut -d' ' -f2)
-          say "http $HTTP, $(stat -c%s /tmp/vx-sheet.jpg 2>/dev/null || echo 0) bytes, frame times: $TIMES"
+          SHAPE=$(grep -i '^x-sheet-shape:' /tmp/vx-sheet.hdr | tr -d '\r' | cut -d' ' -f2)
+          say "http $HTTP, $(stat -c%s /tmp/vx-sheet.jpg 2>/dev/null || echo 0) bytes, shape: $SHAPE, frame times: $TIMES"
+          # The clip is 640x360, so its cells must be landscape: no black bars.
+          [ "$SHAPE" = "landscape" ] || { echo "::error::Expected landscape cells for a 16:9 clip, got '$SHAPE'."; exit 1; }
           say "service log: $(ssh target 'sudo docker logs --tail 40 visionex-media 2>&1 | grep "video_sheet" | tail -1' | cut -c1-300)"
 
           [ "$HTTP" = "200" ] || { echo "::error::The video-sheet route answered $HTTP."; exit 1; }
