@@ -228,6 +228,65 @@ export function textIsUsable(text) {
   return meaningful.length >= 3;
 }
 
+/**
+ * How good a recognition really was, read from Tesseract's own word table.
+ *
+ * "There is text" is not the same as "the text is right". Measured 2026-10-27 on
+ * real Arabic documents with tessdata_best:
+ *
+ *  - a cover photograph with a stylised title came back with zero words;
+ *  - a handwritten form read digits at a mean confidence of 55;
+ *  - a printed figures table came back with a confident-looking page whose
+ *    amounts were silently dropped ("5 دولا" for a four-figure sum). Confidence
+ *    did NOT flag that one: the mean was 76, the same as a clean page.
+ *
+ * The first two are caught by confidence. The third is not, so a page dense in
+ * numbers is declined on purpose: amounts are exactly what a reader cannot
+ * afford to have invented or lost, and the vision model reads the whole table.
+ * This is a judgement about risk, not a measurement of correctness.
+ *
+ * Declining is cheap and safe: the caller sends the image to the vision model,
+ * which is what happened before local OCR existed.
+ */
+export const MIN_MEAN_CONFIDENCE = 70;
+export const MAX_LOW_CONFIDENCE_SHARE = 0.25;
+export const MIN_DIGIT_CONFIDENCE = 70;
+export const MAX_DIGIT_WORDS_LOCAL = 10;
+
+export function assessRecognition(tsv) {
+  const confidences = [];
+  const digitConfidences = [];
+  for (const line of String(tsv ?? "").split("\n").slice(1)) {
+    const cells = line.replace(/\r$/, "").split("\t");
+    if (cells.length < 12 || cells[0] !== "5") continue;
+    const conf = Number(cells[10]);
+    const word = cells.slice(11).join("\t").trim();
+    if (!word || !Number.isFinite(conf) || conf < 0) continue;
+    confidences.push(conf);
+    if (/[0-9٠-٩]/.test(word)) digitConfidences.push(conf);
+  }
+
+  const words = confidences.length;
+  const mean = words ? confidences.reduce((a, b) => a + b, 0) / words : 0;
+  const lowShare = words ? confidences.filter((c) => c < 50).length / words : 1;
+  const digitWords = digitConfidences.length;
+  const digitMean = digitWords ? digitConfidences.reduce((a, b) => a + b, 0) / digitWords : null;
+
+  let reason = null;
+  if (words === 0) reason = "no_words";
+  else if (mean < MIN_MEAN_CONFIDENCE || lowShare > MAX_LOW_CONFIDENCE_SHARE) reason = "low_confidence";
+  else if (digitMean !== null && digitMean < MIN_DIGIT_CONFIDENCE) reason = "unsure_digits";
+  else if (digitWords >= MAX_DIGIT_WORDS_LOCAL) reason = "numeric_table";
+
+  return {
+    trusted: reason === null,
+    reason,
+    words,
+    confidence: Math.round(mean),
+    digitWords,
+  };
+}
+
 // ── Barcodes ────────────────────────────────────────────────────────────────
 //
 // The second thing this service can do to a photograph, and the first one that

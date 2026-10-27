@@ -102,30 +102,26 @@ export const MAX_OCR_UPLOAD_BYTES = MAX_PROCESSOR_UPLOAD_BYTES;
 /**
  * Which conversations local OCR is allowed to answer at all.
  *
- * English only, and that is a measurement rather than a preference.
+ * English reads `eng`; Arabic reads `ara+eng`; everything else is declined.
  *
- * The service was asked to read a 995x391 image of two Arabic words, set in
- * Noto Sans Arabic at 96pt with a wide quiet border — clean, high contrast,
- * correctly joined. It returned nothing. Not wrong words: nothing. That was
- * repeated across both language settings, four segmentation modes and every
- * engine mode the build has, with an English control on the same axis reading
- * perfectly throughout. `ara.traineddata` is installed and Tesseract exits 0
- * each time. Arabic recognition on this box does not work.
+ * Arabic used to be declined outright. On 2026-08-25 the container's Debian
+ * "fast" Arabic model read a generated test image as empty. On 2026-10-27 the
+ * `tessdata_best` model (installed by the Dockerfile, pinned by hash) read a
+ * real printed certificate and a real residence form with the words in the right
+ * order, so Arabic is let back in. The 2026-08 cause was never pinned down, and
+ * that is why the service now declines what it is not sure of (see
+ * `assessRecognition`): an empty or doubtful read sends the image to the vision
+ * model, exactly as before local OCR existed.
  *
- * The tempting middle path is to send `eng` for an Arabic conversation, since
- * signage in the region is routinely bilingual and the English half would at
- * least be read. That is rejected deliberately. A bilingual sign would come
- * back with only its English half, this module would report a clean success,
- * and the model — which reads the whole sign — would never be called. A blind
- * Arabic speaker would be told half of what is in front of them, confidently.
- * A slower complete answer beats a fast partial one every time here.
- *
- * So an Arabic conversation falls straight through to the vision model, which
- * is exactly what happened before local OCR existed. Nothing is lost. When
- * Arabic recognition works, this function is the one place that changes.
+ * Arabic is always `ara+eng`, never plain `eng`. Signage in the region is
+ * routinely bilingual, and `eng` alone would read only the English half of a
+ * sign, report a clean success, and stop the model being called — telling a
+ * blind Arabic speaker half of what is in front of them, confidently.
  */
-export function localOcrLanguage(answerLanguage: string): "eng" | null {
-  return answerLanguage === "en" ? "eng" : null;
+export function localOcrLanguage(answerLanguage: string): "eng" | "ara+eng" | null {
+  if (answerLanguage === "en") return "eng";
+  if (answerLanguage === "ar") return "ara+eng";
+  return null;
 }
 
 /**
