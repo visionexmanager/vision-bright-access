@@ -24,6 +24,9 @@ async function load() {
 const IMAGE = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
 const CONFIG = { url: "https://visionex.app/internal/media", token: "t0ken" };
 const ON = (name: string) => (name === "LOCAL_DESCRIBE" ? "on" : undefined);
+// Named, not typed: these are the characters under test.
+const ZWSP = String.fromCharCode(0x200b); // must be stripped
+const RLO = String.fromCharCode(0x202e); // must be stripped
 const SENTENCE = "Two cats are asleep on a pink blanket on a sofa.";
 
 const answering = (status: number, body: unknown): typeof fetch =>
@@ -119,7 +122,7 @@ describe("describeLocally", () => {
     let seen: { url: string; headers: Record<string, string> } | null = null;
     const fetchImpl = (async (url: string, init: RequestInit) => {
       seen = { url, headers: init.headers as Record<string, string> };
-      return new Response(JSON.stringify({ ok: true, readable: true, text: `​${SENTENCE}‮`, ms: 31000 }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true, readable: true, text: `${ZWSP}${SENTENCE}${RLO}`, ms: 31000 }), { status: 200 });
     }) as unknown as typeof fetch;
     const result = await describeLocally({
       bytes: IMAGE, mimeType: "image/jpeg", answerLanguage: "ar", config: CONFIG, read: ON, fetchImpl,
