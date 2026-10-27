@@ -70,6 +70,7 @@ import { recordSttAttempts } from "../_shared/providerRecording.ts";
 import {
   understandDocument,
   understandImage,
+  DESCRIBE_TARGETS,
   understandVideo,
   VIDEO_READING_AVAILABLE,
 } from "../_shared/whatsappUnderstand.ts";
@@ -3540,6 +3541,8 @@ Deno.serve(async (req) => {
               : incoming.media.caption ?? "",
             languageName: LANGUAGE_ENDONYM[answerLanguage],
             systemPrompt: barcodeTruth ? `${basePrompt ?? ""} ${barcodeTruth}`.trim() : basePrompt,
+            // The stronger model only where the description is the answer.
+            targets: (!mode || mode === "describe") && !explainReportImage ? DESCRIBE_TARGETS : undefined,
           });
           // "I could not read it" is a real answer and is passed on as one,
           // rather than being dressed up as a description.
