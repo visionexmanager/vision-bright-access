@@ -1,0 +1,72 @@
+name: Vision benchmark
+
+# Measures local image description (Qwen3-VL 2B and 4B, SmolVLM2, Florence-2) on the
+# production server, to decide whether a small model can take photographs off the
+# paid vision models.
+#
+# Manual only, and measurement only: scripts/vision-benchmark/bench.sh works in
+# throwaway containers limited to three cores, at the lowest priority, and removes
+# its working directory on exit. It installs nothing on the host and refuses to
+# start when the server is busy. The test images are drawn by the script or are a
+# public COCO photograph, never a user's. The repository is public and these logs
+# are world-readable, so the script prints timings, scores and short answers about
+# those test images, never a secret.
+
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "Comma-separated: qwen3vl-2b, qwen3vl-4b, smolvlm2, florence2"
+        required: false
+        default: "qwen3vl-2b,smolvlm2,florence2,qwen3vl-4b"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vision-benchmark
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the models input
+        env:
+          MODELS: ${{ inputs.models }}
+        run: |
+          case "$MODELS" in *[!a-z0-9,-]*|"") echo "::error::models may only contain a-z, 0-9, comma and dash"; exit 1;; esac
+
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          for v in HOST USER KEY; do [ -z "${!v}" ] && { echo "::error::Missing secret for $v"; exit 1; }; done
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_deploy
+            ConnectTimeout 15
+            BatchMode yes
+            ServerAliveInterval 30
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'echo connected' >/dev/null
+
+      - name: Measure
+        env:
+          MODELS: ${{ inputs.models }}
+        run: ssh target "MODELS='$MODELS' bash -s" < scripts/vision-benchmark/bench.sh
