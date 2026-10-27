@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-// @ts-expect-error plain .mjs service module, no type declarations
 import { assessRecognition } from "../../services/media-processor/src/limits.mjs";
 
 const HEADER =
