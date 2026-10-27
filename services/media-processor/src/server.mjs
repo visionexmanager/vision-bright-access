@@ -96,8 +96,25 @@ import {
   extractOfficeText,
   isSupportedOfficeKind,
 } from "./office.mjs";
+import {
+  DESCRIBE_LANGUAGES,
+  DESCRIBE_RESIZE_TIMEOUT_MS,
+  DESCRIBE_TIMEOUT_MS,
+  describeRequestBody,
+  describeResizeArgs,
+  isDescribeLanguage,
+  readDescribeAnswer,
+} from "./describe.mjs";
 
 const PORT = Number(process.env.PORT ?? 8081);
+
+/**
+ * Where the local vision model answers, when one is running.
+ *
+ * Empty means /describe reports `not_configured` and does nothing else: the
+ * model container is started separately and is off until someone starts it.
+ */
+const DESCRIBER_URL = (process.env.DESCRIBER_URL ?? "").replace(/\/+$/, "");
 const HOST = process.env.HOST ?? "0.0.0.0";
 
 /**
@@ -664,6 +681,91 @@ async function handleOcr(req, res, correlation) {
 }
 
 /**
+ * Describe one photograph with the local vision model.
+ *
+ * The model has three cores and about forty seconds per picture, so exactly one
+ * description runs at a time and a second request is told to go elsewhere
+ * (`busy`) rather than queued behind it. The caller's other option is a paid
+ * provider, which is why this is allowed to refuse.
+ */
+let describing = false;
+
+async function handleDescribe(req, res, correlation) {
+  if (!DESCRIBER_URL) return send(res, 200, { ok: false, reason: "not_configured" });
+
+  const url = new URL(req.url, "http://internal");
+  const language = url.searchParams.get("lang") ?? "en";
+  if (!isDescribeLanguage(language)) {
+    return send(res, 400, { ok: false, reason: "unsupported_language" });
+  }
+  if (describing) {
+    res.setHeader("retry-after", "30");
+    return send(res, 503, { ok: false, reason: "busy" });
+  }
+
+  const bytes = await receiveImage(req, res, correlation);
+  if (!bytes) return;
+
+  // Claimed after the body arrives, so a slow upload does not hold the model.
+  if (describing) return send(res, 503, { ok: false, reason: "busy" });
+  describing = true;
+  const startedAt = Date.now();
+  try {
+    await acquireSlot();
+    let jpeg;
+    try {
+      jpeg = await runTool({
+        bytes,
+        prefix: "describe-",
+        command: "ffmpeg",
+        timeoutMs: DESCRIBE_RESIZE_TIMEOUT_MS,
+        build: (input, dir) => describeResizeArgs(input, join(dir, "out.jpg")),
+        ok: (code) => code === 0,
+        read: ({ dir }) => readFile(join(dir, "out.jpg")),
+        failure: "resize_failed",
+      });
+    } finally {
+      releaseSlot();
+    }
+
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), DESCRIBE_TIMEOUT_MS);
+    let answer;
+    try {
+      const response = await fetch(`${DESCRIBER_URL}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(describeRequestBody(jpeg.toString("base64"), DESCRIBE_LANGUAGES[language])),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        log("describe_failed", { correlation, ms: Date.now() - startedAt, reason: `model_${response.status}` });
+        return send(res, 200, { ok: false, reason: "model_error" });
+      }
+      answer = readDescribeAnswer(await response.json());
+    } finally {
+      clearTimeout(deadline);
+    }
+
+    log("describe", {
+      correlation,
+      ms: Date.now() - startedAt,
+      bytes: bytes.length,
+      // A length, never the description.
+      chars: answer ? answer.length : 0,
+      lang: language,
+    });
+    return send(res, 200, { ok: true, readable: !!answer, text: answer ?? "", ms: Date.now() - startedAt });
+  } catch (error) {
+    const reason = error.name === "AbortError" ? "timeout" : error.code ?? "unknown";
+    log("describe_failed", { correlation, ms: Date.now() - startedAt, reason });
+    return send(res, 200, { ok: false, reason });
+  } finally {
+    describing = false;
+  }
+}
+
+/**
  * Decode the barcodes in one photograph.
  *
  * ── Why this is worth having when a vision model is already there ───────────
@@ -1025,12 +1127,18 @@ const server = createServer(async (req, res) => {
         // A deployment rolled back to an image without this route lacks it; Video Studio checks before relying on it.
         slideshow: { max_scenes: MAX_SCENES, max_body_bytes: MAX_SLIDESHOW_BODY_BYTES },
         overpass: true,
+        // Present only when a model container is configured; a caller checks before relying on it.
+        describe: DESCRIBER_URL ? { languages: Object.keys(DESCRIBE_LANGUAGES) } : false,
         concurrency: MAX_CONCURRENT,
       });
     }
 
     if (req.method === "POST" && url.pathname === "/ocr") {
       return await handleOcr(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/describe") {
+      return await handleDescribe(req, res, correlation);
     }
 
     if (req.method === "POST" && url.pathname === "/barcode") {
