@@ -253,9 +253,29 @@ export const MAX_LOW_CONFIDENCE_SHARE = 0.25;
 export const MIN_DIGIT_CONFIDENCE = 70;
 export const MAX_DIGIT_WORDS_LOCAL = 10;
 
+/**
+ * A Latin word is suspect when Arabic words stand on both sides of it in one
+ * line and the engine was less than this sure of it.
+ *
+ * Found on 2026-10-27 reading a printed Arabic paragraph with `ara+eng`: the
+ * English model offered "Bae" for «عدة», at confidence 80 on a page whose mean
+ * was 91. Confidence cannot catch it, and Arabic alone reads the same line
+ * perfectly. A real English word inside an Arabic sentence (a brand, "WiFi")
+ * is read well above this; a bilingual sign puts its English on lines of its
+ * own. So the pattern means the English model guessed, and the service reads
+ * the image again with Arabic alone.
+ */
+export const MIN_EMBEDDED_LATIN_CONFIDENCE = 90;
+// The Arabic block, built from code points so no stray character can hide in the source.
+const HAS_ARABIC = new RegExp("[" + String.fromCharCode(0x0600) + "-" + String.fromCharCode(0x06ff) + "]");
+// Tesseract wraps some words in left/right marks; they are not letters.
+const ONLY_LATIN = new RegExp("^[A-Za-z" + String.fromCharCode(0x200e, 0x200f) + "]{2,}" + String.fromCharCode(36));
+
 export function assessRecognition(tsv) {
   const confidences = [];
   const digitConfidences = [];
+  // Words by line, in reading order, for the embedded-Latin check below.
+  const byLine = new Map();
   for (const line of String(tsv ?? "").split("\n").slice(1)) {
     const cells = line.replace(/\r$/, "").split("\t");
     if (cells.length < 12 || cells[0] !== "5") continue;
@@ -264,6 +284,19 @@ export function assessRecognition(tsv) {
     if (!word || !Number.isFinite(conf) || conf < 0) continue;
     confidences.push(conf);
     if (/[0-9٠-٩]/.test(word)) digitConfidences.push(conf);
+    const key = cells[2] + "." + cells[3] + "." + cells[4];
+    if (!byLine.has(key)) byLine.set(key, []);
+    byLine.get(key).push({ word, conf });
+  }
+
+  let embeddedLatin = 0;
+  for (const row of byLine.values()) {
+    for (let i = 1; i < row.length - 1; i++) {
+      if (
+        ONLY_LATIN.test(row[i].word) && row[i].conf < MIN_EMBEDDED_LATIN_CONFIDENCE &&
+        HAS_ARABIC.test(row[i - 1].word) && HAS_ARABIC.test(row[i + 1].word)
+      ) embeddedLatin += 1;
+    }
   }
 
   const words = confidences.length;
@@ -277,6 +310,7 @@ export function assessRecognition(tsv) {
   else if (mean < MIN_MEAN_CONFIDENCE || lowShare > MAX_LOW_CONFIDENCE_SHARE) reason = "low_confidence";
   else if (digitMean !== null && digitMean < MIN_DIGIT_CONFIDENCE) reason = "unsure_digits";
   else if (digitWords >= MAX_DIGIT_WORDS_LOCAL) reason = "numeric_table";
+  else if (embeddedLatin > 0) reason = "script_mixed";
 
   return {
     trusted: reason === null,
@@ -284,6 +318,7 @@ export function assessRecognition(tsv) {
     words,
     confidence: Math.round(mean),
     digitWords,
+    embeddedLatin,
   };
 }
 
