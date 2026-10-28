@@ -186,6 +186,7 @@ jobs:
             -f lavfi -i "color=c=white:s=480x320,drawbox=x=60:y=90:w=140:h=140:color=red:t=fill,drawbox=x=280:y=90:w=140:h=140:color=blue:t=fill" \
             -frames:v 1 -f image2pipe -c:v png - > /tmp/vx-describe-test.png; stat -c%s /tmp/vx-describe-test.png'
 
+          failed=""
           for lang in en ar bn de es fa fr hi id it ja ko nl pl pt ru tr ur vi zh; do
             echo "── describe, lang=$lang"
             printf 'Authorization: Bearer %s\n' "$TOKEN" | ssh target "curl -sS --max-time 130 -H @- -H 'content-type: image/png' --data-binary @/tmp/vx-describe-test.png 'http://127.0.0.1:8081/describe?lang=$lang'" \
@@ -193,11 +194,20 @@ jobs:
             echo
             if ! grep -q '"readable":true' /tmp/describe-$lang.json; then
               echo "::error::No description came back for lang=$lang."
-              exit 1
+              failed="$failed $lang"
+            # The drawn picture is two squares. A description in any language but
+            # English that still says "The image" or "The square" answered in English.
+            elif [ "$lang" != "en" ] && grep -q -E 'The (image|square|picture)' /tmp/describe-$lang.json; then
+              echo "::error::lang=$lang answered in English."
+              failed="$failed $lang"
             fi
           done
           ssh target 'rm -f /tmp/vx-describe-test.png'
-          echo "Both languages described the drawn picture."
+          if [ -n "$failed" ]; then
+            echo "::error::Not answered in the requested language:$failed"
+            exit 1
+          fi
+          echo "All twenty languages described the drawn picture in their own language."
 
       - name: Forget the key
         if: always()
