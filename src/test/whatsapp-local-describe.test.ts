@@ -66,8 +66,10 @@ describe("the media processor's describe module", () => {
     const body = describeRequestBody("QUJD", "Arabic");
     expect(body.messages[0].content).toBe(describeSystemPrompt("Arabic"));
     expect(describeSystemPrompt("Arabic")).toContain("Answer in Arabic.");
+    expect(describeSystemPrompt("Arabic")).toContain("Do not answer in English.");
+    expect(describeSystemPrompt("English")).not.toContain("Do not answer in English.");
     const user = body.messages[1].content as Array<{ type: string; text?: string; image_url?: { url: string } }>;
-    expect(user[0].text).toBe("Describe this picture.");
+    expect(user[0].text).toBe("Describe this picture in Arabic.");
     expect(user[1].image_url?.url).toBe("data:image/jpeg;base64,QUJD");
     expect(body.stream).toBe(false);
   });

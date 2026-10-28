@@ -69,6 +69,7 @@ export function describeSystemPrompt(languageName) {
   return [
     "You describe photographs for a person who cannot see them.",
     `Answer in ${languageName}.`,
+    ...(languageName === "English" ? [] : [`Write every sentence in ${languageName}. Do not answer in English.`]),
     "Say what is in the picture, where things are, the main colours, and read any visible text exactly as written.",
     "State only what you can actually see. If something is unclear, say it is unclear. Do not invent people, brands or text.",
     "Use plain sentences, no lists or formatting, at most eight sentences.",
@@ -84,7 +85,7 @@ export function describeRequestBody(jpegBase64, languageName) {
       {
         role: "user",
         content: [
-          { type: "text", text: "Describe this picture." },
+          { type: "text", text: `Describe this picture in ${languageName}.` },
           { type: "image_url", image_url: { url: `data:image/jpeg;base64,${jpegBase64}` } },
         ],
       },
