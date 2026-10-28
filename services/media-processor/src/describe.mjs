@@ -13,14 +13,21 @@
 // a shop sign (read by the model) travel back through that same path. One
 // instruction, one purpose: describe the picture for someone who cannot see it.
 //
-// ── Why two languages ───────────────────────────────────────────────────────
+// ── Which languages ─────────────────────────────────────────────────────────
 //
-// The 2026-10-27 benchmark measured English and Arabic only. Qwen3-VL 4B
-// answered Arabic acceptably; the 2B model made a person up in a picture of
-// shapes. Nothing else was measured, so nothing else is offered.
+// The 2026-10-27 benchmark measured English and Arabic; Qwen3-VL 4B answered
+// Arabic acceptably (the 2B model made a person up in a picture of shapes).
+// The other eighteen are the site's own locales and are offered because a
+// sender writing in one should not be refused. The describer workflow's `test`
+// asks for every one and fails if the answer does not come back readable.
 
 /** Languages the describer is allowed to answer in, by the code the caller sends. */
-export const DESCRIBE_LANGUAGES = { en: "English", ar: "Arabic" };
+export const DESCRIBE_LANGUAGES = {
+  en: "English", ar: "Arabic", bn: "Bengali", de: "German", es: "Spanish",
+  fa: "Persian", fr: "French", hi: "Hindi", id: "Indonesian", it: "Italian",
+  ja: "Japanese", ko: "Korean", nl: "Dutch", pl: "Polish", pt: "Portuguese",
+  ru: "Russian", tr: "Turkish", ur: "Urdu", vi: "Vietnamese", zh: "Chinese",
+};
 
 export const isDescribeLanguage = (value) =>
   typeof value === "string" && Object.hasOwn(DESCRIBE_LANGUAGES, value);

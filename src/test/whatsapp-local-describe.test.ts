@@ -6,9 +6,10 @@
 // chain, never in front of it, never for another mode.
 
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   DESCRIBE_EDGE_PX,
+  DESCRIBE_LANGUAGES,
   MAX_DESCRIBE_CHARS,
   describeRequestBody,
   describeResizeArgs,
@@ -42,10 +43,14 @@ const never: typeof fetch = ((_url: unknown, init?: RequestInit) =>
   })) as unknown as typeof fetch;
 
 describe("the media processor's describe module", () => {
-  it("offers exactly the two languages that were measured", () => {
-    expect(isDescribeLanguage("en")).toBe(true);
-    expect(isDescribeLanguage("ar")).toBe(true);
-    for (const other of ["fr", "ar+eng", "", "toString", undefined, 5]) {
+  it("offers exactly the site's twenty locales, the same on both sides", async () => {
+    const { LOCAL_DESCRIBE_LANGUAGES } = await load();
+    expect(Object.keys(DESCRIBE_LANGUAGES).sort()).toEqual([...LOCAL_DESCRIBE_LANGUAGES].sort());
+    expect(LOCAL_DESCRIBE_LANGUAGES).toHaveLength(20);
+    const locales = readdirSync("src/i18n").filter((f) => /^[a-z]{2}\.ts$/.test(f)).map((f) => f.slice(0, 2));
+    expect(locales.sort()).toEqual([...LOCAL_DESCRIBE_LANGUAGES].sort());
+    for (const code of LOCAL_DESCRIBE_LANGUAGES) expect(isDescribeLanguage(code)).toBe(true);
+    for (const other of ["xx", "ar+eng", "", "toString", undefined, 5]) {
       expect(isDescribeLanguage(other)).toBe(false);
     }
   });
@@ -97,10 +102,10 @@ describe("describeLocally", () => {
     expect(result).toEqual({ ok: false, reason: "disabled" });
   });
 
-  it("declines every language but English and Arabic before any request", async () => {
+  it("declines any language that is not a site locale before any request", async () => {
     const { describeLocally } = await load();
     const fetchImpl = (() => { throw new Error("must not be called"); }) as unknown as typeof fetch;
-    for (const lang of ["fr", "es", "tr", "zh", ""]) {
+    for (const lang of ["xx", "he", "th", "en-US", "ar+eng", ""]) {
       expect(await describeLocally({
         bytes: IMAGE, mimeType: "image/jpeg", answerLanguage: lang, config: CONFIG, read: ON, fetchImpl,
       })).toEqual({ ok: false, reason: "language_unsupported" });
@@ -188,6 +193,6 @@ describe("where it is wired", () => {
     expect(describer).toContain('--publish "$GW:8098:8080"');
     expect(describer).not.toMatch(/--publish "?0\.0\.0\.0/);
     expect(describer).toContain("workflow_dispatch");
-    expect(describer).toContain("options: [status, start, stop, test]");
+    expect(describer).toContain("options: [status, start, stop, test, enable, disable]");
   });
 });

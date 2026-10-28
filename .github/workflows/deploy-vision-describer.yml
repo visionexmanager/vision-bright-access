@@ -25,11 +25,11 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "status = report only. start = run the model container. stop = remove it. test = prove the processor reaches it and describes a drawn image."
+        description: "status = report only. start = run the model container. stop = remove it. test = prove the processor reaches it and describes a drawn image. enable / disable = set or remove the LOCAL_DESCRIBE secret on the Edge Functions."
         required: true
         default: status
         type: choice
-        options: [status, start, stop, test]
+        options: [status, start, stop, test, enable, disable]
 
 permissions:
   contents: read
@@ -46,6 +46,28 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+
+      # The other half of "off". This one name only; nothing else is touched.
+      - name: Switch the Edge secret
+        if: inputs.action == 'enable' || inputs.action == 'disable'
+        shell: bash
+        env:
+          ACTION:               ${{ inputs.action }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          npm install -g supabase@latest >/dev/null 2>&1
+          if [[ "$ACTION" == "enable" ]]; then
+            supabase secrets set LOCAL_DESCRIBE=on --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+          else
+            supabase secrets unset LOCAL_DESCRIBE --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+          fi
+          if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q '^ *LOCAL_DESCRIBE '; then
+            echo "LOCAL_DESCRIBE is set."
+          else
+            echo "LOCAL_DESCRIBE is not set."
+          fi
 
       - name: Open the connection
         env:
@@ -164,7 +186,7 @@ jobs:
             -f lavfi -i "color=c=white:s=480x320,drawbox=x=60:y=90:w=140:h=140:color=red:t=fill,drawbox=x=280:y=90:w=140:h=140:color=blue:t=fill" \
             -frames:v 1 -f image2pipe -c:v png - > /tmp/vx-describe-test.png; stat -c%s /tmp/vx-describe-test.png'
 
-          for lang in en ar; do
+          for lang in en ar bn de es fa fr hi id it ja ko nl pl pt ru tr ur vi zh; do
             echo "── describe, lang=$lang"
             printf 'Authorization: Bearer %s\n' "$TOKEN" | ssh target "curl -sS --max-time 130 -H @- -H 'content-type: image/png' --data-binary @/tmp/vx-describe-test.png 'http://127.0.0.1:8081/describe?lang=$lang'" \
               | tee /tmp/describe-$lang.json | cut -c1-600
