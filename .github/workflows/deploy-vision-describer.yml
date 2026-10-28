@@ -186,7 +186,7 @@ jobs:
             -f lavfi -i "color=c=white:s=480x320,drawbox=x=60:y=90:w=140:h=140:color=red:t=fill,drawbox=x=280:y=90:w=140:h=140:color=blue:t=fill" \
             -frames:v 1 -f image2pipe -c:v png - > /tmp/vx-describe-test.png; stat -c%s /tmp/vx-describe-test.png'
 
-          for lang in en ar; do
+          for lang in en ar bn de es fa fr hi id it ja ko nl pl pt ru tr ur vi zh; do
             echo "── describe, lang=$lang"
             printf 'Authorization: Bearer %s\n' "$TOKEN" | ssh target "curl -sS --max-time 130 -H @- -H 'content-type: image/png' --data-binary @/tmp/vx-describe-test.png 'http://127.0.0.1:8081/describe?lang=$lang'" \
               | tee /tmp/describe-$lang.json | cut -c1-600

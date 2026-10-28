@@ -20,8 +20,9 @@
 //
 // ── Languages ───────────────────────────────────────────────────────────────
 //
-// English and Arabic: the two that were measured. Anything else is declined
-// before a byte leaves the function.
+// The site's twenty locales; the list must match the media processor's
+// (a test compares them). Anything else is declined before a byte leaves the
+// function.
 //
 // The answer is the model's own words about a photograph, so it is stripped of
 // invisible characters and bounded like any other model output before it
@@ -73,9 +74,14 @@ const denoEnv: EnvReader = (name) => {
 export const localDescribeEnabled = (read: EnvReader = denoEnv): boolean =>
   (read("LOCAL_DESCRIBE") ?? "").trim().toLowerCase() === "on";
 
-/** The language codes the service will answer in. */
-export function localDescribeLanguage(answerLanguage: string): "en" | "ar" | null {
-  return answerLanguage === "en" || answerLanguage === "ar" ? answerLanguage : null;
+/** The language codes the service will answer in: the site's twenty locales. */
+export const LOCAL_DESCRIBE_LANGUAGES: readonly string[] = [
+  "en", "ar", "bn", "de", "es", "fa", "fr", "hi", "id", "it",
+  "ja", "ko", "nl", "pl", "pt", "ru", "tr", "ur", "vi", "zh",
+];
+
+export function localDescribeLanguage(answerLanguage: string): string | null {
+  return LOCAL_DESCRIBE_LANGUAGES.includes(answerLanguage) ? answerLanguage : null;
 }
 
 /** The service's answer, checked field by field before anyone reads it aloud. */
