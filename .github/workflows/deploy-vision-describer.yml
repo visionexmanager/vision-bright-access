@@ -25,11 +25,11 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "status = report only. start = run the model container. stop = remove it. test = prove the processor reaches it and describes a drawn image."
+        description: "status = report only. start = run the model container. stop = remove it. test = prove the processor reaches it and describes a drawn image. enable / disable = set or remove the LOCAL_DESCRIBE secret on the Edge Functions."
         required: true
         default: status
         type: choice
-        options: [status, start, stop, test]
+        options: [status, start, stop, test, enable, disable]
 
 permissions:
   contents: read
@@ -46,6 +46,28 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+
+      # The other half of "off". This one name only; nothing else is touched.
+      - name: Switch the Edge secret
+        if: inputs.action == 'enable' || inputs.action == 'disable'
+        shell: bash
+        env:
+          ACTION:               ${{ inputs.action }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          npm install -g supabase@latest >/dev/null 2>&1
+          if [[ "$ACTION" == "enable" ]]; then
+            supabase secrets set LOCAL_DESCRIBE=on --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+          else
+            supabase secrets unset LOCAL_DESCRIBE --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+          fi
+          if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q '^ *LOCAL_DESCRIBE '; then
+            echo "LOCAL_DESCRIBE is set."
+          else
+            echo "LOCAL_DESCRIBE is not set."
+          fi
 
       - name: Open the connection
         env:
