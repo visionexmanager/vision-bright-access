@@ -28,10 +28,16 @@ talks to PI's API only, which keeps PI's billing/expiry/provisioning logic the s
 
 ```json
 {
-  "DISABLE": { "method": "POST", "path": "/api/user/bulk/actions/", "body": { "action": "<captured>", "users": ["$username"] } },
-  "ENABLE":  { "method": "POST", "path": "/api/user/bulk/actions/", "body": { "action": "<captured>", "users": ["$username"] } }
+  "DISABLE": { "method": "POST", "path": "/api/user/bulk/actions/", "body": { "op": "<captured>", "ids": [{ "username": "$username" }] } },
+  "ENABLE":  { "method": "POST", "path": "/api/user/bulk/actions/", "body": { "op": "<captured>", "ids": [{ "username": "$username" }] } }
 }
 ```
+
+   **Observed body shape** (2026-10-28, PI V5.22.0): Reset MAC, clicked once on an offline customer, sends
+   `{"op":"resetmac","ids":[{"username":"<name>"}]}`; opening Renew sends the check
+   `{"op":"renewcheck","ids":[{"username":"<name>"}]}`. The field is `op` (not `action`) and `ids` is a list of
+   `{username}` objects. The `op` values for enable/disable and the charging `renew` body were **not** captured,
+   so they stay `<captured>` placeholders and writes remain NotSupported.
 
    Only `$username` and `$customerId` are substituted; `path` must start with `/api/`; unknown keys are rejected.
    The file is operator-supplied configuration (keep it outside Git if it contains anything account-specific).

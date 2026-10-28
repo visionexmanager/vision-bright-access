@@ -12,7 +12,7 @@ BUNDLE=/usr/local/lib/isp-pi-check/pi-check.mjs
 NODE=/usr/bin/node
 ROOT_UID=0
 # Pinned by scripts/build-ci-bundle.mjs from deploy/ci-pi-check/pi-check.mjs.
-EXPECTED_SHA256=3fdf2ff0de6f0c19b5749f8ecb42ee67846299fc01da62610e23e68e7d4b9a38
+EXPECTED_SHA256=e12f92c7e1e60e7a5e22f3892ddc2c3ce0c76b396158f74b772451531a09eaf4
 
 set -u
 PATH=/usr/bin:/bin

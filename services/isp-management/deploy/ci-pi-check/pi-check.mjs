@@ -122,7 +122,7 @@ var PiClient = class {
 
 // src/providers/pi/contract.ts
 var PI_CONTRACT = {
-  usersList: { path: "/api/users", searchParam: "search", sizeParam: "page_size", verified: false },
+  usersList: { path: "/api/users", searchParam: "search", sizeParam: "pageSize", verified: false },
   userGet: { path: "/api/user/", idParam: "id", verified: false },
   userOverview: { path: "/api/user/overview/", idParam: "id", verified: false },
   userInvoices: { path: "/api/user/invoices/", idParam: "id", verified: false },
