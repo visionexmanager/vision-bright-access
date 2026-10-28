@@ -19,6 +19,16 @@ import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import { decideOrder, formatOrderList, listPendingOrders, parseOrderCommand } from "../_shared/ownerOrders.ts";
 import { isBareOrdersReply, ownerOrderMessage, parseOrderButton } from "../_shared/subscriptionOrderNotices.ts";
+import {
+  ISP_PENDING_MINUTES,
+  ispResultText,
+  ispStep,
+  notConnectedExecutor,
+  parseIspCommand,
+  parseIspTap,
+  type IspInput,
+  type IspPending,
+} from "../_shared/whatsappIspOwner.ts";
 import { notifyBuyerByReference } from "../_shared/subscriptionOrderNotify.ts";
 import {
   createEmbedding,
@@ -567,6 +577,79 @@ const SUMMARY_TARGETS = [
 
 /** Owner commands are cheap but not free; this bounds a compromised handset. */
 const OWNER_COMMAND_LIMIT_PER_HOUR = 120;
+
+// ── The owner's ISP desk ───────────────────────────────────────────────
+//
+// `/isp` → actions → username | name → the identifier → Confirm | Reject. The
+// one waiting step lives in `whatsapp_isp_pending`; the pure machine is in
+// `_shared/whatsappIspOwner.ts`. Only the owner's number reaches this. The
+// identifier the owner types is never written to a log line or an audit row.
+async function handleIspOwner(
+  db: ReturnType<typeof service>,
+  input: IspInput,
+  to: { token?: string; phoneNumberId?: string; to: string },
+): Promise<boolean> {
+  const { data } = await db
+    .from("whatsapp_isp_pending")
+    .select("action, kind, stage, value, nonce, lang, expires_at")
+    .eq("key", "owner")
+    .maybeSingle();
+  const row = data as (IspPending & { expires_at: string }) | null;
+  const expired = !!row && new Date(row.expires_at).getTime() <= Date.now();
+  const pending: IspPending | null =
+    row && !expired
+      ? { action: row.action, kind: row.kind, stage: row.stage, value: row.value, nonce: row.nonce, lang: row.lang }
+      : null;
+
+  // Ordinary text with nothing waiting is an ordinary message, not ours.
+  if (input.type === "text" && !pending) return false;
+
+  const nonce = () => crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  const step = ispStep(pending, input, nonce, expired);
+
+  if (step.pending) {
+    await db.from("whatsapp_isp_pending").upsert({
+      key: "owner",
+      action: step.pending.action,
+      kind: step.pending.kind,
+      stage: step.pending.stage,
+      value: step.pending.value,
+      nonce: step.pending.nonce,
+      lang: step.pending.lang,
+      expires_at: new Date(Date.now() + ISP_PENDING_MINUTES * 60_000).toISOString(),
+    });
+  } else {
+    await db.from("whatsapp_isp_pending").delete().eq("key", "owner");
+  }
+
+  const canSend = !!to.token && !!to.phoneNumberId;
+  if (step.reply && canSend) {
+    if (typeof step.reply === "string") {
+      await sendWhatsAppText({ phoneNumberId: to.phoneNumberId!, token: to.token!, to: to.to, body: step.reply });
+    } else {
+      await sendTappable({ phoneNumberId: to.phoneNumberId, token: to.token, to: to.to }, step.reply);
+    }
+  }
+
+  if (step.run) {
+    const result = await notConnectedExecutor(step.run);
+    await db.from("audit_logs").insert({
+      action: "owner_isp_action",
+      entity_type: "owner_command",
+      entity_id: null,
+      metadata: { action: step.run.action, kind: step.run.kind, ok: result.ok, reason: result.ok ? null : result.reason },
+    });
+    if (canSend) {
+      await sendWhatsAppText({
+        phoneNumberId: to.phoneNumberId!,
+        token: to.token!,
+        to: to.to,
+        body: ispResultText(step.run, result, pending?.lang ?? "ar"),
+      });
+    }
+  }
+  return true;
+}
 
 /** Read the configured owner number. Never hard-coded, never in the client. */
 async function ownerPhone(db: ReturnType<typeof service>): Promise<string | null> {
@@ -1197,6 +1280,11 @@ Deno.serve(async (req) => {
       // own reference exactly like `/approve VX-…`; the button's title is never
       // read as a bare yes. Only the owner's number gets here.
       if (incoming.selection && isOwner(incoming.from, configuredOwner)) {
+        const ispTap = parseIspTap(incoming.selection);
+        if (ispTap) {
+          await handleIspOwner(db, { type: "tap", tap: ispTap }, { token, phoneNumberId, to: incoming.from });
+          continue;
+        }
         const tapped = parseOrderButton(incoming.selection);
         if (tapped) {
           await db.from("audit_logs").insert({
@@ -1211,6 +1299,17 @@ Deno.serve(async (req) => {
           if (token && phoneNumberId) await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: outcome });
           continue;
         }
+      }
+
+      // The owner's ISP desk: `/isp`, and the free text that answers it.
+      if (incoming.text && isOwner(incoming.from, configuredOwner)) {
+        const ispCommand = parseIspCommand(incoming.text);
+        const ispInput: IspInput | null = ispCommand
+          ? { type: "command", lang: ispCommand.lang }
+          : incoming.text.trim().startsWith("/")
+            ? null
+            : { type: "text", text: incoming.text };
+        if (ispInput && (await handleIspOwner(db, ispInput, { token, phoneNumberId, to: incoming.from }))) continue;
       }
 
       // «طلبات» on its own (the word the order template asks for): each waiting
