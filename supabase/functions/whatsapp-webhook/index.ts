@@ -637,7 +637,7 @@ async function handleIspOwner(
       action: "owner_isp_action",
       entity_type: "owner_command",
       entity_id: null,
-      metadata: { action: step.run.action, kind: step.run.kind, ok: result.ok, reason: result.ok ? null : result.reason },
+      metadata: { action: step.run.action, kind: step.run.kind, ok: !("reason" in result), reason: "reason" in result ? result.reason : null },
     });
     if (canSend) {
       await sendWhatsAppText({

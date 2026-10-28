@@ -280,7 +280,9 @@ export function ispConfirmMessage(pending: IspPending): Tappable {
 
 /** The sentence that closes a confirmed step. */
 export function ispResultText(request: IspRequest, result: IspResult, lang: IspLang): string {
-  if (result.ok) {
+  // Narrowed with `in`, not on `ok`: the repo's compiler is not in strict mode,
+  // where a boolean-literal discriminant does not narrow.
+  if (!("reason" in result)) {
     const head = `${t(T.done, lang)}: ${t(ACTION_LABEL[request.action], lang)}`;
     return result.detail ? `${head}\n${clip(result.detail, 600)}` : head;
   }
