@@ -395,12 +395,13 @@ describe("free replies", () => {
   it("is wired behind the same guards as sign-up, and rate limited", () => {
     const wa = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
     const meta = readFileSync("supabase/functions/meta-messaging-webhook/index.ts", "utf8");
-    const waCall = wa.indexOf("freeReply(");
+    const waCall = wa.indexOf("smartFreeReply(");
     expect(waCall).toBeGreaterThan(wa.indexOf("const signupOk"));
-    expect(wa.slice(waCall, waCall + 400)).toContain("chat_free_reply_allow");
-    const metaCall = meta.indexOf("freeReply(typed");
+    // the flood guard is asked first, and the answer is only computed when it allows
+    expect(wa.slice(waCall - 500, waCall)).toContain("chat_free_reply_allow");
+    const metaCall = meta.indexOf("smartFreeReply((");
     expect(metaCall).toBeGreaterThan(meta.indexOf("const silenced"));
-    expect(meta.slice(metaCall, metaCall + 400)).toContain("chat_free_reply_allow");
+    expect(meta.slice(metaCall - 500, metaCall)).toContain("chat_free_reply_allow");
   });
 });
 
@@ -611,5 +612,169 @@ describe("discovery and recommendation", () => {
   it("thanks and contact stay plain", () => {
     expect(freeReply("thank you", "en").body).not.toContain(DISCOVER_STRINGS.en.discover);
     expect(freeReply("contact us", "en").body).not.toContain(DISCOVER_STRINGS.en.discover);
+  });
+});
+
+// ── A one-hour memory: sequential conversation ──────────────────────────────
+
+import {
+  detectWho,
+  emptyMemory,
+  respond,
+  sanitizeMemory,
+  shortAnswer,
+  smartFreeReply,
+  type Memory,
+} from "../../supabase/functions/_shared/chatFreeMemory.ts";
+import { EXAMPLES } from "../../supabase/functions/_shared/chatExamples.ts";
+
+/** Plays a whole conversation, carrying memory the way the webhook does. */
+function talk(language: string, ...messages: string[]) {
+  let mem: Memory = emptyMemory();
+  const out: { body: string; memory: Memory; plan?: string }[] = [];
+  for (const m of messages) {
+    const t = respond(m, language, mem);
+    mem = sanitizeMemory(JSON.parse(JSON.stringify(t.memory))); // through storage and back
+    out.push({ body: t.body, memory: mem, plan: t.plan });
+  }
+  return out;
+}
+
+describe("conversation memory", () => {
+  it("asks what they like, then who it is for, then recommends — one question at a time", () => {
+    const [a, b, c] = talk("en", "hello", "I love games", "it is for my son");
+    expect(a.body).toContain(DISCOVER_STRINGS.en.discover);
+    expect(b.body).toContain(DISCOVER_STRINGS.en.askWho);
+    expect(b.body).not.toContain(DISCOVER_STRINGS.en.discover);
+    expect(c.plan).toBe("kids");
+    expect(c.body).toContain("Kids ($3/month)");
+    expect(c.memory.last).toBe("recommend");
+  });
+
+  it("builds up interests across messages and recommends the plan that covers all of them", () => {
+    const turns = talk("en", "I like books", "for me", "and I want live tv");
+    expect(turns[1].plan).toBe("basic");
+    expect(turns[2].plan).toBe("pro");
+    expect(turns[2].memory.interests).toEqual(expect.arrayContaining(["library", "tv"]));
+  });
+
+  it("«yes» right after a recommendation gives the subscribe steps, with the pricing link", () => {
+    const turns = talk("en", "I love games and books", "yes");
+    expect(turns[0].memory.last).toBe("recommend");
+    expect(turns[1].body).toContain("https://visionex.app/pricing");
+    expect(turns[1].body).toContain(SIGNUP_STRINGS.en.here);
+    expect(turns[1].memory.last).toBeNull();
+  });
+
+  it("«not now» closes politely and stops asking", () => {
+    const turns = talk("en", "I love games and books", "not now");
+    expect(turns[1].body).toContain(DISCOVER_STRINGS.en.notNow);
+    expect(turns[1].body).not.toContain(DISCOVER_STRINGS.en.discover);
+  });
+
+  it("a «yes» with nothing pending is not a subscribe request", () => {
+    const [t] = talk("en", "yes");
+    expect(t.body).not.toContain(DISCOVER_STRINGS.en.subscribe.slice(0, 20));
+    expect(t.memory.last).toBe("discover");
+  });
+
+  it("works in Arabic from the first message to the recommendation", () => {
+    const turns = talk("ar", "مرحبا", "أحب الألعاب", "لابني");
+    expect(turns[1].body).toContain(DISCOVER_STRINGS.ar.askWho);
+    expect(turns[2].plan).toBe("kids");
+  });
+
+  it("a returning greeting continues instead of starting over", () => {
+    const turns = talk("en", "I love games", "for me", "hello");
+    expect(turns[2].body).toContain(DISCOVER_STRINGS.en.welcomeBack);
+    expect(turns[2].plan).toBe("basic");
+  });
+
+  it("assistant requests show real examples in the person's language", () => {
+    const cases: Record<string, string> = { en: "what is the weather", ar: "كيف الطقس", fr: "quelle est la météo", ja: "天気を教えて" };
+    for (const [l, text] of Object.entries(cases)) {
+      const [t] = talk(l, text);
+      expect(t.body, l).toContain(DISCOVER_STRINGS[l as "en"].examplesLead);
+      expect(t.body, l).toContain("«");
+    }
+  });
+
+  it("stops asking questions after a very long conversation, and still answers", () => {
+    const mem = emptyMemory();
+    mem.turns = 45;
+    const t = respond("hello", "en", mem);
+    expect(t.body).not.toContain(DISCOVER_STRINGS.en.discover);
+    expect(t.body).toContain("https://visionex.app/pricing");
+  });
+
+  describe("what is stored", () => {
+    it("is only enum-like words: never a message, a name or a number", () => {
+      const mem = respond("my name is Rana, my phone is 96170111222, I love games", "en", emptyMemory()).memory;
+      const stored = JSON.stringify(mem);
+      expect(stored).not.toMatch(/Rana|96170|phone|name/i);
+      expect(Object.keys(mem).sort()).toEqual(["asked", "interests", "last", "plan", "turns", "who"]);
+      expect(stored.length).toBeLessThan(400);
+    });
+
+    it("anything unexpected read back is dropped", () => {
+      const bad = sanitizeMemory({
+        interests: ["arcade", "<script>", 42, "DROP TABLE"], who: "admin", last: "root", plan: "free-for-all",
+        asked: ["who", "evil"], turns: -5, extra: "x",
+      });
+      expect(bad.interests).toEqual(["arcade"]);
+      expect(bad.who).toBeNull();
+      expect(bad.last).toBeNull();
+      expect(bad.plan).toBeNull();
+      expect(bad.asked).toEqual(["who"]);
+      expect(bad.turns).toBe(0);
+      expect(Object.keys(bad)).not.toContain("extra");
+      expect(sanitizeMemory("nonsense")).toEqual(emptyMemory());
+      expect(sanitizeMemory(null)).toEqual(emptyMemory());
+    });
+  });
+
+  describe("reading short answers", () => {
+    it.each([["my son", "child"], ["لابني", "child"], ["for my business", "work"], ["شركتي", "work"], ["just for me", "self"], ["hello", null]])(
+      "who: %s → %s", (text, who) => expect(detectWho(text)).toBe(who));
+    it.each([["yes", "yes"], ["تمام", "yes"], ["ok", "yes"], ["not now", "no"], ["لا", "no"], ["I think the second plan sounds good because of the games", null]])(
+      "answer: %s → %s", (text, a) => expect(shortAnswer(text)).toBe(a));
+  });
+
+  it("storage failures never lose the reply", async () => {
+    const failing = () => Promise.reject(new Error("db down"));
+    const turn = await smartFreeReply(failing as never, "whatsapp", "96170000009", "hello", "en");
+    expect(turn.body).toContain(DISCOVER_STRINGS.en.discover);
+    const errored = await smartFreeReply((async () => ({ data: null, error: new Error("x") })) as never, "meta", "facebook:1", "hello", "en");
+    expect(errored.body.length).toBeGreaterThan(20);
+  });
+
+  it("round-trips through the real store functions' contract, per sender", async () => {
+    const store = new Map<string, unknown>();
+    const rpc = async (fn: string, args: Record<string, unknown>) => {
+      const key = `${args._channel}:${args._subject}`;
+      if (fn === "chat_memory_get") return { data: store.get(key) ?? {}, error: null };
+      store.set(key, args._profile);
+      return { data: true, error: null };
+    };
+    await smartFreeReply(rpc, "whatsapp", "96170000010", "I love games", "en");
+    const second = await smartFreeReply(rpc, "whatsapp", "96170000010", "for my son", "en");
+    expect(second.plan).toBe("kids");
+    const stranger = await smartFreeReply(rpc, "whatsapp", "96170000011", "for my son", "en");
+    expect(stranger.memory.interests).not.toContain("arcade");
+  });
+
+  describe("example pack", () => {
+    it("covers every language with examples that look like requests", () => {
+      for (const l of SUPPORTED_LANGUAGES) {
+        const bank = EXAMPLES[l];
+        expect(bank, l).toBeDefined();
+        const total = Object.values(bank).reduce((n, list) => n + list.length, 0);
+        expect(total, l).toBeGreaterThan(15);
+        for (const list of Object.values(bank)) for (const u of list) {
+          expect(u.length, `${l}: ${u}`).toBeLessThan(80);
+          expect(u, `${l}: ${u}`).not.toMatch(/olly|\d|&/i);
+        }
+      }
+    });
   });
 });

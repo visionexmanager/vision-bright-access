@@ -171,6 +171,18 @@ expect("free replies: unknown channel refused", (await call("chat_free_reply_all
 await db.query("update public.chat_free_replies set window_start = now() - interval '1 hour' - interval '1 minute' where subject=$1", ["96170888888"]);
 expect("free replies: the window resets after an hour", (await call("chat_free_reply_allow", "whatsapp", "96170888888")) === true);
 
+// ── One-hour memory
+const Q = "96170123456";
+expect("memory: empty for a stranger", Object.keys(await call("chat_memory_get", "whatsapp", Q)).length === 0);
+expect("memory: stores a small profile", (await call("chat_memory_put", "whatsapp", Q, JSON.stringify({ interests: ["arcade"], who: "self" }))) === true);
+expect("memory: reads it back", (await call("chat_memory_get", "whatsapp", Q)).interests[0] === "arcade");
+expect("memory: another sender sees nothing", Object.keys(await call("chat_memory_get", "whatsapp", "96170654321")).length === 0);
+expect("memory: refuses an oversized profile", (await call("chat_memory_put", "whatsapp", Q, JSON.stringify({ x: "y".repeat(1200) }))) === false);
+expect("memory: refuses a non-object", (await call("chat_memory_put", "whatsapp", Q, JSON.stringify([1, 2]))) === false);
+expect("memory: refuses an unknown channel", (await call("chat_memory_put", "sms", Q, JSON.stringify({}))) === false);
+await db.query("update public.chat_memory set updated_at = now() - interval '1 hour' - interval '1 minute' where subject=$1", [Q]);
+expect("memory: forgotten after an hour", Object.keys(await call("chat_memory_get", "whatsapp", Q)).length === 0);
+
 // ── Grants ─────────────────────────────────────────────────────────────────
 const can = async (role, sig) =>
   (await db.query("select has_function_privilege($1, $2, 'EXECUTE') as ok", [role, sig])).rows[0].ok;
@@ -178,6 +190,7 @@ for (const sig of [
   "public.chat_signup_state(text,text)", "public.chat_signup_begin(text,text)", "public.chat_signup_set_name(text,text,text)",
   "public.chat_signup_request_code(text,text,text,text,integer)", "public.chat_signup_confirm(text,text,text)",
   "public.chat_signup_bind(text,text,uuid)", "public.chat_signup_cancel(text,text)", "public.chat_free_reply_allow(text,text)",
+  "public.chat_memory_get(text,text)", "public.chat_memory_put(text,text,jsonb)",
 ]) {
   expect(`${sig}: service_role yes, anon/authenticated no`,
     (await can("service_role", sig)) && !(await can("anon", sig)) && !(await can("authenticated", sig)));
@@ -185,7 +198,7 @@ for (const sig of [
 expect("the internal binder is callable by nobody", !(await can("service_role", "public.chat_bind_identity(text,text,uuid)")) && !(await can("anon", "public.chat_bind_identity(text,text,uuid)")));
 const rls = (await db.query("select relname, relrowsecurity from pg_class where relname in ('chat_signups','meta_identities')")).rows;
 expect("both tables have RLS on", rls.length === 2 && rls.every((r) => r.relrowsecurity));
-expect("and no policy (service-role only)", (await db.query("select count(*)::int c from pg_policies where tablename in ('chat_signups','meta_identities')")).rows[0].c === 0);
+expect("and no policy (service-role only)", (await db.query("select count(*)::int c from pg_policies where tablename in ('chat_signups','meta_identities','chat_memory')")).rows[0].c === 0);
 
 console.log(fail ? `\n${fail} FAILED` : "\nall passed");
 process.exit(fail ? 1 : 0);

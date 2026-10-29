@@ -55,7 +55,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
-import { freeReply } from "../_shared/chatFreeReplies.ts";
+import { smartFreeReply } from "../_shared/chatFreeMemory.ts";
 import { sendLinkCodeEmail } from "../_shared/whatsappIdentity.ts";
 import { streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import {
@@ -503,12 +503,11 @@ Deno.serve(async (req) => {
               } else {
                 // A fixed, free answer ending in the plans and in-chat sign-up.
                 // No model, no speech, no search; capped per sender.
-                const free = freeReply(typed, signupLanguage);
-                const { data: allowed } = await db.rpc("chat_free_reply_allow", {
-                  _channel: "meta",
-                  _subject: `${incoming.channel}:${incoming.senderId}`,
-                });
+                const memorySubject = `${incoming.channel}:${incoming.senderId}`;
+                const { data: allowed } = await db.rpc("chat_free_reply_allow", { _channel: "meta", _subject: memorySubject });
                 if (allowed === true) {
+                  // Remembers the last hour (what they like, who it is for) so the talk is sequential.
+                  const free = await smartFreeReply((fn, args) => db.rpc(fn, args), "meta", memorySubject, typed, signupLanguage);
                   await reply(
                     free.topic === "fallback" && verdict === "blocked_first_notice" ? signupOfferText(signupLanguage) : free.body,
                     "reply",

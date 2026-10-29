@@ -156,7 +156,8 @@ BEGIN
   SELECT * INTO _row FROM public.chat_signups WHERE channel = _channel AND subject = _subject FOR UPDATE;
   _win := CASE WHEN FOUND AND _row.begin_window_at IS NOT NULL AND _row.begin_window_at > _now - interval '1 hour'
                THEN _row.begin_window_at ELSE _now END;
-  _cnt := CASE WHEN _win = _now THEN 0 ELSE coalesce(_row.begins_in_window, 0) END;
+  -- Decided by the window itself, never by comparing timestamps: two calls in one clock tick would look like a fresh window.
+  _cnt := CASE WHEN FOUND AND _row.begin_window_at IS NOT NULL AND _row.begin_window_at > _now - interval '1 hour' THEN coalesce(_row.begins_in_window, 0) ELSE 0 END;
   IF _cnt >= 6 THEN RETURN 'throttled'; END IF;
 
   INSERT INTO public.chat_signups AS c (channel, subject, step, begins_in_window, begin_window_at, updated_at)
@@ -230,7 +231,7 @@ BEGIN
   END IF;
   _win := CASE WHEN _row.window_started_at IS NOT NULL AND _row.window_started_at > _now - interval '1 hour'
                THEN _row.window_started_at ELSE _now END;
-  _sends := CASE WHEN _win = _now THEN 0 ELSE coalesce(_row.sends_in_window, 0) END;
+  _sends := CASE WHEN _row.window_started_at IS NOT NULL AND _row.window_started_at > _now - interval '1 hour' THEN coalesce(_row.sends_in_window, 0) ELSE 0 END;
   IF _sends >= 5 THEN RETURN jsonb_build_object('status', 'throttled', 'deliver', false); END IF;
 
   -- Somebody else's mailbox is not a place to deliver codes from many chats.
@@ -448,3 +449,62 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.chat_free_reply_allow(text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.chat_free_reply_allow(text, text) TO service_role;
+
+-- ── A one-hour memory for the free replies ─────────────────────────────────
+-- Lets the bot hold a sequential conversation with someone who is not
+-- subscribed yet: what they said they like, who the plan is for, what it last
+-- asked. Deliberately holds NO message text, name, address or number — only a
+-- small object of enum-like words (section keys, 'self'/'child'/'work', the
+-- last question asked). It is forgotten after an hour without a message.
+
+CREATE TABLE IF NOT EXISTS public.chat_memory (
+  channel    text NOT NULL,
+  subject    text NOT NULL,
+  profile    jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (channel, subject),
+  CONSTRAINT chat_memory_profile_small CHECK (jsonb_typeof(profile) = 'object' AND length(profile::text) <= 1000)
+);
+ALTER TABLE public.chat_memory ENABLE ROW LEVEL SECURITY;
+COMMENT ON TABLE public.chat_memory IS
+  'One-hour conversational memory for free replies: enum-like words only, never message text. Service role only: no policy, deliberately.';
+
+CREATE OR REPLACE FUNCTION public.chat_memory_get(_channel text, _subject text)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT coalesce(
+    (SELECT m.profile FROM public.chat_memory m
+      WHERE m.channel = _channel AND m.subject = _subject AND m.updated_at > now() - interval '1 hour'),
+    '{}'::jsonb);
+$$;
+
+CREATE OR REPLACE FUNCTION public.chat_memory_put(_channel text, _subject text, _profile jsonb)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF _channel NOT IN ('whatsapp', 'meta') OR _subject IS NULL OR btrim(_subject) = '' THEN
+    RETURN false;
+  END IF;
+  IF _profile IS NULL OR jsonb_typeof(_profile) <> 'object' OR length(_profile::text) > 1000 THEN
+    RETURN false;
+  END IF;
+  -- Old memories of anyone are tidied as a side effect; no cron needed.
+  DELETE FROM public.chat_memory WHERE updated_at < now() - interval '1 day';
+  INSERT INTO public.chat_memory AS m (channel, subject, profile, updated_at)
+  VALUES (_channel, _subject, _profile, now())
+  ON CONFLICT (channel, subject) DO UPDATE SET profile = EXCLUDED.profile, updated_at = now();
+  RETURN true;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.chat_memory_get(text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.chat_memory_put(text, text, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.chat_memory_get(text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.chat_memory_put(text, text, jsonb) TO service_role;

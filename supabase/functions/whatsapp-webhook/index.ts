@@ -168,7 +168,7 @@ import {
 } from "../_shared/whatsappEntitlements.ts";
 import { isAuthorized, requireActiveSubscription } from "../_shared/subscriptionGate.ts";
 import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
-import { freeReply } from "../_shared/chatFreeReplies.ts";
+import { smartFreeReply } from "../_shared/chatFreeMemory.ts";
 import {
   formatWeather,
   parseWeatherRequest,
@@ -2491,9 +2491,10 @@ Deno.serve(async (req) => {
               // plans and how to sign up here. No model, no speech, no search;
               // capped per sender so two bots cannot loop.
               if (!accountTurn) {
-                const free = freeReply(incoming.text, answerLanguage);
                 const { data: allowed } = await db.rpc("chat_free_reply_allow", { _channel: "whatsapp", _subject: incoming.from });
                 if (allowed === true) {
+                  // Remembers the last hour (what they like, who it is for) so the talk is sequential.
+                  const free = await smartFreeReply((fn, args) => db.rpc(fn, args), "whatsapp", incoming.from, incoming.text, answerLanguage);
                   await sendPlain(
                     free.topic === "fallback" && verdict === "blocked_first_notice" ? signupOfferText(answerLanguage) : free.body,
                   );
