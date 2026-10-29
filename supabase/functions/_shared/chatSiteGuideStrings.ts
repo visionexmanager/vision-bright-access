@@ -295,3 +295,24 @@ export const GUIDE_STRINGS: Record<SupportedLanguage, GuidePack> = {
 
 /** Monthly prices in US dollars, pinned against src/lib/billing/plans.ts by a test. */
 export const SITE_PRICES = { basic: 5, pro: 10, business: 20, kids: 3 } as const;
+
+/**
+ * What each plan opens, as the interest sections the chat can recognise. Pinned
+ * against src/lib/billing/plans.ts by a test. Order is cheapest first; the Kids
+ * plan is only ever recommended to someone who asked for the children's world.
+ */
+export const SITE_PLANS = [
+  { id: "kids", name: "Kids", price: 3, sections: ["kids", "academy", "library", "arcade"] },
+  { id: "basic", name: "Basic", price: 5, sections: ["assistant", "academy", "library", "arcade", "marketplace"] },
+  {
+    id: "pro", name: "Pro", price: 10,
+    sections: ["assistant", "academy", "library", "arcade", "marketplace", "kids", "career", "tv", "radio", "messages", "simulations"],
+  },
+  {
+    id: "business", name: "Business", price: 20,
+    sections: [
+      "assistant", "academy", "library", "arcade", "marketplace", "kids", "career", "tv", "radio", "messages", "simulations",
+      "mediaStudio", "studio", "professional", "finance",
+    ],
+  },
+] as const;

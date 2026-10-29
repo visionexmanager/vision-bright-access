@@ -12,14 +12,15 @@
 import { fold } from "./chatSignup.ts";
 import { LEXICON } from "./chatPhraseLexicon.ts";
 import { FREE_STRINGS, type FreeKey } from "./chatFreeRepliesStrings.ts";
-import { GUIDE_STRINGS, SITE_PRICES, type GuideKey } from "./chatSiteGuideStrings.ts";
+import { GUIDE_STRINGS, SITE_PLANS, SITE_PRICES, type GuideKey } from "./chatSiteGuideStrings.ts";
+import { DISCOVER_STRINGS } from "./chatDiscoverStrings.ts";
 import { SIGNUP_STRINGS } from "./chatSignupStrings.ts";
 import { PLANS_URL } from "./whatsappEntitlements.ts";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "./whatsappLanguages.ts";
 
 export const SITE_URL = "https://visionex.app";
 
-export type FreeTopic = Exclude<FreeKey, "footer"> | GuideKey;
+export type FreeTopic = Exclude<FreeKey, "footer"> | GuideKey | "choose";
 
 /** Checked in this order: the first topic with a matching keyword wins. */
 const TOPICS: ReadonlyArray<readonly [Exclude<FreeTopic, "fallback">, readonly string[]]> = [
@@ -27,6 +28,11 @@ const TOPICS: ReadonlyArray<readonly [Exclude<FreeTopic, "fallback">, readonly s
     "contact", "contact us", "support", "email you", "phone number", "call you", "talk to someone",
     "تواصل", "اتصل", "رقم الهاتف", "دعم فني", "الدعم الفني", "خدمة العملاء", "كلم", "تكلم",
     "contacto", "contacter", "kontakt", "iletisim", "связаться", "контакт", "تماس", "رابطہ", "संपर्क", "kontak", "contatto", "contato", "联系", "お問い合わせ", "문의",
+  ]],
+  ["choose", [
+    "help me choose", "which plan suits me", "which plan is best for me", "recommend", "suggest a plan", "what do you recommend", "best plan for me", "what should i choose",
+    "ساعدني اختار", "اي باقه تناسبني", "ما الانسب لي", "انصحني", "رشح لي", "شو بتنصحني", "ايش تنصحني", "اي باقه الافضل",
+    "conseille moi", "recomiendame", "empfiehl mir", "bana oner", "посоветуйте", "порекомендуйте", "پیشنهاد بده", "مجھے مشورہ", "मुझे सुझाव", "sarankan", "consigliami", "recomenda me", "raad me aan", "polec mi", "gợi ý giúp", "পরামর্শ দিন", "推荐一个", "おすすめ", "추천해",
   ]],
   // ── The site, section by section, and what a plan opens (chatSiteGuideStrings.ts) ──
   ["tiers", [
@@ -129,6 +135,46 @@ const COMPILED = TOPICS.map(
   ([topic, words]) => [topic, [...new Set([...words, ...(MINED[topic] ?? [])].map(fold).filter(Boolean))]] as const,
 );
 
+/** Topics that name something a plan opens, and the sections each one means. */
+const INTEREST: Partial<Record<FreeTopic, readonly string[]>> = {
+  academy: ["academy"],
+  library: ["library"],
+  arcade: ["arcade"],
+  kids: ["kids"],
+  marketplace: ["marketplace"],
+  assistant: ["assistant"],
+  pro: ["tv", "radio", "career"],
+  business: ["mediaStudio"],
+};
+
+function matches(padded: string, words: readonly string[]): boolean {
+  for (const w of words) if (SCRIPTLESS.test(w) ? padded.includes(w) : padded.includes(` ${w} `)) return true;
+  return false;
+}
+
+/** The sections a message shows interest in (every matching topic, not just the first). */
+export function interests(text: string | null | undefined): string[] {
+  const raw = (text ?? "").trim();
+  if (!raw || raw.length > MAX_CHARS) return [];
+  const padded = ` ${fold(raw)} `;
+  const out = new Set<string>();
+  for (const [topic, words] of COMPILED) {
+    const sections = INTEREST[topic];
+    if (sections && matches(padded, words)) sections.forEach((x) => out.add(x));
+  }
+  return [...out];
+}
+
+/** The cheapest plan that covers every wanted section; Kids only if the children's world was asked for. */
+export function recommendPlan(wanted: readonly string[]) {
+  if (wanted.length === 0) return null;
+  for (const plan of SITE_PLANS) {
+    if (plan.id === "kids" && !wanted.includes("kids")) continue;
+    if (wanted.every((w) => (plan.sections as readonly string[]).includes(w))) return plan;
+  }
+  return null;
+}
+
 /** Which topic the message is about, or "fallback". */
 export function freeTopic(text: string | null | undefined): FreeTopic {
   const raw = (text ?? "").trim();
@@ -158,12 +204,27 @@ function fill(template: string, language: SupportedLanguage): string {
 }
 
 /** The whole reply: the answer, then the nudge. Never calls anything. */
-export function freeReply(text: string | null | undefined, language: string): { topic: FreeTopic; body: string } {
+export function freeReply(text: string | null | undefined, language: string): { topic: FreeTopic; body: string; plan?: string } {
   const l = lang(language);
   const topic = freeTopic(text);
   const pack = FREE_STRINGS[l];
-  const sentence = topic in GUIDE_STRINGS.en ? GUIDE_STRINGS[l][topic as GuideKey] : pack[topic as Exclude<FreeKey, "footer">];
+  const discover = fill(DISCOVER_STRINGS[l].discover, l);
+
+  // «help me choose» is only the question.
+  if (topic === "choose") return { topic, body: `${discover}\n\n${fill(pack.footer, l)}` };
+
+  const sentence = topic in GUIDE_STRINGS.en ? GUIDE_STRINGS[l][topic as GuideKey] : pack[topic as Exclude<FreeKey, "footer" | "choose">];
+  const parts = [fill(sentence, l)];
+
+  // Lead the conversation: if they named something a plan opens, recommend the plan
+  // that covers it; if they did not, ask what they enjoy. Thanks and contact stay plain.
+  const plan = recommendPlan(interests(text));
+  if (plan) {
+    parts.push(DISCOVER_STRINGS[l].recommend.replaceAll("{plan}", plan.name).replaceAll("{price}", String(plan.price)));
+  } else if (topic !== "thanks" && topic !== "contact") {
+    parts.push(discover);
+  }
   // A plans answer already carries the link; the footer would repeat it.
-  const footer = topic === "plans" ? "" : `\n\n${fill(pack.footer, l)}`;
-  return { topic, body: `${fill(sentence, l)}${footer}` };
+  if (topic !== "plans") parts.push(fill(pack.footer, l));
+  return { topic, body: parts.join("\n\n"), ...(plan ? { plan: plan.id } : {}) };
 }

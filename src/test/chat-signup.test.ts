@@ -539,3 +539,77 @@ describe("site guide", () => {
     expect(parseSignupIntent("register here")).toBe("chat");
   });
 });
+
+// ── An active bot: asks what the person enjoys, recommends the plan that covers it ──
+
+import { interests, recommendPlan } from "../../supabase/functions/_shared/chatFreeReplies.ts";
+import { DISCOVER_STRINGS } from "../../supabase/functions/_shared/chatDiscoverStrings.ts";
+import { SITE_PLANS } from "../../supabase/functions/_shared/chatSiteGuideStrings.ts";
+import { PAID_PLANS } from "@/lib/billing/plans";
+
+describe("discovery and recommendation", () => {
+  it("the plan table the recommender uses is exactly plans.ts", () => {
+    for (const p of SITE_PLANS) {
+      const real = PAID_PLANS[p.id as keyof typeof PAID_PLANS];
+      expect(p.price, p.id).toBe(real.price);
+      const withoutFree = real.sections.filter((x) => !["news", "community", "assistive"].includes(x));
+      expect([...p.sections].sort(), p.id).toEqual([...withoutFree].sort());
+    }
+  });
+
+  it("asks what the person enjoys, in every language, and recommends with the real price", () => {
+    for (const l of SUPPORTED_LANGUAGES) {
+      expect(DISCOVER_STRINGS[l].discover.length, l).toBeGreaterThan(30);
+      expect(DISCOVER_STRINGS[l].recommend, l).toContain("{plan}");
+      expect(DISCOVER_STRINGS[l].recommend, l).toContain("{price}");
+      const asked = freeReply("hello", l).body;
+      expect(asked, l).not.toMatch(/\{(plan|price)\}/);
+    }
+  });
+
+  it("a greeting, a price question and a vague message each end by asking what they like", () => {
+    for (const text of ["hello", "how much does it cost", "random words here", "what is visionex"]) {
+      expect(freeReply(text, "en").body, text).toContain(DISCOVER_STRINGS.en.discover);
+    }
+  });
+
+  it("«help me choose» is only the question", () => {
+    expect(freeTopic("help me choose a plan")).toBe("choose");
+    expect(freeTopic("اي باقه تناسبني")).toBe("choose");
+    expect(freeReply("help me choose a plan", "en").body).toContain(DISCOVER_STRINGS.en.discover);
+  });
+
+  it.each([
+    ["I love games", "basic"],
+    ["I like books and games", "basic"],
+    ["something for my kids", "kids"],
+    ["games for children", "kids"],
+    ["I want to watch live tv and read books", "pro"],
+    ["I want to generate images and publish", "business"],
+    ["أحب الألعاب والكتب", "basic"],
+    ["I want live tv and ai media studio", "business"],
+  ])("%s → %s", (text, plan) => expect(recommendPlan(interests(text))?.id).toBe(plan));
+
+  it("never recommends the Kids plan to an adult who only asked for games", () => {
+    expect(recommendPlan(interests("I just want to play games"))?.id).not.toBe("kids");
+  });
+
+  it("recommends nothing when nothing was named", () => {
+    expect(recommendPlan(interests("hello"))).toBeNull();
+    expect(recommendPlan([])).toBeNull();
+  });
+
+  it("a named interest gets the plan with its real price instead of the question", () => {
+    const { body, plan } = freeReply("I love games and books", "en");
+    expect(plan).toBe("basic");
+    expect(body).toContain("Basic ($5/month)");
+    expect(body).not.toContain(DISCOVER_STRINGS.en.discover);
+    expect(body).toContain("https://visionex.app/pricing");
+    expect(freeReply("أحب الألعاب", "ar").body).toContain("Basic");
+  });
+
+  it("thanks and contact stay plain", () => {
+    expect(freeReply("thank you", "en").body).not.toContain(DISCOVER_STRINGS.en.discover);
+    expect(freeReply("contact us", "en").body).not.toContain(DISCOVER_STRINGS.en.discover);
+  });
+});
