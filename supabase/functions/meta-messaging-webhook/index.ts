@@ -54,11 +54,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
+import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
+import { sendLinkCodeEmail } from "../_shared/whatsappIdentity.ts";
 import { streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import {
   clampReply,
   collectStream,
   detectLanguage,
+  detectLanguageCode,
   failureNotice,
   handoverNotice,
   replySignalsHandover,
@@ -191,6 +194,27 @@ async function escalate(db: Service, conversationId: string, reason: string) {
       escalation_reason: reason,
     })
     .eq("id", conversationId);
+}
+
+/**
+ * The language to answer a sign-up step in. An email address or a code carries
+ * no language of its own, so those take the language of the last message that
+ * did; otherwise a sign-up begun in Arabic would switch to English at the code.
+ */
+async function signupLanguageFor(db: Service, conversationId: string, text: string, fallback: string): Promise<string> {
+  if (/\p{L}/u.test(text.replace(/\S+@\S+/g, ""))) return detectLanguageCode(text);
+  const { data } = await db
+    .from("meta_messages")
+    .select("body")
+    .eq("conversation_id", conversationId)
+    .eq("direction", "inbound")
+    .order("created_at", { ascending: false })
+    .limit(6);
+  for (const row of (data ?? []) as { body: string | null }[]) {
+    const body = (row.body ?? "").replace(/\S+@\S+/g, "");
+    if (/\p{L}/u.test(body)) return detectLanguageCode(body);
+  }
+  return fallback;
 }
 
 // ── Handler ──────────────────────────────────────────────────────────────────
@@ -439,6 +463,48 @@ Deno.serve(async (req) => {
         if (!isAuthorized(verdict)) {
           if (verdict === "blocked_first_notice") {
             await reply(subscriptionRequiredShortNotice(language), "unsupported");
+          }
+          // Sign-up from this chat: typed text only, never for a conversation a
+          // person owns or an escalation silenced. A sender the gate refused is
+          // exactly who has no account yet; no model and no paid provider runs.
+          const silenced = conversation.control === "human" || conversation.escalated;
+          const typed = typeof incoming.text === "string" ? incoming.text.trim() : "";
+          if (!silenced && typed && !incoming.unsupportedType) {
+            try {
+              const signupLanguage = await signupLanguageFor(db, conversation.id, typed, language);
+              const turn = await runChatSignupTurn(
+                {
+                  rpc: (fn, args) => db.rpc(fn, args),
+                  secret: env("META_APP_SECRET") ?? env("INSTAGRAM_APP_SECRET") ?? "",
+                  emailConfigured: !!env("RESEND_API_KEY"),
+                  createUser: async ({ email, displayName }) => {
+                    const secret = crypto.getRandomValues(new Uint8Array(24));
+                    const { data, error } = await db.auth.admin.createUser({
+                      email,
+                      password: btoa(String.fromCharCode(...secret)),
+                      email_confirm: true,
+                      user_metadata: { display_name: displayName, signup_channel: incoming.channel },
+                    });
+                    return error ? null : data.user?.id ?? null;
+                  },
+                },
+                {
+                  channel: "meta",
+                  subject: `${incoming.channel}:${incoming.senderId}`,
+                  text: typed,
+                  language: signupLanguage,
+                  sendCode: (to, code) => sendLinkCodeEmail({ to, code, language: signupLanguage as never }),
+                },
+              );
+              if (turn.handled && turn.reply) {
+                await reply(turn.reply, "reply");
+                if (turn.after) await turn.after();
+              } else if (verdict === "blocked_first_notice") {
+                await reply(signupOfferText(signupLanguage), "reply");
+              }
+            } catch (e) {
+              console.error("[meta-messaging] chat sign-up failed:", e instanceof Error ? e.name : "unknown");
+            }
           }
           continue;
         }

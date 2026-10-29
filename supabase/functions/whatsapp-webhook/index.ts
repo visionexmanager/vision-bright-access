@@ -167,6 +167,7 @@ import {
   subscriptionRequiredNotice,
 } from "../_shared/whatsappEntitlements.ts";
 import { isAuthorized, requireActiveSubscription } from "../_shared/subscriptionGate.ts";
+import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
 import {
   formatWeather,
   parseWeatherRequest,
@@ -2434,6 +2435,63 @@ Deno.serve(async (req) => {
             });
             if (token && phoneNumberId) {
               await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: notice });
+            }
+          }
+          // Sign-up from this chat. Typed text only, never for a number a person
+          // owns or an escalation silenced, and never a model or a paid provider:
+          // the state machine is SQL plus one email. A sender the gate refused is
+          // exactly who has no account yet, so this is where the offer lives.
+          const signupOk = !incoming.media && !incoming.location && !incoming.selection && !voiceRequested &&
+            !!(incoming.text ?? "").trim() &&
+            !assistantIsSilenced(existing as Record<string, unknown> | null, Date.now());
+          if (signupOk) {
+            const sendPlain = async (body: string) => {
+              await db.from("whatsapp_messages").insert({
+                conversation_id: conversationId,
+                direction: "outbound",
+                body,
+                kind: "reply",
+                medium: replyMedium({ spokenInput: false, body }),
+              });
+              if (token && phoneNumberId) await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
+            };
+            try {
+              const turn = await runChatSignupTurn(
+                {
+                  rpc: (fn, args) => db.rpc(fn, args),
+                  secret: appSecret ?? "",
+                  emailConfigured: !!Deno.env.get("RESEND_API_KEY"),
+                  createUser: async ({ email, displayName }) => {
+                    const secret = crypto.getRandomValues(new Uint8Array(24));
+                    const { data, error } = await db.auth.admin.createUser({
+                      email,
+                      password: btoa(String.fromCharCode(...secret)),
+                      email_confirm: true,
+                      user_metadata: { display_name: displayName, signup_channel: "whatsapp" },
+                    });
+                    return error ? null : data.user?.id ?? null;
+                  },
+                },
+                {
+                  channel: "whatsapp",
+                  subject: incoming.from,
+                  text: incoming.text,
+                  language: answerLanguage,
+                  sendCode: (to, code) => sendLinkCodeEmail({ to, code, language: answerLanguage }),
+                },
+              );
+              if (turn.handled && turn.reply) {
+                log("chat_signup", { outcome: turn.outcome ?? "handled" });
+                await sendPlain(turn.reply);
+                if (turn.after) await turn.after();
+                continue;
+              }
+              // Not a sign-up message: the first notice is followed, once, by
+              // how to sign up. Same sentence for every sender; no model.
+              if (verdict === "blocked_first_notice" && !accountTurn) await sendPlain(signupOfferText(answerLanguage));
+            } catch (e) {
+              console.error("[whatsapp] chat sign-up failed:", describeError(e));
+              log("feature_error", { node: "chat_signup" });
             }
           }
           if (accountTurn) {
