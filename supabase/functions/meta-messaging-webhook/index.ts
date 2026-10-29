@@ -56,13 +56,13 @@ import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
 import { smartFreeReply } from "../_shared/chatFreeMemory.ts";
+import { detectChatLanguage } from "../_shared/chatLanguage.ts";
 import { sendLinkCodeEmail } from "../_shared/whatsappIdentity.ts";
 import { streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import {
   clampReply,
   collectStream,
   detectLanguage,
-  detectLanguageCode,
   failureNotice,
   handoverNotice,
   replySignalsHandover,
@@ -198,12 +198,13 @@ async function escalate(db: Service, conversationId: string, reason: string) {
 }
 
 /**
- * The language to answer a sign-up step in. An email address or a code carries
- * no language of its own, so those take the language of the last message that
- * did; otherwise a sign-up begun in Arabic would switch to English at the code.
+ * The language to answer in: the one the message is written in when it clearly
+ * has one, otherwise that of the most recent earlier message that did, otherwise
+ * the fallback. Never announced and never asked about.
  */
 async function signupLanguageFor(db: Service, conversationId: string, text: string, fallback: string): Promise<string> {
-  if (/\p{L}/u.test(text.replace(/\S+@\S+/g, ""))) return detectLanguageCode(text);
+  const own = detectChatLanguage(text);
+  if (own.confident) return own.lang;
   const { data } = await db
     .from("meta_messages")
     .select("body")
@@ -212,8 +213,8 @@ async function signupLanguageFor(db: Service, conversationId: string, text: stri
     .order("created_at", { ascending: false })
     .limit(6);
   for (const row of (data ?? []) as { body: string | null }[]) {
-    const body = (row.body ?? "").replace(/\S+@\S+/g, "");
-    if (/\p{L}/u.test(body)) return detectLanguageCode(body);
+    const earlier = detectChatLanguage(row.body ?? "");
+    if (earlier.confident) return earlier.lang;
   }
   return fallback;
 }
@@ -462,17 +463,19 @@ Deno.serve(async (req) => {
           senderId: `${incoming.channel}:${incoming.senderId}`,
         });
         if (!isAuthorized(verdict)) {
+          const typedText = typeof incoming.text === "string" ? incoming.text.trim() : "";
+          const wideLanguage = typedText ? await signupLanguageFor(db, conversation.id, typedText, language) : language;
           if (verdict === "blocked_first_notice") {
-            await reply(subscriptionRequiredShortNotice(language), "unsupported");
+            await reply(subscriptionRequiredShortNotice(wideLanguage as never), "unsupported");
           }
           // Sign-up from this chat: typed text only, never for a conversation a
           // person owns or an escalation silenced. A sender the gate refused is
           // exactly who has no account yet; no model and no paid provider runs.
           const silenced = conversation.control === "human" || conversation.escalated;
-          const typed = typeof incoming.text === "string" ? incoming.text.trim() : "";
+          const typed = typedText;
           if (!silenced && typed && !incoming.unsupportedType) {
             try {
-              const signupLanguage = await signupLanguageFor(db, conversation.id, typed, language);
+              const signupLanguage = wideLanguage;
               const turn = await runChatSignupTurn(
                 {
                   rpc: (fn, args) => db.rpc(fn, args),

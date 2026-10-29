@@ -712,7 +712,7 @@ describe("conversation memory", () => {
       const mem = respond("my name is Rana, my phone is 96170111222, I love games", "en", emptyMemory()).memory;
       const stored = JSON.stringify(mem);
       expect(stored).not.toMatch(/Rana|96170|phone|name/i);
-      expect(Object.keys(mem).sort()).toEqual(["asked", "interests", "last", "plan", "turns", "who"]);
+      expect(Object.keys(mem).sort()).toEqual(["asked", "interests", "lang", "last", "plan", "turns", "who"]);
       expect(stored.length).toBeLessThan(400);
     });
 
@@ -776,5 +776,98 @@ describe("conversation memory", () => {
         }
       }
     });
+  });
+});
+
+// ── Answering in the language the person wrote in, without saying so ────────
+
+import { detectChatLanguage, languageFor } from "../../supabase/functions/_shared/chatLanguage.ts";
+import { LANG_ID } from "../../supabase/functions/_shared/chatLangId.ts";
+
+describe("reply language", () => {
+  it.each([
+    ["wie viel kostet das abonnement", "de"],
+    ["ich möchte wissen was ihr anbietet", "de"],
+    ["bonjour, je voudrais savoir les prix", "fr"],
+    ["hola, quiero saber los precios por favor", "es"],
+    ["ciao, vorrei sapere i prezzi", "it"],
+    ["olá, quanto custa a assinatura para você", "pt"],
+    ["merhaba fiyatlar ne kadar bilgi verir misiniz", "tr"],
+    ["hallo wat kost het abonnement precies", "nl"],
+    ["dzień dobry ile kosztuje abonament", "pl"],
+    ["halo berapa harga langganan untuk saya", "id"],
+    ["xin chào giá của gói là bao nhiêu", "vi"],
+    ["hello what plans do you have for me", "en"],
+    ["مرحبا كم سعر الاشتراك", "ar"],
+    ["سلام قیمت اشتراک چقدر است", "fa"],
+    ["آپ کی قیمتیں کیا ہیں", "ur"],
+    ["привет сколько стоит подписка", "ru"],
+    ["こんにちは、料金を教えてください", "ja"],
+    ["你好，请问订阅多少钱", "zh"],
+    ["안녕하세요 요금이 얼마인가요", "ko"],
+    ["नमस्ते सब्सक्रिप्शन की कीमत क्या है", "hi"],
+    ["হ্যালো সাবস্ক্রিপশনের দাম কত", "bn"],
+  ])("%s → %s", (text, lang) => {
+    const d = detectChatLanguage(text);
+    expect(d.lang).toBe(lang);
+    expect(d.confident).toBe(true);
+  });
+
+  it("has a table for every Latin-script language", () => {
+    for (const l of ["en", "id", "it", "nl", "pl", "vi", "es", "de", "pt", "tr", "fr"]) expect(Object.keys(LANG_ID[l]).length, l).toBeGreaterThan(50);
+  });
+
+  it("says it is not sure for a bare word, number or address", () => {
+    for (const t of ["ok", "2", "123456", "rana@example.com", "", "👍", "no"]) expect(detectChatLanguage(t).confident, t).toBe(false);
+  });
+
+  it("a bare «ok» keeps the language the conversation is in", () => {
+    expect(languageFor("ok", "ar", "en")).toBe("ar");
+    expect(languageFor("ok", null, "de")).toBe("de");
+    expect(languageFor("wie viel kostet das", "ar", "en")).toBe("de"); // the message wins when it is clear
+  });
+
+  it("every free reply comes back in the sender's language, never the English fallback", () => {
+    const cases: Record<string, string> = {
+      de: "wie viel kostet das abonnement", fr: "bonjour, je voudrais savoir les prix", es: "hola, quiero saber los precios por favor",
+      ar: "مرحبا كم سعر الاشتراك", ru: "привет сколько стоит подписка", tr: "merhaba fiyatlar ne kadar bilgi verir misiniz",
+      ja: "こんにちは、料金を教えてください", zh: "你好，请问订阅多少钱",
+    };
+    for (const [l, text] of Object.entries(cases)) {
+      const t = respond(text, "en", emptyMemory()); // the hint says English; the message says otherwise
+      expect(t.memory.lang, l).toBe(l);
+      expect(t.body, l).toContain(DISCOVER_STRINGS[l as "de"].discover);
+      expect(t.body, l).not.toContain(DISCOVER_STRINGS.en.discover);
+    }
+  });
+
+  it("follows a switch of language in the middle of the conversation", () => {
+    const first = respond("مرحبا", "en", emptyMemory());
+    expect(first.memory.lang).toBe("ar");
+    const second = respond("wie viel kostet das abonnement", "en", first.memory);
+    expect(second.memory.lang).toBe("de");
+    expect(second.body).toContain(DISCOVER_STRINGS.de.discover);
+  });
+
+  it("a short answer in the middle of a talk stays in the talk's language", () => {
+    const turns = talk("ar", "أحب الألعاب", "للاستخدام الشخصي لي", "نعم");
+    expect(turns[2].memory.lang).toBe("ar");
+    expect(turns[2].body).toContain("https://visionex.app/pricing");
+  });
+
+  it("never mentions that it is matching the language", () => {
+    const all = Object.values(SUPPORTED_LANGUAGES).flatMap((l) => [
+      ...Object.values(DISCOVER_STRINGS[l]), ...Object.values(GUIDE_STRINGS[l]), ...Object.values(FREE_STRINGS[l]),
+    ]);
+    for (const s of all) expect(s, s).not.toMatch(/same language|your language|لغتك|votre langue|tu idioma|deine sprache|dilinizde|вашем языке/i);
+  });
+
+  it("the webhooks use it for the notice and the replies, not just the model", () => {
+    const meta = readFileSync("supabase/functions/meta-messaging-webhook/index.ts", "utf8");
+    const wa = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
+    expect(meta).toContain("detectChatLanguage");
+    expect(meta).toMatch(/subscriptionRequiredShortNotice\(wideLanguage/);
+    expect(wa).toMatch(/subscriptionRequiredNotice\(gateLanguage\)/);
+    expect(wa).toContain("languageFor(incoming.text");
   });
 });

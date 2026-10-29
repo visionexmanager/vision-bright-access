@@ -23,6 +23,7 @@ import { FREE_STRINGS } from "./chatFreeRepliesStrings.ts";
 import { GUIDE_STRINGS, SITE_PLANS, type GuideKey } from "./chatSiteGuideStrings.ts";
 import { SIGNUP_STRINGS } from "./chatSignupStrings.ts";
 import { freeTopic, interests, recommendPlan, SITE_URL, type FreeTopic } from "./chatFreeReplies.ts";
+import { languageFor } from "./chatLanguage.ts";
 import { PLANS_URL } from "./whatsappEntitlements.ts";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "./whatsappLanguages.ts";
 
@@ -36,6 +37,8 @@ export interface Memory {
   plan: string | null;
   asked: Last[];
   turns: number;
+  /** The language the conversation is in, so a bare «ok» is answered in it. */
+  lang: SupportedLanguage | null;
 }
 
 const SECTIONS = new Set([
@@ -49,7 +52,7 @@ const PLAN_IDS = new Set(SITE_PLANS.map((p) => p.id as string));
 /** Longest conversation the bot will keep asking questions in; after that it only answers. */
 const MAX_QUESTION_TURNS = 40;
 
-export const emptyMemory = (): Memory => ({ interests: [], who: null, last: null, plan: null, asked: [], turns: 0 });
+export const emptyMemory = (): Memory => ({ interests: [], who: null, last: null, plan: null, asked: [], turns: 0, lang: null });
 
 /** Anything read back from storage is checked against whitelists; nothing else gets through. */
 export function sanitizeMemory(raw: unknown): Memory {
@@ -62,6 +65,7 @@ export function sanitizeMemory(raw: unknown): Memory {
   if (typeof r.plan === "string" && PLAN_IDS.has(r.plan)) m.plan = r.plan;
   if (Array.isArray(r.asked)) m.asked = [...new Set(r.asked.filter((x): x is Last => typeof x === "string" && LAST.has(x)))] as Last[];
   if (typeof r.turns === "number" && Number.isFinite(r.turns)) m.turns = Math.max(0, Math.min(1000, Math.floor(r.turns)));
+  if (typeof r.lang === "string" && (SUPPORTED_LANGUAGES as readonly string[]).includes(r.lang)) m.lang = r.lang as SupportedLanguage;
   return m;
 }
 
@@ -163,8 +167,9 @@ export interface Turn {
 
 /** One turn of the conversation. Pure: memory in, memory out. */
 export function respond(text: string | null | undefined, language: string, previous: Memory): Turn {
-  const l = lang(language);
-  const mem: Memory = { ...previous, interests: [...previous.interests], asked: [...previous.asked], turns: previous.turns + 1 };
+  // The message's own language wins when it clearly has one; a bare «ok» keeps the conversation's.
+  const l = languageFor(text, previous.lang, lang(language));
+  const mem: Memory = { ...previous, interests: [...previous.interests], asked: [...previous.asked], turns: previous.turns + 1, lang: l };
   const topic = freeTopic(text);
   const found = interests(text);
   const who = detectWho(text);

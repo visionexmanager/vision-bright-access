@@ -33,6 +33,20 @@ const sql = readFileSync("supabase/migrations/20261097000000_chat_signup.sql", "
 await db.exec(sql);
 await db.exec(sql); // re-runnable
 
+// 20261098 replaces whatsapp_link_request, so the original is loaded first (as in production).
+const ORIGINAL = process.env.LINK_REQUEST_ORIGINAL === "1";
+{
+  // Only the function under repair, exactly as production has it.
+  const original = readFileSync("supabase/migrations/20260928000000_whatsapp_identities.sql", "utf8").replace(/\r\n/g, "\n");
+  const from = original.indexOf("CREATE OR REPLACE FUNCTION public.whatsapp_link_request(");
+  await db.exec(original.slice(from, original.indexOf("COMMENT ON FUNCTION public.whatsapp_link_request", from)));
+}
+if (!ORIGINAL) {
+  const fix = readFileSync("supabase/migrations/20261098000000_whatsapp_link_request_window_fix.sql", "utf8");
+  await db.exec(fix);
+  await db.exec(fix); // re-runnable
+}
+
 let fail = 0;
 const expect = (label, cond) => { if (!cond) fail++; console.log(`${cond ? "PASS" : "FAIL"}  ${label}`); };
 const call = async (fn, ...args) => {
@@ -161,6 +175,41 @@ expect("Messenger: bind links the sender", (await call("chat_signup_bind", "meta
 expect("the gate now resolves the linked account", (await call("ai_subscription_gate_meta", M)) === "authorized");
 expect("another sender is still not entitled", (await call("ai_subscription_gate_meta", "facebook:999")) === "blocked_first_notice");
 expect("an unknown channel is refused", await db.query("select public.chat_signup_begin('sms','x')").then(() => false, () => true));
+
+// ── The hourly windows must not reset when calls share a clock reading.
+// now() is constant inside one transaction, which reproduces a coarse clock exactly: every call
+// sees the stored window start equal to its own now(). A rule that treats "equal" as "new window"
+// resets the count and never throttles.
+await db.exec(`
+  CREATE TEMP TABLE tick_out (kind text, i int, status text);
+  DO $$
+  DECLARE r jsonb; i int;
+  BEGIN
+    FOR i IN 1..6 LOOP
+      UPDATE public.whatsapp_identities SET last_sent_at = now() - interval '2 minutes' WHERE wa_phone = '96170333444';
+      r := public.whatsapp_link_request('96170333444', 'someone@x.com', 'h' || i, 10);
+      INSERT INTO tick_out VALUES ('link', i, r ->> 'status');
+    END LOOP;
+    FOR i IN 1..7 LOOP
+      INSERT INTO tick_out VALUES ('begin', i, public.chat_signup_begin('whatsapp', '96170333555'));
+    END LOOP;
+    PERFORM public.chat_signup_set_name('whatsapp', '96170333556', 'x');
+    PERFORM public.chat_signup_begin('whatsapp', '96170333556');
+    PERFORM public.chat_signup_set_name('whatsapp', '96170333556', 'Tick Test');
+    FOR i IN 1..6 LOOP
+      UPDATE public.chat_signups SET last_sent_at = now() - interval '2 minutes' WHERE channel = 'whatsapp' AND subject = '96170333556';
+      r := public.chat_signup_request_code('whatsapp', '96170333556', 'tick@x.com', 'h' || i, 10);
+      INSERT INTO tick_out VALUES ('code', i, r ->> 'status');
+    END LOOP;
+  END $$;
+`);
+const tick = async (kind) => (await db.query("select status from tick_out where kind=$1 order by i", [kind])).rows.map((r) => r.status);
+const lr = await tick("link");
+expect("link request (same clock reading): five sends an hour, the sixth is throttled", lr.slice(0, 5).every((x) => x === "sent") && lr[5] === "throttled");
+const bg = await tick("begin");
+expect("begin (same clock reading): throttled after six", bg.slice(0, 6).every((x) => x === "started") && bg[6] === "throttled");
+const cd = await tick("code");
+expect("code request (same clock reading): five sends, the sixth throttled", cd.slice(0, 5).every((x) => x === "sent") && cd[5] === "throttled");
 
 // ── Free-reply flood guard
 let allowed = [];

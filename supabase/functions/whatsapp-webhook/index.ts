@@ -169,6 +169,7 @@ import {
 import { isAuthorized, requireActiveSubscription } from "../_shared/subscriptionGate.ts";
 import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
 import { smartFreeReply } from "../_shared/chatFreeMemory.ts";
+import { languageFor } from "../_shared/chatLanguage.ts";
 import {
   formatWeather,
   parseWeatherRequest,
@@ -2423,10 +2424,11 @@ Deno.serve(async (req) => {
           });
           // The one notice goes out whichever way this message then goes: a
           // sender whose first message was "link account" is still told.
+          const gateLanguage = languageFor(incoming.text, null, answerLanguage);
           if (verdict === "blocked_first_notice") {
             // Sent as text directly, not through `reply`: a voice note in
             // would be answered by synthesis, which is a paid provider.
-            const notice = subscriptionRequiredNotice(answerLanguage);
+            const notice = subscriptionRequiredNotice(gateLanguage);
             await db.from("whatsapp_messages").insert({
               conversation_id: conversationId,
               direction: "outbound",
@@ -2477,8 +2479,8 @@ Deno.serve(async (req) => {
                   channel: "whatsapp",
                   subject: incoming.from,
                   text: incoming.text,
-                  language: answerLanguage,
-                  sendCode: (to, code) => sendLinkCodeEmail({ to, code, language: answerLanguage }),
+                  language: gateLanguage,
+                  sendCode: (to, code) => sendLinkCodeEmail({ to, code, language: gateLanguage }),
                 },
               );
               if (turn.handled && turn.reply) {
@@ -2494,9 +2496,9 @@ Deno.serve(async (req) => {
                 const { data: allowed } = await db.rpc("chat_free_reply_allow", { _channel: "whatsapp", _subject: incoming.from });
                 if (allowed === true) {
                   // Remembers the last hour (what they like, who it is for) so the talk is sequential.
-                  const free = await smartFreeReply((fn, args) => db.rpc(fn, args), "whatsapp", incoming.from, incoming.text, answerLanguage);
+                  const free = await smartFreeReply((fn, args) => db.rpc(fn, args), "whatsapp", incoming.from, incoming.text, gateLanguage);
                   await sendPlain(
-                    free.topic === "fallback" && verdict === "blocked_first_notice" ? signupOfferText(answerLanguage) : free.body,
+                    free.topic === "fallback" && verdict === "blocked_first_notice" ? signupOfferText(gateLanguage) : free.body,
                   );
                   log("free_reply", { outcome: free.topic });
                 }
