@@ -50,7 +50,12 @@ const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { sta
 // `user_has_section` is the same kind of question as `has_role`: a read-only entitlement lookup that spends
 // nothing (no limit, no VX, no provider). library-ai-assistant and library-librarian-daily-plan ask it BEFORE
 // the gate because a stored answer is only served to an account whose plan includes the Library.
-const GATE_ONLY = new Set(["ai_subscription_gate", "ai_subscription_gate_whatsapp", "ai_subscription_gate_meta", "has_role", "is_organization_admin", "user_has_section"]);
+// The fixed-text replies for a refused sender (sign-up state, the flood guard, the one-hour memory) are state
+// only: no model, no speech, no search, no VX. They are listed here so "other RPCs" still means "something that spends".
+const GATE_ONLY = new Set([
+  "ai_subscription_gate", "ai_subscription_gate_whatsapp", "ai_subscription_gate_meta", "has_role", "is_organization_admin", "user_has_section",
+  "chat_signup_state", "chat_free_reply_allow", "chat_memory_get", "chat_memory_put",
+]);
 
 // Bodies for the functions that validate their input before they authenticate.
 const BODIES: Record<string, unknown> = {
@@ -325,22 +330,25 @@ console.log("## WhatsApp (the real webhook, signed inbound messages)");
   firstNoticeTaken = new Set();
   reset("blocked_first_notice");
   const a = await whatsapp("10000000101", "what is the capital of Jordan?");
-  const aOk = a.status === 200 && graphSends === 1 && providerCalls.length === 0;
-  console.log(`${aOk ? "PASS" : "FAIL"} first message, unsubscribed sender: http=${a.status}, notices sent=${graphSends}, provider calls=${providerCalls.length}`);
+  // One notice, then one fixed free reply to the message itself. Never a provider.
+  const aOk = a.status === 200 && graphSends === 2 && providerCalls.length === 0;
+  console.log(`${aOk ? "PASS" : "FAIL"} first message, unsubscribed sender: http=${a.status}, sends=${graphSends} (notice + one fixed reply), provider calls=${providerCalls.length}`);
   console.log(`INFO  other RPCs on that message: ${[...new Set(rpcCalls.filter((r) => !GATE_ONLY.has(r)))].join(",") || "none"}`);
   if (!aOk) failures++;
 
   reset("blocked_first_notice"); // same sender: the stub now answers blocked_silent
   const b = await whatsapp("10000000101", "and another question");
-  const bOk = b.status === 200 && graphSends === 0 && providerCalls.length === 0;
-  console.log(`${bOk ? "PASS" : "FAIL"} second message, same sender: http=${b.status}, replies sent=${graphSends}, provider calls=${providerCalls.length}`);
+  // No second notice: only the one fixed reply.
+  const bOk = b.status === 200 && graphSends === 1 && providerCalls.length === 0;
+  console.log(`${bOk ? "PASS" : "FAIL"} second message, same sender: http=${b.status}, replies sent=${graphSends} (no second notice), provider calls=${providerCalls.length}`);
   console.log(`INFO  other RPCs on that message: ${[...new Set(rpcCalls.filter((r) => !GATE_ONLY.has(r)))].join(",") || "none"}`);
   if (!bOk) failures++;
 
   reset("blocked_first_notice");
   const burst = await Promise.all(Array.from({ length: 10 }, () => whatsapp("10000000202", "hello")));
-  const cOk = burst.every((r) => r.status === 200) && graphSends === 1 && providerCalls.length === 0;
-  console.log(`${cOk ? "PASS" : "FAIL"} 10 concurrent messages, one new sender: notices sent=${graphSends}, provider calls=${providerCalls.length}`);
+  // Exactly one notice however many arrive at once, plus one fixed reply per message.
+  const cOk = burst.every((r) => r.status === 200) && graphSends === 1 + 10 && providerCalls.length === 0;
+  console.log(`${cOk ? "PASS" : "FAIL"} 10 concurrent messages, one new sender: sends=${graphSends} (one notice + ten fixed replies), provider calls=${providerCalls.length}`);
   if (!cOk) failures++;
 
   atomicNotices = false;
@@ -386,20 +394,20 @@ console.log("## Messenger / Instagram (the real meta-messaging-webhook, signed i
 
   reset("blocked_first_notice");
   const a = await messenger("5001", "what are your opening hours?");
-  const aOk = a.status === 200 && gateAsked === 1 && graphSends === 1 && providerCalls.length === 0;
-  console.log(`${aOk ? "PASS" : "FAIL"} first message, unsubscribed sender: http=${a.status}, gate asked=${gateAsked}, notices sent=${graphSends}, provider calls=${providerCalls.length}`);
+  const aOk = a.status === 200 && gateAsked === 1 && graphSends === 2 && providerCalls.length === 0;
+  console.log(`${aOk ? "PASS" : "FAIL"} first message, unsubscribed sender: http=${a.status}, gate asked=${gateAsked}, sends=${graphSends} (notice + one fixed reply), provider calls=${providerCalls.length}`);
   if (!aOk) failures++;
 
   reset("blocked_first_notice");
   const b = await messenger("5001", "hello?");
-  const bOk = b.status === 200 && graphSends === 0 && providerCalls.length === 0;
-  console.log(`${bOk ? "PASS" : "FAIL"} second message, same sender: http=${b.status}, replies sent=${graphSends}, provider calls=${providerCalls.length}`);
+  const bOk = b.status === 200 && graphSends === 1 && providerCalls.length === 0;
+  console.log(`${bOk ? "PASS" : "FAIL"} second message, same sender: http=${b.status}, replies sent=${graphSends} (no second notice), provider calls=${providerCalls.length}`);
   if (!bOk) failures++;
 
   reset("blocked_first_notice");
   const burst = await Promise.all(Array.from({ length: 10 }, () => messenger("5002", "hello")));
-  const cOk = burst.every((r) => r.status === 200) && graphSends === 1 && providerCalls.length === 0;
-  console.log(`${cOk ? "PASS" : "FAIL"} 10 concurrent messages, one new sender: notices sent=${graphSends}, provider calls=${providerCalls.length}`);
+  const cOk = burst.every((r) => r.status === 200) && graphSends === 1 + 10 && providerCalls.length === 0;
+  console.log(`${cOk ? "PASS" : "FAIL"} 10 concurrent messages, one new sender: sends=${graphSends} (one notice + ten fixed replies), provider calls=${providerCalls.length}`);
   if (!cOk) failures++;
 
   reset("error");

@@ -473,7 +473,9 @@ Deno.serve(async (req) => {
           // exactly who has no account yet; no model and no paid provider runs.
           const silenced = conversation.control === "human" || conversation.escalated;
           const typed = typedText;
-          if (!silenced && typed && !incoming.unsupportedType) {
+          // Only a real refusal. A gate that could not be asked ("unavailable") stays a silent refusal.
+          const refused = verdict === "blocked_first_notice" || verdict === "blocked_silent";
+          if (refused && !silenced && typed && !incoming.unsupportedType) {
             try {
               const signupLanguage = wideLanguage;
               const turn = await runChatSignupTurn(

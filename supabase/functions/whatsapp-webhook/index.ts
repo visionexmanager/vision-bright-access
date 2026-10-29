@@ -2446,6 +2446,8 @@ Deno.serve(async (req) => {
           // exactly who has no account yet, so this is where the offer lives.
           const signupOk = !incoming.media && !incoming.location && !incoming.selection && !voiceRequested &&
             !!(incoming.text ?? "").trim() &&
+            // Only a real refusal. A gate that could not be asked ("unavailable") stays a silent refusal.
+            (verdict === "blocked_first_notice" || verdict === "blocked_silent") &&
             !assistantIsSilenced(existing as Record<string, unknown> | null, Date.now());
           if (signupOk) {
             const sendPlain = async (body: string) => {
