@@ -2126,6 +2126,24 @@
       "text": "Skybound Quest. مغامرة بوابة السماء. Jump between sky platforms for every gem, one unhurried move at a time.. اقفز بين منصات السماء لجمع كل جوهرة، بحركة واحدة كاملة في كل مرة.. Platform. Adventure. Puzzle. Logic. Accessible. Medium. Everyone"
     },
     {
+      "slug": "sky-master",
+      "path": "/games/sky-master",
+      "title_en": "Sky Master",
+      "title_ar": "قائد السماء",
+      "description_en": "Run the pre-flight checklist, climb to cruise, serve the cabin and land safely, with no timer pressure.",
+      "description_ar": "أنجز قائمة ما قبل الإقلاع، اصعد إلى ارتفاع الرحلة، اخدم المقصورة واهبط بسلام دون ضغط الوقت.",
+      "categories": [
+        "Simulation",
+        "Adventure",
+        "Accessible"
+      ],
+      "difficulty": "Easy",
+      "age": "Everyone",
+      "players": "1",
+      "accessible": true,
+      "text": "Sky Master. قائد السماء. Run the pre-flight checklist, climb to cruise, serve the cabin and land safely, with no timer pressure.. أنجز قائمة ما قبل الإقلاع، اصعد إلى ارتفاع الرحلة، اخدم المقصورة واهبط بسلام دون ضغط الوقت.. Simulation. Adventure. Accessible. Easy. Everyone"
+    },
+    {
       "slug": "hex",
       "path": "/games/hex",
       "title_en": "Hex",
@@ -2188,7 +2206,7 @@
   "categories": [
     {
       "id": "Accessible",
-      "count": 113,
+      "count": 114,
       "labels": {
         "en": "Accessible",
         "ar": "ألعاب متاحة",
@@ -2422,7 +2440,7 @@
     },
     {
       "id": "Simulation",
-      "count": 13,
+      "count": 14,
       "labels": {
         "en": "Simulation",
         "ar": "محاكاة",
@@ -2681,6 +2699,32 @@
       }
     },
     {
+      "id": "Adventure",
+      "count": 6,
+      "labels": {
+        "en": "Adventure",
+        "ar": "مغامرة",
+        "ur": "ایڈونچر",
+        "hi": "एडवेंचर",
+        "id": "Petualangan",
+        "ja": "アドベンチャー",
+        "it": "Avventura",
+        "ko": "어드벤처",
+        "nl": "Avontuur",
+        "pl": "Przygoda",
+        "vi": "Phiêu lưu",
+        "bn": "অ্যাডভেঞ্চার",
+        "fa": "ماجراجویی",
+        "es": "Aventura",
+        "de": "Abenteuer",
+        "pt": "Aventura",
+        "zh": "冒险",
+        "tr": "Macera",
+        "fr": "Aventure",
+        "ru": "Приключения"
+      }
+    },
+    {
       "id": "Memory",
       "count": 5,
       "labels": {
@@ -2730,32 +2774,6 @@
         "tr": "Matematik",
         "fr": "Maths",
         "ru": "Математика"
-      }
-    },
-    {
-      "id": "Adventure",
-      "count": 5,
-      "labels": {
-        "en": "Adventure",
-        "ar": "مغامرة",
-        "ur": "ایڈونچر",
-        "hi": "एडवेंचर",
-        "id": "Petualangan",
-        "ja": "アドベンチャー",
-        "it": "Avventura",
-        "ko": "어드벤처",
-        "nl": "Avontuur",
-        "pl": "Przygoda",
-        "vi": "Phiêu lưu",
-        "bn": "অ্যাডভেঞ্চার",
-        "fa": "ماجراجویی",
-        "es": "Aventura",
-        "de": "Abenteuer",
-        "pt": "Aventura",
-        "zh": "冒险",
-        "tr": "Macera",
-        "fr": "Aventure",
-        "ru": "Приключения"
       }
     },
     {

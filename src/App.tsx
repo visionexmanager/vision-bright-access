@@ -286,6 +286,7 @@ const Mancala = lazyWithRetry(() => import("./pages/games/expansion/Mancala"));
 const RoyalGameOfUr = lazyWithRetry(() => import("./pages/games/expansion/RoyalGameOfUr"));
 const WordMaster = lazyWithRetry(() => import("./pages/games/WordMaster"));
 const SkyboundQuest = lazyWithRetry(() => import("./pages/games/SkyboundQuest"));
+const SkyMaster = lazyWithRetry(() => import("./pages/games/SkyMaster"));
 const BusinessSimulator = lazyWithRetry(() => import("./pages/BusinessSimulator"));
 const SimulationRunner = lazyWithRetry(() => import("./pages/SimulationRunner"));
 const SimulationsSummary = lazyWithRetry(() => import("./pages/SimulationsSummary"));
@@ -952,6 +953,7 @@ function AppRoutes() {
                     <Route path="/games/royal-game-of-ur" element={<GameEconomyGate gameTitle="Royal Game of Ur"><RoyalGameOfUr /></GameEconomyGate>} />
                     <Route path="/games/word-master" element={<GameEconomyGate gameTitle="Word Master"><WordMaster /></GameEconomyGate>} />
                     <Route path="/games/skybound-quest" element={<GameEconomyGate gameTitle="Skybound Quest"><SkyboundQuest /></GameEconomyGate>} />
+                    <Route path="/games/sky-master" element={<GameEconomyGate gameTitle="Sky Master"><SkyMaster /></GameEconomyGate>} />
                     <Route path="/games/2048" element={<GameEconomyGate gameTitle="2048"><Game2048 /></GameEconomyGate>} />
                     <Route path="/games/minesweeper" element={<GameEconomyGate gameTitle="Minesweeper"><Minesweeper /></GameEconomyGate>} />
                     <Route path="/games/connect-four" element={<GameEconomyGate gameTitle="Connect Four"><ConnectFour /></GameEconomyGate>} />

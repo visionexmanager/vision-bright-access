@@ -13142,6 +13142,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "Devinez le mot de cinq lettres en six essais, en arabe ou en anglais.",
   "arcade.skybound-quest.title": "Quête Céleste",
   "arcade.skybound-quest.desc": "Sautez de plateforme en plateforme dans le ciel pour chaque gemme, un mouvement posé à la fois.",
+  "arcade.sky-master.title": "Commandant du Ciel",
+  "arcade.sky-master.desc": "Suivez la liste de contrôle avant le vol, montez à l'altitude de croisière, servez la cabine et atterrissez en toute sécurité, sans pression de temps.",
   "arcade.hex.title": "Hex",
   "arcade.hex.desc": "Tracez un chemin continu d'un bord à l'autre sur un plateau tactique compact.",
   "arcade.mancala.title": "Mancala",

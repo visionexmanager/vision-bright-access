@@ -13136,6 +13136,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "다섯 글자 낱말을 여섯 번 안에, 아랍어나 영어로 맞혀 보세요.",
   "arcade.skybound-quest.title": "하늘길 여정",
   "arcade.skybound-quest.desc": "보석 하나하나를 찾아 하늘의 발판 사이를 서두르지 않고 한 걸음씩 건너뛰세요.",
+  "arcade.sky-master.title": "스카이 마스터",
+  "arcade.sky-master.desc": "이륙 전 점검표를 마치고 순항 고도까지 올라 객실을 챙긴 뒤, 시간 압박 없이 안전하게 착륙하세요.",
   "arcade.hex.title": "헥스",
   "arcade.hex.desc": "아담한 전술 판에서 가장자리부터 가장자리까지 끊기지 않는 길을 만드세요.",
   "arcade.mancala.title": "만칼라",

@@ -6875,6 +6875,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "पाँच अक्षरों का शब्द छह कोशिशों में, अरबी या अंग्रेज़ी में पहचानें।",
   "arcade.skybound-quest.title": "गगन यात्रा",
   "arcade.skybound-quest.desc": "हर रत्न के लिए आकाश के चबूतरों पर इत्मीनान से, एक-एक चाल में छलाँग लगाएँ।",
+  "arcade.sky-master.title": "आकाश कप्तान",
+  "arcade.sky-master.desc": "उड़ान से पहले की सूची पूरी करें, क्रूज़ ऊँचाई तक चढ़ें, केबिन में सेवा दें और समय के दबाव के बिना सुरक्षित उतरें।",
   "arcade.hex.title": "हेक्स",
   "arcade.hex.desc": "छोटे रणनीतिक बोर्ड पर किनारे से किनारे तक अटूट रास्ता बनाएँ।",
   "arcade.mancala.title": "मनकला",

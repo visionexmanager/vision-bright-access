@@ -13136,6 +13136,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "Tebak kata lima huruf dalam enam percobaan, dalam bahasa Arab atau Inggris.",
   "arcade.skybound-quest.title": "Petualangan Langit",
   "arcade.skybound-quest.desc": "Lompati panggung-panggung langit demi tiap permata, satu langkah tenang setiap kali.",
+  "arcade.sky-master.title": "Kapten Langit",
+  "arcade.sky-master.desc": "Selesaikan daftar periksa sebelum terbang, naik ke ketinggian jelajah, layani kabin, dan mendarat dengan selamat tanpa tekanan waktu.",
   "arcade.hex.title": "Hex",
   "arcade.hex.desc": "Bangun jalur tak terputus dari tepi ke tepi di papan taktis yang ringkas.",
   "arcade.mancala.title": "Congklak",

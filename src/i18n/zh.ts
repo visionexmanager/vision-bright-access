@@ -13136,6 +13136,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "六次机会猜出五个字母的单词，阿拉伯语或英语皆可。",
   "arcade.skybound-quest.title": "天际之旅",
   "arcade.skybound-quest.desc": "为了每一颗宝石，在天空平台之间从容地一步步跳跃。",
+  "arcade.sky-master.title": "天空机长",
+  "arcade.sky-master.desc": "完成起飞前检查清单，爬升到巡航高度，照顾好客舱，并在没有时间压力的情况下安全着陆。",
   "arcade.hex.title": "六角棋",
   "arcade.hex.desc": "在紧凑的战术棋盘上，铺出一条从这边到那边不断裂的通路。",
   "arcade.mancala.title": "播棋",

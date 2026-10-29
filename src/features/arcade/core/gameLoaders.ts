@@ -30,6 +30,7 @@ export const GAME_LOADERS: Record<string, Loader> = {
   ludo: () => import("@/pages/games/Ludo"),
   "word-master": () => import("@/pages/games/WordMaster"),
   "skybound-quest": () => import("@/pages/games/SkyboundQuest"),
+  "sky-master": () => import("@/pages/games/SkyMaster"),
   "2048": () => import("@/pages/games/expansion/Game2048"),
   minesweeper: () => import("@/pages/games/expansion/Minesweeper"),
   "connect-four": () => import("@/pages/games/expansion/ConnectFour"),

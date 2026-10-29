@@ -13136,6 +13136,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "Đoán từ năm chữ cái trong sáu lượt, bằng tiếng Ả Rập hoặc tiếng Anh.",
   "arcade.skybound-quest.title": "Hành Trình Trên Mây",
   "arcade.skybound-quest.desc": "Nhảy giữa các bệ trên trời để lấy từng viên đá quý, thong thả từng bước một.",
+  "arcade.sky-master.title": "Cơ Trưởng Bầu Trời",
+  "arcade.sky-master.desc": "Hoàn thành danh sách kiểm tra trước khi bay, lên độ cao hành trình, phục vụ khoang hành khách và hạ cánh an toàn, không bị áp lực thời gian.",
   "arcade.hex.title": "Hex",
   "arcade.hex.desc": "Dựng một lối đi liền mạch từ mép này sang mép kia trên bàn cờ chiến thuật gọn gàng.",
   "arcade.mancala.title": "Ô Ăn Quan",

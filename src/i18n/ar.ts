@@ -13504,6 +13504,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "خمّن كلمة الخمسة حروف خلال ست محاولات بالعربية أو الإنجليزية.",
   "arcade.skybound-quest.title": "مغامرة بوابة السماء",
   "arcade.skybound-quest.desc": "اقفز بين منصات السماء لجمع كل جوهرة، بحركة واحدة كاملة في كل مرة.",
+  "arcade.sky-master.title": "قائد السماء",
+  "arcade.sky-master.desc": "أنجز قائمة ما قبل الإقلاع، اصعد إلى ارتفاع الرحلة، اخدم المقصورة واهبط بسلام دون ضغط الوقت.",
   "arcade.hex.title": "هيكس",
   "arcade.hex.desc": "ابنِ مساراً متصلاً من حافة إلى أخرى على لوحة تكتيكية مدمجة.",
   "arcade.mancala.title": "منقلة",

@@ -13142,6 +13142,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "Beş harfli kelimeyi altı denemede, Arapça veya İngilizce olarak bul.",
   "arcade.skybound-quest.title": "Gökyüzü Macerası",
   "arcade.skybound-quest.desc": "Her mücevher için gökyüzü platformları arasında, acele etmeden tek tek zıpla.",
+  "arcade.sky-master.title": "Gökyüzü Kaptanı",
+  "arcade.sky-master.desc": "Uçuş öncesi kontrol listesini tamamla, seyir irtifasına çık, kabini ağırla ve zaman baskısı olmadan güvenle in.",
   "arcade.hex.title": "Hex",
   "arcade.hex.desc": "Derli toplu bir taktik tahtada kenardan kenara kesintisiz bir yol kur.",
   "arcade.mancala.title": "Mangala",
