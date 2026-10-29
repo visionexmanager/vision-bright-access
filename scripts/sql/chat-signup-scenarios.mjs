@@ -162,13 +162,22 @@ expect("the gate now resolves the linked account", (await call("ai_subscription_
 expect("another sender is still not entitled", (await call("ai_subscription_gate_meta", "facebook:999")) === "blocked_first_notice");
 expect("an unknown channel is refused", await db.query("select public.chat_signup_begin('sms','x')").then(() => false, () => true));
 
+// ── Free-reply flood guard
+let allowed = [];
+for (let i = 0; i < 22; i++) allowed.push(await call("chat_free_reply_allow", "whatsapp", "96170888888"));
+expect("free replies: 20 an hour, then refused", allowed.slice(0, 20).every(Boolean) && !allowed[20] && !allowed[21]);
+expect("free replies: another sender is unaffected", (await call("chat_free_reply_allow", "whatsapp", "96170999999")) === true);
+expect("free replies: unknown channel refused", (await call("chat_free_reply_allow", "sms", "x")) === false);
+await db.query("update public.chat_free_replies set window_start = now() - interval '1 hour' - interval '1 minute' where subject=$1", ["96170888888"]);
+expect("free replies: the window resets after an hour", (await call("chat_free_reply_allow", "whatsapp", "96170888888")) === true);
+
 // ── Grants ─────────────────────────────────────────────────────────────────
 const can = async (role, sig) =>
   (await db.query("select has_function_privilege($1, $2, 'EXECUTE') as ok", [role, sig])).rows[0].ok;
 for (const sig of [
   "public.chat_signup_state(text,text)", "public.chat_signup_begin(text,text)", "public.chat_signup_set_name(text,text,text)",
   "public.chat_signup_request_code(text,text,text,text,integer)", "public.chat_signup_confirm(text,text,text)",
-  "public.chat_signup_bind(text,text,uuid)", "public.chat_signup_cancel(text,text)",
+  "public.chat_signup_bind(text,text,uuid)", "public.chat_signup_cancel(text,text)", "public.chat_free_reply_allow(text,text)",
 ]) {
   expect(`${sig}: service_role yes, anon/authenticated no`,
     (await can("service_role", sig)) && !(await can("anon", sig)) && !(await can("authenticated", sig)));

@@ -55,6 +55,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
+import { freeReply } from "../_shared/chatFreeReplies.ts";
 import { sendLinkCodeEmail } from "../_shared/whatsappIdentity.ts";
 import { streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import {
@@ -499,8 +500,20 @@ Deno.serve(async (req) => {
               if (turn.handled && turn.reply) {
                 await reply(turn.reply, "reply");
                 if (turn.after) await turn.after();
-              } else if (verdict === "blocked_first_notice") {
-                await reply(signupOfferText(signupLanguage), "reply");
+              } else {
+                // A fixed, free answer ending in the plans and in-chat sign-up.
+                // No model, no speech, no search; capped per sender.
+                const free = freeReply(typed, signupLanguage);
+                const { data: allowed } = await db.rpc("chat_free_reply_allow", {
+                  _channel: "meta",
+                  _subject: `${incoming.channel}:${incoming.senderId}`,
+                });
+                if (allowed === true) {
+                  await reply(
+                    free.topic === "fallback" && verdict === "blocked_first_notice" ? signupOfferText(signupLanguage) : free.body,
+                    "reply",
+                  );
+                }
               }
             } catch (e) {
               console.error("[meta-messaging] chat sign-up failed:", e instanceof Error ? e.name : "unknown");

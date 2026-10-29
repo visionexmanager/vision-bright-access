@@ -56,12 +56,14 @@ const MAX_INTENT_CHARS = 80;
 const CANCEL_WORDS = new Set(["0", "#", "cancel", "stop", "الغاء", "إلغاء", "ألغي", "annuler", "cancelar", "abbrechen", "iptal", "отмена", "لغو"]);
 
 /** Lower-cased, marks and punctuation removed, so «Créer» and «creer» agree. */
-function fold(text: string): string {
+export function fold(text: string): string {
   return foldDigits(text)
     .normalize("NFD")
     .replace(/[\p{M}ـ]/gu, "")
     .toLowerCase()
     .replace(/[أإآٱ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();

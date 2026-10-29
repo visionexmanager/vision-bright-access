@@ -409,3 +409,42 @@ BEGIN
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', _sig);
   END LOOP;
 END $$;
+
+-- ── Free fixed replies to unsubscribed senders: a flood guard ──────────────
+-- The replies cost nothing to produce, but a loop of two bots would still be a
+-- loop. At most 20 an hour per sender; beyond that the sender is not answered.
+
+CREATE TABLE IF NOT EXISTS public.chat_free_replies (
+  channel      text NOT NULL,
+  subject      text NOT NULL,
+  window_start timestamptz NOT NULL DEFAULT now(),
+  sent         integer NOT NULL DEFAULT 0,
+  PRIMARY KEY (channel, subject)
+);
+ALTER TABLE public.chat_free_replies ENABLE ROW LEVEL SECURITY;
+COMMENT ON TABLE public.chat_free_replies IS
+  'Hourly counter for fixed replies to unsubscribed senders. Service role only: no policy, deliberately.';
+
+CREATE OR REPLACE FUNCTION public.chat_free_reply_allow(_channel text, _subject text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _sent integer;
+BEGIN
+  IF _channel NOT IN ('whatsapp', 'meta') OR _subject IS NULL OR btrim(_subject) = '' THEN
+    RETURN false;
+  END IF;
+  INSERT INTO public.chat_free_replies AS f (channel, subject, window_start, sent)
+  VALUES (_channel, _subject, now(), 1)
+  ON CONFLICT (channel, subject) DO UPDATE SET
+    window_start = CASE WHEN f.window_start < now() - interval '1 hour' THEN now() ELSE f.window_start END,
+    sent         = CASE WHEN f.window_start < now() - interval '1 hour' THEN 1 ELSE f.sent + 1 END
+  RETURNING sent INTO _sent;
+  RETURN _sent <= 20;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.chat_free_reply_allow(text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.chat_free_reply_allow(text, text) TO service_role;

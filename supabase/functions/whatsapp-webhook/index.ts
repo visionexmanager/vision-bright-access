@@ -168,6 +168,7 @@ import {
 } from "../_shared/whatsappEntitlements.ts";
 import { isAuthorized, requireActiveSubscription } from "../_shared/subscriptionGate.ts";
 import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
+import { freeReply } from "../_shared/chatFreeReplies.ts";
 import {
   formatWeather,
   parseWeatherRequest,
@@ -2486,9 +2487,19 @@ Deno.serve(async (req) => {
                 if (turn.after) await turn.after();
                 continue;
               }
-              // Not a sign-up message: the first notice is followed, once, by
-              // how to sign up. Same sentence for every sender; no model.
-              if (verdict === "blocked_first_notice" && !accountTurn) await sendPlain(signupOfferText(answerLanguage));
+              // Not a sign-up message: a fixed, free answer that ends with the
+              // plans and how to sign up here. No model, no speech, no search;
+              // capped per sender so two bots cannot loop.
+              if (!accountTurn) {
+                const free = freeReply(incoming.text, answerLanguage);
+                const { data: allowed } = await db.rpc("chat_free_reply_allow", { _channel: "whatsapp", _subject: incoming.from });
+                if (allowed === true) {
+                  await sendPlain(
+                    free.topic === "fallback" && verdict === "blocked_first_notice" ? signupOfferText(answerLanguage) : free.body,
+                  );
+                  log("free_reply", { outcome: free.topic });
+                }
+              }
             } catch (e) {
               console.error("[whatsapp] chat sign-up failed:", describeError(e));
               log("feature_error", { node: "chat_signup" });

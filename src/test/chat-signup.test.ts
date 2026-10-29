@@ -328,3 +328,78 @@ describe("where the webhooks call it", () => {
     }
   });
 });
+
+// ── Free replies for the unsubscribed ───────────────────────────────────────
+
+import { freeReply, freeTopic } from "../../supabase/functions/_shared/chatFreeReplies.ts";
+import { FREE_STRINGS } from "../../supabase/functions/_shared/chatFreeRepliesStrings.ts";
+
+describe("free replies", () => {
+  it("every language has every sentence, with no placeholder left unresolved", () => {
+    for (const l of SUPPORTED_LANGUAGES) {
+      for (const [k, v] of Object.entries(FREE_STRINGS[l])) expect(v.trim().length, `${l}.${k}`).toBeGreaterThan(5);
+      for (const text of ["hi", "plans", "what is visionex", "random words"]) {
+        const { body } = freeReply(text, l);
+        expect(body, l).not.toMatch(/\{(plans|site|here|url|terms)\}/);
+      }
+    }
+  });
+
+  it("states no price and no limit (those change and live behind the link)", () => {
+    for (const l of SUPPORTED_LANGUAGES) {
+      for (const [k, v] of Object.entries(FREE_STRINGS[l])) expect(v, `${l}.${k}`).not.toMatch(/[$€£]|\d\s?(usd|dollars?|%)/i);
+    }
+  });
+
+  it("every answer points at the plans and teaches the in-chat phrase", () => {
+    for (const l of SUPPORTED_LANGUAGES) {
+      for (const text of ["hi", "thanks", "what is visionex", "plans", "accessibility", "zzz qqq"]) {
+        const { body } = freeReply(text, l);
+        expect(body, `${l}/${text}`).toContain("https://visionex.app/pricing");
+        if (freeTopic(text) !== "plans") expect(body, `${l}/${text}`).toContain(SIGNUP_STRINGS[l].here);
+      }
+    }
+  });
+
+  it.each([
+    ["hello", "greeting"],
+    ["مرحبا", "greeting"],
+    ["bonjour", "greeting"],
+    ["شكرا لك", "thanks"],
+    ["thank you", "thanks"],
+    ["كم سعر الاشتراك", "plans"],
+    ["باقة الأطفال", "plans"],
+    ["how much does it cost", "plans"],
+    ["هل الموقع مناسب للمكفوفين، كفيف", "accessibility"],
+    ["do you work with NVDA", "accessibility"],
+    ["أي لغات تدعمون", "languages"],
+    ["ما هو Visionex", "about"],
+    ["what can you do", "features"],
+    ["أريد التواصل مع الدعم", "contact"],
+    ["谢谢", "thanks"],
+    ["你好", "greeting"],
+  ])("%s → %s", (text, topic) => expect(freeTopic(text)).toBe(topic));
+
+  it.each([
+    "which one",              // contains «hi» as letters but not as a word
+    "what is the capital of France",
+    "",
+    "x".repeat(400),
+  ])("does not mistake %j for a topic", (text) => expect(freeTopic(text)).toBe("fallback"));
+
+  it("is fixed text only: no model, speech, search or database import", () => {
+    const src = readFileSync("supabase/functions/_shared/chatFreeReplies.ts", "utf8");
+    expect(src).not.toMatch(/aiProvider|openai|elevenlabs|fetch\(|createClient|\.rpc\(|\.from\(/i);
+  });
+
+  it("is wired behind the same guards as sign-up, and rate limited", () => {
+    const wa = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
+    const meta = readFileSync("supabase/functions/meta-messaging-webhook/index.ts", "utf8");
+    const waCall = wa.indexOf("freeReply(");
+    expect(waCall).toBeGreaterThan(wa.indexOf("const signupOk"));
+    expect(wa.slice(waCall, waCall + 400)).toContain("chat_free_reply_allow");
+    const metaCall = meta.indexOf("freeReply(typed");
+    expect(metaCall).toBeGreaterThan(meta.indexOf("const silenced"));
+    expect(meta.slice(metaCall, metaCall + 400)).toContain("chat_free_reply_allow");
+  });
+});
