@@ -59,5 +59,7 @@ jobs:
         run: node scripts/sql/library-saved-external-scenarios.mjs
       - name: Data Hub control layer, metadata only (PGlite)
         run: node scripts/sql/data-hub-scenarios.mjs
+      - name: Sign up from a chat, memory and throttles (PGlite)
+        run: node scripts/sql/chat-signup-scenarios.mjs
       - name: Ten simultaneous connections on a real PostgreSQL
         run: node scripts/sql/ai-subscription-gate-concurrency.mjs

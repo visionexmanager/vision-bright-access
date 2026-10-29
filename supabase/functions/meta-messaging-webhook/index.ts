@@ -54,6 +54,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
+import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
+import { smartFreeReply } from "../_shared/chatFreeMemory.ts";
+import { detectChatLanguage } from "../_shared/chatLanguage.ts";
+import { sendLinkCodeEmail } from "../_shared/whatsappIdentity.ts";
 import { streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import {
   clampReply,
@@ -191,6 +195,28 @@ async function escalate(db: Service, conversationId: string, reason: string) {
       escalation_reason: reason,
     })
     .eq("id", conversationId);
+}
+
+/**
+ * The language to answer in: the one the message is written in when it clearly
+ * has one, otherwise that of the most recent earlier message that did, otherwise
+ * the fallback. Never announced and never asked about.
+ */
+async function signupLanguageFor(db: Service, conversationId: string, text: string, fallback: string): Promise<string> {
+  const own = detectChatLanguage(text);
+  if (own.confident) return own.lang;
+  const { data } = await db
+    .from("meta_messages")
+    .select("body")
+    .eq("conversation_id", conversationId)
+    .eq("direction", "inbound")
+    .order("created_at", { ascending: false })
+    .limit(6);
+  for (const row of (data ?? []) as { body: string | null }[]) {
+    const earlier = detectChatLanguage(row.body ?? "");
+    if (earlier.confident) return earlier.lang;
+  }
+  return fallback;
 }
 
 // ── Handler ──────────────────────────────────────────────────────────────────
@@ -437,8 +463,65 @@ Deno.serve(async (req) => {
           senderId: `${incoming.channel}:${incoming.senderId}`,
         });
         if (!isAuthorized(verdict)) {
+          const typedText = typeof incoming.text === "string" ? incoming.text.trim() : "";
+          const wideLanguage = typedText ? await signupLanguageFor(db, conversation.id, typedText, language) : language;
           if (verdict === "blocked_first_notice") {
-            await reply(subscriptionRequiredShortNotice(language), "unsupported");
+            await reply(subscriptionRequiredShortNotice(wideLanguage as never), "unsupported");
+          }
+          // Sign-up from this chat: typed text only, never for a conversation a
+          // person owns or an escalation silenced. A sender the gate refused is
+          // exactly who has no account yet; no model and no paid provider runs.
+          const silenced = conversation.control === "human" || conversation.escalated;
+          const typed = typedText;
+          // Only a real refusal. A gate that could not be asked ("unavailable") stays a silent refusal.
+          const refused = verdict === "blocked_first_notice" || verdict === "blocked_silent";
+          if (refused && !silenced && typed && !incoming.unsupportedType) {
+            try {
+              const signupLanguage = wideLanguage;
+              const turn = await runChatSignupTurn(
+                {
+                  rpc: (fn, args) => db.rpc(fn, args),
+                  secret: env("META_APP_SECRET") ?? env("INSTAGRAM_APP_SECRET") ?? "",
+                  emailConfigured: !!env("RESEND_API_KEY"),
+                  createUser: async ({ email, displayName }) => {
+                    const secret = crypto.getRandomValues(new Uint8Array(24));
+                    const { data, error } = await db.auth.admin.createUser({
+                      email,
+                      password: btoa(String.fromCharCode(...secret)),
+                      email_confirm: true,
+                      user_metadata: { display_name: displayName, signup_channel: incoming.channel },
+                    });
+                    return error ? null : data.user?.id ?? null;
+                  },
+                },
+                {
+                  channel: "meta",
+                  subject: `${incoming.channel}:${incoming.senderId}`,
+                  text: typed,
+                  language: signupLanguage,
+                  sendCode: (to, code) => sendLinkCodeEmail({ to, code, language: signupLanguage as never }),
+                },
+              );
+              if (turn.handled && turn.reply) {
+                await reply(turn.reply, "reply");
+                if (turn.after) await turn.after();
+              } else {
+                // A fixed, free answer ending in the plans and in-chat sign-up.
+                // No model, no speech, no search; capped per sender.
+                const memorySubject = `${incoming.channel}:${incoming.senderId}`;
+                const { data: allowed } = await db.rpc("chat_free_reply_allow", { _channel: "meta", _subject: memorySubject });
+                if (allowed === true) {
+                  // Remembers the last hour (what they like, who it is for) so the talk is sequential.
+                  const free = await smartFreeReply((fn, args) => db.rpc(fn, args), "meta", memorySubject, typed, signupLanguage);
+                  await reply(
+                    free.topic === "fallback" && verdict === "blocked_first_notice" ? signupOfferText(signupLanguage) : free.body,
+                    "reply",
+                  );
+                }
+              }
+            } catch (e) {
+              console.error("[meta-messaging] chat sign-up failed:", e instanceof Error ? e.name : "unknown");
+            }
           }
           continue;
         }
