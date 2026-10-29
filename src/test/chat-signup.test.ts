@@ -403,3 +403,61 @@ describe("free replies", () => {
     expect(meta.slice(metaCall, metaCall + 400)).toContain("chat_free_reply_allow");
   });
 });
+
+// ── Mined lexicon (MASSIVE, Tatoeba) ────────────────────────────────────────
+
+import { existsSync } from "node:fs";
+import { fold } from "../../supabase/functions/_shared/chatSignup.ts";
+import { LEXICON } from "../../supabase/functions/_shared/chatPhraseLexicon.ts";
+
+describe("mined phrase lexicon", () => {
+  it("covers every supported language and carries its attribution", () => {
+    for (const l of SUPPORTED_LANGUAGES) expect(LEXICON[l], l).toBeDefined();
+    const src = readFileSync("supabase/functions/_shared/chatPhraseLexicon.ts", "utf8");
+    expect(src).toMatch(/CC BY 4\.0/);
+    expect(src).toMatch(/CC BY 2\.0 FR/);
+  });
+
+  it("holds keywords, not a copy of the datasets", () => {
+    const bytes = readFileSync("supabase/functions/_shared/chatPhraseLexicon.ts", "utf8").length;
+    expect(bytes).toBeLessThan(80_000);
+    for (const l of SUPPORTED_LANGUAGES) {
+      expect(LEXICON[l].greeting.length).toBeLessThanOrEqual(25);
+      expect(LEXICON[l].assistant.length).toBeLessThanOrEqual(60);
+    }
+  });
+
+  it("answers everyday-assistant requests in several languages with the assistant pitch", () => {
+    for (const text of [
+      "what's the weather tomorrow", "ما هو الطقس اليوم", "quelle est la météo", "¿qué tiempo hace?", "wie ist das wetter",
+      "какая погода", "今天天气怎么样", "天気を教えて", "play some music", "wake me with an alarm", "اخر الاخبار",
+    ]) expect(freeTopic(text), text).toBe("assistant");
+  });
+
+  it("does not turn sales and support words into assistant requests", () => {
+    for (const text of ["how do I order a plan", "I want to subscribe", "cancel my subscription", "هل عندكم باقة", "contact support"]) {
+      expect(freeTopic(text), text).not.toBe("assistant");
+    }
+  });
+
+  it("greets back on mined greeting phrases", () => {
+    for (const text of ["good evening", "bonne soirée", "buenas tardes", "guten morgen", "おはよう", "доброе утро"]) {
+      expect(["greeting"], text).toContain(freeTopic(text));
+    }
+  });
+
+  // The mined words alone must be rare in ordinary sentences. Measured on the real
+  // Tatoeba sample when TATOEBA_DIR points at it (never committed), skipped otherwise.
+  const sample = process.env.TATOEBA_DIR;
+  (sample && existsSync(sample) ? it : it.skip)("mined words are rare in ordinary Tatoeba sentences", () => {
+    const words = Object.values(LEXICON).flatMap((l) => [...l.greeting, ...l.assistant]);
+    const escape = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`(?<= )(?:${[...new Set(words)].map(escape).join("|")})(?= )`);
+    const files: Record<string, string> = { en: "eng", fr: "fra", es: "spa", de: "deu", ar: "ara", ru: "rus", tr: "tur", it: "ita" };
+    for (const [l, iso] of Object.entries(files)) {
+      const lines = readFileSync(`${sample}/${iso}.tsv`, "utf8").split("\n").map((x) => x.split("\t")[2]).filter((t) => t && t.length < 60).slice(0, 20000).map((t) => ` ${fold(t)} `);
+      const hit = lines.filter((t) => re.test(t)).length;
+      expect(hit / lines.length, `${l} mined false-positive rate`).toBeLessThan(0.03); // news, radio, hello are real words in everyday text too
+    }
+  }, 120_000);
+});

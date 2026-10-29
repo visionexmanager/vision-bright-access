@@ -16,6 +16,7 @@ export type FreeKey =
   | "about"
   | "plans"
   | "features"
+  | "assistant"
   | "accessibility"
   | "languages"
   | "contact"
@@ -26,6 +27,7 @@ export type FreePack = Record<FreeKey, string>;
 
 export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
   en: {
+    assistant: "That's exactly what the Visionex assistant does — everyday questions, the weather, news, reminders, music, recipes and more, by text or voice. It's included with a plan.",
     greeting: "Hello, and welcome to Visionex! I'm the Visionex assistant.",
     thanks: "You're welcome! Happy to help.",
     about: "Visionex is an accessibility-first platform: an AI assistant, an academy, a library, games, a marketplace, news and a community — built to work with screen readers and the keyboard.",
@@ -38,6 +40,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "Plans: {plans} — to sign up right here, send «{here}».",
   },
   ar: {
+    assistant: "هذا بالضبط ما يفعله مساعد Visionex — أسئلة الحياة اليومية والطقس والأخبار والتذكيرات والموسيقى والوصفات وغيرها، بالنص أو الصوت. وهو ضمن الباقات.",
     greeting: "أهلاً بك في Visionex! أنا مساعد Visionex.",
     thanks: "عفواً! يسعدني أن أساعدك.",
     about: "Visionex منصة تضع إمكانية الوصول أولاً: مساعد ذكي وأكاديمية ومكتبة وألعاب وسوق وأخبار ومجتمع — كلها مصممة لتعمل مع قارئات الشاشة ولوحة المفاتيح.",
@@ -50,6 +53,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "الباقات: {plans} — وللتسجيل هنا مباشرة أرسل «{here}».",
   },
   ur: {
+    assistant: "یہی تو Visionex کا اسسٹنٹ کرتا ہے — روزمرہ سوالات، موسم، خبریں، یاددہانیاں، موسیقی، ترکیبیں اور بہت کچھ، تحریر یا آواز سے۔ یہ پلان میں شامل ہے۔",
     greeting: "Visionex میں خوش آمدید! میں Visionex کا اسسٹنٹ ہوں۔",
     thanks: "خوشی ہوئی! مدد کر کے اچھا لگا۔",
     about: "Visionex رسائی کو اولیت دینے والا پلیٹ فارم ہے: اے آئی اسسٹنٹ، اکیڈمی، لائبریری، گیمز، بازار، خبریں اور کمیونٹی — سکرین ریڈر اور کی بورڈ کے ساتھ کام کرنے کے لیے بنایا گیا۔",
@@ -62,6 +66,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "پلان: {plans} — یہیں سائن اپ کے لیے «{here}» بھیجیں۔",
   },
   hi: {
+    assistant: "यही तो Visionex असिस्टेंट करता है — रोज़मर्रा के सवाल, मौसम, समाचार, रिमाइंडर, संगीत, रेसिपी और बहुत कुछ, टेक्स्ट या आवाज़ से। यह प्लान में शामिल है।",
     greeting: "Visionex में आपका स्वागत है! मैं Visionex का असिस्टेंट हूँ।",
     thanks: "आपका स्वागत है! मदद करके अच्छा लगा।",
     about: "Visionex एक पहुँच-पहले प्लेटफ़ॉर्म है: एआई असिस्टेंट, अकादमी, लाइब्रेरी, गेम, बाज़ार, समाचार और समुदाय — स्क्रीन रीडर और कीबोर्ड के साथ चलने के लिए बना।",
@@ -74,6 +79,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "प्लान: {plans} — यहीं साइन अप के लिए «{here}» भेजें।",
   },
   id: {
+    assistant: "Itulah yang dilakukan asisten Visionex — pertanyaan sehari-hari, cuaca, berita, pengingat, musik, resep, dan lainnya, lewat teks atau suara. Termasuk dalam paket.",
     greeting: "Halo, selamat datang di Visionex! Saya asisten Visionex.",
     thanks: "Sama-sama! Senang bisa membantu.",
     about: "Visionex adalah platform yang mengutamakan aksesibilitas: asisten AI, akademi, perpustakaan, game, marketplace, berita, dan komunitas — dibuat agar berfungsi dengan pembaca layar dan keyboard.",
@@ -86,6 +92,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "Paket: {plans} — untuk mendaftar di sini, kirim «{here}».",
   },
   ja: {
+    assistant: "それこそ Visionex アシスタントの得意分野です。日常の質問、天気、ニュース、リマインダー、音楽、レシピなどを、テキストでも音声でも。プランに含まれています。",
     greeting: "Visionex へようこそ！Visionex アシスタントです。",
     thanks: "どういたしまして。お役に立てて嬉しいです。",
     about: "Visionex はアクセシビリティを最優先にしたプラットフォームです。AI アシスタント、アカデミー、ライブラリ、ゲーム、マーケット、ニュース、コミュニティを、スクリーンリーダーとキーボードで使えるように作っています。",
@@ -98,6 +105,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "プラン：{plans} ／ このチャットで登録するには「{here}」と送信。",
   },
   it: {
+    assistant: "È proprio ciò che fa l'assistente Visionex: domande quotidiane, meteo, notizie, promemoria, musica, ricette e altro, a testo o a voce. È incluso in un piano.",
     greeting: "Ciao, benvenuto su Visionex! Sono l'assistente Visionex.",
     thanks: "Prego! Felice di aiutare.",
     about: "Visionex è una piattaforma che mette l'accessibilità al primo posto: assistente AI, accademia, biblioteca, giochi, marketplace, notizie e comunità — pensata per funzionare con screen reader e tastiera.",
@@ -110,6 +118,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "Piani: {plans} — per registrarti qui, scrivi «{here}».",
   },
   ko: {
+    assistant: "바로 Visionex 어시스턴트가 하는 일입니다. 일상 질문, 날씨, 뉴스, 알림, 음악, 요리법 등을 문자나 음성으로 도와 드려요. 요금제에 포함되어 있습니다.",
     greeting: "Visionex에 오신 것을 환영합니다! Visionex 어시스턴트입니다.",
     thanks: "천만에요! 도움이 되어 기쁩니다.",
     about: "Visionex는 접근성을 최우선으로 하는 플랫폼입니다. AI 어시스턴트, 아카데미, 도서관, 게임, 마켓, 뉴스, 커뮤니티를 화면 낭독기와 키보드로 쓸 수 있게 만들었습니다.",
@@ -122,6 +131,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "요금제: {plans} — 여기서 가입하려면 «{here}»를 보내세요.",
   },
   nl: {
+    assistant: "Dat is precies wat de Visionex-assistent doet — alledaagse vragen, het weer, nieuws, herinneringen, muziek, recepten en meer, via tekst of spraak. Het zit in een abonnement.",
     greeting: "Hallo, welkom bij Visionex! Ik ben de Visionex-assistent.",
     thanks: "Graag gedaan! Fijn dat ik kon helpen.",
     about: "Visionex is een platform met toegankelijkheid voorop: AI-assistent, academie, bibliotheek, games, marktplaats, nieuws en community — gemaakt voor schermlezers en toetsenbord.",
@@ -134,6 +144,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "Abonnementen: {plans} — om je hier aan te melden, stuur «{here}».",
   },
   pl: {
+    assistant: "Dokładnie to robi asystent Visionex — codzienne pytania, pogoda, wiadomości, przypomnienia, muzyka, przepisy i więcej, tekstem lub głosem. Jest w ramach planu.",
     greeting: "Cześć, witaj w Visionex! Jestem asystentem Visionex.",
     thanks: "Proszę! Cieszę się, że mogłem pomóc.",
     about: "Visionex to platforma, w której dostępność jest na pierwszym miejscu: asystent AI, akademia, biblioteka, gry, rynek, wiadomości i społeczność — stworzone do pracy z czytnikami ekranu i klawiaturą.",
@@ -146,6 +157,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "Plany: {plans} — aby zarejestrować się tutaj, wyślij «{here}».",
   },
   vi: {
+    assistant: "Đó chính là việc trợ lý Visionex làm — câu hỏi hằng ngày, thời tiết, tin tức, nhắc việc, nhạc, công thức nấu ăn và hơn thế, bằng chữ hoặc giọng nói. Có sẵn trong gói.",
     greeting: "Xin chào, chào mừng bạn đến với Visionex! Tôi là trợ lý Visionex.",
     thanks: "Không có gì! Rất vui được giúp bạn.",
     about: "Visionex là nền tảng đặt khả năng tiếp cận lên hàng đầu: trợ lý AI, học viện, thư viện, trò chơi, chợ, tin tức và cộng đồng — được xây dựng để dùng với trình đọc màn hình và bàn phím.",
@@ -158,6 +170,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "Các gói: {plans} — để đăng ký ngay tại đây, gửi «{here}».",
   },
   bn: {
+    assistant: "ঠিক এটাই Visionex সহকারী করে — প্রতিদিনের প্রশ্ন, আবহাওয়া, সংবাদ, রিমাইন্ডার, গান, রেসিপি এবং আরও অনেক কিছু, লেখা বা কণ্ঠে। এটি প্ল্যানের অন্তর্ভুক্ত।",
     greeting: "হ্যালো, Visionex-এ স্বাগতম! আমি Visionex-এর সহকারী।",
     thanks: "আপনাকে স্বাগতম! সাহায্য করতে পেরে ভালো লাগছে।",
     about: "Visionex এমন একটি প্ল্যাটফর্ম যেখানে প্রবেশগম্যতা সবার আগে: এআই সহকারী, একাডেমি, লাইব্রেরি, গেম, বাজার, সংবাদ ও কমিউনিটি — স্ক্রিন রিডার ও কিবোর্ডে চলার জন্য তৈরি।",
@@ -170,6 +183,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "প্ল্যান: {plans} — এখানেই নিবন্ধন করতে «{here}» পাঠান।",
   },
   fa: {
+    assistant: "دقیقاً کار دستیار Visionex همین است — پرسش‌های روزمره، آب‌وهوا، اخبار، یادآور، موسیقی، دستور پخت و بیشتر، با متن یا صدا. در طرح‌ها گنجانده شده است.",
     greeting: "سلام، به Visionex خوش آمدید! من دستیار Visionex هستم.",
     thanks: "خواهش می‌کنم! خوشحالم که کمک کردم.",
     about: "Visionex بستری است که دسترس‌پذیری را در اولویت می‌گذارد: دستیار هوش مصنوعی، آکادمی، کتابخانه، بازی، بازارچه، اخبار و جامعه — ساخته‌شده برای صفحه‌خوان و صفحه‌کلید.",
@@ -182,6 +196,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "طرح‌ها: {plans} — برای ثبت‌نام همین‌جا «{here}» را بفرستید.",
   },
   es: {
+    assistant: "Eso es justo lo que hace el asistente de Visionex: preguntas del día a día, el tiempo, noticias, recordatorios, música, recetas y más, por texto o voz. Está incluido en un plan.",
     greeting: "¡Hola y bienvenido a Visionex! Soy el asistente de Visionex.",
     thanks: "¡De nada! Encantado de ayudar.",
     about: "Visionex es una plataforma que pone la accesibilidad primero: asistente de IA, academia, biblioteca, juegos, mercado, noticias y comunidad, hecha para lectores de pantalla y teclado.",
@@ -194,6 +209,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "Planes: {plans} — para registrarte aquí, envía «{here}».",
   },
   de: {
+    assistant: "Genau das macht der Visionex-Assistent — Alltagsfragen, Wetter, Nachrichten, Erinnerungen, Musik, Rezepte und mehr, per Text oder Sprache. Das ist in einem Tarif enthalten.",
     greeting: "Hallo und willkommen bei Visionex! Ich bin der Visionex-Assistent.",
     thanks: "Gern geschehen! Ich helfe gern.",
     about: "Visionex ist eine Plattform, die Barrierefreiheit an die erste Stelle setzt: KI-Assistent, Akademie, Bibliothek, Spiele, Marktplatz, Nachrichten und Community — gebaut für Screenreader und Tastatur.",
@@ -206,6 +222,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "Tarife: {plans} — um dich hier zu registrieren, sende «{here}».",
   },
   pt: {
+    assistant: "É exatamente isso que o assistente do Visionex faz: perguntas do dia a dia, tempo, notícias, lembretes, música, receitas e mais, por texto ou voz. Está incluído num plano.",
     greeting: "Olá e bem-vindo ao Visionex! Sou o assistente do Visionex.",
     thanks: "De nada! Fico contente em ajudar.",
     about: "O Visionex é uma plataforma que põe a acessibilidade em primeiro lugar: assistente de IA, academia, biblioteca, jogos, mercado, notícias e comunidade, feita para leitores de ecrã e teclado.",
@@ -218,6 +235,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "Planos: {plans} — para te registares aqui, envia «{here}».",
   },
   zh: {
+    assistant: "这正是 Visionex 助手擅长的事：日常问题、天气、新闻、提醒、音乐、食谱等，文字或语音都可以。订阅套餐即包含。",
     greeting: "你好，欢迎来到 Visionex！我是 Visionex 助手。",
     thanks: "不客气！很高兴能帮上忙。",
     about: "Visionex 是一个以无障碍为先的平台：AI 助手、学院、图书馆、游戏、市集、新闻和社区，专为读屏软件和键盘操作而建。",
@@ -230,6 +248,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "套餐：{plans} ——想在这里直接注册，请发送「{here}」。",
   },
   tr: {
+    assistant: "Visionex asistanı tam olarak bunu yapar — günlük sorular, hava durumu, haberler, hatırlatıcılar, müzik, tarifler ve daha fazlası, yazıyla ya da sesle. Pakete dahildir.",
     greeting: "Merhaba, Visionex'e hoş geldin! Ben Visionex asistanıyım.",
     thanks: "Rica ederim! Yardımcı olabildiğime sevindim.",
     about: "Visionex erişilebilirliği ilk sıraya koyan bir platform: yapay zekâ asistanı, akademi, kütüphane, oyunlar, pazar yeri, haberler ve topluluk — ekran okuyucular ve klavye için tasarlandı.",
@@ -242,6 +261,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "Paketler: {plans} — burada kaydolmak için «{here}» yaz.",
   },
   fr: {
+    assistant: "C'est exactement ce que fait l'assistant Visionex : questions du quotidien, météo, actualités, rappels, musique, recettes et plus, par écrit ou à la voix. C'est inclus dans une offre.",
     greeting: "Bonjour et bienvenue sur Visionex ! Je suis l'assistant Visionex.",
     thanks: "Avec plaisir ! Content d'avoir pu aider.",
     about: "Visionex est une plateforme où l'accessibilité passe en premier : assistant IA, académie, bibliothèque, jeux, marché, actualités et communauté — conçue pour les lecteurs d'écran et le clavier.",
@@ -254,6 +274,7 @@ export const FREE_STRINGS: Record<SupportedLanguage, FreePack> = {
     footer: "Offres : {plans} — pour vous inscrire ici, envoyez «{here}».",
   },
   ru: {
+    assistant: "Именно этим и занимается ассистент Visionex — повседневные вопросы, погода, новости, напоминания, музыка, рецепты и многое другое, текстом или голосом. Это входит в тариф.",
     greeting: "Здравствуйте и добро пожаловать в Visionex! Я ассистент Visionex.",
     thanks: "Пожалуйста! Рад помочь.",
     about: "Visionex — платформа, где доступность на первом месте: ИИ-ассистент, академия, библиотека, игры, маркет, новости и сообщество — создана для программ экранного доступа и клавиатуры.",

@@ -10,6 +10,7 @@
 // Nothing here states a price or a limit; those change and live behind the link.
 
 import { fold } from "./chatSignup.ts";
+import { LEXICON } from "./chatPhraseLexicon.ts";
 import { FREE_STRINGS, type FreeKey } from "./chatFreeRepliesStrings.ts";
 import { SIGNUP_STRINGS } from "./chatSignupStrings.ts";
 import { PLANS_URL } from "./whatsappEntitlements.ts";
@@ -46,6 +47,12 @@ const TOPICS: ReadonlyArray<readonly [Exclude<FreeTopic, "fallback">, readonly s
     "ماذا تفعل", "شو بتعمل", "ايش تسوي", "خدمات", "ميزات", "مميزات", "ماذا يوجد", "شو في", "وش عندكم",
     "que puedes hacer", "que peux tu faire", "was kannst du", "neler yapabilirsin", "что ты умеешь", "چه کاری", "आप क्या कर", "apa yang bisa", "cosa puoi fare", "o que voce faz", "你能做什么", "何ができ", "무엇을 할", "co potrafisz", "bạn làm được gì", "কী করতে পারেন", "wat kun je",
   ]],
+  ["assistant", [
+    // Hand-written core, then the mined words below are merged in.
+    "weather", "forecast", "news headlines", "radio", "podcast", "playlist", "play some music", "play music", "what s the news", "reminder", "alarm", "play music", "play a song", "recipe", "traffic", "translate this", "set a timer",
+    "الطقس", "الجو", "نشره الاخبار", "اخر الاخبار", "ذكرني", "منبه", "شغل", "اغنيه", "موسيقى", "وصفه", "طبخه", "ترجم لي", "مؤقت",
+    "meteo", "quel temps", "tiempo hoy", "que tiempo hace", "wetter", "hava durumu", "погода", "новости", "آب و هوا", "موسم", "मौसम", "cuaca", "tempo", "previsioni", "날씨", "天気", "ニュース", "アラーム", "音楽", "レシピ", "天气", "新闻", "闹钟", "音乐", "食谱", "pogoda", "thời tiết", "আবহাওয়া", "weer",
+  ]],
   ["about", [
     "what is visionex", "about visionex", "who are you", "what is this", "tell me about", "about you",
     "ما هو", "ما هي", "من انتم", "من انت", "عن visionex", "عنكم", "تعريف", "شو هاد", "شو هذا",
@@ -68,7 +75,16 @@ const MAX_CHARS = 160;
 /** Latin and Cyrillic keywords match whole words. Arabic-script, Indic, CJK and Hangul ones match anywhere: they take prefixes (ال, و) or have no spaces. */
 const SCRIPTLESS = /[؀-ۿऀ-৿぀-ヿ㐀-鿿가-힯]/u;
 
-const COMPILED = TOPICS.map(([topic, words]) => [topic, words.map(fold).filter(Boolean)] as const);
+// Words and phrases mined from MASSIVE (see scripts/lexicon): every language's
+// list is merged, because a sender writes in a language the detector may not name.
+const MINED: Partial<Record<FreeTopic, string[]>> = {
+  greeting: Object.values(LEXICON).flatMap((l) => l.greeting),
+  assistant: Object.values(LEXICON).flatMap((l) => l.assistant),
+};
+
+const COMPILED = TOPICS.map(
+  ([topic, words]) => [topic, [...new Set([...words, ...(MINED[topic] ?? [])].map(fold).filter(Boolean))]] as const,
+);
 
 /** Which topic the message is about, or "fallback". */
 export function freeTopic(text: string | null | undefined): FreeTopic {
