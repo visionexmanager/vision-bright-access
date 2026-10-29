@@ -12,13 +12,14 @@
 import { fold } from "./chatSignup.ts";
 import { LEXICON } from "./chatPhraseLexicon.ts";
 import { FREE_STRINGS, type FreeKey } from "./chatFreeRepliesStrings.ts";
+import { GUIDE_STRINGS, SITE_PRICES, type GuideKey } from "./chatSiteGuideStrings.ts";
 import { SIGNUP_STRINGS } from "./chatSignupStrings.ts";
 import { PLANS_URL } from "./whatsappEntitlements.ts";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "./whatsappLanguages.ts";
 
 export const SITE_URL = "https://visionex.app";
 
-export type FreeTopic = Exclude<FreeKey, "footer">;
+export type FreeTopic = Exclude<FreeKey, "footer"> | GuideKey;
 
 /** Checked in this order: the first topic with a matching keyword wins. */
 const TOPICS: ReadonlyArray<readonly [Exclude<FreeTopic, "fallback">, readonly string[]]> = [
@@ -26,6 +27,48 @@ const TOPICS: ReadonlyArray<readonly [Exclude<FreeTopic, "fallback">, readonly s
     "contact", "contact us", "support", "email you", "phone number", "call you", "talk to someone",
     "تواصل", "اتصل", "رقم الهاتف", "دعم فني", "الدعم الفني", "خدمة العملاء", "كلم", "تكلم",
     "contacto", "contacter", "kontakt", "iletisim", "связаться", "контакт", "تماس", "رابطہ", "संपर्क", "kontak", "contatto", "contato", "联系", "お問い合わせ", "문의",
+  ]],
+  // ── The site, section by section, and what a plan opens (chatSiteGuideStrings.ts) ──
+  ["tiers", [
+    "difference between plans", "difference between the plans", "difference between", "compare plans", "compare the plans", "which plan", "what does basic include", "what s in basic", "basic plan", "pro plan", "business plan", "kids plan", "plan comparison", "what is included in",
+    "الفرق بين الباقات", "ما الفرق", "ايش تشمل", "ماذا تشمل", "باقه بيزك", "باقه برو", "باقه بزنس", "اي باقه", "مقارنه",
+    "quelle offre", "difference entre", "que plan", "diferencia entre", "unterschied", "welcher tarif", "hangi paket", "какой тариф", "разница", "تفاوت", "کدام طرح", "کون سا پلان", "सबसे अच्छा प्लान", "paket mana", "quale piano", "qual plano", "welk abonnement", "który plan", "gói nào", "কোন প্ল্যান", "哪个套餐", "どのプラン", "어떤 요금제",
+  ]],
+  ["benefits", [
+    "benefits", "advantages", "why subscribe", "worth it", "what do i get", "what will i get", "what do subscribers get", "perks",
+    "فوائد", "مميزات", "ماذا استفيد", "ماذا سأحصل", "لماذا اشترك", "شو بستفيد", "ايش الفايده", "فايده", "ميزات الاشتراك",
+    "avantages", "pourquoi s abonner", "ventajas", "beneficios", "vorteile", "avantajlar", "neden abone", "преимущества", "что я получу", "مزایا", "چه سودی", "فائدہ", "फायदे", "manfaat", "keuntungan", "vantaggi", "benefici", "vantagens", "voordelen", "korzysci", "loi ich", "সুবিধা", "好处", "优势", "メリット", "特典", "혜택", "장점",
+  ]],
+  ["sections", [
+    "sections", "what s on the site", "what is on the site", "site map", "what does the site have", "what services", "services do you have",
+    "اقسام", "الاقسام", "ماذا يوجد في الموقع", "ايش في الموقع", "شو في الموقع", "محتوي الموقع", "خدمات الموقع",
+    "rubriques", "secciones", "bereiche", "bolumler", "разделы", "بخش ها", "حصے", "सेक्शन", "bagian situs", "sezioni", "secoes", "onderdelen", "sekcje", "phan muc", "বিভাগ", "栏目", "板块", "セクション", "섹션",
+  ]],
+  ["academy", [
+    "academy", "courses", "lessons", "اكاديميه", "دورات", "كورسات", "دروس", "cours", "curso", "kurs", "akademi", "академия", "курсы", "学院", "课程", "アカデミー", "講座", "아카데미", "강의",
+  ]],
+  ["library", [
+    "library", "books", "audiobooks", "مكتبه", "كتب", "livres", "libros", "bucher", "kitap", "kutuphane", "книги", "библиотека", "图书馆", "ライブラリ", "도서관",
+  ]],
+  ["arcade", [
+    "arcade", "games", "العاب", "لعبه", "jeux", "juegos", "spiele", "oyun", "игры", "游戏", "ゲーム", "게임",
+  ]],
+  ["kids", [
+    "kids", "children", "visionkids", "اطفال", "طفل", "ولاد", "enfants", "ninos", "kinder", "cocuk", "дети", "儿童", "孩子", "子ども", "어린이",
+  ]],
+  ["marketplace", [
+    "marketplace", "bazaar", "shop", "store", "سوق", "متجر", "تسوق", "boutique", "tienda", "markt", "pazar", "магазин", "маркет", "市集", "商店", "マーケット", "마켓",
+  ]],
+  ["free", [
+    "what is free", "free features", "without subscription", "free access", "مجان", "مجاني", "بدون اشتراك", "gratuit", "gratis", "kostenlos", "ucretsiz", "бесплатно", "免费", "無料", "무료",
+  ]],
+  ["pro", [
+    "career hub", "career", "jobs", "visionex tv", "live tv", "tv", "radio", "voice rooms", "simulations", "simulator",
+    "وظائف", "توظيف", "تلفزيون", "راديو", "غرف صوتيه", "محاكاه", "emploi", "carrera", "karriere", "kariyer", "карьера", "职业", "求人", "커리어",
+  ]],
+  ["business", [
+    "media studio", "ai media studio", "generate images", "generate video", "library studio", "publish a book", "professional tools", "file studio", "finance hub", "vx finance",
+    "استوديو", "توليد صور", "توليد فيديو", "نشر كتاب", "ادوات مهنيه", "مركز مالي",
   ]],
   ["plans", [
     "plan", "plans", "price", "prices", "pricing", "cost", "subscribe", "subscription", "how much", "pay", "payment", "fee",
@@ -105,6 +148,10 @@ function lang(language: string): SupportedLanguage {
 
 function fill(template: string, language: SupportedLanguage): string {
   return template
+    .replaceAll("{basic}", String(SITE_PRICES.basic))
+    .replaceAll("{pro}", String(SITE_PRICES.pro))
+    .replaceAll("{business}", String(SITE_PRICES.business))
+    .replaceAll("{kids}", String(SITE_PRICES.kids))
     .replaceAll("{plans}", PLANS_URL)
     .replaceAll("{site}", SITE_URL)
     .replaceAll("{here}", SIGNUP_STRINGS[language].here);
@@ -115,7 +162,8 @@ export function freeReply(text: string | null | undefined, language: string): { 
   const l = lang(language);
   const topic = freeTopic(text);
   const pack = FREE_STRINGS[l];
+  const sentence = topic in GUIDE_STRINGS.en ? GUIDE_STRINGS[l][topic as GuideKey] : pack[topic as Exclude<FreeKey, "footer">];
   // A plans answer already carries the link; the footer would repeat it.
   const footer = topic === "plans" ? "" : `\n\n${fill(pack.footer, l)}`;
-  return { topic, body: `${fill(pack[topic], l)}${footer}` };
+  return { topic, body: `${fill(sentence, l)}${footer}` };
 }

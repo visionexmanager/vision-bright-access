@@ -368,7 +368,7 @@ describe("free replies", () => {
     ["شكرا لك", "thanks"],
     ["thank you", "thanks"],
     ["كم سعر الاشتراك", "plans"],
-    ["باقة الأطفال", "plans"],
+    ["باقة الأطفال", "kids"],
     ["how much does it cost", "plans"],
     ["هل الموقع مناسب للمكفوفين، كفيف", "accessibility"],
     ["do you work with NVDA", "accessibility"],
@@ -460,4 +460,82 @@ describe("mined phrase lexicon", () => {
       expect(hit / lines.length, `${l} mined false-positive rate`).toBeLessThan(0.03); // news, radio, hello are real words in everyday text too
     }
   }, 120_000);
+});
+
+// ── The site guide: tiers, sections, prices — pinned to src/lib/billing/plans.ts ──
+
+import { GUIDE_STRINGS, SITE_PRICES } from "../../supabase/functions/_shared/chatSiteGuideStrings.ts";
+import { FREE_SECTIONS, KIDS_PLAN, TIERS } from "@/lib/billing/plans";
+
+describe("site guide", () => {
+  it("quotes the real monthly prices", () => {
+    expect(SITE_PRICES).toEqual({ basic: TIERS.basic.price, pro: TIERS.pro.price, business: TIERS.business.price, kids: KIDS_PLAN.price });
+  });
+
+  it("every language has every guide sentence and no unfilled placeholder in the reply", () => {
+    for (const l of SUPPORTED_LANGUAGES) {
+      for (const [k, v] of Object.entries(GUIDE_STRINGS[l])) expect(v.trim().length, `${l}.${k}`).toBeGreaterThan(20);
+      for (const text of ["which plan", "benefits", "sections", "academy", "library", "games", "kids", "marketplace", "what is free", "career hub", "media studio"]) {
+        expect(freeReply(text, l).body, `${l}/${text}`).not.toMatch(/\{(basic|pro|business|kids|plans|site|here)\}/);
+      }
+    }
+  });
+
+  it("the tiers answer lists the right prices and the right products in every language", () => {
+    for (const l of SUPPORTED_LANGUAGES) {
+      const body = freeReply("which plan", l).body;
+      for (const price of [SITE_PRICES.basic, SITE_PRICES.pro, SITE_PRICES.business, SITE_PRICES.kids]) expect(body, `${l} ${price}`).toContain(String(price));
+      for (const name of ["Basic", "Pro", "Business", "Kids", "VisionKids", "Career Hub", "AI Media Studio", "Library Studio", "VX Finance Hub"]) expect(body, `${l} ${name}`).toContain(name);
+    }
+  });
+
+  it("claims about what each plan opens agree with plans.ts", () => {
+    const has = (plan: { sections: readonly string[] }, s: string) => plan.sections.includes(s as never);
+    // Basic: assistant, academy, library, arcade, marketplace; not kids, career, tv, radio, media.
+    for (const s of ["assistant", "academy", "library", "arcade", "marketplace"]) expect(has(TIERS.basic, s), s).toBe(true);
+    for (const s of ["kids", "career", "tv", "radio", "messages", "simulations", "mediaStudio", "studio", "professional", "finance"]) expect(has(TIERS.basic, s), s).toBe(false);
+    // Pro adds the household set, not the business tools.
+    for (const s of ["kids", "career", "tv", "radio", "messages", "simulations"]) expect(has(TIERS.pro, s), s).toBe(true);
+    for (const s of ["mediaStudio", "studio", "professional", "finance"]) expect(has(TIERS.pro, s), s).toBe(false);
+    // Business has everything above and the tools.
+    for (const s of ["mediaStudio", "studio", "professional", "finance", "kids", "tv"]) expect(has(TIERS.business, s), s).toBe(true);
+    // Kids: VisionKids plus academy, library, arcade; not the assistant or the marketplace.
+    for (const s of ["kids", "academy", "library", "arcade"]) expect(has(KIDS_PLAN, s), s).toBe(true);
+    for (const s of ["assistant", "marketplace"]) expect(has(KIDS_PLAN, s), s).toBe(false);
+    // Free without a plan: news, community, assistive products.
+    expect([...FREE_SECTIONS].sort()).toEqual(["assistive", "community", "news"]);
+    // …and the English text says exactly that.
+    const en = GUIDE_STRINGS.en;
+    expect(en.free).toMatch(/news.*community.*assistive/i);
+    expect(en.tiers).toMatch(/Basic.*assistant, Academy, Library, Arcade, Bazaar/);
+    expect(en.pro).toMatch(/VisionKids.*Career Hub.*TV.*Radio.*voice rooms.*simulations/s);
+    expect(en.business).toMatch(/AI Media Studio.*Library Studio.*Professional tools.*VX Finance Hub/s);
+  });
+
+  it.each([
+    ["what is the difference between the plans", "tiers"],
+    ["الفرق بين الباقات", "tiers"],
+    ["what does basic include", "tiers"],
+    ["what are the benefits of subscribing", "benefits"],
+    ["ماذا استفيد من الاشتراك", "benefits"],
+    ["what sections does the site have", "sections"],
+    ["ما هي اقسام الموقع", "sections"],
+    ["tell me about the academy", "academy"],
+    ["هل عندكم كتب", "library"],
+    ["do you have games", "arcade"],
+    ["هل في العاب", "arcade"],
+    ["is there something for children", "kids"],
+    ["is there a marketplace", "marketplace"],
+    ["ما هو المجاني", "free"],
+    ["do you have live radio", "pro"],
+    ["هل عندكم وظائف", "pro"],
+    ["can I generate images with AI media studio", "business"],
+    ["باقة الأطفال", "kids"],
+    ["how much does it cost", "plans"],
+  ])("%s → %s", (text, topic) => expect(freeTopic(text)).toBe(topic));
+
+  it("still lets the assistant topic and the sign-up phrase through", () => {
+    expect(freeTopic("what's the weather tomorrow")).toBe("assistant");
+    expect(parseSignupIntent("register here")).toBe("chat");
+  });
 });
