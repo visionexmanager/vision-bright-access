@@ -1,6 +1,6 @@
 /**
  * The frame every Visionex Travel page sits in: the heading, the sub-navigation
- * between the three domains, and the one paragraph that says what this section
+ * between the domains, and the one paragraph that says what this section
  * can actually do today.
  *
  * That paragraph is not written down. It is chosen from `readiness`, which reads
@@ -11,7 +11,7 @@
  */
 
 import { Link, useLocation } from "react-router-dom";
-import { Compass, Hotel, Car, Plane, Info } from "lucide-react";
+import { Compass, Hotel, Car, KeyRound, Plane, Info } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Layout } from "@/components/Layout";
@@ -24,6 +24,7 @@ const NAV = [
   { path: "/travel/flights", labelKey: "travel.nav.flights", icon: Plane, exact: false },
   { path: "/travel/stays", labelKey: "travel.nav.stays", icon: Hotel, exact: false },
   { path: "/travel/rides", labelKey: "travel.nav.rides", icon: Car, exact: false },
+  { path: "/travel/cars", labelKey: "travel.nav.cars", icon: KeyRound, exact: false },
 ] as const;
 
 export function TravelNav() {

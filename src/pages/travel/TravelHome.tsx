@@ -9,7 +9,7 @@
  */
 
 import { Link } from "react-router-dom";
-import { ArrowRight, Car, Hotel, Plane } from "lucide-react";
+import { ArrowRight, Car, Hotel, KeyRound, Plane } from "lucide-react";
 
 import { TravelShell } from "@/components/travel/TravelShell";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -19,6 +19,7 @@ const CARDS = [
   { domain: "flights", to: "/travel/flights", icon: Plane },
   { domain: "stays", to: "/travel/stays", icon: Hotel },
   { domain: "rides", to: "/travel/rides", icon: Car },
+  { domain: "cars", to: "/travel/cars", icon: KeyRound },
 ] as const;
 
 export default function TravelHome() {
@@ -29,7 +30,7 @@ export default function TravelHome() {
     <TravelShell title={t("travel.title")} lead={t("travel.subtitle")}>
       <p className="max-w-prose text-sm text-muted-foreground">{t("travel.home.lead")}</p>
 
-      <ul className="grid gap-4 sm:grid-cols-3">
+      <ul className="grid gap-4 sm:grid-cols-2">
         {CARDS.map((card) => {
           const Icon = card.icon;
           const stage = readiness.find((row) => row.domain === card.domain)?.stage ?? "concierge";

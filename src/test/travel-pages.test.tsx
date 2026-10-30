@@ -49,6 +49,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 const TravelFlights = (await import("@/pages/travel/TravelFlights")).default;
 const TravelStays = (await import("@/pages/travel/TravelStays")).default;
 const TravelRides = (await import("@/pages/travel/TravelRides")).default;
+const TravelCars = (await import("@/pages/travel/TravelCars")).default;
 const TravelHome = (await import("@/pages/travel/TravelHome")).default;
 
 const renderPage = (element: ReactNode) =>
@@ -86,6 +87,59 @@ describe("the travel pages announce what they are", () => {
   it("marks the section the reader is on", () => {
     renderPage(<TravelHome />);
     expect(screen.getByRole("link", { current: "page" })).toHaveTextContent(en["travel.nav.overview"]);
+  });
+});
+
+describe("car rental", () => {
+  it("reaches the travel desk with the access need stated outright", async () => {
+    renderPage(<TravelCars />);
+
+    fill(en["travel.field.pickup"], "Beirut Airport");
+    fill(en["travel.field.pickupDate"], "2099-10-03");
+    fill(en["travel.field.returnDate"], "2099-10-10");
+    fill(en["travel.field.driverAge"], "34");
+    fireEvent.click(screen.getByLabelText(en["travel.field.handControls"]));
+    fill(en["travel.field.name"], "A Driver");
+    submit();
+
+    await waitFor(() => expect(inserted).toHaveLength(1));
+    const row = inserted[0];
+    expect(row.service_type).toBe("Travel Agency — Car rental request");
+    expect(String(row.message)).toContain("Pick-up: Beirut Airport");
+    expect(String(row.message)).toContain("Hand controls: required");
+  });
+
+  it("does not send an incomplete request", async () => {
+    renderPage(<TravelCars />);
+    submit();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(inserted).toHaveLength(0);
+  });
+
+  it("is reachable from the overview, in the navigation and as a card", () => {
+    renderPage(<TravelHome />);
+    const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+    expect(hrefs.filter((href) => href === "/travel/cars")).toHaveLength(2);
+  });
+});
+
+describe("the official sites a traveller can book on themselves", () => {
+  it("lists them under every form as plain links that say they leave the site", () => {
+    renderPage(<TravelCars />);
+    const links = screen
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("href")?.startsWith("https://"));
+    expect(links.length).toBeGreaterThan(3);
+    for (const link of links) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link.getAttribute("rel")).toContain("noopener");
+      expect(link).toHaveTextContent(en["sourcing.vendors.newTab"]);
+    }
+  });
+
+  it("gives each list a heading of its own", () => {
+    renderPage(<TravelStays />);
+    expect(screen.getByRole("heading", { name: en["travel.directory.title"] })).toBeInTheDocument();
   });
 });
 
