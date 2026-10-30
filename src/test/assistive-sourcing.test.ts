@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   EMPTY_SOURCING_DRAFT,
+  SERVICE_FEE_PERCENT,
   safeVendorLink,
   sourcingIssues,
   sourcingSummary,
@@ -67,5 +68,11 @@ describe("assistive sourcing request", () => {
     expect(text).toContain("Vendor page: https://www.lssproducts.com/x");
     expect(text).toContain("Visionex to order it");
     expect(text).not.toMatch(/@|phone|email/i);
+  });
+
+  it("tells the team the real service fee, not the name of the constant", () => {
+    const text = sourcingSummary(draft({ product: "x", country: "LB", route: "order" }));
+    expect(text).toContain(`${SERVICE_FEE_PERCENT}% service fee`);
+    expect(text).not.toContain("${");
   });
 });
