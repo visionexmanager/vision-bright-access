@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.visionex.twa",
+      "sha256_cert_fingerprints": [
+        "C4:1A:47:B1:3D:93:8B:E9:E4:EA:C5:AC:02:AE:5E:3B:D8:57:11:98:CA:0F:DD:C4:27:06:6D:53:92:1B:AD:74"
+      ]
+    }
+  }
+]
