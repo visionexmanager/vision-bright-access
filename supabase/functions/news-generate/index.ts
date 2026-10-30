@@ -527,11 +527,12 @@ Deno.serve(async (req: Request) => {
 
   const { data: allSubscribers } = await supabase
     .from("newsletter_subscribers")
-    .select("id, email, topics, lang, name, last_sent_date, manage_token");
+    .select("id, email, topics, lang, name, last_sent_date, manage_token, channel");
 
   // Guard against double-sends (manual retry, or the schedule firing twice
   // in one day): skip anyone already emailed today rather than sending again.
-  const subscribers = (allSubscribers ?? []).filter((s) => s.last_sent_date !== todayDateStr);
+  // A WhatsApp-only subscriber gets the bulletin when they ask for it there.
+  const subscribers = (allSubscribers ?? []).filter((s) => s.channel !== "whatsapp" && s.last_sent_date !== todayDateStr);
   const alreadySent = (allSubscribers?.length ?? 0) - subscribers.length;
   if (alreadySent > 0) {
     console.log(`[news-generate] skipping ${alreadySent} subscriber(s) already emailed today`);

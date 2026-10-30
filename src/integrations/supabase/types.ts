@@ -22623,6 +22623,9 @@ export type Database = {
           name: string | null
           subscribed_at: string | null
           topics: string[] | null
+          channel: string
+          wa_last_sent_date: string | null
+          wa_phone: string | null
         }
         Insert: {
           email: string
@@ -22633,6 +22636,9 @@ export type Database = {
           name?: string | null
           subscribed_at?: string | null
           topics?: string[] | null
+          channel?: string
+          wa_last_sent_date?: string | null
+          wa_phone?: string | null
         }
         Update: {
           email?: string
@@ -22643,6 +22649,9 @@ export type Database = {
           name?: string | null
           subscribed_at?: string | null
           topics?: string[] | null
+          channel?: string
+          wa_last_sent_date?: string | null
+          wa_phone?: string | null
         }
         Relationships: []
       }
