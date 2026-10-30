@@ -167,6 +167,9 @@ import {
   subscriptionRequiredNotice,
 } from "../_shared/whatsappEntitlements.ts";
 import { isAuthorized, requireActiveSubscription } from "../_shared/subscriptionGate.ts";
+import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
+import { smartFreeReply } from "../_shared/chatFreeMemory.ts";
+import { languageFor } from "../_shared/chatLanguage.ts";
 import {
   formatWeather,
   parseWeatherRequest,
@@ -2421,10 +2424,11 @@ Deno.serve(async (req) => {
           });
           // The one notice goes out whichever way this message then goes: a
           // sender whose first message was "link account" is still told.
+          const gateLanguage = languageFor(incoming.text, null, answerLanguage);
           if (verdict === "blocked_first_notice") {
             // Sent as text directly, not through `reply`: a voice note in
             // would be answered by synthesis, which is a paid provider.
-            const notice = subscriptionRequiredNotice(answerLanguage);
+            const notice = subscriptionRequiredNotice(gateLanguage);
             await db.from("whatsapp_messages").insert({
               conversation_id: conversationId,
               direction: "outbound",
@@ -2434,6 +2438,76 @@ Deno.serve(async (req) => {
             });
             if (token && phoneNumberId) {
               await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: notice });
+            }
+          }
+          // Sign-up from this chat. Typed text only, never for a number a person
+          // owns or an escalation silenced, and never a model or a paid provider:
+          // the state machine is SQL plus one email. A sender the gate refused is
+          // exactly who has no account yet, so this is where the offer lives.
+          const signupOk = !incoming.media && !incoming.location && !incoming.selection && !voiceRequested &&
+            !!(incoming.text ?? "").trim() &&
+            // Only a real refusal. A gate that could not be asked ("unavailable") stays a silent refusal.
+            (verdict === "blocked_first_notice" || verdict === "blocked_silent") &&
+            !assistantIsSilenced(existing as Record<string, unknown> | null, Date.now());
+          if (signupOk) {
+            const sendPlain = async (body: string) => {
+              await db.from("whatsapp_messages").insert({
+                conversation_id: conversationId,
+                direction: "outbound",
+                body,
+                kind: "reply",
+                medium: replyMedium({ spokenInput: false, body }),
+              });
+              if (token && phoneNumberId) await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
+            };
+            try {
+              const turn = await runChatSignupTurn(
+                {
+                  rpc: (fn, args) => db.rpc(fn, args),
+                  secret: appSecret ?? "",
+                  emailConfigured: !!Deno.env.get("RESEND_API_KEY"),
+                  createUser: async ({ email, displayName }) => {
+                    const secret = crypto.getRandomValues(new Uint8Array(24));
+                    const { data, error } = await db.auth.admin.createUser({
+                      email,
+                      password: btoa(String.fromCharCode(...secret)),
+                      email_confirm: true,
+                      user_metadata: { display_name: displayName, signup_channel: "whatsapp" },
+                    });
+                    return error ? null : data.user?.id ?? null;
+                  },
+                },
+                {
+                  channel: "whatsapp",
+                  subject: incoming.from,
+                  text: incoming.text,
+                  language: gateLanguage,
+                  sendCode: (to, code) => sendLinkCodeEmail({ to, code, language: gateLanguage }),
+                },
+              );
+              if (turn.handled && turn.reply) {
+                log("chat_signup", { outcome: turn.outcome ?? "handled" });
+                await sendPlain(turn.reply);
+                if (turn.after) await turn.after();
+                continue;
+              }
+              // Not a sign-up message: a fixed, free answer that ends with the
+              // plans and how to sign up here. No model, no speech, no search;
+              // capped per sender so two bots cannot loop.
+              if (!accountTurn) {
+                const { data: allowed } = await db.rpc("chat_free_reply_allow", { _channel: "whatsapp", _subject: incoming.from });
+                if (allowed === true) {
+                  // Remembers the last hour (what they like, who it is for) so the talk is sequential.
+                  const free = await smartFreeReply((fn, args) => db.rpc(fn, args), "whatsapp", incoming.from, incoming.text, gateLanguage);
+                  await sendPlain(
+                    free.topic === "fallback" && verdict === "blocked_first_notice" ? signupOfferText(gateLanguage) : free.body,
+                  );
+                  log("free_reply", { outcome: free.topic });
+                }
+              }
+            } catch (e) {
+              console.error("[whatsapp] chat sign-up failed:", describeError(e));
+              log("feature_error", { node: "chat_signup" });
             }
           }
           if (accountTurn) {
