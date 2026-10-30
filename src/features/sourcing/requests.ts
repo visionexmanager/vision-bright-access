@@ -99,7 +99,7 @@ export function sourcingSummary(draft: SourcingDraft): string {
     draft.budget.trim() ? `Budget: ${draft.budget.trim()}` : null,
     draft.specs.trim() ? `Specifications and needs:\n${draft.specs.trim()}` : null,
     draft.route === "order"
-      ? "Wants: Visionex to order it. Reply with a quote (item, shipping, taxes, ${SERVICE_FEE_PERCENT}% service fee on the item price) before any payment."
+      ? `Wants: Visionex to order it. Reply with a quote (item, shipping, taxes, ${SERVICE_FEE_PERCENT}% service fee on the item price) before any payment.`
       : "Wants: to talk to support first.",
   ];
   return lines.filter((line): line is string => line !== null).join("\n");
