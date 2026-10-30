@@ -6432,6 +6432,8 @@ export type Database = {
           status: string
           updated_at: string | null
           winner_id: string | null
+          p2p_seq: number
+          rtc_signal: Json | null
         }
         Insert: {
           created_at?: string | null
@@ -6446,6 +6448,8 @@ export type Database = {
           status?: string
           updated_at?: string | null
           winner_id?: string | null
+          p2p_seq?: number
+          rtc_signal?: Json | null
         }
         Update: {
           created_at?: string | null
@@ -6460,6 +6464,8 @@ export type Database = {
           status?: string
           updated_at?: string | null
           winner_id?: string | null
+          p2p_seq?: number
+          rtc_signal?: Json | null
         }
         Relationships: []
       }

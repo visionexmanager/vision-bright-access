@@ -28,6 +28,10 @@ export interface GameSession {
   created_at: string;
   updated_at: string;
   expires_at: string;
+  /** The peer-to-peer handshake; see p2pLink.ts. */
+  rtc_signal?: { from: string; kind: "offer" | "answer"; sdp: string; ts: number } | null;
+  /** How many moves the row's game_state includes. */
+  p2p_seq?: number;
 }
 
 export const GAME_LABELS: Record<GameType, string> = {
