@@ -28,9 +28,9 @@ import {
 } from "../../../supabase/functions/_shared/hotelsProviders.ts";
 import { PROVIDERS as RIDE_PROVIDERS } from "../../../supabase/functions/_shared/mobilityProviders.ts";
 
-export type TravelDomain = "flights" | "stays" | "rides";
+export type TravelDomain = "flights" | "stays" | "rides" | "cars";
 
-export const TRAVEL_DOMAINS: readonly TravelDomain[] = ["flights", "stays", "rides"] as const;
+export const TRAVEL_DOMAINS: readonly TravelDomain[] = ["flights", "stays", "rides", "cars"] as const;
 
 /**
  * How far a domain has got, in the one word a traveller needs.
@@ -50,7 +50,7 @@ export type TravelStage =
 export interface DomainReadiness {
   domain: TravelDomain;
   stage: TravelStage;
-  /** How many suppliers the registry names. Never zero — the list is real. */
+  /** How many suppliers the registry names. Zero only where no registry exists (car hire). */
   suppliers: number;
   /** How many have had their documentation read by a person. */
   researched: number;
@@ -110,9 +110,20 @@ export function ridesReadiness(): DomainReadiness {
   );
 }
 
+/**
+ * Car hire has no booking core and no supplier registry yet, so the honest
+ * answer is the fixed one: a person books it. The rental companies a traveller
+ * can go to themselves are listed in `providers.ts`; they are links, not
+ * suppliers Visionex can sell through.
+ */
+export function carsReadiness(): DomainReadiness {
+  return readinessFrom("cars", 0, 0, false);
+}
+
 export function domainReadiness(domain: TravelDomain): DomainReadiness {
   if (domain === "flights") return flightsReadiness();
   if (domain === "stays") return staysReadiness();
+  if (domain === "cars") return carsReadiness();
   return ridesReadiness();
 }
 

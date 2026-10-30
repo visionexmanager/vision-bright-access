@@ -345,6 +345,7 @@ const TravelHome = lazyWithRetry(() => import("./pages/travel/TravelHome"));
 const TravelFlights = lazyWithRetry(() => import("./pages/travel/TravelFlights"));
 const TravelStays = lazyWithRetry(() => import("./pages/travel/TravelStays"));
 const TravelRides = lazyWithRetry(() => import("./pages/travel/TravelRides"));
+const TravelCars = lazyWithRetry(() => import("./pages/travel/TravelCars"));
 const RadarAI = lazyWithRetry(() => import("./pages/services/RadarAI"));
 const EducationalEmpire = lazyWithRetry(() => import("./pages/services/EducationalEmpire"));
 const EmpathyOasis = lazyWithRetry(() => import("./pages/services/EmpathyOasis"));
@@ -1086,6 +1087,7 @@ function AppRoutes() {
                     <Route path="/travel/flights" element={<TravelFlights />} />
                     <Route path="/travel/stays" element={<TravelStays />} />
                     <Route path="/travel/rides" element={<TravelRides />} />
+                    <Route path="/travel/cars" element={<TravelCars />} />
                     <Route path="/services/radar-ai" element={<RadarAI />} />
                     <Route path="/services/ocr-scan" element={<OCRScan />} />
                     <Route path="/services/file-studio" element={<FileStudio />} />
