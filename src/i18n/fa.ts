@@ -13136,6 +13136,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "واژه پنج‌حرفی را در شش تلاش، به عربی یا انگلیسی حدس بزن.",
   "arcade.skybound-quest.title": "سفر آسمانی",
   "arcade.skybound-quest.desc": "برای هر گوهر، آرام و حرکت‌به‌حرکت میان سکوهای آسمان بپر.",
+  "arcade.sky-master.title": "فرمانده آسمان",
+  "arcade.sky-master.desc": "فهرست بررسی پیش از پرواز را کامل کن، به ارتفاع پرواز برس، از مسافران پذیرایی کن و بدون فشار زمان با امنیت فرود بیا.",
   "arcade.hex.title": "هکس",
   "arcade.hex.desc": "روی صفحه‌ای تاکتیکی و فشرده، مسیری پیوسته از لبه تا لبه بساز.",
   "arcade.mancala.title": "مانکالا",

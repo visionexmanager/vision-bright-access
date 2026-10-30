@@ -13142,6 +13142,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "Raad het woord van vijf letters in zes pogingen, in het Arabisch of Engels.",
   "arcade.skybound-quest.title": "Luchtavontuur",
   "arcade.skybound-quest.desc": "Spring voor elke edelsteen van luchtplatform naar luchtplatform, rustig, zet voor zet.",
+  "arcade.sky-master.title": "Kapitein van de Lucht",
+  "arcade.sky-master.desc": "Werk de checklist voor vertrek af, stijg naar kruishoogte, bedien de cabine en land veilig, zonder tijdsdruk.",
   "arcade.hex.title": "Hex",
   "arcade.hex.desc": "Leg een ononderbroken pad van rand tot rand op een compact tactisch bord.",
   "arcade.mancala.title": "Mancala",

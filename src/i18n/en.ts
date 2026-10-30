@@ -13532,6 +13532,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "Guess the five-letter word in six tries, in Arabic or English.",
   "arcade.skybound-quest.title": "Skybound Quest",
   "arcade.skybound-quest.desc": "Jump between sky platforms for every gem, one unhurried move at a time.",
+  "arcade.sky-master.title": "Sky Master",
+  "arcade.sky-master.desc": "Run the pre-flight checklist, climb to cruise, serve the cabin and land safely, with no timer pressure.",
   "arcade.hex.title": "Hex",
   "arcade.hex.desc": "Build an unbroken edge-to-edge path across a compact tactical board.",
   "arcade.mancala.title": "Mancala",
