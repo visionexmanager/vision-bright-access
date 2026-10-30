@@ -2297,6 +2297,30 @@ const MARKETPLACE: ServiceEntry[] = [
     skills: { en: [], ar: [] },
   }),
   entry({
+    slug: "assistive-sourcing",
+    hub: "marketplace",
+    kind: "service",
+    to: "/assistive-sourcing",
+    title: { en: "Assistive Product Sourcing", ar: "طلب أجهزة مساعدة" },
+    tagline: {
+      en: "Find trusted sellers of assistive products, then have us order one or talk to our team.",
+      ar: "اعرف أين تُباع الأجهزة المساعدة، ثم اطلب منا شراءها أو تحدث مع فريقنا.",
+    },
+    difficulty: "starter",
+    durationMinutes: 5,
+    vx: 0,
+    intents: ["care-for-myself"],
+    keywords: {
+      en: ["assistive", "device", "braille", "magnifier", "maxiaids", "order", "buy", "vendor", "wheelchair", "hearing"],
+      ar: ["مساعد", "جهاز", "برايل", "مكبر", "ماكسي ايدز", "طلب", "شراء", "متجر", "كرسي متحرك", "سمع"],
+    },
+    outcomes: {
+      en: ["A request for the exact product with its specifications, ordered by us or discussed with support"],
+      ar: ["طلب للمنتج المحدد بمواصفاته، نشتريه نحن أو نناقشه مع الدعم"],
+    },
+    skills: { en: [], ar: [] },
+  }),
+  entry({
     slug: "travel-rides",
     hub: "marketplace",
     kind: "service",

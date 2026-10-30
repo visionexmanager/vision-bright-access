@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Layout } from "@/components/Layout";
+import { SUPPORT_WHATSAPP_NUMBER, SUPPORT_WHATSAPP_DISPLAY } from "@/lib/supportContact";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,8 +40,8 @@ const MESSAGE_MAX = 2000;
 // The Cloud API number. Messages to it reach whatsapp-webhook and are answered
 // by the assistant; the previous Lebanese number was a personal handset with no
 // webhook behind it, so nothing sent there was ever seen by the server.
-const WHATSAPP_NUMBER  = "447732729713";
-const WHATSAPP_DISPLAY = "+44 7732 729713";
+const WHATSAPP_NUMBER  = SUPPORT_WHATSAPP_NUMBER;
+const WHATSAPP_DISPLAY = SUPPORT_WHATSAPP_DISPLAY;
 
 const ATTACHMENT_TYPES    = ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"];
 const ATTACHMENT_MAX_SIZE = 5 * 1024 * 1024; // matches the storage bucket limit
