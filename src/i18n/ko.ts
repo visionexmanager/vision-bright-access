@@ -13589,6 +13589,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "요청을 팀에 보냅니다. 팀이 총비용을 보여 주는 견적으로 답하며, 동의하기 전에는 아무것도 청구되지 않습니다.",
   "sourcing.route.support": "지원팀과 상담",
   "sourcing.route.supportHint": "요청이 미리 작성된 WhatsApp을 엽니다. 그곳에서 보내기를 누르기 전에는 아무것도 전송되지 않습니다.",
+  "sourcing.route.fee": "서비스 수수료: 제품 가격의 {percent}%. 배송비와 세금은 실비로 청구됩니다.",
   "sourcing.submit.order": "팀에 요청 보내기",
   "sourcing.submit.support": "지원팀과 WhatsApp 열기",
   "sourcing.support.prefill": "안녕하세요, 보조 기기를 구하는 데 도움이 필요합니다.",

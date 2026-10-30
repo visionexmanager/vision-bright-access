@@ -13589,6 +13589,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "Kami meneruskan permintaan Anda ke tim. Tim membalas dengan penawaran berisi total biaya, dan tidak ada yang ditagih sampai Anda setuju.",
   "sourcing.route.support": "Bicara dengan dukungan",
   "sourcing.route.supportHint": "Membuka WhatsApp dengan permintaan yang sudah tertulis. Tidak ada yang terkirim sampai Anda menekan kirim di sana.",
+  "sourcing.route.fee": "Biaya layanan: {percent}% dari harga produk. Ongkos kirim dan pajak diteruskan sesuai biaya.",
   "sourcing.submit.order": "Kirim permintaan ke tim",
   "sourcing.submit.support": "Buka WhatsApp dengan dukungan",
   "sourcing.support.prefill": "Halo, saya butuh bantuan mendapatkan produk bantu.",

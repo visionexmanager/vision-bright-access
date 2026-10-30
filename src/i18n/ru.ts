@@ -7323,6 +7323,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "Мы передадим запрос команде. Она ответит предложением с полной стоимостью; ничего не списывается, пока вы не согласитесь.",
   "sourcing.route.support": "Поговорить с поддержкой",
   "sourcing.route.supportHint": "Открывает WhatsApp с уже написанным запросом. Ничего не отправляется, пока вы не нажмёте отправку там.",
+  "sourcing.route.fee": "Плата за услугу: {percent}% от цены товара. Доставка и налоги — по себестоимости.",
   "sourcing.submit.order": "Отправить запрос команде",
   "sourcing.submit.support": "Открыть WhatsApp с поддержкой",
   "sourcing.support.prefill": "Здравствуйте, мне нужна помощь в приобретении вспомогательного устройства.",

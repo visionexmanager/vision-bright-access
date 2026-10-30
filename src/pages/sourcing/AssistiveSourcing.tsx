@@ -25,6 +25,7 @@ import {
   PRODUCT_MAX,
   SPECS_MAX,
   LINK_MAX,
+  SERVICE_FEE_PERCENT,
   sourcingIssues,
   sourcingSummary,
   type SourcingDraft,
@@ -278,6 +279,9 @@ export default function AssistiveSourcing() {
                     </div>
                   </div>
                 ))}
+                <p className="text-xs text-muted-foreground">
+                  {t("sourcing.route.fee").replace("{percent}", String(SERVICE_FEE_PERCENT))}
+                </p>
                 {errorFor("route") ? (
                   <p id="sourcing-route-error" className="text-sm font-medium text-destructive">
                     {errorFor("route")}

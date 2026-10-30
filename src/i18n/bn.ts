@@ -7323,6 +7323,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "আমরা আপনার অনুরোধ দলকে পাঠাই। তারা মোট খরচ দেখিয়ে কোটেশন দিয়ে উত্তর দেয়, আর আপনি রাজি না হওয়া পর্যন্ত কিছু কাটা হয় না।",
   "sourcing.route.support": "সহায়তার সঙ্গে কথা বলুন",
   "sourcing.route.supportHint": "আপনার লেখা অনুরোধসহ WhatsApp খোলে। সেখানে পাঠান চাপা পর্যন্ত কিছু যায় না।",
+  "sourcing.route.fee": "সার্ভিস ফি: পণ্যের দামের {percent}%। শিপিং ও কর খরচ অনুযায়ী যোগ হয়।",
   "sourcing.submit.order": "দলের কাছে অনুরোধ পাঠান",
   "sourcing.submit.support": "সহায়তার সঙ্গে WhatsApp খুলুন",
   "sourcing.support.prefill": "নমস্কার, একটি সহায়ক পণ্য পেতে আমার সাহায্য দরকার।",

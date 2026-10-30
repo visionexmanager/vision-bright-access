@@ -13589,6 +13589,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "ہم آپ کی درخواست ٹیم کو بھیجتے ہیں۔ وہ کل لاگت بتانے والے کوٹیشن کے ساتھ جواب دیتی ہے، اور آپ کی منظوری تک کچھ نہیں لیا جاتا۔",
   "sourcing.route.support": "سپورٹ سے بات کریں",
   "sourcing.route.supportHint": "آپ کی لکھی درخواست کے ساتھ WhatsApp کھلتا ہے۔ وہاں بھیجیں دبانے تک کچھ نہیں بھیجا جاتا۔",
+  "sourcing.route.fee": "سروس فیس: مصنوعات کی قیمت کا {percent}%۔ شپنگ اور ٹیکس لاگت کے مطابق شامل ہوتے ہیں۔",
   "sourcing.submit.order": "درخواست ٹیم کو بھیجیں",
   "sourcing.submit.support": "سپورٹ کے ساتھ WhatsApp کھولیں",
   "sourcing.support.prefill": "السلام علیکم، مجھے ایک معاون مصنوعات حاصل کرنے میں مدد چاہیے۔",

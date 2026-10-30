@@ -13589,6 +13589,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "我们把你的申请交给团队。团队会回复含总费用的报价，在你同意之前不会收取任何费用。",
   "sourcing.route.support": "联系客服",
   "sourcing.route.supportHint": "打开已写好申请内容的 WhatsApp。在那里点发送之前不会发送任何内容。",
+  "sourcing.route.fee": "服务费：产品价格的 {percent}%。运费和税费按实际成本计收。",
   "sourcing.submit.order": "向团队发送申请",
   "sourcing.submit.support": "打开 WhatsApp 联系客服",
   "sourcing.support.prefill": "你好，我需要帮助获取一件辅助产品。",

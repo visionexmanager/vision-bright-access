@@ -22,6 +22,13 @@ export const SERVICE_TYPE: Readonly<Record<SourcingRoute, string>> = Object.free
   support: "Assistive Sourcing — Support chat",
 });
 
+/**
+ * The owner's service fee for ordering on a person's behalf, as a percentage of
+ * the product price (decided 2026-10-30). Shipping and taxes are passed on at
+ * cost. It is a figure on the quote the team sends, not a charge taken here.
+ */
+export const SERVICE_FEE_PERCENT = 10;
+
 export const PRODUCT_MAX = 200;
 export const SPECS_MAX = 1500;
 export const LINK_MAX = 500;
@@ -92,7 +99,7 @@ export function sourcingSummary(draft: SourcingDraft): string {
     draft.budget.trim() ? `Budget: ${draft.budget.trim()}` : null,
     draft.specs.trim() ? `Specifications and needs:\n${draft.specs.trim()}` : null,
     draft.route === "order"
-      ? "Wants: Visionex to order it. Reply with a quote (item, shipping, fee) before any payment."
+      ? "Wants: Visionex to order it. Reply with a quote (item, shipping, taxes, ${SERVICE_FEE_PERCENT}% service fee on the item price) before any payment."
       : "Wants: to talk to support first.",
   ];
   return lines.filter((line): line is string => line !== null).join("\n");

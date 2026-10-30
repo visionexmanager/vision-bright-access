@@ -13591,6 +13591,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "Inviamo la tua richiesta al team. Risponde con un preventivo con il costo totale e non viene addebitato nulla finché non accetti.",
   "sourcing.route.support": "Parla con l'assistenza",
   "sourcing.route.supportHint": "Apre WhatsApp con la richiesta già scritta. Non viene inviato nulla finché non premi invia lì.",
+  "sourcing.route.fee": "Costo del servizio: {percent}% del prezzo del prodotto. Spedizione e tasse a costo.",
   "sourcing.submit.order": "Invia la richiesta al team",
   "sourcing.submit.support": "Apri WhatsApp con l'assistenza",
   "sourcing.support.prefill": "Ciao, ho bisogno di aiuto per ottenere un prodotto per l'autonomia.",

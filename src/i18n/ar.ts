@@ -13953,6 +13953,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "نرسل طلبك إلى الفريق. يردون بعرض سعر يبين التكلفة الكاملة، ولا يُخصم شيء حتى توافق.",
   "sourcing.route.support": "التحدث مع الدعم",
   "sourcing.route.supportHint": "يفتح واتساب وطلبك مكتوب مسبقاً. لا يُرسل شيء حتى تضغط إرسال هناك.",
+  "sourcing.route.fee": "رسوم الخدمة: {percent}% من سعر المنتج. الشحن والضرائب بتكلفتها الفعلية.",
   "sourcing.submit.order": "أرسل الطلب إلى الفريق",
   "sourcing.submit.support": "افتح واتساب مع الدعم",
   "sourcing.support.prefill": "مرحباً، أحتاج مساعدة في الحصول على جهاز مساعد.",

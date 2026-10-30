@@ -13591,6 +13591,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "Wij sturen uw aanvraag naar het team. Het antwoordt met een offerte met de totale kosten en er wordt niets afgeschreven tot u akkoord gaat.",
   "sourcing.route.support": "Praat met support",
   "sourcing.route.supportHint": "Opent WhatsApp met uw aanvraag al ingevuld. Er wordt niets verzonden tot u daar op verzenden drukt.",
+  "sourcing.route.fee": "Servicekosten: {percent}% van de productprijs. Verzending en belasting worden tegen kostprijs doorberekend.",
   "sourcing.submit.order": "Aanvraag naar het team sturen",
   "sourcing.submit.support": "WhatsApp openen met support",
   "sourcing.support.prefill": "Hallo, ik heb hulp nodig bij het aanschaffen van een hulpmiddel.",

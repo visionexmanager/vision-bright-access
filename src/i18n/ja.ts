@@ -13589,6 +13589,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "ご依頼をチームに送ります。チームは総額を示した見積りで返信し、ご同意いただくまで請求はありません。",
   "sourcing.route.support": "サポートに相談する",
   "sourcing.route.supportHint": "依頼文を入力済みのWhatsAppを開きます。そちらで送信を押すまで何も送られません。",
+  "sourcing.route.fee": "サービス料：商品価格の {percent}%。送料と税金は実費です。",
   "sourcing.submit.order": "チームに依頼を送る",
   "sourcing.submit.support": "サポートとWhatsAppを開く",
   "sourcing.support.prefill": "こんにちは、支援機器の入手について助けてください。",

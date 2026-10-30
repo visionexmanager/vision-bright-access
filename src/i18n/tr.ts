@@ -13591,6 +13591,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "Talebinizi ekibe iletiriz. Ekip toplam maliyeti gösteren bir teklifle yanıt verir; siz kabul edene kadar hiçbir şey tahsil edilmez.",
   "sourcing.route.support": "Destekle konuş",
   "sourcing.route.supportHint": "Talebiniz önceden yazılmış olarak WhatsApp'ı açar. Orada gönder'e basana kadar hiçbir şey gönderilmez.",
+  "sourcing.route.fee": "Hizmet bedeli: ürün fiyatının %{percent} kadarı. Kargo ve vergiler maliyetine yansıtılır.",
   "sourcing.submit.order": "Talebi ekibe gönder",
   "sourcing.submit.support": "Destekle WhatsApp'ı aç",
   "sourcing.support.prefill": "Merhaba, bir yardımcı ürün edinmek için yardıma ihtiyacım var.",

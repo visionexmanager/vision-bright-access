@@ -13589,6 +13589,7 @@ export const translations: Record<string, string> = {
   "sourcing.route.orderHint": "Chúng tôi chuyển yêu cầu của bạn cho đội ngũ. Họ trả lời bằng báo giá nêu tổng chi phí, và không tính phí gì cho đến khi bạn đồng ý.",
   "sourcing.route.support": "Trò chuyện với hỗ trợ",
   "sourcing.route.supportHint": "Mở WhatsApp với yêu cầu đã viết sẵn. Không có gì được gửi cho đến khi bạn bấm gửi ở đó.",
+  "sourcing.route.fee": "Phí dịch vụ: {percent}% giá sản phẩm. Phí vận chuyển và thuế tính theo giá gốc.",
   "sourcing.submit.order": "Gửi yêu cầu cho đội ngũ",
   "sourcing.submit.support": "Mở WhatsApp với hỗ trợ",
   "sourcing.support.prefill": "Xin chào, tôi cần giúp đỡ để có một thiết bị trợ giúp.",
