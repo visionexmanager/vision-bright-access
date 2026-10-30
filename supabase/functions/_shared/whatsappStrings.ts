@@ -1112,6 +1112,12 @@ const BASE_STRINGS = {
   // the base columns are what is left. These seven sentences exist in twenty.
 
   newsHeading: { ar: "*آخر الأخبار*", en: "*Latest news*" },
+  /** The subscriber's daily bulletin — one per day, asked for by sending "news". */
+  newsDigestHeading: { ar: "*نشرة أخبار اليوم*", en: "*Today's news bulletin*" },
+  newsDigestAlready: {
+    ar: "وصلتك نشرة اليوم. أرسل كلمة «أخبار» غداً لتصلك نشرة جديدة، أو تصفّح الأخبار: {url}",
+    en: "You already got today's bulletin. Send \"news\" tomorrow for a new one, or browse the news: {url}",
+  },
   /** The list's button label. Meta rejects a longer one outright: 20 characters. */
   newsButton: { ar: "الأخبار", en: "News" },
   newsEmpty: {

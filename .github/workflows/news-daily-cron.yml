@@ -18,14 +18,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Generate articles via OpenAI & save to Supabase
+      - name: Collect headlines from RSS & save to Supabase
         env:
-          OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:         ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           node - <<'EOF'
-          const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
           const SUPABASE_URL   = process.env.SUPABASE_URL;
           const SUPABASE_KEY   = process.env.SUPABASE_KEY;
 
@@ -107,9 +105,22 @@ jobs:
             return (CATEGORY_TERMS[category] ?? []).some((term) => normalized.includes(term));
           }
 
-          // Fetch real headlines from RSS feeds (no API key needed)
-          async function fetchHeadlines(urls, max = 5) {
-            const headlines = [];
+          // Fetch real items from RSS feeds (no API key, no AI). Each item keeps
+          // its own headline, a short extract and the link to the publisher: the
+          // digest points readers at the source instead of rewriting it.
+          const BS = String.fromCharCode(92);
+          const WS = new RegExp(BS + "s+", "g");
+          const ANY = "[" + BS + "s" + BS + "S]*?";
+          const ITEM = new RegExp("<item>(" + ANY + ")</item>", "g");
+          const decode = (t) => t
+            .split("<![CDATA[").join("").split("]]>").join("")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+            .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+            .replace(WS, " ").trim();
+
+          async function fetchItems(urls, max = 5) {
+            const items = [];
             for (const url of urls) {
               try {
                 const res = await fetch(url, {
@@ -118,39 +129,25 @@ jobs:
                 });
                 if (!res.ok) continue;
                 const xml = await res.text();
-                // Match <title> tags inside <item> blocks
-                const matches = [...xml.matchAll(/<item>[\s\S]*?<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/g)];
-                for (const m of matches) {
-                  const t = m[1].trim()
-                    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-                    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-                    .replace(/<[^>]+>/g, "");
-                  if (t.length > 15 && t.length < 300) headlines.push(t);
-                  if (headlines.length >= max) return headlines;
+                const source = new URL(url).hostname.replace(/^(www|feeds)[.]/, "");
+                for (const block of xml.matchAll(ITEM)) {
+                  const pick = (tag) => (block[1].match(new RegExp("<" + tag + "[^>]*>(" + ANY + ")</" + tag + ">")) ?? [])[1] ?? "";
+                  const title = decode(pick("title"));
+                  const link = decode(pick("link"));
+                  let description = decode(pick("description"));
+                  if (description.startsWith(title)) description = description.slice(title.length).trim();
+                  description = description.slice(0, 280).trim();
+                  const pub = new Date(decode(pick("pubDate")));
+                  if (title.length > 15 && title.length < 300 && /^https?:[/][/]/.test(link)) {
+                    items.push({ title, description, link, source, publishedAt: isNaN(pub) ? null : pub.toISOString() });
+                  }
+                  if (items.length >= max) return items;
                 }
               } catch {
                 // ignore failed feeds, try next
               }
             }
-            return headlines;
-          }
-
-          async function openaiCall(prompt, maxTokens) {
-            const res = await fetch("https://api.openai.com/v1/chat/completions", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [{ role: "user", content: prompt }],
-                response_format: { type: "json_object" },
-                temperature: 0.4,
-                max_tokens: maxTokens,
-              }),
-            });
-            if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
-            const data = await res.json();
-            const parsed = JSON.parse(data.choices[0].message.content);
-            return parsed.articles ?? parsed.translations ?? [];
+            return items;
           }
 
           async function main() {
@@ -171,129 +168,39 @@ jobs:
               return;
             }
 
-            // Step 0: Fetch real-world headlines from RSS for all categories in parallel
-            console.log("Step 0: Fetching real-world headlines from RSS feeds...");
-            const headlineMap = {};
+            // Step 1: the first on-topic item per category, straight from its feed
+            console.log("Fetching real-world items from RSS feeds...");
+            const itemMap = {};
             await Promise.all(
               CATEGORIES.map(async (cat) => {
                 const urls = CATEGORY_RSS[cat.key] ?? ["https://feeds.bbci.co.uk/news/world/rss.xml"];
-                const fetched = await fetchHeadlines(urls, 12);
-                headlineMap[cat.key] = fetched.filter((headline) => matchesCategory(cat.key, headline)).slice(0, 5);
+                const fetched = await fetchItems(urls, 12);
+                itemMap[cat.key] = fetched.filter((item) => matchesCategory(cat.key, item.title)).slice(0, 1);
               })
             );
 
-            const totalHeadlines = Object.values(headlineMap).reduce((s, h) => s + h.length, 0);
-            console.log(`Fetched ${totalHeadlines} real headlines across ${CATEGORIES.length} categories`);
-            for (const cat of CATEGORIES) {
-              const hs = headlineMap[cat.key] ?? [];
-              if (hs.length > 0) console.log(`  [${cat.key}] ${hs[0]}`);
-            }
-
-            // Build category list with real headlines embedded as context
-            const eligibleCategories = CATEGORIES.filter((c) => (headlineMap[c.key] ?? []).length > 0);
-            if (eligibleCategories.length === 0) throw new Error("No category-qualified headlines were found; refusing to fabricate news.");
-
-            const categoryList = eligibleCategories.map(c => {
-              const hs = headlineMap[c.key] ?? [];
-              const context = hs.length > 0
-                ? `\n  Real headlines from today: ${hs.slice(0, 4).join(" | ")}`
-                : "";
-              return `"${c.key}": ${c.nameEn} / ${c.nameAr}${context}`;
-            }).join("\n\n");
-
-            // Step 1: Generate EN + AR articles grounded in real news
-            console.log("Step 1: Generating EN+AR articles grounded in real headlines...");
-            const prompt1 = [
-              `You are a professional news editor for Visionex, a multilingual tech platform. Today is ${dateEn}.`,
-              ``,
-              `Write one news article per listed category. Each article MUST be based on one of the headlines provided under that exact category.`,
-              ``,
-              `Rules:`,
-              `- If real headlines are listed for a category, your article MUST cover those actual events`,
-              `- Do NOT invent or fabricate news stories`,
-              `- Never create an article for a category without a supplied headline`,
-              `- Do not add facts that are absent from the supplied headline; clearly attribute claims`,
-              `- Journalistic, neutral, informative tone`,
-              `- For the "breaking" category specifically: pick the single most urgent, time-sensitive real headline available and write it as genuinely urgent breaking news, not routine coverage`,
-              `- Category accuracy is critical: each article's "category" field must be the exact key of the topic its content is actually about, using ONLY the real headlines listed under that same category — never place content under a category it doesn't belong to, and never swap content between two categories`,
-              ``,
-              `Categories with today's real-world context:`,
-              categoryList,
-              ``,
-              `Return ONLY this JSON (no extra text):`,
-              `{"articles":[{"category":"technology","en":{"title":"5-10 word title","description":"15-30 word summary","content":"2-3 paragraph article body, 120-200 words"},"ar":{"title":"عنوان","description":"ملخص","content":"نص المقال"}}]}`,
-              ``,
-              `Write one article for each of the ${eligibleCategories.length} categories listed above.`,
-            ].join("\n");
-
-            const enArArticles = await openaiCall(prompt1, 16000);
-            const valid = enArArticles.filter(a =>
-              eligibleCategories.some(c => c.key === a.category)
-              && a.en?.title && a.en?.description && a.ar?.title
-              && matchesCategory(a.category, `${a.en.title} ${a.en.description}`)
-            );
-            if (valid.length === 0) throw new Error("AI output failed category validation; nothing will be published.");
-            console.log(`Generated ${valid.length} valid articles`);
-
-            // Step 2: Translate to 9 more languages
-            console.log("Step 2: Translating to 9 languages...");
-            let extraTranslations = {};
-            try {
-              const input = valid.map(a => ({ category: a.category, title: a.en.title, description: a.en.description }));
-              const prompt2 = `Translate the following ${input.length} news article titles and descriptions from English into these 9 languages:
-          - es (Spanish), de (German), pt (Portuguese), zh (Chinese Simplified), tr (Turkish), fr (French), ru (Russian), ur (Urdu), hi (Hindi)
-
-          Articles:
-          ${JSON.stringify(input)}
-
-          Return ONLY this JSON (no extra text):
-          {
-            "translations": [
-              {
-                "category": "technology",
-                "es": { "title": "...", "description": "..." },
-                "de": { "title": "...", "description": "..." },
-                "pt": { "title": "...", "description": "..." },
-                "zh": { "title": "...", "description": "..." },
-                "tr": { "title": "...", "description": "..." },
-                "fr": { "title": "...", "description": "..." },
-                "ru": { "title": "...", "description": "..." },
-                "ur": { "title": "...", "description": "..." },
-                "hi": { "title": "...", "description": "..." }
-              }
-            ]
-          }`;
-              const translations = await openaiCall(prompt2, 12000);
-              for (const row of translations) {
-                const cat = row.category;
-                extraTranslations[cat] = { ...row };
-                delete extraTranslations[cat].category;
-              }
-              console.log("Translations done");
-            } catch(e) {
-              console.warn("Translations failed (non-fatal):", e.message);
-            }
-
-            // Step 3: Build rows
-            const rows = valid.map(a => ({
-              title:        a.en.title,
-              description:  a.en.description,
-              content:      a.en.content,
-              category:     a.category,
-              icon_name:    CATEGORIES.find(c => c.key === a.category)?.icon ?? "Newspaper",
+            // Step 2: build rows. Nothing is written, rewritten or translated:
+            // the title is the publisher's, the summary is its own extract, and
+            // source_url sends the reader to the original.
+            const rows = CATEGORIES.flatMap((cat) => (itemMap[cat.key] ?? []).map((item) => ({
+              title:        item.title,
+              description:  item.description || item.title,
+              content:      item.description || item.title,
+              category:     cat.key,
+              icon_name:    cat.icon ?? "Newspaper",
               published:    true,
               published_at: now.toISOString(),
-              translations: {
-                en: a.en,
-                ar: a.ar,
-                ...(extraTranslations[a.category] ?? {}),
-              },
+              translations: { en: { title: item.title, description: item.description || item.title } },
               quality_status: "verified",
               category_confidence: 1,
-              source_name: "Curated RSS",
-            }));
+              source_name: item.source,
+              source_url: item.link,
+              source_published_at: item.publishedAt,
+            })));
+            if (rows.length === 0) throw new Error("No category-qualified items were found; refusing to fabricate news.");
+            console.log(`Collected ${rows.length} items across ${CATEGORIES.length} categories`);
 
-            // Step 4: Insert into Supabase
+            // Step 3: Insert into Supabase
             console.log(`Step 3: Inserting ${rows.length} articles into Supabase...`);
             const res = await fetch(`${SUPABASE_URL}/rest/v1/news_articles`, {
               method: "POST",

@@ -49,6 +49,15 @@ const INTERESTS = [...PLATFORM_INTERESTS];
 const LS_KEY = "vx_newsletter_subscribed";
 const LS_DISMISSED_KEY = "vx_newsletter_thankyou_dismissed";
 
+type Channel = "email" | "whatsapp" | "both";
+
+/** Digits only, country code included: the form WhatsApp itself reports a sender in. */
+function normalisePhone(raw: string): string | null {
+  let digits = raw.replace(/[^0-9]/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  return digits.length >= 8 && digits.length <= 15 ? digits : null;
+}
+
 export function NewsletterSubscribe() {
   const { t, lang } = useLanguage();
   const { playSound } = useSound();
@@ -56,6 +65,8 @@ export function NewsletterSubscribe() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [topics, setTopics] = useState<string[]>([]);
+  const [channel, setChannel] = useState<Channel>("email");
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [subscribed, setSubscribed] = useState(
     () => localStorage.getItem(LS_KEY) === "true"
@@ -118,10 +129,16 @@ export function NewsletterSubscribe() {
     e.preventDefault();
     if (!email.trim()) return;
 
+    const waPhone = channel === "email" ? null : normalisePhone(phone);
+    if (channel !== "email" && !waPhone) {
+      toast({ title: t("newsletter.phonePlaceholder"), variant: "destructive" });
+      return;
+    }
+
     setLoading(true);
     const { error } = await supabase
       .from("newsletter_subscribers")
-      .insert({ email: email.trim().toLowerCase(), name: name.trim() || null, topics, lang });
+      .insert({ email: email.trim().toLowerCase(), name: name.trim() || null, topics, lang, channel, wa_phone: waPhone });
 
     setLoading(false);
 
@@ -197,6 +214,49 @@ export function NewsletterSubscribe() {
             onChange={(e) => setEmail(e.target.value)}
             className="h-11"
           />
+
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-sm font-medium text-foreground">{t("newsletter.channelLabel")}</legend>
+            <div className="flex flex-wrap gap-4">
+              {([
+                ["email", t("newsletter.channelEmail")],
+                ["whatsapp", "WhatsApp"],
+                ["both", t("newsletter.channelBoth")],
+              ] as const).map(([value, label]) => (
+                <label key={value} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="newsletter-channel"
+                    value={value}
+                    checked={channel === value}
+                    onChange={() => setChannel(value)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {channel !== "email" && (
+              <>
+                <Input
+                  id="newsletter-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  required
+                  dir="ltr"
+                  aria-label={t("newsletter.phonePlaceholder")}
+                  aria-describedby="newsletter-whatsapp-hint"
+                  placeholder={t("newsletter.phonePlaceholder")}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="h-11"
+                />
+                <p id="newsletter-whatsapp-hint" className="text-xs text-muted-foreground">
+                  {t("newsletter.whatsappHint")}
+                </p>
+              </>
+            )}
+          </fieldset>
 
           <div>
             <p id="newsletter-interests" className="mb-3 text-sm font-medium text-foreground">

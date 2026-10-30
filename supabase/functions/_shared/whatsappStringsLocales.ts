@@ -367,6 +367,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "آج اس سیکشن میں کوئی خبر شائع نہیں ہوئی۔ یہ تازہ ترین خبریں ہیں:",
     newsUnavailable: "ابھی خبروں تک نہیں پہنچ سکا۔ تھوڑی دیر بعد کوشش کریں، یا براہِ راست پڑھیں: {url}",
     newsStale: "یہ خبر اب فہرست میں نہیں رہی۔ یہ ہیں تازہ ترین خبریں دوبارہ:",
+    newsDigestHeading: "*آج کی خبروں کا بلیٹن*",
+    newsDigestAlready: "آج کا بلیٹن آپ کو مل چکا ہے۔ نیا بلیٹن کل لفظ “خبریں” بھیج کر منگوائیں، یا خبریں یہاں دیکھیں: {url}",
     newsLink: "باقی یہاں پڑھیں: {url}",
     newsBackHint: "فہرست دوبارہ دیکھنے کے لیے مینو سے «خبریں» کھولیں۔",
     // ── The Service Center ──
@@ -745,6 +747,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "आज उस अनुभाग में कुछ भी प्रकाशित नहीं हुआ। ये रहीं ताज़ा ख़बरें:",
     newsUnavailable: "अभी ख़बरों तक नहीं पहुँच सका। थोड़ी देर बाद कोशिश करें, या सीधे पढ़ें: {url}",
     newsStale: "यह ख़बर अब सूची में नहीं है। ये रहीं ताज़ा ख़बरें फिर से:",
+    newsDigestHeading: "*आज का समाचार बुलेटिन*",
+    newsDigestAlready: "आज का बुलेटिन आपको मिल चुका है। नया बुलेटिन कल “समाचार” भेजकर मंगाएँ, या यहाँ पढ़ें: {url}",
     newsLink: "बाक़ी यहाँ पढ़ें: {url}",
     newsBackHint: "सूची फिर देखने के लिए मेन्यू से «समाचार» खोलें।",
     // ── The Service Center ──
@@ -1123,6 +1127,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "Belum ada yang terbit di bagian itu hari ini. Ini berita terbaru:",
     newsUnavailable: "Saya tidak bisa menghubungi berita sekarang. Coba sebentar lagi, atau baca langsung: {url}",
     newsStale: "Berita itu sudah tidak ada di daftar. Ini yang terbaru lagi:",
+    newsDigestHeading: "*Buletin berita hari ini*",
+    newsDigestAlready: "Anda sudah menerima buletin hari ini. Kirim “berita” besok untuk buletin baru, atau baca berita di sini: {url}",
     newsLink: "Baca selengkapnya: {url}",
     newsBackHint: "Buka «Berita» di menu untuk melihat daftarnya lagi.",
     // ── The Service Center ──
@@ -1501,6 +1507,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "そのセクションには本日の記事がありません。最新のニュースはこちらです：",
     newsUnavailable: "いまニュースにつながりませんでした。少し経ってからお試しになるか、直接お読みください: {url}",
     newsStale: "その記事は一覧から外れました。あらためて最新のものをお伝えします:",
+    newsDigestHeading: "*今日のニュース*",
+    newsDigestAlready: "本日のニュースはお届け済みです。明日「ニュース」と送ると新しい配信が届きます。こちらでも読めます：{url}",
     newsLink: "続きはこちら: {url}",
     newsBackHint: "一覧をもう一度見るには、メニューから「ニュース」を開いてください。",
     // ── The Service Center ──
@@ -1879,6 +1887,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "Oggi non c'è nulla in quella sezione. Ecco le ultime notizie:",
     newsUnavailable: "Non sono riuscito a raggiungere le notizie adesso. Riprova tra poco, oppure leggile direttamente: {url}",
     newsStale: "Quella notizia non è più nell'elenco. Ecco di nuovo le ultime:",
+    newsDigestHeading: "*Il bollettino di oggi*",
+    newsDigestAlready: "Hai già ricevuto il bollettino di oggi. Invia “notizie” domani per quello nuovo, oppure leggi qui: {url}",
     newsLink: "Leggi il resto: {url}",
     newsBackHint: "Apri «Notizie» dal menu per rivedere l'elenco.",
     // ── The Service Center ──
@@ -2257,6 +2267,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "오늘 해당 섹션에는 게시된 소식이 없습니다. 최신 뉴스입니다:",
     newsUnavailable: "지금 뉴스에 연결하지 못했습니다. 잠시 후 다시 시도하시거나 바로 읽어보세요: {url}",
     newsStale: "그 기사는 목록에서 내려갔습니다. 최신 뉴스를 다시 알려드리겠습니다:",
+    newsDigestHeading: "*오늘의 뉴스*",
+    newsDigestAlready: "오늘의 소식은 이미 받으셨습니다. 내일 “뉴스”라고 보내면 새 소식을 받을 수 있습니다. 여기서도 볼 수 있습니다: {url}",
     newsLink: "나머지 읽기: {url}",
     newsBackHint: "목록을 다시 보시려면 메뉴에서 «뉴스»를 열어주세요.",
     // ── The Service Center ──
@@ -2635,6 +2647,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "Vandaag is er niets in die categorie gepubliceerd. Dit is het laatste nieuws:",
     newsUnavailable: "Ik kon het nieuws nu niet bereiken. Probeer het zo nog eens, of lees het rechtstreeks: {url}",
     newsStale: "Dat bericht staat niet meer in de lijst. Hier is het laatste nieuws opnieuw:",
+    newsDigestHeading: "*Het nieuws van vandaag*",
+    newsDigestAlready: "Je hebt het bericht van vandaag al ontvangen. Stuur morgen “nieuws” voor een nieuw bericht, of lees het hier: {url}",
     newsLink: "Lees verder: {url}",
     newsBackHint: "Open «Nieuws» in het menu om de lijst opnieuw te zien.",
     // ── The Service Center ──
@@ -3013,6 +3027,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "Dziś nic nie opublikowano w tej sekcji. Oto najnowsze wiadomości:",
     newsUnavailable: "Nie udało mi się teraz dotrzeć do wiadomości. Spróbuj za chwilę albo przeczytaj je bezpośrednio: {url}",
     newsStale: "Tej wiadomości już nie ma na liście. Oto najnowsze jeszcze raz:",
+    newsDigestHeading: "*Dzisiejszy biuletyn*",
+    newsDigestAlready: "Dzisiejszy biuletyn już dotarł. Wyślij jutro „wiadomości”, aby dostać nowy, albo czytaj tutaj: {url}",
     newsLink: "Przeczytaj resztę: {url}",
     newsBackHint: "Otwórz «Wiadomości» w menu, żeby znów zobaczyć listę.",
     // ── The Service Center ──
@@ -3391,6 +3407,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "Hôm nay chưa có bài nào trong mục đó. Đây là tin mới nhất:",
     newsUnavailable: "Tôi chưa kết nối được tới tin tức lúc này. Thử lại sau ít phút, hoặc đọc trực tiếp: {url}",
     newsStale: "Tin đó không còn trong danh sách. Đây là những tin mới nhất:",
+    newsDigestHeading: "*Bản tin hôm nay*",
+    newsDigestAlready: "Bạn đã nhận bản tin hôm nay rồi. Ngày mai hãy gửi “tin tức” để nhận bản tin mới, hoặc đọc tại đây: {url}",
     newsLink: "Đọc tiếp: {url}",
     newsBackHint: "Mở «Tin tức» trong menu để xem lại danh sách.",
     // ── The Service Center ──
@@ -3769,6 +3787,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "আজ ওই বিভাগে কিছু প্রকাশিত হয়নি। এই যে সর্বশেষ খবর:",
     newsUnavailable: "এখন খবরে পৌঁছাতে পারিনি। একটু পরে চেষ্টা করুন, অথবা সরাসরি পড়ুন: {url}",
     newsStale: "ওই খবরটি আর তালিকায় নেই। এই যে সাম্প্রতিক খবরগুলো আবার:",
+    newsDigestHeading: "*আজকের খবরের বুলেটিন*",
+    newsDigestAlready: "আজকের বুলেটিন আপনি পেয়ে গেছেন। নতুন বুলেটিনের জন্য কাল “খবর” পাঠান, অথবা এখানে পড়ুন: {url}",
     newsLink: "বাকিটা পড়ুন: {url}",
     newsBackHint: "তালিকা আবার দেখতে মেনু থেকে «খবর» খুলুন।",
     // ── The Service Center ──
@@ -4147,6 +4167,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "امروز چیزی در آن بخش منتشر نشده است. این هم آخرین خبرها:",
     newsUnavailable: "الان نتوانستم به خبرها برسم. کمی بعد امتحان کنید، یا مستقیم بخوانید: {url}",
     newsStale: "آن خبر دیگر در فهرست نیست. این هم تازه‌ترین‌ها دوباره:",
+    newsDigestHeading: "*خبرنامه امروز*",
+    newsDigestAlready: "خبرنامه امروز را دریافت کرده‌اید. برای خبرنامه جدید فردا کلمه «اخبار» را بفرستید، یا اینجا بخوانید: {url}",
     newsLink: "بقیه را اینجا بخوانید: {url}",
     newsBackHint: "برای دیدن دوبارهٔ فهرست، «خبرها» را از منو باز کنید.",
     // ── The Service Center ──
@@ -4525,6 +4547,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "Hoy no se ha publicado nada en esa sección. Estas son las últimas noticias:",
     newsUnavailable: "No pude acceder a las noticias ahora mismo. Inténtalo en un momento, o léelas directamente: {url}",
     newsStale: "Esa noticia ya no está en la lista. Aquí están las últimas otra vez:",
+    newsDigestHeading: "*Boletín de hoy*",
+    newsDigestAlready: "Ya recibiste el boletín de hoy. Envía “noticias” mañana para uno nuevo, o léelas aquí: {url}",
     newsLink: "Lee el resto: {url}",
     newsBackHint: "Abre «Noticias» en el menú para ver la lista otra vez.",
     // ── The Service Center ──
@@ -4903,6 +4927,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "In diesem Bereich ist heute nichts erschienen. Hier sind die neuesten Nachrichten:",
     newsUnavailable: "Ich konnte die Nachrichten gerade nicht erreichen. Versuch es gleich noch einmal, oder lies sie direkt: {url}",
     newsStale: "Diese Meldung steht nicht mehr auf der Liste. Hier sind die neuesten noch einmal:",
+    newsDigestHeading: "*Nachrichten von heute*",
+    newsDigestAlready: "Du hast den heutigen Überblick schon bekommen. Sende morgen „Nachrichten“ für einen neuen, oder lies hier: {url}",
     newsLink: "Den Rest lesen: {url}",
     newsBackHint: "Öffne «Nachrichten» im Menü, um die Liste noch einmal zu sehen.",
     // ── The Service Center ──
@@ -5281,6 +5307,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "Hoje não foi publicado nada nessa seção. Estas são as últimas notícias:",
     newsUnavailable: "Não consegui chegar às notícias agora. Tente daqui a pouco, ou leia diretamente: {url}",
     newsStale: "Essa notícia já não está na lista. Aqui estão as últimas outra vez:",
+    newsDigestHeading: "*Boletim de hoje*",
+    newsDigestAlready: "Você já recebeu o boletim de hoje. Envie “notícias” amanhã para um novo, ou leia aqui: {url}",
     newsLink: "Leia o resto: {url}",
     newsBackHint: "Abra «Notícias» no menu para ver a lista outra vez.",
     // ── The Service Center ──
@@ -5659,6 +5687,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "该栏目今天没有发布内容。这是最新消息：",
     newsUnavailable: "现在连不上新闻。请稍后再试，或者直接阅读：{url}",
     newsStale: "那条新闻已经不在列表里了。这是最新的几条：",
+    newsDigestHeading: "*今日新闻简报*",
+    newsDigestAlready: "您今天的简报已送达。明天发送“新闻”即可收到新的简报，也可在这里阅读：{url}",
     newsLink: "阅读全文：{url}",
     newsBackHint: "从菜单打开「新闻」可以再看一次列表。",
     // ── The Service Center ──
@@ -6037,6 +6067,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "Bugün o bölümde yayımlanan bir şey yok. İşte en son haberler:",
     newsUnavailable: "Şu anda haberlere ulaşamadım. Birazdan tekrar deneyin ya da doğrudan okuyun: {url}",
     newsStale: "O haber artık listede değil. İşte en son haberler yeniden:",
+    newsDigestHeading: "*Bugünün haber bülteni*",
+    newsDigestAlready: "Bugünün bültenini zaten aldınız. Yenisi için yarın “haberler” yazın veya buradan okuyun: {url}",
     newsLink: "Devamını okuyun: {url}",
     newsBackHint: "Listeyi yeniden görmek için menüden «Haberler»'i açın.",
     // ── The Service Center ──
@@ -6415,6 +6447,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "Rien n'a été publié dans cette rubrique aujourd'hui. Voici les dernières actualités :",
     newsUnavailable: "Je n'ai pas pu joindre les actualités à l'instant. Réessayez dans un moment, ou lisez-les directement : {url}",
     newsStale: "Cette actualité n'est plus dans la liste. Voici de nouveau les dernières :",
+    newsDigestHeading: "*Le bulletin du jour*",
+    newsDigestAlready: "Vous avez déjà reçu le bulletin du jour. Envoyez « actualités » demain pour un nouveau, ou lisez ici : {url}",
     newsLink: "Lire la suite : {url}",
     newsBackHint: "Ouvrez «Actualités» dans le menu pour revoir la liste.",
     // ── The Service Center ──
@@ -6793,6 +6827,8 @@ const BY_LANGUAGE: Partial<Record<SupportedLanguage, Vocabulary>> = {
     newsTopicEmpty: "Сегодня в этом разделе ничего не опубликовано. Вот последние новости:",
     newsUnavailable: "Сейчас не удалось получить новости. Попробуйте чуть позже или откройте раздел: {url}",
     newsStale: "Этой новости больше нет в списке. Вот последние ещё раз:",
+    newsDigestHeading: "*Сводка новостей на сегодня*",
+    newsDigestAlready: "Сегодняшняя сводка уже у вас. Отправьте «новости» завтра, чтобы получить новую, или читайте здесь: {url}",
     newsLink: "Читать дальше: {url}",
     newsBackHint: "Откройте «Новости» в меню, чтобы снова увидеть список.",
     // ── The Service Center ──

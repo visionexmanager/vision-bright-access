@@ -65,6 +65,9 @@ export interface NewsArticle {
   category: string;
   publishedAt: string | null;
   translations: Record<string, { title?: string; description?: string }> | null;
+  /** The publisher's own page, when the article came from a feed. */
+  sourceUrl?: string | null;
+  sourceName?: string | null;
 }
 
 /**
@@ -93,6 +96,8 @@ export function readArticles(rows: unknown): NewsArticle[] {
       category: typeof value.category === "string" ? value.category : "",
       publishedAt: typeof value.published_at === "string" ? value.published_at : null,
       translations,
+      sourceUrl: typeof value.source_url === "string" && value.source_url.startsWith("http") ? value.source_url : null,
+      sourceName: typeof value.source_name === "string" ? value.source_name : null,
     }];
   });
 }
@@ -434,4 +439,54 @@ export function formatArticle(params: { article: NewsArticle; language: Language
   lines.push(say("newsLink", language).replace("{url}", NEWS_URL));
   lines.push(say("newsBackHint", language));
   return lines.join("\n");
+}
+
+/** Most items one daily bulletin carries, and the most characters it may run to. */
+export const DIGEST_MAX_ITEMS = 8;
+const DIGEST_LINE_BREAK = String.fromCharCode(10);
+const DIGEST_WHITESPACE = new RegExp(String.fromCharCode(92) + "s+", "g");
+export const DIGEST_MAX_CHARS = 3600;
+export const DIGEST_SUMMARY_CHARS = 160;
+
+/**
+ * The sections a subscriber picked, from their `news-<section>` topics.
+ * An empty result means they picked none, which reads as "all of them".
+ */
+export function digestCategories(topics: unknown): string[] {
+  if (!Array.isArray(topics)) return [];
+  return topics.flatMap((topic) =>
+    typeof topic === "string" && topic.startsWith("news-") ? [topic.slice("news-".length)] : []
+  );
+}
+
+/**
+ * The daily bulletin as one message: a headline, a sentence, and the
+ * publisher's link for each story. Nothing is rewritten — the text is the
+ * feed's own, and the link is how the reader gets the whole story.
+ */
+export function dailyDigest(params: {
+  articles: NewsArticle[];
+  language: Language;
+  heading: string;
+  categories: string[];
+}): string {
+  const wanted = params.categories.length > 0
+    ? params.articles.filter((article) => params.categories.includes(article.category))
+    : params.articles;
+  const lines = [params.heading];
+  let used = params.heading.length;
+  let count = 0;
+  for (const article of wanted) {
+    if (count >= DIGEST_MAX_ITEMS) break;
+    const { title, description } = articleText(article, params.language);
+    const summary = description.replace(DIGEST_WHITESPACE, " ").trim().slice(0, DIGEST_SUMMARY_CHARS).trim();
+    const item = [`${count + 1}. ${title}${summary ? `. ${summary}` : ""}`, article.sourceUrl ?? ""]
+      .filter(Boolean)
+      .join(DIGEST_LINE_BREAK);
+    if (used + item.length + 2 > DIGEST_MAX_CHARS) break;
+    lines.push("", item);
+    used += item.length + 2;
+    count++;
+  }
+  return count === 0 ? "" : lines.join(DIGEST_LINE_BREAK);
 }

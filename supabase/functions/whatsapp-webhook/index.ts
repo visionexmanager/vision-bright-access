@@ -242,6 +242,8 @@ import {
   NEWS_LIST_SIZE,
   NEWS_URL,
   newsBulletin,
+  dailyDigest,
+  digestCategories,
   parseNewsAsk,
   parseNewsSelection,
   readArticles,
@@ -2201,6 +2203,61 @@ Deno.serve(async (req) => {
         );
         log("news", { outcome: "list", count: articles.length });
         return true;
+      };
+
+      /**
+       * The subscriber's daily bulletin.
+       *
+       * `claim_whatsapp_news` is the gate: it recognises the sender by number
+       * and takes today's turn in the same statement, so two messages in the
+       * same second cannot both be answered. Returns whether this message was
+       * handled — false means "not a subscriber", and the ordinary headlines
+       * follow. A bulletin that could not be sent hands the turn back.
+       */
+      const deliverDailyDigest = async (): Promise<boolean> => {
+        const phone = incoming.from.replace(/[^0-9]/g, "");
+        const { data, error } = await db.rpc("claim_whatsapp_news", { p_phone: phone });
+        if (error) {
+          console.error("[whatsapp] news claim failed:", describeError(error));
+          return false;
+        }
+        const row = Array.isArray(data) ? data[0] : null;
+        const status = row && typeof row.status === "string" ? row.status : "not_subscribed";
+        if (status === "already") {
+          log("news", { outcome: "digest_already" });
+          await reply(say("newsDigestAlready", answerLanguage).replace("{url}", NEWS_URL), "reply");
+          return true;
+        }
+        if (status !== "claimed") return false;
+
+        const release = () => db.rpc("release_whatsapp_news", { p_phone: phone });
+        try {
+          const since = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+          const { data: rows, error: loadError } = await db
+            .from("news_articles")
+            .select("id, title, description, category, published_at, translations, source_url, source_name")
+            .eq("published", true)
+            .neq("category", NEWS_EXCLUDED_CATEGORY)
+            .gte("published_at", since)
+            .order("published_at", { ascending: false, nullsFirst: false })
+            .limit(40);
+          const text = loadError ? "" : dailyDigest({
+            articles: readArticles(rows),
+            language: answerLanguage,
+            heading: say("newsDigestHeading", answerLanguage),
+            categories: digestCategories(row?.topics),
+          });
+          if (!text) {
+            await release();
+            return false;
+          }
+          await reply(text, "reply");
+          log("news", { outcome: "digest" });
+          return true;
+        } catch (e) {
+          await release();
+          throw e;
+        }
       };
 
       /**
@@ -4626,6 +4683,9 @@ Deno.serve(async (req) => {
       // technology headlines rather than with whatever was newest.
       const newsAsk = !humanOwnsThis && !aiFocused ? parseNewsAsk(questionText) : null;
       if (newsAsk && featureOn("news")) {
+        // A subscriber who chose WhatsApp gets the day's bulletin, once a day,
+        // when they ask for it. Anyone else gets the headlines as before.
+        if (await deliverDailyDigest()) continue;
         await showNews({ category: newsAsk.category });
         continue;
       }
