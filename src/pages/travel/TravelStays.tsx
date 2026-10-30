@@ -9,6 +9,7 @@
 
 import { useMemo, useState } from "react";
 
+import { ProviderDirectory } from "@/components/travel/ProviderDirectory";
 import { Input } from "@/components/ui/input";
 import { CountSelect, Field } from "@/components/travel/TravelForm";
 import { fieldProps } from "@/features/travel/fieldIds";
@@ -198,6 +199,8 @@ export default function TravelStays() {
           );
         }}
       </TravelRequestForm>
+
+      <ProviderDirectory kind="stays" />
     </TravelShell>
   );
 }

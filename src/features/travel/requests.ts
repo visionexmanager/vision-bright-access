@@ -297,6 +297,82 @@ export function rideSummary(draft: RideDraft): string {
   return lines.join("\n");
 }
 
+// ── Cars ────────────────────────────────────────────────────────────────────
+
+export const TRANSMISSIONS = ["any", "automatic", "manual"] as const;
+export type Transmission = (typeof TRANSMISSIONS)[number];
+
+/** Youngest and oldest driver a form will pass on. Companies set their own limits. */
+export const DRIVER_AGE_MIN = 18;
+export const DRIVER_AGE_MAX = 99;
+
+export interface CarDraft {
+  pickup: string;
+  /** Empty means the car goes back where it was collected. */
+  dropoff: string;
+  pickupDate: string;
+  pickupTime: string;
+  returnDate: string;
+  returnTime: string;
+  /** Kept as typed so an empty field is not mistaken for age zero. */
+  driverAge: string;
+  transmission: Transmission;
+  handControls: boolean;
+  notes: string;
+}
+
+export const EMPTY_CAR_DRAFT: CarDraft = Object.freeze({
+  pickup: "",
+  dropoff: "",
+  pickupDate: "",
+  pickupTime: "",
+  returnDate: "",
+  returnTime: "",
+  driverAge: "",
+  transmission: "any" as Transmission,
+  handControls: false,
+  notes: "",
+});
+
+const driverAgeOf = (draft: CarDraft): number => Number(draft.driverAge.trim());
+
+export function carIssues(draft: CarDraft, nowMs: number = Date.now()): TravelIssue[] {
+  const issues: TravelIssue[] = [];
+
+  if (!filled(draft.pickup)) issues.push(issue("pickup", "pickupRequired"));
+
+  if (!filled(draft.pickupDate)) issues.push(issue("pickupDate", "pickupDateRequired"));
+  else if (!isPlausibleDate(draft.pickupDate, nowMs)) issues.push(issue("pickupDate", "datePast"));
+
+  if (!filled(draft.returnDate)) issues.push(issue("returnDate", "returnDateRequired"));
+  else if (!isPlausibleDate(draft.returnDate, nowMs)) issues.push(issue("returnDate", "returnPast"));
+  else if (filled(draft.pickupDate) && draft.returnDate < draft.pickupDate) {
+    issues.push(issue("returnDate", "returnBeforePickup"));
+  }
+
+  const age = driverAgeOf(draft);
+  if (!filled(draft.driverAge) || !Number.isInteger(age) || age < DRIVER_AGE_MIN || age > DRIVER_AGE_MAX) {
+    issues.push(issue("driverAge", "driverAgeRange"));
+  }
+
+  return issues;
+}
+
+export function carSummary(draft: CarDraft): string {
+  const lines = [
+    "Car rental request",
+    `Pick-up: ${draft.pickup.trim()}`,
+    `Return to: ${filled(draft.dropoff) ? draft.dropoff.trim() : "same place"}`,
+    `Collect: ${draft.pickupDate}${filled(draft.pickupTime) ? ` ${draft.pickupTime}` : ""} (pick-up local time)`,
+    `Return: ${draft.returnDate}${filled(draft.returnTime) ? ` ${draft.returnTime}` : ""}`,
+    `Driver age: ${driverAgeOf(draft)}`,
+    `Gearbox: ${draft.transmission}`,
+    `Hand controls: ${draft.handControls ? "required" : "not required"}`,
+  ];
+  if (filled(draft.notes)) lines.push("", "Driver note:", draft.notes.trim());
+  return lines.join("\n");
+}
+
 // ── What the travel desk is asked for ───────────────────────────────────────
 
 /**
@@ -305,8 +381,9 @@ export function rideSummary(draft: RideDraft): string {
  * The existing Travel Agency page writes "Travel Agency — <package>". These
  * keep the same first words so one filter still finds the lot.
  */
-export const SERVICE_TYPE: Readonly<Record<"flights" | "stays" | "rides", string>> = Object.freeze({
+export const SERVICE_TYPE: Readonly<Record<"flights" | "stays" | "rides" | "cars", string>> = Object.freeze({
   flights: "Travel Agency — Flight request",
   stays: "Travel Agency — Hotel request",
   rides: "Travel Agency — Ride request",
+  cars: "Travel Agency — Car rental request",
 });

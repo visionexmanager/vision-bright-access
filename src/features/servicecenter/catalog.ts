@@ -2345,6 +2345,30 @@ const MARKETPLACE: ServiceEntry[] = [
     skills: { en: [], ar: [] },
   }),
   entry({
+    slug: "travel-cars",
+    hub: "marketplace",
+    kind: "service",
+    to: "/travel/cars",
+    title: { en: "Car Rental Request", ar: "طلب تأجير سيارة" },
+    tagline: {
+      en: "Dates, place and driver — we come back with the full price, hand controls if you need them.",
+      ar: "التواريخ والمكان والسائق — نعود إليك بالسعر كاملاً، مع أدوات تحكم يدوية إن احتجتها.",
+    },
+    difficulty: "starter",
+    durationMinutes: 4,
+    vx: 0,
+    intents: ["care-for-myself"],
+    keywords: {
+      en: ["car", "rental", "rent a car", "hire", "drive", "vehicle", "airport", "hand controls"],
+      ar: ["سيارة", "تأجير", "ايجار سيارة", "استئجار", "قيادة", "مركبة", "مطار", "تحكم يدوي"],
+    },
+    outcomes: {
+      en: ["A rental arranged, with any driving-access requirement stated up front"],
+      ar: ["تأجير سيارة مرتب مع ذكر أي احتياج للقيادة منذ البداية"],
+    },
+    skills: { en: [], ar: [] },
+  }),
+  entry({
     slug: "svc-travel-agency",
     hub: "marketplace",
     kind: "advisor",

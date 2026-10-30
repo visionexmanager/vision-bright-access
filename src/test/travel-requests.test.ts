@@ -19,6 +19,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  EMPTY_CAR_DRAFT,
   EMPTY_FLIGHT_DRAFT,
   EMPTY_RIDE_DRAFT,
   EMPTY_STAY_DRAFT,
@@ -27,12 +28,15 @@ import {
   MAX_TRAVELLERS,
   SERVICE_TYPE,
   flightIssues,
+  carIssues,
+  carSummary,
   flightSummary,
   rideIssues,
   rideSummary,
   stayIssues,
   stayNights,
   staySummary,
+  type CarDraft,
   type FlightDraft,
   type RideDraft,
   type StayDraft,
@@ -53,6 +57,15 @@ const flight = (over: Partial<FlightDraft> = {}): FlightDraft => ({
   origin: "Beirut",
   destination: "London",
   departDate: "2026-10-03",
+  ...over,
+});
+
+const car = (over: Partial<CarDraft> = {}): CarDraft => ({
+  ...EMPTY_CAR_DRAFT,
+  pickup: "Beirut Airport",
+  pickupDate: "2026-10-03",
+  returnDate: "2026-10-10",
+  driverAge: "34",
   ...over,
 });
 
@@ -231,16 +244,63 @@ describe("travel — rides", () => {
   });
 });
 
-describe("travel — what the section honestly is today", () => {
-  it("names three domains and answers for each of them", () => {
-    expect(TRAVEL_DOMAINS).toEqual(["flights", "stays", "rides"]);
-    expect(travelReadiness().map((r) => r.domain)).toEqual(["flights", "stays", "rides"]);
+describe("travel — cars", () => {
+  it("accepts a pick-up, two dates and a driver age", () => {
+    expect(carIssues(car(), NOW)).toEqual([]);
   });
 
-  it("reads a real registry rather than an empty one", () => {
+  it("asks for both days, and for the return to come after the pick-up", () => {
+    expect(codes(carIssues(car({ pickupDate: "", returnDate: "" }), NOW))).toEqual([
+      "pickupDateRequired",
+      "returnDateRequired",
+    ]);
+    expect(codes(carIssues(car({ returnDate: "2026-10-01" }), NOW))).toContain("returnBeforePickup");
+    expect(codes(carIssues(car({ pickupDate: "2026-09-01" }), NOW))).toContain("datePast");
+  });
+
+  it("allows a same-day rental", () => {
+    expect(carIssues(car({ returnDate: "2026-10-03" }), NOW)).toEqual([]);
+  });
+
+  it("holds the driver age to 18 to 99, and does not read an empty box as zero", () => {
+    for (const age of ["", "  ", "17", "100", "abc", "34.5"]) {
+      expect(codes(carIssues(car({ driverAge: age }), NOW)), `age "${age}"`).toContain("driverAgeRange");
+    }
+    for (const age of ["18", "99", " 34 "]) {
+      expect(carIssues(car({ driverAge: age }), NOW), `age "${age}"`).toEqual([]);
+    }
+  });
+
+  it("returns the car where it was collected unless told otherwise", () => {
+    expect(carSummary(car())).toContain("Return to: same place");
+    expect(carSummary(car({ dropoff: "Dubai Airport" }))).toContain("Return to: Dubai Airport");
+  });
+
+  it("carries an access requirement rather than burying it in a note", () => {
+    expect(carSummary(car({ handControls: true }))).toContain("Hand controls: required");
+    expect(carSummary(car())).toContain("Hand controls: not required");
+  });
+
+  it("says whose clock a pick-up time is on", () => {
+    expect(carSummary(car({ pickupTime: "09:30" }))).toContain("2026-10-03 09:30 (pick-up local time)");
+  });
+});
+
+describe("travel — what the section honestly is today", () => {
+  it("names four domains and answers for each of them", () => {
+    expect(TRAVEL_DOMAINS).toEqual(["flights", "stays", "rides", "cars"]);
+    expect(travelReadiness().map((r) => r.domain)).toEqual(["flights", "stays", "rides", "cars"]);
+  });
+
+  it("reads a real registry for every domain that has a booking core", () => {
     for (const readiness of travelReadiness()) {
+      if (readiness.domain === "cars") continue;
       expect(readiness.suppliers).toBeGreaterThan(0);
     }
+  });
+
+  it("is plain that car hire has no supplier behind it yet", () => {
+    expect(domainReadiness("cars")).toMatchObject({ suppliers: 0, sellable: false, stage: "concierge" });
   });
 
   it("sells nothing, because no supplier has been researched", () => {
@@ -260,6 +320,6 @@ describe("travel — what the section honestly is today", () => {
     for (const value of Object.values(SERVICE_TYPE)) {
       expect(value.startsWith("Travel Agency — ")).toBe(true);
     }
-    expect(new Set(Object.values(SERVICE_TYPE)).size).toBe(3);
+    expect(new Set(Object.values(SERVICE_TYPE)).size).toBe(4);
   });
 });

@@ -741,6 +741,19 @@
     "text": "Ride Request. طلب توصيلة. marketplace. service. A car now or later, including wheelchair accessible vehicles.. سيارة الآن أو لاحقاً، بما فيها مركبات تناسب الكرسي المتحرك.. ride. taxi. car. driver. transfer. airport. wheelchair. توصيلة. تاكسي. سيارة. سائق. نقل. مطار. كرسي متحرك. care-for-myself"
   },
   {
+    "id": "travel-cars",
+    "title_en": "Car Rental Request",
+    "title_ar": "طلب تأجير سيارة",
+    "tagline_en": "Dates, place and driver — we come back with the full price, hand controls if you need them.",
+    "tagline_ar": "التواريخ والمكان والسائق — نعود إليك بالسعر كاملاً، مع أدوات تحكم يدوية إن احتجتها.",
+    "hub": "marketplace",
+    "kind": "service",
+    "path": "/travel/cars",
+    "difficulty": "starter",
+    "vx": 0,
+    "text": "Car Rental Request. طلب تأجير سيارة. marketplace. service. Dates, place and driver — we come back with the full price, hand controls if you need them.. التواريخ والمكان والسائق — نعود إليك بالسعر كاملاً، مع أدوات تحكم يدوية إن احتجتها.. car. rental. rent a car. hire. drive. vehicle. airport. hand controls. سيارة. تأجير. ايجار سيارة. استئجار. قيادة. مركبة. مطار. تحكم يدوي. care-for-myself"
+  },
+  {
     "id": "svc-travel-agency",
     "title_en": "Travel Planning",
     "title_ar": "تخطيط السفر",
