@@ -13141,6 +13141,8 @@ export const translations: Record<string, string> = {
   "arcade.word-master.desc": "五文字の語を六回以内で当てます。アラビア語でも英語でも。",
   "arcade.skybound-quest.title": "スカイバウンド・クエスト",
   "arcade.skybound-quest.desc": "宝石ひとつずつのために、空の足場をあわてず一歩ずつ跳び渡ります。",
+  "arcade.sky-master.title": "スカイマスター",
+  "arcade.sky-master.desc": "離陸前チェックリストを終え、巡航高度まで上昇し、客室でサービスをして、時間に追われることなく無事に着陸します。",
   "arcade.hex.title": "ヘックス",
   "arcade.hex.desc": "小ぶりな戦術盤で、端から端まで途切れない道を作ります。",
   "arcade.mancala.title": "マンカラ",

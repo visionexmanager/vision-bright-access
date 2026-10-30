@@ -9,6 +9,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { usePlanAccess } from "@/hooks/usePlanAccess";
 import { SECTIONS, type SectionKey } from "@/lib/billing/plans";
 import { checkoutPath } from "@/lib/billing/whatsappCheckout";
+import { isAndroidApp } from "@/lib/androidApp";
 
 /**
  * The plans, from the table that decides them.
@@ -48,6 +49,7 @@ function asSections(limits: Record<string, unknown>): SectionKey[] {
 
 export default function Pricing() {
   const { t, translateText, dir } = useLanguage();
+  const androidApp = isAndroidApp();
   const { user } = useAuth();
   const { access } = usePlanAccess();
 
@@ -174,6 +176,8 @@ export default function Pricing() {
                     ))}
                   </ul>
 
+                  {/* The Android app does not sell plans: Play billing rules. */}
+                  {!(androidApp && plan.price_monthly_usd > 0) && (
                   <div className="mt-6 pt-2">
                     <Button asChild className="w-full">
                       {/* A paid plan goes to checkout, which is paid through
@@ -196,6 +200,7 @@ export default function Pricing() {
                       </Link>
                     </Button>
                   </div>
+                  )}
                 </li>
               );
             })}

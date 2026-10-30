@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
+import { isAndroidApp } from "@/lib/androidApp";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { Layout } from "@/components/Layout";
@@ -118,6 +119,9 @@ export default function PlanCheckout() {
       setSubmitting(false);
     }
   };
+
+  // The Android app does not sell plans: Play billing rules.
+  if (isAndroidApp()) return <Navigate to={PRICING_PATH} replace />;
 
   return (
     <Layout>

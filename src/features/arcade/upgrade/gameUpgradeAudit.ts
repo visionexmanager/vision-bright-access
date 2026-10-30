@@ -13,6 +13,7 @@ const sourceFiles: Record<string, string> = {
   visionopoly:"src/pages/games/Visionopoly.tsx", chess:"src/pages/games/Chess.tsx", backgammon:"src/pages/games/Backgammon.tsx",
   ludo:"src/pages/games/Ludo.tsx", "word-master":"src/pages/games/WordMaster.tsx",
   "skybound-quest":"src/pages/games/SkyboundQuest.tsx",
+  "sky-master":"src/pages/games/SkyMaster.tsx",
   "2048":"src/pages/games/expansion/Game2048.tsx", minesweeper:"src/pages/games/expansion/Minesweeper.tsx",
   "connect-four":"src/pages/games/expansion/ConnectFour.tsx", "reaction-test":"src/pages/games/expansion/ReactionTest.tsx",
   "tic-tac-toe":"src/pages/games/expansion/TicTacToe.tsx", "typing-speed":"src/pages/games/expansion/TypingSpeed.tsx",
