@@ -7,6 +7,15 @@ import {
 } from "@/systems/multiplayerSystem";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { P2PLink, p2pSupported, type P2PMessage, type P2PSignal } from "@/systems/p2pLink";
+
+/**
+ * Moves go straight to the other player's device when a peer-to-peer link is
+ * open, and to the game_sessions row when it is not. The row is also a
+ * checkpoint, written every few moves, so a refresh or a dropped link can
+ * continue from where the game was.
+ */
+const CHECKPOINT_EVERY = 6;
 
 export function useMultiplayer(gameType: GameType) {
   const { user } = useAuth();
@@ -14,6 +23,17 @@ export function useMultiplayer(gameType: GameType) {
   const [session, setSession] = useState<GameSession | null>(null);
   const [loading, setLoading] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const sessionRef = useRef<GameSession | null>(null);
+  const linkRef = useRef<P2PLink | null>(null);
+  const seqRef = useRef(0);
+  const sinceCheckpointRef = useRef(0);
+  const handledSignalRef = useRef(0);
+
+  /** Every change to the session goes through here so the refs never lag behind. */
+  const commit = useCallback((next: GameSession | null) => {
+    sessionRef.current = next;
+    setSession(next);
+  }, []);
 
   // ── Derived ──────────────────────────────────────────────────────────────
   const myPlayer   = session?.players.find((p) => p.id === user?.id);
@@ -33,17 +53,104 @@ export function useMultiplayer(gameType: GameType) {
         { event: "*", schema: "public", table: "game_sessions", filter: `id=eq.${session.id}` },
         (payload) => {
           if (payload.eventType === "DELETE") {
-            setSession(null);
+            commit(null);
             toast.info(t("mp.roomClosed"));
           } else {
-            setSession(payload.new as GameSession);
+            const incoming = payload.new as GameSession;
+            const local = sessionRef.current;
+            // A row older than what the players already did over the link
+            // (a checkpoint arriving late) must not rewind the game.
+            const behind = local && incoming.status === "playing" && (incoming.p2p_seq ?? 0) < seqRef.current;
+            commit(behind
+              ? {
+                  ...incoming,
+                  game_state: local.game_state,
+                  current_player_id: local.current_player_id,
+                  p2p_seq: seqRef.current,
+                  players: incoming.players.map((p) => local.players.find((q) => q.id === p.id) ?? p),
+                }
+              : incoming);
           }
         },
       )
       .subscribe();
     channelRef.current = ch;
     return () => { supabase.removeChannel(ch); };
-  }, [session?.id, t]);
+  }, [session?.id, t, commit]);
+
+  // ── Peer-to-peer link ─────────────────────────────────────────────────────
+  const handleP2P = useCallback((message: P2PMessage) => {
+    const cur = sessionRef.current;
+    if (!cur || !user) return;
+    if (message.t === "move") {
+      if (message.seq <= seqRef.current) return;
+      if (message.next !== null && !cur.players.some((p) => p.id === message.next)) return;
+      seqRef.current = message.seq;
+      commit({ ...cur, game_state: message.state, current_player_id: message.next, p2p_seq: message.seq });
+    } else if (message.id !== user.id && cur.players.some((p) => p.id === message.id)) {
+      commit({
+        ...cur,
+        players: cur.players.map((p) => (p.id === message.id ? { ...p, score: message.score } : p)),
+        game_state: { ...(cur.game_state ?? {}), [`fin_${message.id}`]: message.fin },
+      });
+    }
+  }, [user, commit]);
+
+  /** Writes the game as the players have it now, so the row can catch up. */
+  const checkpoint = useCallback(async () => {
+    const cur = sessionRef.current;
+    if (!cur) return;
+    sinceCheckpointRef.current = 0;
+    await supabase.from("game_sessions").update({
+      game_state: cur.game_state as unknown as Json,
+      current_player_id: cur.current_player_id,
+      players: cur.players as unknown as Json,
+      p2p_seq: seqRef.current,
+    }).eq("id", cur.id);
+  }, []);
+
+  const handleOpenChange = useCallback((open: boolean) => {
+    // The link dropped: whatever it carried since the last checkpoint goes to the row.
+    if (!open && sinceCheckpointRef.current > 0) void checkpoint();
+  }, [checkpoint]);
+
+  const sid = session?.id;
+  const hostId = session?.host_id;
+  const linkWanted = Boolean(sid && user && (session?.players.length ?? 0) >= 2 && session?.status !== "finished");
+
+  useEffect(() => {
+    handledSignalRef.current = 0;
+    seqRef.current = 0;
+    sinceCheckpointRef.current = 0;
+  }, [sid]);
+
+  useEffect(() => {
+    if (!linkWanted || !sid || !user || !p2pSupported()) return;
+    const link = new P2PLink({
+      role: hostId === user.id ? "offer" : "answer",
+      myId: user.id,
+      publishSignal: async (signal: P2PSignal) => {
+        await supabase.from("game_sessions").update({ rtc_signal: signal as unknown as Json }).eq("id", sid);
+      },
+      onMessage: handleP2P,
+      onOpenChange: handleOpenChange,
+    });
+    linkRef.current = link;
+    if (hostId === user.id) void link.start().catch(() => link.close());
+    return () => {
+      link.close();
+      if (linkRef.current === link) linkRef.current = null;
+    };
+  }, [linkWanted, sid, hostId, user, handleP2P, handleOpenChange]);
+
+  // The other side's handshake arrives as an update to the row.
+  const signal = session?.rtc_signal;
+  useEffect(() => {
+    const link = linkRef.current;
+    if (!signal || !link || signal.ts <= handledSignalRef.current) return;
+    handledSignalRef.current = signal.ts;
+    void link.handleSignal(signal).catch(() => link.close());
+  }, [signal]);
 
   // ── Build my MPPlayer entry ───────────────────────────────────────────────
   const meEntry = useCallback((): MPPlayer => ({
@@ -73,9 +180,9 @@ export function useMultiplayer(gameType: GameType) {
       .single();
     setLoading(false);
     if (error) { toast.error(t("mp.createRoomFailed")); return null; }
-    setSession(data as unknown as GameSession);
+    commit(data as unknown as GameSession);
     return code;
-  }, [user, gameType, meEntry, t]);
+  }, [user, gameType, meEntry, t, commit]);
 
   // ── Join room ─────────────────────────────────────────────────────────────
   const joinRoom = useCallback(async (code: string): Promise<boolean> => {
@@ -90,7 +197,7 @@ export function useMultiplayer(gameType: GameType) {
     const s = existing as unknown as GameSession;
     if (s.status !== "waiting") { toast.error(t("mp.gameAlreadyStarted")); setLoading(false); return false; }
     if (s.players.length >= s.max_players) { toast.error(t("mp.roomFull")); setLoading(false); return false; }
-    if (s.players.find((p) => p.id === user.id)) { setSession(s); setLoading(false); return true; }
+    if (s.players.find((p) => p.id === user.id)) { commit(s); setLoading(false); return true; }
     const { data, error } = await supabase
       .from("game_sessions")
       .update({ players: [...s.players, meEntry()] as unknown as Json })
@@ -99,9 +206,9 @@ export function useMultiplayer(gameType: GameType) {
       .single();
     setLoading(false);
     if (error) { toast.error(t("mp.joinRoomFailed")); return false; }
-    setSession(data as unknown as GameSession);
+    commit(data as unknown as GameSession);
     return true;
-  }, [user, meEntry, t]);
+  }, [user, meEntry, t, commit]);
 
   // ── Start game (host only) ────────────────────────────────────────────────
   const startGame = useCallback(async (initialState: Record<string, unknown>) => {
@@ -118,38 +225,61 @@ export function useMultiplayer(gameType: GameType) {
     newState: Record<string, unknown>,
     nextPlayerId: string,
   ) => {
-    if (!session) return;
+    const cur = sessionRef.current;
+    if (!cur) return;
+    const seq = seqRef.current + 1;
+    const sent = linkRef.current?.send({ t: "move", seq, state: newState, next: nextPlayerId }) ?? false;
+    seqRef.current = seq;
+    if (sent) {
+      commit({ ...cur, game_state: newState, current_player_id: nextPlayerId, p2p_seq: seq });
+      sinceCheckpointRef.current++;
+      if (sinceCheckpointRef.current >= CHECKPOINT_EVERY) await checkpoint();
+      return;
+    }
+    sinceCheckpointRef.current = 0;
     await supabase.from("game_sessions").update({
       game_state: newState as unknown as Json,
       current_player_id: nextPlayerId,
-    }).eq("id", session.id);
-  }, [session]);
+      p2p_seq: seq,
+    }).eq("id", cur.id);
+  }, [commit, checkpoint]);
 
   // ── Update my score (competitive) ────────────────────────────────────────
   const updateMyScore = useCallback(async (score: number, finished = false) => {
-    if (!session || !user) return;
-    const updatedPlayers = session.players.map((p) =>
+    const cur = sessionRef.current;
+    if (!cur || !user) return;
+    const updatedPlayers = cur.players.map((p) =>
       p.id === user.id ? { ...p, score } : p,
     );
     const newState = {
-      ...(session.game_state ?? {}),
+      ...(cur.game_state ?? {}),
       [`fin_${user.id}`]: finished,
     };
+    // Running scores stay between the players; the final one goes to the row.
+    if (!finished && linkRef.current?.send({ t: "score", id: user.id, score, fin: false })) {
+      commit({ ...cur, players: updatedPlayers, game_state: newState });
+      return;
+    }
     await supabase.from("game_sessions").update({
       players: updatedPlayers as unknown as Json,
       game_state: newState as unknown as Json,
-    }).eq("id", session.id);
-  }, [session, user]);
+    }).eq("id", cur.id);
+  }, [user, commit]);
 
   // ── End game ──────────────────────────────────────────────────────────────
   const endGame = useCallback(async (winnerId?: string) => {
-    if (!session) return;
+    const cur = sessionRef.current;
+    if (!cur) return;
     await supabase.from("game_sessions").update({
       status: "finished",
       winner_id: winnerId ?? null,
       current_player_id: null,
-    }).eq("id", session.id);
-  }, [session]);
+      // What the players saw last, if it only ever travelled over the link.
+      ...(seqRef.current > 0
+        ? { game_state: cur.game_state as unknown as Json, players: cur.players as unknown as Json, p2p_seq: seqRef.current }
+        : {}),
+    }).eq("id", cur.id);
+  }, []);
 
   // ── Leave / close room ────────────────────────────────────────────────────
   const leaveRoom = useCallback(async () => {
@@ -161,8 +291,9 @@ export function useMultiplayer(gameType: GameType) {
       await supabase.from("game_sessions").update({ players: rest as unknown as Json }).eq("id", session.id);
     }
     if (channelRef.current) supabase.removeChannel(channelRef.current);
-    setSession(null);
-  }, [session, user, isHost]);
+    linkRef.current?.close();
+    commit(null);
+  }, [session, user, isHost, commit]);
 
   return {
     session, loading, myPlayer, opponents,
