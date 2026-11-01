@@ -37,6 +37,7 @@ import { maySeeSection, sectionRefusal } from "../_shared/entitlements.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import {
   convertMediaLocally,
+  fetchDocJob,
   MAX_CONVERT_UPLOAD_BYTES,
   processorConfig,
 } from "../_shared/whatsappProcessor.ts";
@@ -131,6 +132,55 @@ Deno.serve(async (req: Request) => {
   const entitled = await maySeeSection(serviceClient, user.id, "professional");
   if (!entitled.allowed) return sectionRefusal("professional", entitled.unavailable);
 
+  // JSON with base64 rather than a multipart body, because that is what a
+  // browser `fetch` composes without ceremony and this runtime parses without a
+  // dependency. It costs a third in size on the way in, which is why the
+  // ceiling below is checked against the decoded length rather than the
+  // encoded one. Read before the allowance is counted, because asking about a
+  // job is not a conversion.
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json() as Record<string, unknown>;
+  } catch {
+    return json({ error: "Invalid JSON body" }, 400, cors);
+  }
+
+  // ── Collecting a long document ────────────────────────────────────────────
+  //
+  // A long PDF read by eye is a job on the server: the first call answers 202
+  // and an id, and the browser asks about it here until it is done. Asking is
+  // free — the allowance was spent when the job was started — but it is behind
+  // the same gate, because the job id is the only thing that names the result.
+  if (body.kind === "document-status" || body.kind === "document-result") {
+    const config = processorConfig();
+    if (!config) return json({ error: "Conversion is unavailable" }, 503, cors);
+    const jobId = typeof body.job === "string" ? body.job : "";
+    try {
+      const seen = await fetchDocJob({ config, jobId, result: body.kind === "document-result" });
+      if (body.kind === "document-result" && seen.bytes) {
+        return new Response(seen.bytes as unknown as BodyInit, {
+          status: 200,
+          headers: {
+            ...cors,
+            "Content-Type": seen.mime || "application/octet-stream",
+            "Content-Length": String(seen.bytes.byteLength),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      }
+      const reason = seen.json?.reason;
+      return json({
+        state: typeof seen.json?.state === "string" ? seen.json.state : null,
+        pages_done: typeof seen.json?.pages_done === "number" ? seen.json.pages_done : 0,
+        pages_total: typeof seen.json?.pages_total === "number" ? seen.json.pages_total : 0,
+        code: typeof reason === "string" && /^[a-z_]{1,40}$/.test(reason) ? reason : undefined,
+      }, seen.status === 404 ? 404 : seen.status >= 500 ? 502 : seen.status === 409 ? 409 : 200, cors);
+    } catch {
+      return json({ error: "conversion_failed", code: "network" }, 502, cors);
+    }
+  }
+
   // ── Ten a day ───────────────────────────────────────────────────────────
   //
   // The tightest band in the table, beside `generate-diet-plan` and
@@ -150,18 +200,6 @@ Deno.serve(async (req: Request) => {
   if (!processorConfig()) return json({ error: "Conversion is unavailable" }, 503, cors);
 
   // ── The request ───────────────────────────────────────────────────────────
-  //
-  // JSON with base64 rather than a multipart body, because that is what a
-  // browser `fetch` composes without ceremony and this runtime parses without a
-  // dependency. It costs a third in size on the way in, which is why the
-  // ceiling below is checked against the decoded length rather than the
-  // encoded one.
-  let body: Record<string, unknown>;
-  try {
-    body = await req.json() as Record<string, unknown>;
-  } catch {
-    return json({ error: "Invalid JSON body" }, 400, cors);
-  }
 
   const isDocument = body.kind === "document";
   const query = isDocument ? buildDocumentQuery(body) : buildQuery(body);
@@ -189,6 +227,11 @@ Deno.serve(async (req: Request) => {
   // ── The work ──────────────────────────────────────────────────────────────
 
   const result = await convertMediaLocally({ bytes, query, path: isDocument ? "/doc-convert" : "/convert" });
+
+  // A long PDF, accepted and being read: hand the id to the browser to follow.
+  if (result.code === "job" && result.jobId) {
+    return json({ job: result.jobId, pages: result.pages ?? null }, 202, cors);
+  }
 
   if (!result.ok || !result.bytes || !result.mime) {
     // The service's code, and nothing else. It is a label out of a fixed list —

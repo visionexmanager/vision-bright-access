@@ -2083,7 +2083,8 @@ Deno.serve(async (req) => {
                 });
                 return media.ok ? media.bytes : null;
               },
-              convert: (bytes, query) => convertMediaLocally({ bytes, query }),
+              // A long PDF is a job on the server; this worker is already off the request path, so it waits.
+              convert: (bytes, query) => convertMediaLocally({ bytes, query, followJobs: true, timeoutMs: 140_000 }),
               deliver: async (bytes, mimeType, filename): Promise<DeliveryResult> => {
                 if (!token || !phoneNumberId) return { outcome: "failed", reason: "whatsapp_transport_error", ms: 0 };
                 const delivered = await deliverAsset({

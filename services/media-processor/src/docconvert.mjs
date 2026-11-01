@@ -48,6 +48,30 @@ export const MAX_DOC_OUTPUT_BYTES = 48 * 1024 * 1024;
 
 /** Pages of a scanned PDF that are read; later pages are dropped and the caller is told. */
 export const MAX_OCR_PAGES = 10;
+
+/**
+ * A PDF that needs reading by eye and has no more pages than this is answered in
+ * the same request. A longer one becomes a job: the answer is a job id, the
+ * caller polls, and nothing waits on a proxy for ten minutes. At about four
+ * seconds a page, eight pages is the most that fits inside the 105 s budget.
+ */
+export const MAX_SYNC_OCR_PAGES = 8;
+
+/** The most pages one job reads. A 16 MB upload can hold more; 400 is already half an hour. */
+export const MAX_JOB_PAGES = 400;
+/** Pages rendered and read per step, so a long job never holds hundreds of page images. */
+export const JOB_BATCH_PAGES = 5;
+/** A job that has not finished by then is abandoned. */
+export const JOB_MAX_MS = 40 * 60_000;
+/** How long a finished (or failed) job is kept for the caller to collect it. */
+export const JOB_TTL_MS = 50 * 60_000;
+/** Jobs waiting or running at once; a further request is told to come back. */
+export const JOB_MAX_QUEUED = 4;
+/** Building the Word file from hundreds of pages takes longer than the interactive limit. */
+export const JOB_SOFFICE_TIMEOUT_MS = 300_000;
+
+/** A job id is 128 random bits in hex. Anything else is not one. */
+export const isJobId = (value) => typeof value === "string" && /^[0-9a-f]{32}$/.test(value);
 export const OCR_RENDER_DPI = 200;
 export const PDFTOTEXT_TIMEOUT_MS = 20_000;
 export const PDFTOPPM_TIMEOUT_MS = 60_000;
@@ -248,15 +272,86 @@ export const stripBidiControls = (text) => String(text).replace(/[\u202a-\u202e\
 // (پ چ ژ گ ک ی ٹ ڈ ں ے ...), and reading them wrongly is worse than the
 // ligature swap. They keep the text layer.
 
+// ── Which language to read a page in ─────────────────────────────────────────
+//
+// Tesseract's orientation-and-script detection says which script a page is in
+// (and, as a side effect, whether it is upside down). The script picks the
+// models: reading Latin text with only the Arabic model, or Arabic with only the
+// English one, is the quickest way to get nonsense. Latin gets a handful of
+// European models together, which costs time but is what accents need; the rest
+// of the world's Latin-script languages are read as English, accents lost.
+
+export const OCR_LANGUAGE_BY_SCRIPT = Object.freeze({
+  Arabic: "ara+eng",
+  Latin: "eng+fra+spa+deu+ita+por+tur",
+  Cyrillic: "rus+eng",
+  Devanagari: "hin+eng",
+  Bengali: "ben+eng",
+  Han: "chi_sim+chi_tra+eng",
+  Japanese: "jpn+eng",
+  Hangul: "kor+eng",
+});
+
+/** Every model name the table above may use; the Dockerfile installs exactly these. */
+export const OCR_MODELS = Object.freeze([
+  "eng", "ara", "fas", "urd", "fra", "spa", "deu", "ita", "por", "tur", "rus", "hin", "ben", "chi_sim", "chi_tra", "jpn", "kor",
+]);
+
+export const DEFAULT_OCR_LANGUAGE = "ara+eng";
+
+/** The script from `tesseract --psm 0` output ("Script: Arabic"), or null. */
+export function parseOsdScript(output) {
+  const m = /^Script:\s*([A-Za-z]+)\s*$/m.exec(typeof output === "string" ? output : "");
+  return m ? m[1] : null;
+}
+
+export const languageForScript = (script) => OCR_LANGUAGE_BY_SCRIPT[script] ?? DEFAULT_OCR_LANGUAGE;
+
+const URDU_ONLY = /[\u0679\u0688\u0691\u06ba\u06be\u06c1\u06d2]/u;
+const PERSIAN_ONLY = /[\u067e\u0686\u0698\u06af\u06a9\u06cc]/u;
+
+/**
+ * Arabic-script text that the Arabic model read, looked at again: Urdu and
+ * Persian share the script and have letters it does not. Returns the language
+ * to read the document in, or null to keep the one it was read in.
+ */
+export function refineArabicLanguage(text) {
+  if (typeof text !== "string") return null;
+  if (URDU_ONLY.test(text)) return "urd+eng";
+  if (PERSIAN_ONLY.test(text)) return "fas+eng";
+  return null;
+}
+
 export const ARABIC_SCRIPT = /[\u0600-\u06ff\u0750-\u077f\ufb50-\ufdff\ufe70-\ufeff]/u;
 export const PERSIAN_URDU_LETTERS = /[\u067e\u0686\u0698\u06af\u06a9\u06cc\u0679\u0688\u0691\u06ba\u06be\u06c1\u06d2]/u;
 
 /** True when this text layer is Arabic and the Arabic model can be trusted to read it. */
-export const needsOcrForArabic = (text) =>
-  typeof text === "string" && ARABIC_SCRIPT.test(text) && !PERSIAN_URDU_LETTERS.test(text);
+export const needsOcrForArabic = (text) => typeof text === "string" && ARABIC_SCRIPT.test(text);
 
 /** Visible characters in extracted PDF text, for deciding whether there is a text layer. */
 export const visibleChars = (text) => (typeof text === "string" ? text.replace(/[\s\f​-‏‪-‮]/gu, "").length : 0);
+
+/**
+ * Fewer visible characters than this across a whole document read by eye means
+ * the reading found nothing. Much lower than MIN_TEXT_LAYER_CHARS on purpose:
+ * that one asks "is there a text layer worth keeping" of a page that may hold a
+ * single stamp, this one asks "did the reader find any words" of a document that
+ * may be one table, or fourteen one-line pages.
+ */
+export const MIN_READ_CHARS = 6;
+
+/**
+ * A second reading is kept only if it found clearly more. Page segmentation
+ * mode 3 (the default) reads prose well and loses the cells of a ruled table,
+ * because Tesseract takes the grid lines for noise and gives up on the box;
+ * mode 11 (sparse text) reads every word it can see wherever it is, which is
+ * what a table needs — and the layout step rebuilds the order from the word
+ * boxes anyway. Measured on the server: a three-by-three Arabic table came back
+ * as three words under mode 3.
+ */
+export const SPARSE_PSM = "11";
+export const SPARSE_GAIN = 1.15;
+export const sparseReadWins = (defaultChars, sparseChars) => sparseChars > defaultChars * SPARSE_GAIN;
 
 export const hasTextLayer = (text) => visibleChars(text) >= MIN_TEXT_LAYER_CHARS;
 
@@ -286,8 +381,8 @@ export function sofficeArgs({ input, outDir, profileDir, from, to }) {
 }
 
 /** Arguments for `pdftoppm`: grey PNGs at a fixed DPI, the first `pages` only. */
-export const pdftoppmArgs = (input, prefix, pages = MAX_OCR_PAGES) => [
-  "-png", "-gray", "-r", String(OCR_RENDER_DPI), "-f", "1", "-l", String(pages), input, prefix,
+export const pdftoppmArgs = (input, prefix, last = MAX_OCR_PAGES, first = 1) => [
+  "-png", "-gray", "-r", String(OCR_RENDER_DPI), "-f", String(first), "-l", String(last), input, prefix,
 ];
 
 export const pdftotextArgs = (input, output, first = 1) => [

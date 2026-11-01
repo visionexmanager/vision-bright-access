@@ -33,6 +33,22 @@ RUN apt-get update \
       tesseract-ocr \
       tesseract-ocr-ara \
       tesseract-ocr-eng \
+      tesseract-ocr-osd \
+      tesseract-ocr-fas \
+      tesseract-ocr-urd \
+      tesseract-ocr-fra \
+      tesseract-ocr-spa \
+      tesseract-ocr-deu \
+      tesseract-ocr-ita \
+      tesseract-ocr-por \
+      tesseract-ocr-tur \
+      tesseract-ocr-rus \
+      tesseract-ocr-hin \
+      tesseract-ocr-ben \
+      tesseract-ocr-jpn \
+      tesseract-ocr-kor \
+      tesseract-ocr-chi-sim \
+      tesseract-ocr-chi-tra \
       ffmpeg \
       zbar-tools \
       poppler-utils \
