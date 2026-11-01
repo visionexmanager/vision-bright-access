@@ -19,6 +19,8 @@ import {
   SERVER_IMAGE_OUTPUTS,
   SERVER_VIDEO_OUTPUTS,
 } from "./serverConvert";
+import { BROWSER_DOCUMENT_TARGETS } from "./modules/documents";
+import { serverCanConvertDocument, serverDocumentTargets } from "./serverDocuments";
 
 // ── Module registry ───────────────────────────────────────────────────────────
 
@@ -38,7 +40,7 @@ export function detectModuleType(fileName: string): ModuleType | null {
   if (["mp3","wav","flac","aac","ogg","m4a","opus","wma"].includes(ext)) return "audio";
   if (["mp4","avi","mov","mkv","webm","flv","m4v","3gp"].includes(ext)) return "video";
   if (["jpg","jpeg","png","webp","heic","avif","gif","bmp","tiff","svg"].includes(ext)) return "image";
-  if (["pdf","docx","txt","html","xlsx","pptx","md","rtf"].includes(ext)) return "document";
+  if (["pdf","docx","doc","odt","txt","html","xlsx","xls","ods","pptx","ppt","odp","md","rtf"].includes(ext)) return "document";
   if (["zip","tar","gz","7z","rar"].includes(ext)) return "archive";
   if (["json","xml","yaml","toml","csv","base64","hex"].includes(ext)) return "developer";
   return null;
@@ -66,21 +68,6 @@ export function getSupportedOutputFormats(moduleType: ModuleType): readonly stri
 // entry below is now derived from a module's own constants rather than typed
 // out again here.
 //
-
-const DOCUMENT_WORKING_TARGETS: Record<string, readonly string[]> = {
-  // Text, Markdown and HTML become a real Word document (src/lib/documents/docx.ts),
-  // with their headings and lists as Word's own.
-  txt:  ["html", "md", "docx"],
-  md:   ["docx"],
-  html: ["txt", "docx"],
-  csv:  ["txt"],
-  // Reading a Word document or a deck, not rewriting one: a .docx is a ZIP of
-  // XML, so the archive reader opens it and the text comes out. Rewriting its
-  // layout, or writing a PDF, needs a document engine this project does not run,
-  // which is why PDF is absent and these two are one-way.
-  docx: ["txt", "html"],
-  pptx: ["txt", "html"],
-};
 
 const DEVELOPER_WORKING_TARGETS: Record<string, readonly string[]> = {
   json: ["json", "csv", "base64", "hex"],
@@ -118,7 +105,11 @@ const VIDEO_WORKING_TARGETS: readonly string[] = [...SERVER_VIDEO_OUTPUTS];
  * server path requires a signed-in account, and it refuses a file over 16 MB —
  * neither of which is true of a conversion that happens in the tab.
  */
-export function requiresServer(moduleType: ModuleType, targetFormat: string): boolean {
+export function requiresServer(moduleType: ModuleType, targetFormat: string, inputFileName = ""): boolean {
+  if (moduleType === "document") {
+    const inFmt = inputFileName.split(".").pop()?.toLowerCase() ?? "";
+    return !(BROWSER_DOCUMENT_TARGETS[inFmt] ?? []).includes(targetFormat) && serverCanConvertDocument(inFmt, targetFormat);
+  }
   if (moduleType === "video") return VIDEO_WORKING_TARGETS.includes(targetFormat);
   if (moduleType === "audio") return !AUDIO_BROWSER_TARGETS.includes(targetFormat);
   if (moduleType === "image") return !(IMAGE_BROWSER_TARGETS as readonly string[]).includes(targetFormat);
@@ -136,7 +127,7 @@ export function getWorkingOutputFormats(moduleType: ModuleType, inputFileName: s
     case "audio":
       return AUDIO_WORKING_TARGETS;
     case "document":
-      return DOCUMENT_WORKING_TARGETS[inFmt] ?? [];
+      return union(BROWSER_DOCUMENT_TARGETS[inFmt] ?? [], serverDocumentTargets(inFmt));
     case "video":
       return VIDEO_WORKING_TARGETS;
     case "archive":

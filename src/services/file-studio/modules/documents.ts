@@ -1,12 +1,11 @@
 // ─── Document Converter Module ────────────────────────────────────────────────
 //
-// Browser-native: TXT↔HTML↔Markdown and CSV. PDF and Word are not here and are
-// not "coming": writing them needs a document engine (LibreOffice, ~1 GB) that
-// Visionex deliberately does not run, and the ffmpeg the other modules use has
-// nothing to do with documents. The branch below therefore refuses by saying
-// that, rather than by naming a phase — the page's menu never offers these
-// pairs in the first place, so it is a safety net and not a message a visitor
-// is expected to read.
+// Browser-native: TXT↔HTML↔Markdown, CSV, a Word file from text, and the text
+// out of a Word file or a deck. Everything that needs a real document engine —
+// PDF to Word and back, Word/Excel/PowerPoint to PDF, spreadsheets and decks
+// between their formats — is sent to the LibreOffice in the media-processor
+// container (see `serverDocuments.ts`). Any pair neither path covers is refused
+// by saying so; the page's menu never offers one.
 
 import type {
   ConverterModule,
@@ -15,9 +14,27 @@ import type {
   ConversionOptions,
 } from "@/lib/types/fileStudio";
 import { DOCUMENT_FORMATS } from "@/lib/types/fileStudio";
+import { convertOnServer } from "../serverConvert";
+import { serverCanConvertDocument } from "../serverDocuments";
 import { ArchiveError } from "./archiveFormats";
 import { isOfficeTextFormat, officeText } from "./officeText";
 import { DOCX_MIME, blocksFromHtml, blocksFromMarkdown, blocksFromPlainText, buildDocx, isRtlText } from "@/lib/documents/docx";
+
+/**
+ * What the tab can write by itself, by input format. `engine.ts` reads this
+ * rather than repeating it, so the menu and the branch below cannot drift.
+ */
+export const BROWSER_DOCUMENT_TARGETS: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  // Text, Markdown and HTML become a real Word document (src/lib/documents/docx.ts),
+  // with their headings and lists as Word's own.
+  txt:  ["html", "md", "docx"],
+  md:   ["docx"],
+  html: ["txt", "docx"],
+  csv:  ["txt"],
+  // A .docx is a ZIP of XML, so the archive reader opens it and the text comes out.
+  docx: ["txt", "html"],
+  pptx: ["txt", "html"],
+});
 
 export const DocumentModule: ConverterModule = {
   moduleType: "document",
@@ -33,6 +50,12 @@ export const DocumentModule: ConverterModule = {
     const opts = options as DocumentOptions;
     const start = Date.now();
     const inFmt = file.name.split(".").pop()?.toLowerCase() ?? "";
+
+    // The browser handles what it can without a request; the rest goes to the
+    // document engine on Visionex's own server.
+    if (!BROWSER_DOCUMENT_TARGETS[inFmt]?.includes(opts.targetFormat) && serverCanConvertDocument(inFmt, opts.targetFormat)) {
+      return await convertOnServer({ file, target: opts.targetFormat, kind: "document", onProgress });
+    }
 
     // A .docx and a .pptx are ZIP archives, so `file.text()` below would read
     // compressed bytes as if they were prose. They are handled first, and by

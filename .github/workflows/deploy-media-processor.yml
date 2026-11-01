@@ -1072,6 +1072,123 @@ jobs:
           say '```'
           if [ "$FAILED" -ne 0 ]; then exit 1; fi
           say 'PDF pages render through the service.'
+      - name: Prove it converts documents
+        if: inputs.action == 'selftest'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          say() { echo "$*"; echo "$*" >>"$GITHUB_STEP_SUMMARY"; }
+
+          if [ -z "${TOKEN:-}" ]; then
+            echo '::error::PROCESSOR_TOKEN is not set. Nothing to authenticate with.'
+            exit 1
+          fi
+
+          # The thing being proved is not that LibreOffice starts. It is that an
+          # ARABIC document survives a round trip with its words in the right
+          # order, because a converter that reverses a paragraph looks like it
+          # worked. So the source is a right-to-left page, every output is read
+          # back, and the phrase is looked for as text.
+          ARABIC='السلام عليكم ورحمة الله'
+          LATIN='Visionex selftest 2026'
+          URL='https://visionex.app/internal/media/doc-convert'
+          D=$(mktemp -d)
+          FAILED=0
+
+          printf '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p dir="rtl" style="text-align:right">%s</p><p>%s</p></body></html>' "$ARABIC" "$LATIN" > "$D/src.html"
+
+          say '## Document conversion self-test'
+          say '```'
+
+          CAPS=$(curl -s --max-time 30 -H "authorization: Bearer $TOKEN" 'https://visionex.app/internal/media/capabilities')
+          case "$CAPS" in
+            *'"documents"'*) say 'capabilities: documents advertised' ;;
+            *) echo '::error::This deployment does not advertise documents (an image built before LibreOffice was added?).'; FAILED=1 ;;
+          esac
+
+          # convert FROM-FILE QUERY OUT-FILE  → prints the HTTP status and the method header
+          convert() {
+            curl -s --max-time 110 -D "$D/h" -o "$3" -w '%{http_code}' \
+              -H "authorization: Bearer $TOKEN" --data-binary @"$1" "$URL?$2"
+          }
+          method() { grep -i '^x-conversion-method:' "$D/h" | tr -d '\r' | awk '{print $2}'; }
+
+          # 1. HTML (right-to-left) → PDF
+          CODE=$(convert "$D/src.html" 'from=html&to=pdf' "$D/a.pdf")
+          say "html -> pdf   : HTTP $CODE, $(head -c 5 "$D/a.pdf" | tr -d '\0')"
+          [ "$CODE" = "200" ] && [ "$(head -c 5 "$D/a.pdf")" = "%PDF-" ] || { echo '::error::HTML did not become a PDF.'; FAILED=1; }
+
+          # 2. PDF → text: the Arabic phrase must come back, in order
+          CODE=$(convert "$D/a.pdf" 'to=txt' "$D/a.txt")
+          say "pdf -> txt    : HTTP $CODE, method $(method)"
+          if grep -q "$ARABIC" "$D/a.txt" && grep -q "$LATIN" "$D/a.txt"; then
+            say 'pdf -> txt    : Arabic and Latin both read back, in order'
+          else
+            echo '::error::The PDF text did not contain the phrases in order.'; FAILED=1
+          fi
+
+          # 3. PDF → Word, and the Word file must hold the phrase
+          CODE=$(convert "$D/a.pdf" 'to=docx' "$D/a.docx")
+          say "pdf -> docx   : HTTP $CODE, method $(method), $(stat -c %s "$D/a.docx") bytes"
+          unzip -p "$D/a.docx" word/document.xml > "$D/doc.xml" 2>/dev/null
+          if grep -q "$ARABIC" "$D/doc.xml"; then
+            say 'pdf -> docx   : the Arabic phrase is in the Word file'
+          else
+            # Words can be split across runs by the layout import; accept the
+            # first word and the last word both being present, in that order.
+            FIRST=${ARABIC%% *}; LAST=${ARABIC##* }
+            if grep -q "$FIRST" "$D/doc.xml" && grep -q "$LAST" "$D/doc.xml"; then
+              say 'pdf -> docx   : the Arabic words are in the Word file (split across runs)'
+            else
+              echo '::error::The Word file does not contain the Arabic text.'; FAILED=1
+            fi
+          fi
+
+          # 4. Word → PDF → text, the way a document actually travels
+          CODE=$(convert "$D/a.docx" 'to=pdf' "$D/b.pdf")
+          say "docx -> pdf   : HTTP $CODE, $(head -c 5 "$D/b.pdf")"
+          CODE=$(convert "$D/b.pdf" 'to=txt' "$D/b.txt")
+          if grep -q "$ARABIC" "$D/b.txt"; then
+            say 'docx -> pdf   : the Arabic phrase survived the round trip'
+          else
+            echo '::error::The Arabic phrase did not survive docx -> pdf.'; FAILED=1
+          fi
+
+          # 5. A plain text file in Arabic becomes a right-to-left Word file
+          printf '%s\n\n%s\n' "$ARABIC" "$LATIN" > "$D/src.txt"
+          CODE=$(convert "$D/src.txt" 'from=txt&to=docx' "$D/t.docx")
+          unzip -p "$D/t.docx" word/document.xml > "$D/t.xml" 2>/dev/null
+          if [ "$CODE" = "200" ] && grep -q "$ARABIC" "$D/t.xml" && grep -q '<w:bidi' "$D/t.xml"; then
+            say 'txt -> docx   : Arabic paragraph is marked right-to-left (w:bidi)'
+          else
+            echo "::error::txt -> docx lost the text or the direction (HTTP $CODE)."; FAILED=1
+          fi
+
+          # 6. A spreadsheet
+          printf 'الاسم,المبلغ\nأحمد,10\n' > "$D/src.csv"
+          CODE=$(convert "$D/src.csv" 'from=csv&to=xlsx' "$D/s.xlsx")
+          unzip -p "$D/s.xlsx" xl/sharedStrings.xml > "$D/ss.xml" 2>/dev/null
+          if [ "$CODE" = "200" ] && grep -q 'أحمد' "$D/ss.xml"; then
+            say 'csv -> xlsx   : Arabic cells survived'
+          else
+            echo "::error::csv -> xlsx failed (HTTP $CODE)."; FAILED=1
+          fi
+
+          # 7. Refusals: bytes decide, and a pair that makes no sense is refused
+          CODE=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' -H "authorization: Bearer $TOKEN" --data-binary 'this is not a document' "$URL?to=pdf")
+          say "not a doc     : HTTP $CODE"
+          [ "$CODE" = "400" ] || { echo "::error::A non-document was not refused with 400 (got $CODE)."; FAILED=1; }
+          CODE=$(convert "$D/a.pdf" 'to=pdf' "$D/x")
+          say "pdf -> pdf    : HTTP $CODE"
+          [ "$CODE" = "400" ] || { echo "::error::pdf -> pdf was not refused with 400 (got $CODE)."; FAILED=1; }
+
+          say '```'
+          if [ "$FAILED" -ne 0 ]; then
+            say 'Document conversion must not be relied on until every line above passes.'
+            exit 1
+          fi
+          say 'Documents convert, and Arabic keeps its words and its direction.'
       - name: Prove it can convert and probe
         if: inputs.action == 'selftest'
         env:

@@ -764,7 +764,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     title: { ar: "تحويل ملف", en: "Convert a file" },
     // Pictures convert too, and have since the image route shipped. The row
     // said audio or video because that is what existed when it was written.
-    description: { ar: "صوت أو فيديو أو صورة، لصيغة أخرى", en: "Audio, video or a picture, to another format" },
+    description: { ar: "صوت أو فيديو أو صورة أو PDF أو وورد، لصيغة أخرى", en: "Audio, video, picture, PDF or Word, to another format" },
     aliases: {
       ar: ["حوّل", "حول ملف", "تحويل"],
       en: ["convert", "convert file", "change format"],

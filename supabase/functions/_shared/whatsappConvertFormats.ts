@@ -74,6 +74,8 @@ export function targetLabel(target: string): string {
  */
 export const WHATSAPP_DELIVERABLE_TARGETS: ReadonlySet<string> = new Set([
   "mp3", "m4a", "aac", "opus", "mp4", "jpg", "png",
+  // Documents, which Meta carries as-is (see whatsappDocConvert.ts).
+  "pdf", "docx", "txt", "xlsx", "pptx",
 ]);
 
 /** What the answer will be, so the send can name a type Meta accepts. */

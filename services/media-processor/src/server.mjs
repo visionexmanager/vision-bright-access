@@ -46,6 +46,31 @@ import {
   parsePdfInfo,
   selectPages,
 } from "./pdfpages.mjs";
+import {
+  DOC_BUDGET_MS,
+  DOC_TARGETS,
+  DOC_TARGET_NAMES,
+  DOC_INPUT_NAMES,
+  DOC_TIMEOUT_MS,
+  FAMILY_OF_INPUT,
+  MAX_DOC_BYTES,
+  MAX_DOC_OUTPUT_BYTES,
+  MAX_OCR_PAGES,
+  OCR_RESERVE_MS,
+  OUTPUTS_BY_FAMILY,
+  PDFTOPPM_TIMEOUT_MS,
+  PDFTOTEXT_TIMEOUT_MS,
+  canConvertDocument,
+  hasTextLayer,
+  pdftoppmArgs,
+  pdftotextArgs,
+  pngPageNumber,
+  readDocQuery,
+  sniffDocument,
+  sofficeArgs,
+  stepTimeout,
+  textToHtml,
+} from "./docconvert.mjs";
 import { DataHubError, listDatasets, readStorage, resolveDatasetFile } from "./datahub.mjs";
 import { createReadStream } from "node:fs";
 import { spawn } from "node:child_process";
@@ -236,9 +261,9 @@ function readBody(req, limit = MAX_UPLOAD_BYTES) {
  * before one copy leaks. `build` receives the input path and returns the
  * argument list; everything else is here.
  */
-async function runTool({ bytes, prefix, command, build, timeoutMs, ok, read, failure }) {
+async function runTool({ bytes, prefix, command, build, timeoutMs, ok, read, failure, inputName = "in" }) {
   const dir = await mkdtemp(join(tmpdir(), prefix));
-  const input = join(dir, "in");
+  const input = join(dir, inputName);
   let timer;
 
   try {
@@ -658,6 +683,163 @@ async function handleConvert(req, res, correlation) {
     log("convert", { correlation, to: options.to, outcome: reason, ms: Date.now() - started });
     const status = reason === "timeout" ? 504 : reason === "output_too_large" ? 413 : 422;
     send(res, status, { ok: false, reason });
+  } finally {
+    releaseSlot();
+  }
+}
+
+// ── Converting documents ─────────────────────────────────────────────────────
+//
+// PDF to Word and its relatives. LibreOffice does the converting; poppler says
+// whether a PDF has a text layer, and Tesseract (Arabic model included) reads
+// one that is only pictures. See docconvert.mjs for the reasoning.
+
+/** The text layer of a PDF, or "" when it cannot be read. */
+async function pdfText(bytes) {
+  try {
+    return await runTool({
+      bytes,
+      prefix: "pdftxt-",
+      command: "pdftotext",
+      timeoutMs: PDFTOTEXT_TIMEOUT_MS,
+      build: (input, dir) => pdftotextArgs(input, join(dir, "out.txt")),
+      ok: (code) => code === 0,
+      read: async ({ dir }) => (await readFile(join(dir, "out.txt"), "utf8")),
+      failure: "pdftotext_failed",
+    });
+  } catch {
+    return "";
+  }
+}
+
+/** Every page of a scanned PDF, read with Arabic and English together. Pages beyond the cap are dropped. */
+async function ocrPdf(bytes, deadline) {
+  const pngs = await runTool({
+    bytes,
+    prefix: "pdfpng-",
+    command: "pdftoppm",
+    timeoutMs: stepTimeout(PDFTOPPM_TIMEOUT_MS, deadline),
+    build: (input, dir) => pdftoppmArgs(input, join(dir, "pg"), MAX_OCR_PAGES),
+    ok: (code) => code === 0,
+    read: async ({ dir }) => {
+      const out = [];
+      for (const name of await readdir(dir)) {
+        const n = pngPageNumber(name);
+        if (n !== null) out.push({ n, bytes: await readFile(join(dir, name)) });
+      }
+      return out.sort((a, b) => a.n - b.n);
+    },
+    failure: "render_failed",
+  });
+  const pages = [];
+  for (const png of pngs) {
+    // Out of time: hand back the pages read so far rather than none.
+    if (Date.now() > deadline - OCR_RESERVE_MS) break;
+    const { text } = await runOcr(png.bytes, "ara+eng", null, null);
+    pages.push(text);
+  }
+  return pages;
+}
+
+/** One `soffice` run: bytes in under a name LibreOffice can recognise, the converted file out. */
+function runSoffice(bytes, from, to, deadline) {
+  const target = DOC_TARGETS[to];
+  return runTool({
+    bytes,
+    prefix: "doc-",
+    command: "soffice",
+    inputName: `in.${from}`,
+    timeoutMs: stepTimeout(DOC_TIMEOUT_MS, deadline),
+    build: (input, dir) => sofficeArgs({ input, outDir: dir, profileDir: join(dir, "profile"), from, to }),
+    ok: (code) => code === 0,
+    read: async ({ dir }) => {
+      const produced = await readFile(join(dir, `in.${target.ext}`));
+      // The engine exits 0 on some inputs it could not open, having written nothing.
+      if (produced.length === 0) throw new Error("empty_output");
+      if (produced.length > MAX_DOC_OUTPUT_BYTES) throw new Error("output_too_large");
+      return produced;
+    },
+    failure: "conversion_failed",
+  });
+}
+
+async function handleDocConvert(req, res, correlation) {
+  if (tooBusy(res, correlation)) return;
+
+  const url = new URL(req.url, "http://internal");
+  const parsed = readDocQuery(url.searchParams);
+  if (!parsed.ok) {
+    log("rejected", { correlation, reason: parsed.reason });
+    return send(res, 400, { ok: false, reason: parsed.reason });
+  }
+
+  let bytes;
+  try {
+    bytes = await readBody(req, MAX_DOC_BYTES);
+  } catch (error) {
+    log("rejected", { correlation, reason: error.code ?? "unreadable" });
+    return send(res, 413, { ok: false, reason: error.code ?? "unreadable" });
+  }
+  if (bytes.length === 0) return send(res, 400, { ok: false, reason: "empty" });
+
+  const from = sniffDocument(bytes, parsed.from);
+  if (!from) {
+    log("rejected", { correlation, reason: "unrecognised", bytes: bytes.length });
+    return send(res, 400, { ok: false, reason: "unrecognised" });
+  }
+  const to = parsed.to;
+  if (!canConvertDocument(from, to)) {
+    log("rejected", { correlation, reason: "unsupported_pair", from, to });
+    return send(res, 400, { ok: false, reason: "unsupported_pair" });
+  }
+
+  await acquireSlot();
+  const started = Date.now();
+  const deadline = started + DOC_BUDGET_MS;
+  let method = "engine";
+  let pagesRead = null;
+  try {
+    let output;
+    if (from === "pdf") {
+      const text = await pdfText(bytes);
+      if (hasTextLayer(text)) {
+        if (to === "txt") {
+          method = "text-layer";
+          output = Buffer.from(text, "utf8");
+        } else {
+          method = "layout";
+          output = await runSoffice(bytes, "pdf", to, deadline);
+        }
+      } else {
+        // Only pictures: read them, then build the document from what was read.
+        method = "ocr";
+        const pages = await ocrPdf(bytes, deadline);
+        pagesRead = pages.length;
+        if (!pages.some((p) => hasTextLayer(p))) throw Object.assign(new Error("nothing_readable"), { code: "nothing_readable" });
+        if (to === "txt") output = Buffer.from(pages.join("\n\n"), "utf8");
+        else output = await runSoffice(Buffer.from(textToHtml(pages), "utf8"), "html", to, deadline);
+      }
+    } else if (from === "txt") {
+      // A text file has no direction of its own; give each paragraph one.
+      method = "text";
+      output = await runSoffice(Buffer.from(textToHtml([bytes.toString("utf8")]), "utf8"), "html", to, deadline);
+    } else {
+      output = await runSoffice(bytes, from, to, deadline);
+    }
+
+    log("doc_convert", { correlation, from, to, method, ms: Date.now() - started, out: output.length, pages: pagesRead ?? 0 });
+    res.writeHead(200, {
+      "content-type": DOC_TARGETS[to].mime,
+      "content-length": output.length,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "x-conversion-method": method,
+    });
+    res.end(output);
+  } catch (error) {
+    const reason = error.code ?? (error.message === "empty_output" || error.message === "output_too_large" ? error.message : "conversion_failed");
+    log("doc_convert", { correlation, from, to, method, outcome: reason, ms: Date.now() - started });
+    send(res, reason === "timeout" ? 504 : reason === "output_too_large" ? 413 : 422, { ok: false, reason });
   } finally {
     releaseSlot();
   }
@@ -1244,6 +1426,14 @@ const server = createServer(async (req, res) => {
           max_bytes: MAX_CONVERT_BYTES,
           max_output_bytes: MAX_OUTPUT_BYTES,
         },
+        // PDF, Word, spreadsheets and slides to one another; a caller checks before relying on it.
+        documents: {
+          inputs: DOC_INPUT_NAMES,
+          outputs: DOC_TARGET_NAMES,
+          by_family: OUTPUTS_BY_FAMILY,
+          families: FAMILY_OF_INPUT,
+          max_bytes: MAX_DOC_BYTES,
+        },
         probe: true,
         // Scene-aware frame sheet for a vision model; a caller checks before relying on it.
         video_sheet: { frames: SHEET_FRAMES, shapes: Object.keys(SHEET_SHAPES) },
@@ -1282,6 +1472,10 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/video-sheet") {
       return await handleVideoSheet(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/doc-convert") {
+      return await handleDocConvert(req, res, correlation);
     }
 
     if (req.method === "POST" && url.pathname === "/convert") {
