@@ -815,8 +815,8 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // webhook reads the words itself (whatsappTravel.ts), so the aliases below
     // only give the feature a name a switched-off flag can refuse.
     id: "services.travel",
-    parent: "services",
-    order: 5,
+    parent: "bazaar",
+    order: 7,
     kind: "action",
     enabled: true,
     title: { ar: "طلب سفر", en: "Travel request" },
@@ -833,7 +833,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     // are sent) or have the team order it, new or used. Words are read in
     // whatsappTravel.ts.
     id: "services.shop",
-    parent: "services",
+    parent: "bazaar",
     order: 6,
     kind: "action",
     enabled: true,
