@@ -544,6 +544,7 @@ import {
   HANDLER_AUTHORITY_DIRECTIVE,
   knowledgeDirective,
   type MatchRow,
+  contextualQuery,
   retrieveKnowledge,
 } from "../_shared/whatsappKnowledge.ts";
 import {
@@ -6394,7 +6395,10 @@ Deno.serve(async (req) => {
       // throws out of it: a slow embedding provider or a database that will not
       // answer costs the grounding and never the reply, and the no-passage
       // directive is the *safe* state rather than the degraded one.
-      const grounding = await retrieveKnowledge(questionText, {
+      const grounding = await retrieveKnowledge(
+        // A short follow-up is searched together with the question before it.
+        contextualQuery(questionText, turns.filter((turn) => turn.role === "user").map((turn) => turn.content)),
+        {
         embed: async (text) => (await createEmbedding([text]))[0] ?? [],
         match: async (vector, limit) => {
           const { data, error } = await db.rpc("match_embeddings", {
@@ -6404,7 +6408,8 @@ Deno.serve(async (req) => {
           if (error) throw error;
           return (data ?? []) as MatchRow[];
         },
-      });
+        },
+      );
       const passages = grounding.passages;
       log("grounding", {
         status: grounding.status,
