@@ -35,6 +35,15 @@ describe("tables", () => {
     expect(result[0].rows).toEqual([["Name", "Qty", "Price"], ["Apple", "3", "1.20"], ["Pear", "12", "0.80"]]);
   });
 
+  it("still sees a table whose rows are padded far apart", () => {
+    const spaced: W[] = [
+      ["Name", 100, 100], ["Qty", 500, 100], ["Price", 900, 100],
+      ["Apple", 100, 195], ["3", 500, 195], ["1.20", 900, 195],
+      ["Pear", 100, 290], ["12", 500, 290], ["0.80", 900, 290],
+    ];
+    expect(blocks(spaced)[0].type).toBe("table");
+  });
+
   it("puts a cell that is missing from a row back in its own column", () => {
     const result = blocks([...grid.slice(0, 6), ["Pear", 100, 200], ["0.80", 900, 200]]);
     expect(result[0].rows[2]).toEqual(["Pear", "", "0.80"]);

@@ -69,7 +69,7 @@ const median = (values) => {
 /** A gap wider than this many text heights starts a new cell. */
 export const CELL_GAP_HEIGHTS = 1.8;
 /** Rows closer than this many text heights (centre to centre) are one run. */
-export const ROW_PITCH_HEIGHTS = 2.4;
+export const ROW_PITCH_HEIGHTS = 3.4;
 /** A paragraph break is a row gap wider than this many text heights. */
 export const PARAGRAPH_GAP_HEIGHTS = 1.9;
 /** Cells longer than this are prose, so the "table" is two columns of text. */
