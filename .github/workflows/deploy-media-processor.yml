@@ -1210,6 +1210,10 @@ jobs:
             CODE=$(convert "$D/table.pdf" 'to=docx' "$D/table.docx")
             unzip -p "$D/table.docx" word/document.xml > "$D/table.xml" 2>/dev/null
             say "table pdf -> docx : HTTP $CODE, method $(method)"
+            say "table text   : $(sed 's/<[^>]*>/ /g' "$D/table.xml" | tr -s ' ' | head -c 300)"
+            say "table tags   : $(grep -o '<w:[a-zA-Z]*' "$D/table.xml" | sort | uniq -c | sort -rn | head -12 | tr '\n' ' ')"
+            CODE=$(convert "$D/table.pdf" 'to=txt' "$D/table.txt")
+            say "table as txt : $(tr '\n' '|' < "$D/table.txt" | head -c 200)"
             if [ "$CODE" = "200" ] && grep -q '<w:tbl>' "$D/table.xml" && grep -q 'تفاح' "$D/table.xml" && grep -q 'كمثرى' "$D/table.xml"; then
               say 'table pdf -> docx : came back as a Word table with its cells'
             else
