@@ -4622,7 +4622,7 @@ Deno.serve(async (req) => {
           session = {
             ...session,
             feature: featureFor(kind ?? "flights"),
-            path: ["main", "services", featureFor(kind ?? "flights")],
+            path: ["main", "bazaar", featureFor(kind ?? "flights")],
             step,
             pending: { operation: step, startedAt: new Date().toISOString(), context: { kind } },
           };
