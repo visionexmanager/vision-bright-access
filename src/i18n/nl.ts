@@ -13630,6 +13630,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "Minstens één passagier.",
   "travel.err.tooManyRiders": "Dat zijn meer passagiers dan één auto meeneemt.",
   "travel.nav.cars": "Autoverhuur",
+  "install.app.button": "Installeer de app",
+  "install.app.iosHint": "Op iPhone of iPad: tik op Deel en kies Zet op beginscherm.",
   "travel.home.cars.title": "Autoverhuur",
   "travel.home.cars.body": "Een auto voor de dagen dat u hem nodig hebt, overal ter wereld, met handbediening als u zo rijdt.",
   "travel.cars.title": "Aanvraag autoverhuur",

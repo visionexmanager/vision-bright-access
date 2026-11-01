@@ -7362,6 +7362,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "कम से कम एक यात्री।",
   "travel.err.tooManyRiders": "यह एक गाड़ी की क्षमता से ज़्यादा यात्री हैं।",
   "travel.nav.cars": "कार किराया",
+  "install.app.button": "ऐप इंस्टॉल करें",
+  "install.app.iosHint": "iPhone या iPad पर: शेयर दबाएँ, फिर होम स्क्रीन पर जोड़ें।",
   "travel.home.cars.title": "कार किराया",
   "travel.home.cars.body": "जितने दिन ज़रूरत हो उतने दिन के लिए कार, दुनिया में कहीं भी, और हाथ से चलने वाले नियंत्रण चाहिए तो वे भी।",
   "travel.cars.title": "कार किराये का अनुरोध",

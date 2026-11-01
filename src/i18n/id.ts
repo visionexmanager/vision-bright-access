@@ -13628,6 +13628,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "Setidaknya satu penumpang.",
   "travel.err.tooManyRiders": "Penumpangnya lebih banyak daripada muat satu mobil.",
   "travel.nav.cars": "Sewa mobil",
+  "install.app.button": "Pasang aplikasi",
+  "install.app.iosHint": "Di iPhone atau iPad: ketuk Bagikan, lalu Tambahkan ke Layar Utama.",
   "travel.home.cars.title": "Sewa mobil",
   "travel.home.cars.body": "Mobil untuk hari-hari yang Anda perlukan, di mana pun di dunia, dengan kontrol tangan jika Anda mengemudi dengan cara itu.",
   "travel.cars.title": "Permintaan sewa mobil",

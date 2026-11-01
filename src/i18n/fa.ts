@@ -13628,6 +13628,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "دست‌کم یک مسافر.",
   "travel.err.tooManyRiders": "تعداد مسافران از گنجایش یک خودرو بیشتر است.",
   "travel.nav.cars": "کرایه خودرو",
+  "install.app.button": "نصب برنامه",
+  "install.app.iosHint": "در آیفون یا آیپد: روی اشتراک‌گذاری بزنید، سپس افزودن به صفحه اصلی.",
   "travel.home.cars.title": "کرایه خودرو",
   "travel.home.cars.body": "خودرو برای روزهایی که لازم دارید، هر جای دنیا، و اگر با کنترل دستی رانندگی می‌کنید، با آن.",
   "travel.cars.title": "درخواست کرایه خودرو",

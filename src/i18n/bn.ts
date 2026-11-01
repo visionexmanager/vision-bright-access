@@ -7362,6 +7362,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "অন্তত একজন যাত্রী।",
   "travel.err.tooManyRiders": "একটি গাড়িতে যত ধরে তার চেয়ে বেশি যাত্রী।",
   "travel.nav.cars": "গাড়ি ভাড়া",
+  "install.app.button": "অ্যাপ ইনস্টল করুন",
+  "install.app.iosHint": "iPhone বা iPad-এ: শেয়ার চাপুন, তারপর হোম স্ক্রিনে যোগ করুন বেছে নিন।",
   "travel.home.cars.title": "গাড়ি ভাড়া",
   "travel.home.cars.body": "যতদিন দরকার ততদিনের জন্য গাড়ি, বিশ্বের যেকোনো জায়গায়, আর হাতে চালানোর নিয়ন্ত্রণ লাগলে সেটিও।",
   "travel.cars.title": "গাড়ি ভাড়ার অনুরোধ",

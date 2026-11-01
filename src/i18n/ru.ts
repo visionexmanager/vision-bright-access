@@ -7362,6 +7362,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "Хотя бы один пассажир.",
   "travel.err.tooManyRiders": "Пассажиров больше, чем возьмёт одна машина.",
   "travel.nav.cars": "Аренда авто",
+  "install.app.button": "Установить приложение",
+  "install.app.iosHint": "На iPhone или iPad: нажмите «Поделиться», затем «На экран «Домой»».",
   "travel.home.cars.title": "Аренда авто",
   "travel.home.cars.body": "Автомобиль на нужные вам дни в любой точке мира, с ручным управлением, если вы водите так.",
   "travel.cars.title": "Запрос на аренду автомобиля",

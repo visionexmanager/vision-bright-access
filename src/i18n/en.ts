@@ -14020,6 +14020,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "At least one passenger.",
   "travel.err.tooManyRiders": "That is more passengers than one car takes.",
   "travel.nav.cars": "Car rental",
+  "install.app.button": "Install the app",
+  "install.app.iosHint": "On iPhone or iPad: tap Share, then Add to Home Screen.",
   "travel.home.cars.title": "Car rental",
   "travel.home.cars.body": "A car for the days you need it, anywhere in the world, with hand controls if you drive that way.",
   "travel.cars.title": "Car rental request",

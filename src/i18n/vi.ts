@@ -13628,6 +13628,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "Ít nhất một hành khách.",
   "travel.err.tooManyRiders": "Số khách nhiều hơn sức chứa của một xe.",
   "travel.nav.cars": "Thuê xe",
+  "install.app.button": "Cài đặt ứng dụng",
+  "install.app.iosHint": "Trên iPhone hoặc iPad: chạm Chia sẻ, rồi Thêm vào Màn hình chính.",
   "travel.home.cars.title": "Thuê xe",
   "travel.home.cars.body": "Một chiếc xe cho những ngày bạn cần, ở bất cứ đâu trên thế giới, có điều khiển bằng tay nếu bạn lái theo cách đó.",
   "travel.cars.title": "Yêu cầu thuê xe",

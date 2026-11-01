@@ -13628,6 +13628,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "至少要有一位乘客。",
   "travel.err.tooManyRiders": "乘客人数超过一辆车能载的数量。",
   "travel.nav.cars": "租车",
+  "install.app.button": "安装应用",
+  "install.app.iosHint": "在 iPhone 或 iPad 上：点按“分享”，然后选择“添加到主屏幕”。",
   "travel.home.cars.title": "租车",
   "travel.home.cars.body": "需要几天就租几天，世界各地都可以；如果您使用手动操控装置驾驶，也能安排。",
   "travel.cars.title": "租车请求",

@@ -13630,6 +13630,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "En az bir yolcu.",
   "travel.err.tooManyRiders": "Bu, bir arabanın alacağından fazla yolcu.",
   "travel.nav.cars": "Araç kiralama",
+  "install.app.button": "Uygulamayı yükle",
+  "install.app.iosHint": "iPhone veya iPad'de: Paylaş'a dokunun, ardından Ana Ekrana Ekle'yi seçin.",
   "travel.home.cars.title": "Araç kiralama",
   "travel.home.cars.body": "İhtiyaç duyduğunuz günler için, dünyanın her yerinde bir araç; el kumandalı sürüyorsanız onunla birlikte.",
   "travel.cars.title": "Araç kiralama talebi",

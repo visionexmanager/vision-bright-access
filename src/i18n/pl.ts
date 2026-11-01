@@ -13630,6 +13630,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "Co najmniej jeden pasażer.",
   "travel.err.tooManyRiders": "To więcej pasażerów, niż zabierze jeden samochód.",
   "travel.nav.cars": "Wynajem aut",
+  "install.app.button": "Zainstaluj aplikację",
+  "install.app.iosHint": "Na iPhonie lub iPadzie: stuknij Udostępnij, potem Dodaj do ekranu głównego.",
   "travel.home.cars.title": "Wynajem aut",
   "travel.home.cars.body": "Samochód na tyle dni, ile potrzebujesz, w dowolnym miejscu na świecie, ze sterowaniem ręcznym, jeśli tak jeździsz.",
   "travel.cars.title": "Zapytanie o wynajem auta",

@@ -13628,6 +13628,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "乗車する方が少なくとも 1 名必要です。",
   "travel.err.tooManyRiders": "1 台の車に乗れる人数を超えています。",
   "travel.nav.cars": "レンタカー",
+  "install.app.button": "アプリをインストール",
+  "install.app.iosHint": "iPhone または iPad では、共有をタップして「ホーム画面に追加」を選びます。",
   "travel.home.cars.title": "レンタカー",
   "travel.home.cars.body": "必要な日数だけ、世界中どこでも車を。手で操作する装置が必要な場合にも対応します。",
   "travel.cars.title": "レンタカーのリクエスト",

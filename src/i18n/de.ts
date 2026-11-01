@@ -13630,6 +13630,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "Mindestens ein Fahrgast.",
   "travel.err.tooManyRiders": "Das sind mehr Fahrgäste, als ein Wagen mitnimmt.",
   "travel.nav.cars": "Mietwagen",
+  "install.app.button": "App installieren",
+  "install.app.iosHint": "Auf iPhone oder iPad: Teilen antippen, dann Zum Home-Bildschirm.",
   "travel.home.cars.title": "Mietwagen",
   "travel.home.cars.body": "Ein Auto für die Tage, die Sie es brauchen, überall auf der Welt, mit Handbedienung, wenn Sie so fahren.",
   "travel.cars.title": "Mietwagen-Anfrage",

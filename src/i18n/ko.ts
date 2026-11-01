@@ -13628,6 +13628,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "탑승 인원이 최소 한 명은 있어야 합니다.",
   "travel.err.tooManyRiders": "차 한 대가 태울 수 있는 인원을 넘었습니다.",
   "travel.nav.cars": "렌터카",
+  "install.app.button": "앱 설치",
+  "install.app.iosHint": "iPhone 또는 iPad에서: 공유를 누른 다음 홈 화면에 추가를 선택하세요.",
   "travel.home.cars.title": "렌터카",
   "travel.home.cars.body": "필요한 날만큼, 세계 어디서나 차를 빌립니다. 수동 조작 장치가 필요하면 그것도 함께.",
   "travel.cars.title": "렌터카 요청",

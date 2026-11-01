@@ -13992,6 +13992,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "راكب واحد على الأقل.",
   "travel.err.tooManyRiders": "عدد الركاب أكبر مما تتّسع له سيارة واحدة.",
   "travel.nav.cars": "تأجير السيارات",
+  "install.app.button": "ثبّت التطبيق",
+  "install.app.iosHint": "على آيفون أو آيباد: اضغط مشاركة ثم إضافة إلى الشاشة الرئيسية.",
   "travel.home.cars.title": "تأجير السيارات",
   "travel.home.cars.body": "سيارة للأيام التي تحتاجها، في أي مكان في العالم، مع أدوات تحكم يدوية إن كنت تقود بها.",
   "travel.cars.title": "طلب تأجير سيارة",

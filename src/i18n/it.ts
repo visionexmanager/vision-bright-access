@@ -13630,6 +13630,8 @@ export const translations: Record<string, string> = {
   "travel.err.passengersRequired": "Almeno un passeggero.",
   "travel.err.tooManyRiders": "Sono più passeggeri di quanti ne porti un'auto.",
   "travel.nav.cars": "Noleggio auto",
+  "install.app.button": "Installa l'app",
+  "install.app.iosHint": "Su iPhone o iPad: tocca Condividi, poi Aggiungi alla schermata Home.",
   "travel.home.cars.title": "Noleggio auto",
   "travel.home.cars.body": "Un'auto per i giorni che servono, ovunque nel mondo, con comandi manuali se guidi così.",
   "travel.cars.title": "Richiesta di noleggio auto",
