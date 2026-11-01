@@ -208,12 +208,15 @@ import {
 } from "../_shared/whatsappPreferences.ts";
 import {
   buildTravelRequest,
-  isTravelDomain,
+  directLinks,
+  featureFor,
+  isDeskKind,
   looksLikeItinerary,
-  parseTravelDomain,
+  parseDeskKind,
+  parseRouteChoice,
   readDetails,
   TRAVEL_DETAILS_STEP,
-  TRAVEL_FEATURE,
+  TRAVEL_ROUTE_STEP,
 } from "../_shared/whatsappTravel.ts";
 import {
   ACCOUNT_CODE_STEP,
@@ -4594,87 +4597,118 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // ── A request to the travel desk ───────────────────────────────────
+      // ── A request to the desk: a trip, or a product from a global store ──
       //
-      // Files the same `service_requests` row the website's /travel pages file,
-      // so the desk works one queue. Nothing is booked or charged here, and no
-      // card or passport number is asked for. The sender is identified by the
-      // number the message came from; no account is needed or implied.
+      // Two routes, as on the website: the sender books or orders it themselves
+      // (the official links are sent here from the same directory the site
+      // shows), or the Visionex team does it. The second files the same
+      // `service_requests` row the website's /travel and /global-shopping pages
+      // file, so the desk works one queue. Nothing is booked, ordered or charged
+      // here, and no card or passport number is asked for. The sender is known
+      // by the number the message came from; no account is needed.
       //
       // Placed after the engine so `#` and the session timeout cancel the
       // question like any other pending one.
-      const travelStep = session.step === TRAVEL_DETAILS_STEP;
-      const travelAsked = !aiFocused && !travelStep ? parseTravelDomain(questionText) : null;
+      const deskStep = session.step === TRAVEL_ROUTE_STEP || session.step === TRAVEL_DETAILS_STEP
+        ? session.step
+        : null;
+      const deskAsked = !aiFocused && !deskStep ? parseDeskKind(questionText) : null;
 
-      if (!humanOwnsThis && (travelStep || travelAsked)) {
-        const closeTravelFlow = () => {
+      if (!humanOwnsThis && (deskStep || deskAsked)) {
+        const closeDeskFlow = () => {
           session = { ...session, feature: null, step: null, pending: null };
         };
+        const enterDeskStep = (step: string, kind: ReturnType<typeof parseDeskKind>) => {
+          session = {
+            ...session,
+            feature: featureFor(kind ?? "flights"),
+            path: ["main", "services", featureFor(kind ?? "flights")],
+            step,
+            pending: { operation: step, startedAt: new Date().toISOString(), context: { kind } },
+          };
+        };
+        const remembered = (session.pending?.context as { kind?: unknown } | null | undefined)?.kind;
+        const kind = deskStep ? (isDeskKind(remembered) ? remembered : null) : deskAsked;
+
         try {
-          if (!featureOn(TRAVEL_FEATURE)) {
+          if (!kind) {
+            closeDeskFlow();
+            await saveSession();
+            continue;
+          }
+          if (!featureOn(featureFor(kind))) {
             await reply(say("unavailable", answerLanguage), "unsupported");
-            closeTravelFlow();
+            closeDeskFlow();
             await saveSession();
             continue;
           }
+          const routeKey = kind === "shop" ? "shopRoute" : "travelRoute";
+          const askKey = kind === "shop" ? "shopAsk" : "travelAsk";
 
-          const remembered = (session.pending?.context as { domain?: unknown } | null | undefined)?.domain;
-          const domain = travelStep ? (isTravelDomain(remembered) ? remembered : null) : travelAsked;
-          const details = travelStep || looksLikeItinerary(questionText) ? readDetails(questionText) : null;
-
-          if (travelStep && !domain) {
-            closeTravelFlow();
-            await saveSession();
+          if (!deskStep) {
+            // An opening message that already carries the whole request goes
+            // to the team; otherwise the sender chooses a route first.
+            const upFront = looksLikeItinerary(questionText) ? readDetails(questionText) : null;
+            if (!upFront) {
+              enterDeskStep(TRAVEL_ROUTE_STEP, kind);
+              await reply(say(routeKey, answerLanguage), "reply");
+              await saveSession();
+              continue;
+            }
+            await fileDeskRequest(kind, upFront);
             continue;
           }
 
-          if (domain && !details) {
-            if (travelStep) {
-              await reply(say("travelTooShort", answerLanguage), "reply");
+          if (deskStep === TRAVEL_ROUTE_STEP) {
+            const choice = parseRouteChoice(questionText);
+            if (choice === "direct") {
+              const heading = say(kind === "shop" ? "shopDirect" : "travelDirect", answerLanguage);
+              closeDeskFlow();
+              await reply(heading + "\n" + directLinks(kind), "reply");
+            } else if (choice === "staff") {
+              enterDeskStep(TRAVEL_DETAILS_STEP, kind);
+              await reply(say(askKey, answerLanguage), "reply");
             } else {
-              session = {
-                ...session,
-                feature: TRAVEL_FEATURE,
-                path: ["main", "services", TRAVEL_FEATURE],
-                step: TRAVEL_DETAILS_STEP,
-                pending: {
-                  operation: TRAVEL_DETAILS_STEP,
-                  startedAt: new Date().toISOString(),
-                  context: { domain },
-                },
-              };
-              await reply(say("travelAsk", answerLanguage), "reply");
+              await reply(say(routeKey, answerLanguage), "reply");
             }
             await saveSession();
             continue;
           }
 
-          if (domain && details) {
-            const profile = readProfile(incoming.from, existing as Record<string, unknown> | null);
-            const { error } = await db.from("service_requests").insert(
-              buildTravelRequest({
-                domain,
-                details,
-                phone: incoming.from,
-                name: profile.fullName,
-                email: profile.email,
-              }),
-            );
-            if (error) throw error;
-            log("travel", { outcome: "filed", domain });
-            closeTravelFlow();
-            await reply(say("travelFiled", answerLanguage), "reply");
+          const details = readDetails(questionText);
+          if (!details) {
+            await reply(say("travelTooShort", answerLanguage), "reply");
             await saveSession();
             continue;
           }
+          await fileDeskRequest(kind, details);
+          continue;
         } catch (e) {
           // Neither the details nor the number reach the log.
-          console.error("[whatsapp] travel request failed:", describeError(e));
-          log("feature_error", { node: TRAVEL_FEATURE });
+          console.error("[whatsapp] desk request failed:", describeError(e));
+          log("feature_error", { node: kind ? featureFor(kind) : "services.travel" });
           await reply(featureErrorNotice(answerLanguage), "unsupported");
-          closeTravelFlow();
+          closeDeskFlow();
           await saveSession();
           continue;
+        }
+
+        async function fileDeskRequest(filed: NonNullable<typeof kind>, details: string) {
+          const profile = readProfile(incoming.from, existing as Record<string, unknown> | null);
+          const { error } = await db.from("service_requests").insert(
+            buildTravelRequest({
+              domain: filed,
+              details,
+              phone: incoming.from,
+              name: profile.fullName,
+              email: profile.email,
+            }),
+          );
+          if (error) throw error;
+          log("travel", { outcome: "filed", kind: filed });
+          closeDeskFlow();
+          await reply(say(filed === "shop" ? "shopFiled" : "travelFiled", answerLanguage), "reply");
+          await saveSession();
         }
       }
 

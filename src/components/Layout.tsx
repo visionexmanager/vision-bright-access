@@ -9,6 +9,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { NewsletterSubscribe } from "./NewsletterSubscribe";
 import { CookieBanner } from "./CookieBanner";
+import { InstallAppButton } from "./InstallAppButton";
 import { TrialBanner } from "./TrialBanner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useMessageNotifications } from "@/hooks/useMessageNotifications";
@@ -120,6 +121,10 @@ export function Layout({ children }: { children: ReactNode }) {
                 </ul>
               </nav>
             ))}
+          </div>
+
+          <div className="mt-10 flex justify-center sm:justify-start">
+            <InstallAppButton />
           </div>
 
           {/* Bottom bar */}

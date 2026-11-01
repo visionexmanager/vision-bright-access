@@ -829,6 +829,24 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     accepts: ["text"],
   },
   {
+    // Orders from Amazon, AliExpress, eBay and the like: do it yourself (links
+    // are sent) or have the team order it, new or used. Words are read in
+    // whatsappTravel.ts.
+    id: "services.shop",
+    parent: "services",
+    order: 6,
+    kind: "action",
+    enabled: true,
+    title: { ar: "اطلب من متاجر عالمية", en: "Order from global stores" },
+    description: { ar: "أمازون وعلي إكسبرس وإيباي وغيرها", en: "Amazon, AliExpress, eBay and more" },
+    aliases: {
+      ar: ["متاجر عالميه", "اطلب من امازون", "طلب منتج"],
+      en: ["global stores", "order from amazon", "order a product"],
+    },
+    phrase: { ar: "اطلب من أمازون", en: "order from amazon" },
+    accepts: ["text"],
+  },
+  {
     id: "services.plan",
     parent: "more",
     order: 3,

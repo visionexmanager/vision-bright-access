@@ -12,6 +12,7 @@
  * a wa.me link is a URL other services see.
  */
 
+import { storeById } from "@/features/sourcing/stores";
 import { vendorById } from "@/features/sourcing/vendors";
 
 export const SOURCING_ROUTES = ["order", "support"] as const;
@@ -20,6 +21,31 @@ export type SourcingRoute = (typeof SOURCING_ROUTES)[number];
 export const SERVICE_TYPE: Readonly<Record<SourcingRoute, string>> = Object.freeze({
   order: "Assistive Sourcing — Order for me",
   support: "Assistive Sourcing — Support chat",
+});
+
+/**
+ * Which desk a request is for. `assistive` is the assistive-products desk;
+ * `global` is ordering from the world's online stores (Amazon, AliExpress,
+ * eBay and the like). They share one form, one queue and one fee, and are told
+ * apart in `service_requests.service_type`.
+ */
+export type SourcingScope = "assistive" | "global";
+
+export const GLOBAL_SERVICE_TYPE: Readonly<Record<SourcingRoute, string>> = Object.freeze({
+  order: "Global Shopping — Order for me",
+  support: "Global Shopping — Support chat",
+});
+
+export const serviceTypeFor = (scope: SourcingScope, route: SourcingRoute): string =>
+  (scope === "global" ? GLOBAL_SERVICE_TYPE : SERVICE_TYPE)[route];
+
+export const CONDITIONS = ["any", "new", "used"] as const;
+export type SourcingCondition = (typeof CONDITIONS)[number];
+
+const CONDITION_LINE: Readonly<Record<SourcingCondition, string>> = Object.freeze({
+  any: "Condition: new or used",
+  new: "Condition: new only",
+  used: "Condition: used only",
 });
 
 /**
@@ -41,6 +67,8 @@ export interface SourcingDraft {
   quantity: number;
   budget: string;
   country: string;
+  /** Only asked on the global desk; "any" elsewhere. */
+  condition: SourcingCondition;
   route: SourcingRoute | "";
 }
 
@@ -52,6 +80,7 @@ export const EMPTY_SOURCING_DRAFT: SourcingDraft = Object.freeze({
   quantity: 1,
   budget: "",
   country: "",
+  condition: "any",
   route: "",
 });
 
@@ -87,12 +116,14 @@ export function sourcingIssues(draft: SourcingDraft): SourcingIssue[] {
 }
 
 /** What staff read. Assumes `sourcingIssues` returned nothing. */
-export function sourcingSummary(draft: SourcingDraft): string {
-  const vendor = vendorById(draft.vendorId);
+export function sourcingSummary(draft: SourcingDraft, scope: SourcingScope = "assistive"): string {
+  const vendor = scope === "global" ? storeById(draft.vendorId) : vendorById(draft.vendorId);
   const link = safeVendorLink(draft.link);
   const lines = [
+    scope === "global" ? "Desk: global stores" : null,
     `Product: ${draft.product.trim()}`,
     `Quantity: ${draft.quantity}`,
+    scope === "global" ? CONDITION_LINE[draft.condition] : null,
     `Deliver to: ${draft.country.trim()}`,
     vendor ? `Preferred vendor: ${vendor.name} (${vendor.url})` : "Preferred vendor: any",
     link ? `Vendor page: ${link}` : null,

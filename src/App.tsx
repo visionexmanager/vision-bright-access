@@ -341,6 +341,7 @@ const SocialGuide = lazyWithRetry(() => import("./pages/services/SocialGuide"));
 const SportsCoach = lazyWithRetry(() => import("./pages/services/SportsCoach"));
 const TravelAgency = lazyWithRetry(() => import("./pages/services/TravelAgency"));
 const AssistiveSourcing = lazyWithRetry(() => import("./pages/sourcing/AssistiveSourcing"));
+const GlobalShopping = lazyWithRetry(() => import("./pages/sourcing/GlobalShopping"));
 const TravelHome = lazyWithRetry(() => import("./pages/travel/TravelHome"));
 const TravelFlights = lazyWithRetry(() => import("./pages/travel/TravelFlights"));
 const TravelStays = lazyWithRetry(() => import("./pages/travel/TravelStays"));
@@ -1083,6 +1084,7 @@ function AppRoutes() {
                         door before the sale. Sending a request still needs an
                         account, because a request needs somebody to reply to. */}
                     <Route path="/assistive-sourcing" element={<AssistiveSourcing />} />
+                    <Route path="/global-shopping" element={<GlobalShopping />} />
                     <Route path="/travel" element={<TravelHome />} />
                     <Route path="/travel/flights" element={<TravelFlights />} />
                     <Route path="/travel/stays" element={<TravelStays />} />

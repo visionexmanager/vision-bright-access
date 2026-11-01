@@ -356,6 +356,30 @@ const BASE_STRINGS = {
     ar: "هذا قصير جداً ليعمل عليه المكتب. أضف الأماكن والتواريخ وعدد الأشخاص.",
     en: "That's too short for the desk to work with. Please add the places, the dates and how many people.",
   },
+  travelRoute: {
+    ar: "كيف تريد أن تتم؟ أرسل 1 لتحجز بنفسك على المواقع الرسمية (أرسل لك الروابط)، أو 2 ليتولّى مكتب السفر لدينا الأمر عنك.",
+    en: "How would you like to do it? Reply 1 to book it yourself on the official sites (I'll send you the links), or 2 to have our travel desk do it for you.",
+  },
+  shopRoute: {
+    ar: "كيف تريد أن تطلب؟ أرسل 1 لتطلب بنفسك من موقع المتجر (أرسل لك الروابط)، أو 2 ليطلب فريقنا عنك. تُطبَّق رسوم خدمة عندما نطلب نحن.",
+    en: "How would you like to order? Reply 1 to order yourself from the store's own site (I'll send you the links), or 2 to have our team order it for you. A service fee applies when we order.",
+  },
+  travelDirect: {
+    ar: "المواقع الرسمية التي يمكنك الحجز منها بنفسك:",
+    en: "Official sites you can book on yourself:",
+  },
+  shopDirect: {
+    ar: "المتاجر الإلكترونية التي يمكنك الطلب منها بنفسك:",
+    en: "Online stores you can order from yourself:",
+  },
+  shopAsk: {
+    ar: "اكتب في رسالة واحدة ما تريده: المنتج، والمتجر أو الرابط إن وُجد، والعدد، وجديد أم مستعمل، وبلدك وميزانيتك. سأحوّله إلى فريقنا ليردّوا بعرض سعر قبل طلب أي شيء. أرسل # للإلغاء.",
+    en: "Tell me in one message what you want: the product, the store or a link if you have one, how many, new or used, your country and your budget. I'll pass it to our team, who reply with a quote before anything is ordered. Send # to cancel.",
+  },
+  shopFiled: {
+    ar: "أُرسل إلى فريقنا. لم يُطلب ولم يُخصم شيء بعد. سيردّون على هذا الرقم بعرض سعر فيه المنتج والشحن والضرائب ورسوم الخدمة.",
+    en: "Sent to our team. Nothing is ordered or charged yet. They'll reply on this number with a quote showing the item, shipping, taxes and the service fee.",
+  },
 
   /** The three lines of the email itself. Sent, not shown in the chat. */
   linkEmailSubject: {

@@ -2321,6 +2321,30 @@ const MARKETPLACE: ServiceEntry[] = [
     skills: { en: [], ar: [] },
   }),
   entry({
+    slug: "global-shopping",
+    hub: "marketplace",
+    kind: "service",
+    to: "/global-shopping",
+    title: { en: "Order from Global Stores", ar: "اطلب من المتاجر العالمية" },
+    tagline: {
+      en: "Amazon, AliExpress, eBay and more — order yourself, or have our team order it for you, new or used.",
+      ar: "أمازون وعلي إكسبرس وإيباي وغيرها — اطلب بنفسك أو دع فريقنا يطلبه لك، جديداً أو مستعملاً.",
+    },
+    difficulty: "starter",
+    durationMinutes: 4,
+    vx: 0,
+    intents: ["care-for-myself"],
+    keywords: {
+      en: ["amazon", "alibaba", "aliexpress", "shein", "temu", "ebay", "order", "buy", "import", "used", "global stores"],
+      ar: ["امازون", "علي بابا", "علي اكسبرس", "شي ان", "تيمو", "ايباي", "طلب", "شراء", "استيراد", "مستعمل", "متاجر عالميه"],
+    },
+    outcomes: {
+      en: ["A product ordered from a global store, by you or by our team, new or used"],
+      ar: ["منتج مطلوب من متجر عالمي، بنفسك أو عبر فريقنا، جديداً أو مستعملاً"],
+    },
+    skills: { en: [], ar: [] },
+  }),
+  entry({
     slug: "travel-rides",
     hub: "marketplace",
     kind: "service",

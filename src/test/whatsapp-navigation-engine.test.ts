@@ -440,6 +440,7 @@ describe("the catalog", () => {
       "services.where": (p) => geo.asksWhereAmI(p),
       "services.nearby": (p) => geo.asksWhatIsNearby(p),
       "services.travel": (p) => !!travel.parseTravelDomain(p),
+      "services.shop": (p) => travel.parseShopIntent(p),
       // The file is the input and arrives separately, so the phrase asks for
       // one rather than converting anything by itself.
       "services.convert": (p) => convertIntent.asksToConvert(p),
