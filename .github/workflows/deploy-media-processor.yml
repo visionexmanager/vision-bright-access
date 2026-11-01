@@ -1122,6 +1122,9 @@ jobs:
           # 2. PDF → text: the Arabic phrase must come back, in order
           CODE=$(convert "$D/a.pdf" 'to=txt' "$D/a.txt")
           say "pdf -> txt    : HTTP $CODE, method $(method)"
+          # The text is this test's own phrase, so printing it exposes nothing.
+          say "pdf text     : $(tr '\n' '|' < "$D/a.txt" | head -c 300)"
+          say "pdf text hex : $(head -c 60 "$D/a.txt" | xxd -p | tr -d '\n')"
           if grep -q "$ARABIC" "$D/a.txt" && grep -q "$LATIN" "$D/a.txt"; then
             say 'pdf -> txt    : Arabic and Latin both read back, in order'
           else
@@ -1132,6 +1135,7 @@ jobs:
           CODE=$(convert "$D/a.pdf" 'to=docx' "$D/a.docx")
           say "pdf -> docx   : HTTP $CODE, method $(method), $(stat -c %s "$D/a.docx") bytes"
           unzip -p "$D/a.docx" word/document.xml > "$D/doc.xml" 2>/dev/null
+          say "docx text    : $(sed 's/<[^>]*>/ /g' "$D/doc.xml" | tr -s ' ' | head -c 300)"
           if grep -q "$ARABIC" "$D/doc.xml"; then
             say 'pdf -> docx   : the Arabic phrase is in the Word file'
           else
