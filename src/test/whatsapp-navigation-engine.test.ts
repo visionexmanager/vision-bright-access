@@ -35,6 +35,7 @@ const convertIntent = await import("../../supabase/functions/_shared/whatsappCon
 const entitlements = await import("../../supabase/functions/_shared/whatsappEntitlements.ts");
 const ivx = await import("../../supabase/functions/_shared/whatsappIvx.ts");
 const wordDocument = await import("../../supabase/functions/_shared/whatsappWordDocument.ts");
+const travel = await import("../../supabase/functions/_shared/whatsappTravel.ts");
 const bazaar = await import("../../supabase/functions/_shared/whatsappBazaar.ts");
 const radio = await import("../../supabase/functions/_shared/whatsappRadio.ts");
 const helpers = await import("../../supabase/functions/_shared/whatsapp.ts");
@@ -438,6 +439,7 @@ describe("the catalog", () => {
       "services.weather": (p) => !!weather.parseWeatherRequest(p),
       "services.where": (p) => geo.asksWhereAmI(p),
       "services.nearby": (p) => geo.asksWhatIsNearby(p),
+      "services.travel": (p) => !!travel.parseTravelDomain(p),
       // The file is the input and arrives separately, so the phrase asks for
       // one rather than converting anything by itself.
       "services.convert": (p) => convertIntent.asksToConvert(p),

@@ -344,6 +344,18 @@ const BASE_STRINGS = {
     ar: "هذا الرقم غير مربوط بأي حساب Visionex، فلا شيء لفكّه.",
     en: "This number isn't linked to any Visionex account, so there's nothing to disconnect.",
   },
+  travelAsk: {
+    ar: "اكتب في رسالة واحدة ما تحتاجه: من أين إلى أين (أو المدينة)، والتواريخ، وعدد الأشخاص، وأي احتياج للوصول مثل كرسي متحرك أو أدوات تحكم يدوية. سأحوّله إلى مكتب السفر لدينا. لا يُحجز ولا يُخصم شيء هنا. أرسل # للإلغاء.",
+    en: "Tell me in one message what you need: where from and to (or the city), the dates, how many people, and any access needs such as a wheelchair or hand controls. I'll pass it to our travel desk. Nothing is booked or charged here. Send # to cancel.",
+  },
+  travelFiled: {
+    ar: "أُرسل إلى مكتب السفر لدينا. لم يُحجز ولم يُخصم شيء بعد. سيردّون على هذا الرقم بالخيارات والسعر كاملاً.",
+    en: "Sent to our travel desk. Nothing is booked or charged yet. They'll reply on this number with options and the full price.",
+  },
+  travelTooShort: {
+    ar: "هذا قصير جداً ليعمل عليه المكتب. أضف الأماكن والتواريخ وعدد الأشخاص.",
+    en: "That's too short for the desk to work with. Please add the places, the dates and how many people.",
+  },
 
   /** The three lines of the email itself. Sent, not shown in the chat. */
   linkEmailSubject: {
