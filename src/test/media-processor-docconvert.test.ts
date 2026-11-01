@@ -7,6 +7,8 @@ import {
   canConvertDocument,
   hasTextLayer,
   isRtlParagraph,
+  needsOcrForArabic,
+  pdftotextArgs,
   readDocQuery,
   sniffDocument,
   sofficeArgs,
@@ -154,5 +156,20 @@ describe("poppler's embedding marks", () => {
     const raw = String.fromCharCode(0x202b) + "السلام" + String.fromCharCode(0x202a) + "abc" + String.fromCharCode(0x202c, 0x202c);
     expect(stripBidiControls(raw)).toBe("السلامabc");
     expect(stripBidiControls("a" + String.fromCharCode(0x200d) + "b")).toBe("a" + String.fromCharCode(0x200d) + "b");
+  });
+});
+
+describe("which PDFs are read by eye", () => {
+  it("reads Arabic from the page, and keeps Persian and Urdu on the text layer", () => {
+    expect(needsOcrForArabic("السلام عليكم")).toBe(true);
+    expect(needsOcrForArabic("Hello world")).toBe(false);
+    expect(needsOcrForArabic("سلام دنیا گل")).toBe(false);
+    expect(needsOcrForArabic("آپ کیسے ہیں")).toBe(false);
+    expect(needsOcrForArabic(null as unknown as string)).toBe(false);
+  });
+
+  it("asks poppler for a later range only when told to", () => {
+    expect(pdftotextArgs("in", "out")).not.toContain("-f");
+    expect(pdftotextArgs("in", "out", 11)).toEqual(["-enc", "UTF-8", "-nopgbrk", "-f", "11", "in", "out"]);
   });
 });

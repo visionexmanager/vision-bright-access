@@ -73,6 +73,8 @@ function messageFor(code: string | undefined, status: number): string {
       return "This doesn't look like a document this converter can open.";
     case "unsupported_pair":
       return "That conversion isn't available for this kind of file.";
+    case "encrypted":
+      return "This PDF is password-protected. Remove the password and try again.";
     case "nothing_readable":
       return "No text could be read from this scan. Try a clearer copy.";
     case "unreadable_media":

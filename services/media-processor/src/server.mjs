@@ -62,6 +62,7 @@ import {
   PDFTOTEXT_TIMEOUT_MS,
   canConvertDocument,
   hasTextLayer,
+  needsOcrForArabic,
   pdftoppmArgs,
   pdftotextArgs,
   pngPageNumber,
@@ -696,20 +697,38 @@ async function handleConvert(req, res, correlation) {
 // one that is only pictures. See docconvert.mjs for the reasoning.
 
 /** The text layer of a PDF, or "" when it cannot be read. */
-async function pdfText(bytes) {
+async function pdfText(bytes, first = 1) {
   try {
     return await runTool({
       bytes,
       prefix: "pdftxt-",
       command: "pdftotext",
       timeoutMs: PDFTOTEXT_TIMEOUT_MS,
-      build: (input, dir) => pdftotextArgs(input, join(dir, "out.txt")),
+      build: (input, dir) => pdftotextArgs(input, join(dir, "out.txt"), first),
       ok: (code) => code === 0,
       read: async ({ dir }) => (await readFile(join(dir, "out.txt"), "utf8")),
       failure: "pdftotext_failed",
     });
   } catch {
     return "";
+  }
+}
+
+/** Pages and whether the file is locked, from pdfinfo; unknowns are null/false. */
+async function pdfInfo(bytes) {
+  try {
+    return await runTool({
+      bytes,
+      prefix: "pdfinfo-",
+      command: "pdfinfo",
+      timeoutMs: PDFINFO_TIMEOUT_MS,
+      build: (input) => [input],
+      ok: (code) => code === 0,
+      read: ({ stdout }) => parsePdfInfo(stdout),
+      failure: "pdfinfo_failed",
+    });
+  } catch {
+    return { pages: null, encrypted: false };
   }
 }
 
@@ -801,9 +820,14 @@ async function handleDocConvert(req, res, correlation) {
   let pagesRead = null;
   try {
     let output;
+    let totalPages = null;
     if (from === "pdf") {
+      const info = await pdfInfo(bytes);
+      totalPages = info.pages;
+      if (info.encrypted) throw Object.assign(new Error("encrypted"), { code: "encrypted" });
       const text = await pdfText(bytes);
-      if (hasTextLayer(text)) {
+      const arabicByEye = hasTextLayer(text) && needsOcrForArabic(text);
+      if (hasTextLayer(text) && !arabicByEye) {
         if (to === "txt") {
           method = "text-layer";
           output = Buffer.from(stripBidiControls(text), "utf8");
@@ -812,13 +836,29 @@ async function handleDocConvert(req, res, correlation) {
           output = await runSoffice(bytes, "pdf", to, deadline);
         }
       } else {
-        // Only pictures: read them, then build the document from what was read.
-        method = "ocr";
+        // Only pictures, or Arabic (see docconvert.mjs): read the rendered pages,
+        // then build the document from what was read.
+        method = arabicByEye ? "ocr-arabic" : "ocr";
         const pages = await ocrPdf(bytes, deadline);
         pagesRead = pages.length;
-        if (!pages.some((p) => hasTextLayer(p))) throw Object.assign(new Error("nothing_readable"), { code: "nothing_readable" });
-        if (to === "txt") output = Buffer.from(pages.join("\n\n"), "utf8");
-        else output = await runSoffice(Buffer.from(textToHtml(pages), "utf8"), "html", to, deadline);
+        let body = pages;
+        if (!pages.some((p) => hasTextLayer(p))) {
+          // Nothing read from the picture. An Arabic PDF still has its text layer,
+          // ligature fault and all, which beats an empty document.
+          if (!arabicByEye) throw Object.assign(new Error("nothing_readable"), { code: "nothing_readable" });
+          method = "text-layer";
+          body = [stripBidiControls(text)];
+        } else if (arabicByEye && totalPages && totalPages > pages.length) {
+          // Pages past what could be read in time come from the text layer, so
+          // the document is complete rather than silently short.
+          const rest = stripBidiControls(await pdfText(bytes, pages.length + 1));
+          if (hasTextLayer(rest)) {
+            body = [...pages, rest];
+            method = "ocr-arabic+text-layer";
+          }
+        }
+        if (to === "txt") output = Buffer.from(body.join("\n\n"), "utf8");
+        else output = await runSoffice(Buffer.from(textToHtml(body), "utf8"), "html", to, deadline);
       }
     } else if (from === "txt") {
       // A text file has no direction of its own; give each paragraph one.
@@ -835,6 +875,8 @@ async function handleDocConvert(req, res, correlation) {
       "cache-control": "no-store",
       "x-content-type-options": "nosniff",
       "x-conversion-method": method,
+      ...(totalPages ? { "x-pages-total": String(totalPages) } : {}),
+      ...(pagesRead ? { "x-pages-read": String(pagesRead) } : {}),
     });
     res.end(output);
   } catch (error) {

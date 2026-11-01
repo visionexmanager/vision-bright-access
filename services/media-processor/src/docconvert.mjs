@@ -233,6 +233,28 @@ export function textToHtml(pages) {
  */
 export const stripBidiControls = (text) => String(text).replace(/[\u202a-\u202e\u2066-\u2069]/gu, "");
 
+// ── Why Arabic PDFs are read by eye ──────────────────────────────────────────
+//
+// The text layer of an Arabic PDF is not safe to copy out. Measured on the
+// server on PDFs written by Chrome and by LibreOffice alike: poppler returns
+// the lam-alef ligature as alef-lam, so «السلام» comes back «السالم», «لا» comes
+// back «ال», and no later step can tell a swapped pair from the article «ال»,
+// which is the commonest pair in the language. LibreOffice's own PDF import is
+// worse for editing: one text box per word, in presentation-form letters, in
+// visual order. Tesseract reading the rendered page (Arabic model) has neither
+// fault, so an Arabic PDF is read that way even when it has a text layer.
+//
+// Persian and Urdu are excluded: the Arabic model does not know their letters
+// (پ چ ژ گ ک ی ٹ ڈ ں ے ...), and reading them wrongly is worse than the
+// ligature swap. They keep the text layer.
+
+export const ARABIC_SCRIPT = /[\u0600-\u06ff\u0750-\u077f\ufb50-\ufdff\ufe70-\ufeff]/u;
+export const PERSIAN_URDU_LETTERS = /[\u067e\u0686\u0698\u06af\u06a9\u06cc\u0679\u0688\u0691\u06ba\u06be\u06c1\u06d2]/u;
+
+/** True when this text layer is Arabic and the Arabic model can be trusted to read it. */
+export const needsOcrForArabic = (text) =>
+  typeof text === "string" && ARABIC_SCRIPT.test(text) && !PERSIAN_URDU_LETTERS.test(text);
+
 /** Visible characters in extracted PDF text, for deciding whether there is a text layer. */
 export const visibleChars = (text) => (typeof text === "string" ? text.replace(/[\s\f​-‏‪-‮]/gu, "").length : 0);
 
@@ -268,7 +290,9 @@ export const pdftoppmArgs = (input, prefix, pages = MAX_OCR_PAGES) => [
   "-png", "-gray", "-r", String(OCR_RENDER_DPI), "-f", "1", "-l", String(pages), input, prefix,
 ];
 
-export const pdftotextArgs = (input, output) => ["-enc", "UTF-8", "-nopgbrk", input, output];
+export const pdftotextArgs = (input, output, first = 1) => [
+  "-enc", "UTF-8", "-nopgbrk", ...(first > 1 ? ["-f", String(first)] : []), input, output,
+];
 
 /** `out-01.png`, `out-1.png`, `out-001.png` → the page number; anything else → null. */
 export function pngPageNumber(filename) {
