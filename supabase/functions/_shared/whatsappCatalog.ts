@@ -811,6 +811,24 @@ const BASE_CATALOG: readonly CatalogNode[] = [
     accepts: ["text", "location"],
   },
   {
+    // Files a request to the travel desk; nothing is booked or charged. The
+    // webhook reads the words itself (whatsappTravel.ts), so the aliases below
+    // only give the feature a name a switched-off flag can refuse.
+    id: "services.travel",
+    parent: "services",
+    order: 5,
+    kind: "action",
+    enabled: true,
+    title: { ar: "طلب سفر", en: "Travel request" },
+    description: { ar: "طيران أو فندق أو سيارة عبر مكتب السفر", en: "A flight, a hotel or a car through our travel desk" },
+    aliases: {
+      ar: ["طلب سفر", "مكتب السفر", "حجز سفر"],
+      en: ["travel request", "travel desk", "book travel"],
+    },
+    phrase: { ar: "حجز طيران", en: "book a flight" },
+    accepts: ["text"],
+  },
+  {
     id: "services.plan",
     parent: "more",
     order: 3,

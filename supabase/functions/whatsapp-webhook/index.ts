@@ -207,6 +207,15 @@ import {
   verbosityDirective,
 } from "../_shared/whatsappPreferences.ts";
 import {
+  buildTravelRequest,
+  isTravelDomain,
+  looksLikeItinerary,
+  parseTravelDomain,
+  readDetails,
+  TRAVEL_DETAILS_STEP,
+  TRAVEL_FEATURE,
+} from "../_shared/whatsappTravel.ts";
+import {
   ACCOUNT_CODE_STEP,
   ACCOUNT_EMAIL_STEP,
   ACCOUNT_FEATURE,
@@ -4583,6 +4592,90 @@ Deno.serve(async (req) => {
       if (gateAccountOnly) {
         await saveSession();
         continue;
+      }
+
+      // ── A request to the travel desk ───────────────────────────────────
+      //
+      // Files the same `service_requests` row the website's /travel pages file,
+      // so the desk works one queue. Nothing is booked or charged here, and no
+      // card or passport number is asked for. The sender is identified by the
+      // number the message came from; no account is needed or implied.
+      //
+      // Placed after the engine so `#` and the session timeout cancel the
+      // question like any other pending one.
+      const travelStep = session.step === TRAVEL_DETAILS_STEP;
+      const travelAsked = !aiFocused && !travelStep ? parseTravelDomain(questionText) : null;
+
+      if (!humanOwnsThis && (travelStep || travelAsked)) {
+        const closeTravelFlow = () => {
+          session = { ...session, feature: null, step: null, pending: null };
+        };
+        try {
+          if (!featureOn(TRAVEL_FEATURE)) {
+            await reply(say("unavailable", answerLanguage), "unsupported");
+            closeTravelFlow();
+            await saveSession();
+            continue;
+          }
+
+          const remembered = (session.pending?.context as { domain?: unknown } | null | undefined)?.domain;
+          const domain = travelStep ? (isTravelDomain(remembered) ? remembered : null) : travelAsked;
+          const details = travelStep || looksLikeItinerary(questionText) ? readDetails(questionText) : null;
+
+          if (travelStep && !domain) {
+            closeTravelFlow();
+            await saveSession();
+            continue;
+          }
+
+          if (domain && !details) {
+            if (travelStep) {
+              await reply(say("travelTooShort", answerLanguage), "reply");
+            } else {
+              session = {
+                ...session,
+                feature: TRAVEL_FEATURE,
+                path: ["main", "services", TRAVEL_FEATURE],
+                step: TRAVEL_DETAILS_STEP,
+                pending: {
+                  operation: TRAVEL_DETAILS_STEP,
+                  startedAt: new Date().toISOString(),
+                  context: { domain },
+                },
+              };
+              await reply(say("travelAsk", answerLanguage), "reply");
+            }
+            await saveSession();
+            continue;
+          }
+
+          if (domain && details) {
+            const profile = readProfile(incoming.from, existing as Record<string, unknown> | null);
+            const { error } = await db.from("service_requests").insert(
+              buildTravelRequest({
+                domain,
+                details,
+                phone: incoming.from,
+                name: profile.fullName,
+                email: profile.email,
+              }),
+            );
+            if (error) throw error;
+            log("travel", { outcome: "filed", domain });
+            closeTravelFlow();
+            await reply(say("travelFiled", answerLanguage), "reply");
+            await saveSession();
+            continue;
+          }
+        } catch (e) {
+          // Neither the details nor the number reach the log.
+          console.error("[whatsapp] travel request failed:", describeError(e));
+          log("feature_error", { node: TRAVEL_FEATURE });
+          await reply(featureErrorNotice(answerLanguage), "unsupported");
+          closeTravelFlow();
+          await saveSession();
+          continue;
+        }
       }
 
       // ── The news ──────────────────────────────────────────────────────
