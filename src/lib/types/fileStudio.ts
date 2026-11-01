@@ -22,7 +22,7 @@ export type JobPriority = "normal" | "priority"; // priority = VX subscribers
 export const AUDIO_FORMATS   = ["mp3", "wav", "flac", "aac", "ogg", "m4a", "opus", "wma"] as const;
 export const VIDEO_FORMATS   = ["mp4", "avi", "mov", "mkv", "webm", "flv", "m4v", "3gp"] as const;
 export const IMAGE_FORMATS   = ["jpg", "jpeg", "png", "webp", "heic", "avif", "gif", "bmp", "tiff", "svg"] as const;
-export const DOCUMENT_FORMATS = ["pdf", "docx", "txt", "html", "csv", "xlsx", "pptx", "md", "rtf"] as const;
+export const DOCUMENT_FORMATS = ["pdf", "docx", "doc", "odt", "txt", "html", "csv", "xlsx", "xls", "ods", "pptx", "ppt", "odp", "md", "rtf"] as const;
 export const ARCHIVE_FORMATS  = ["zip", "tar", "gz", "7z", "rar"] as const;
 // "txt" is a developer target, not only a document one: DEVELOPER_WORKING_TARGETS
 // offers it for base64 and hex inputs, and developer.ts implements both decodes.

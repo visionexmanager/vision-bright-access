@@ -138,12 +138,12 @@ describe("the document module, as the page uses it", () => {
   });
 
   it("offers exactly what it implements", () => {
-    expect(getWorkingOutputFormats("document", "report.docx")).toEqual(["txt", "html"]);
-    expect(getWorkingOutputFormats("document", "deck.pptx")).toEqual(["txt", "html"]);
-    // Rewriting a Word file's layout, or writing a PDF, needs a document engine
-    // this project does not run. Reading one and writing one are not the same
-    // capability.
-    expect(getWorkingOutputFormats("document", "paper.pdf")).toEqual([]);
+    // The tab reads a Word file or a deck; the server's document engine writes
+    // the rest. Reading and writing are different capabilities and each list is
+    // the union of the two paths, in that order.
+    expect(getWorkingOutputFormats("document", "report.docx")).toEqual(["txt", "html", "pdf", "odt", "rtf"]);
+    expect(getWorkingOutputFormats("document", "deck.pptx")).toEqual(["txt", "html", "pdf", "odp"]);
+    expect(getWorkingOutputFormats("document", "paper.pdf")).toEqual(["docx", "odt", "txt"]);
     expect(getWorkingOutputFormats("document", "report.docx")).not.toContain("docx");
     // Writing a new Word document from text is done here, in the tab.
     expect(getWorkingOutputFormats("document", "notes.txt")).toContain("docx");

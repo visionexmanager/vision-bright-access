@@ -40,6 +40,34 @@ RUN apt-get update \
       ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
+# ── The document engine ──────────────────────────────────────────────────────
+#
+# LibreOffice, headless: PDF to Word and back, Word/Excel/PowerPoint to PDF.
+# Writer, Calc and Impress are the three formats people send; Draw is what opens
+# a PDF. No Java and no GUI libraries beyond what those four pull in.
+#
+# The fonts are the other half of the install. A conversion to PDF draws the
+# page with whatever fonts the container has, so without an Arabic-capable face
+# every Arabic letter would come out as a box. fonts-noto-core carries the Arabic
+# (Naskh and Sans), Hebrew, Devanagari, Bengali, Thai and the other non-CJK
+# scripts; fonts-noto-cjk covers Chinese, Japanese and Korean; Amiri and
+# Liberation are what Word documents most often name, so layout keeps their
+# metrics.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      libreoffice-core \
+      libreoffice-writer \
+      libreoffice-calc \
+      libreoffice-impress \
+      libreoffice-draw \
+      fonts-noto-core \
+      fonts-noto-cjk \
+      fonts-hosny-amiri \
+      fonts-liberation \
+      fonts-dejavu-core \
+ && fc-cache -f \
+ && apt-get clean
+
 # ── The Arabic model: tessdata_best, pinned ──────────────────────────────────
 #
 # The Debian package ships the "fast" Arabic model. Measured 2026-10-27 on a real
@@ -68,6 +96,7 @@ USER node
 # internet — there is no lockfile to audit and no transitive code in the path.
 
 ENV NODE_ENV=production \
+    HOME=/tmp \
     PORT=8081 \
     HOST=0.0.0.0
 

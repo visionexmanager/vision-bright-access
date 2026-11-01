@@ -235,7 +235,7 @@ export default function FileStudio() {
   // is finding it out too late.
 
   const onServer = Boolean(
-    selectedFile && detectedModule && targetFormat && requiresServer(detectedModule, targetFormat),
+    selectedFile && detectedModule && targetFormat && requiresServer(detectedModule, targetFormat, selectedFile.name),
   );
   const tooLargeForServer = onServer && Boolean(selectedFile && selectedFile.size > MAX_SERVER_FILE_BYTES);
 

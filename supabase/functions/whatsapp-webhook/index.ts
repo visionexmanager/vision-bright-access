@@ -206,6 +206,7 @@ import {
   voiceModeExplainer,
   verbosityDirective,
 } from "../_shared/whatsappPreferences.ts";
+import { docSourceFormat, parseDocConvertRequest } from "../_shared/whatsappDocConvert.ts";
 import {
   buildTravelRequest,
   directLinks,
@@ -3468,6 +3469,40 @@ Deno.serve(async (req) => {
             !assistantOwnsInput(session.feature) && featureOn("services.convert")
           ? parseConvertRequest({ text: incoming.text ?? "", sourceKind: convertKind })
           : null;
+
+        // A document too: PDF to Word and back, Word or Excel or PowerPoint to
+        // PDF. Same rule as the media above — only when a format was named, so
+        // a PDF sent to be read or translated is read or translated exactly as
+        // before — and the same queue, with the source format riding in the
+        // job's options for the document engine.
+        const docSource = incoming.media.kind === "document"
+          ? docSourceFormat({ mimeType: incoming.media.mimeType, filename: incoming.media.filename })
+          : null;
+        const docAsk = docSource && !humanOwnsThis && !assistantOwnsInput(session.feature) && featureOn("services.convert")
+          ? parseDocConvertRequest({ text: incoming.text ?? "", source: docSource })
+          : null;
+
+        if (docAsk) {
+          const { error: queueError } = await db.from("whatsapp_media_jobs").insert({
+            conversation_id: conversationId,
+            wa_message_id: incoming.messageId,
+            target: docAsk.target,
+            options: { from: docAsk.from },
+            source_media_id: incoming.media.id,
+            source_mime: incoming.media.mimeType ?? null,
+            language: answerLanguage,
+            spoken_input: spokenInput,
+          });
+          if (queueError && queueError.code !== "23505") {
+            console.error("[whatsapp] could not queue a document conversion:", describeError(queueError));
+            await reply(featureErrorNotice(answerLanguage), "unsupported");
+            continue;
+          }
+          await reply(queuedNotice(answerLanguage), "reply");
+          log("media_job", { outcome: "queued", target: docAsk.target, kind: "document" });
+          EdgeRuntime.waitUntil(drainOneMediaJob());
+          continue;
+        }
 
         if (convertAsk && convertKind) {
           // The row first, then the answer, then the work. In that order

@@ -123,6 +123,13 @@ export function imageBody(bytes: Uint8Array): ArrayBuffer {
 export const MAX_CONVERT_UPLOAD_BYTES = 16 * 1024 * 1024;
 
 /**
+ * Targets the document engine makes. No audio, video or image target shares a
+ * name with one of these, so the target alone says which route a job needs.
+ * Mirrors `DOC_TARGETS` in the service; `whatsapp-doc-convert.test.ts` checks.
+ */
+const DOCUMENT_TARGETS = new Set(["pdf", "docx", "odt", "rtf", "txt", "html", "xlsx", "ods", "csv", "pptx", "odp"]);
+
+/**
  * A whole conversion, including the queue behind the service's two workers.
  *
  * Longer than the service's own video ceiling of 90 s, because this deadline
@@ -152,6 +159,8 @@ export interface LocalConvertResult {
 export async function convertMediaLocally(params: {
   bytes: Uint8Array;
   query: string;
+  /** "/doc-convert" for PDF, Word and the other documents; audio, video and images use the default. */
+  path?: "/convert" | "/doc-convert";
   config?: ProcessorConfig | null;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
@@ -165,7 +174,7 @@ export async function convertMediaLocally(params: {
   const deadline = setTimeout(() => controller.abort(), params.timeoutMs ?? CONVERT_TIMEOUT_MS);
 
   try {
-    const response = await doFetch(`${config.url}/convert?${params.query}`, {
+    const response = await doFetch(`${config.url}${params.path ?? (DOCUMENT_TARGETS.has(new URLSearchParams(params.query).get("to") ?? "") ? "/doc-convert" : "/convert")}?${params.query}`, {
       method: "POST",
       signal: controller.signal,
       headers: {

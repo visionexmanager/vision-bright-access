@@ -78,6 +78,18 @@ function buildQuery(body: Record<string, unknown>): string | null {
   return params.toString();
 }
 
+/**
+ * The query for a document conversion: a source and a target, both short names.
+ * The service checks them against its own allowlists; this only fixes the shape.
+ */
+function buildDocumentQuery(body: Record<string, unknown>): string | null {
+  const target = body.target;
+  const from = body.from;
+  if (typeof target !== "string" || !/^[a-z0-9]{2,5}$/.test(target)) return null;
+  if (typeof from !== "string" || !/^[a-z0-9]{2,5}$/.test(from)) return null;
+  return new URLSearchParams({ from, to: target }).toString();
+}
+
 Deno.serve(async (req: Request) => {
   const cors = getCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -151,7 +163,8 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Invalid JSON body" }, 400, cors);
   }
 
-  const query = buildQuery(body);
+  const isDocument = body.kind === "document";
+  const query = isDocument ? buildDocumentQuery(body) : buildQuery(body);
   if (!query) return json({ error: "A target format is required" }, 400, cors);
 
   const encoded = body.file;
@@ -175,7 +188,7 @@ Deno.serve(async (req: Request) => {
 
   // ── The work ──────────────────────────────────────────────────────────────
 
-  const result = await convertMediaLocally({ bytes, query });
+  const result = await convertMediaLocally({ bytes, query, path: isDocument ? "/doc-convert" : "/convert" });
 
   if (!result.ok || !result.bytes || !result.mime) {
     // The service's code, and nothing else. It is a label out of a fixed list —

@@ -18,6 +18,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type { ConversionResult } from "@/lib/types/fileStudio";
+import { serverCanConvertDocument } from "./serverDocuments";
 
 /**
  * What the local service will actually produce.
@@ -68,6 +69,14 @@ function messageFor(code: string | undefined, status: number): string {
       return "That took too long to convert. A shorter file will work.";
     case "unsupported_target":
       return "That output format isn't supported.";
+    case "unrecognised":
+      return "This doesn't look like a document this converter can open.";
+    case "unsupported_pair":
+      return "That conversion isn't available for this kind of file.";
+    case "encrypted":
+      return "This PDF is password-protected. Remove the password and try again.";
+    case "nothing_readable":
+      return "No text could be read from this scan. Try a clearer copy.";
     case "unreadable_media":
       return "This file couldn't be read. It may be damaged, or not the format it claims.";
     case "output_too_large":
@@ -102,13 +111,19 @@ async function toBase64(file: File): Promise<string> {
 export async function convertOnServer(params: {
   file: File;
   target: string;
+  /** "document" sends the file to the document engine; omitted means audio, video or image. */
+  kind?: "document";
   options?: Record<string, string | number | boolean>;
   onProgress?: (pct: number) => void;
 }): Promise<ConversionResult> {
   const started = Date.now();
   const progress = params.onProgress ?? (() => {});
 
-  if (!serverCanProduce(params.target)) {
+  const sourceFormat = params.file.name.split(".").pop()?.toLowerCase() ?? "";
+  const producible = params.kind === "document"
+    ? serverCanConvertDocument(sourceFormat, params.target)
+    : serverCanProduce(params.target);
+  if (!producible) {
     return {
       success: false,
       processingMs: Date.now() - started,
@@ -148,7 +163,12 @@ export async function convertOnServer(params: {
         Authorization: `Bearer ${session.access_token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ file: encoded, target: params.target, ...(params.options ?? {}) }),
+      body: JSON.stringify({
+        file: encoded,
+        target: params.target,
+        ...(params.kind === "document" ? { kind: "document", from: sourceFormat } : {}),
+        ...(params.options ?? {}),
+      }),
     });
     progress(80);
 
