@@ -26,7 +26,7 @@
 // belong in either list — a test fails on a phrase that lands in two intents.
 // Bump CATALOGUE_VERSION when anything below changes.
 
-export const CATALOGUE_VERSION = "2026.10.2";
+export const CATALOGUE_VERSION = "2026.11.1";
 
 export const LOCALES = [
   "en", "ar", "ur", "hi", "id", "ja", "it", "ko", "nl", "pl",
@@ -35,7 +35,7 @@ export const LOCALES = [
 export type Locale = (typeof LOCALES)[number];
 
 export type SocialIntent = "greeting" | "farewell" | "thanks" | "help";
-export type NavTarget = "library" | "academy" | "games" | "bazaar" | "services" | "pricing" | "news";
+export type NavTarget = "library" | "academy" | "games" | "bazaar" | "services" | "pricing" | "news" | "travel" | "shopping" | "files";
 
 export const SOCIAL_PHRASES: Record<SocialIntent, Record<Locale, string[]>> = {
   greeting: {
@@ -230,32 +230,36 @@ export const NAV_PATHS: Record<NavTarget, string> = {
   services: "/services",
   pricing: "/pricing",
   news: "/news",
+  travel: "/travel",
+  shopping: "/global-shopping",
+  files: "/services/file-studio",
 };
 
-// Order matches NAV_PATHS: library, academy, games, bazaar, services, pricing, news.
-export const NAV_TARGETS: readonly NavTarget[] = ["library", "academy", "games", "bazaar", "services", "pricing", "news"];
+// Order matches NAV_LABELS: library, academy, games, bazaar, services, pricing, news, travel, shopping, files.
+// New targets are appended, never inserted: the help list shows the first four.
+export const NAV_TARGETS: readonly NavTarget[] = ["library", "academy", "games", "bazaar", "services", "pricing", "news", "travel", "shopping", "files"];
 
-export const NAV_LABELS: Record<Locale, [string, string, string, string, string, string, string]> = {
-  en: ["Library", "Academy", "Games", "Bazaar", "Services", "Pricing", "News"],
-  ar: ["المكتبة", "الأكاديمية", "الألعاب", "البازار", "الخدمات", "الأسعار", "الأخبار"],
-  ur: ["لائبریری", "اکیڈمی", "گیمز", "بازار", "خدمات", "قیمتیں", "خبریں"],
-  hi: ["पुस्तकालय", "अकादमी", "गेम्स", "बाज़ार", "सेवाएँ", "कीमतें", "समाचार"],
-  id: ["Perpustakaan", "Akademi", "Permainan", "Bazar", "Layanan", "Harga", "Berita"],
-  ja: ["ライブラリ", "アカデミー", "ゲーム", "バザー", "サービス", "料金", "ニュース"],
-  it: ["Biblioteca", "Accademia", "Giochi", "Bazar", "Servizi", "Prezzi", "Notizie"],
-  ko: ["도서관", "아카데미", "게임", "바자르", "서비스", "요금", "뉴스"],
-  nl: ["Bibliotheek", "Academie", "Spellen", "Bazaar", "Diensten", "Prijzen", "Nieuws"],
-  pl: ["Biblioteka", "Akademia", "Gry", "Bazar", "Usługi", "Cennik", "Wiadomości"],
-  vi: ["Thư viện", "Học viện", "Trò chơi", "Chợ", "Dịch vụ", "Bảng giá", "Tin tức"],
-  bn: ["গ্রন্থাগার", "একাডেমি", "গেমস", "বাজার", "সেবা", "মূল্য", "সংবাদ"],
-  fa: ["کتابخانه", "آکادمی", "بازی‌ها", "بازار", "خدمات", "قیمت‌ها", "اخبار"],
-  es: ["Biblioteca", "Academia", "Juegos", "Bazar", "Servicios", "Precios", "Noticias"],
-  de: ["Bibliothek", "Akademie", "Spiele", "Basar", "Dienste", "Preise", "Nachrichten"],
-  pt: ["Biblioteca", "Academia", "Jogos", "Bazar", "Serviços", "Preços", "Notícias"],
-  zh: ["图书馆", "学院", "游戏", "集市", "服务", "价格", "新闻"],
-  tr: ["Kütüphane", "Akademi", "Oyunlar", "Çarşı", "Hizmetler", "Fiyatlar", "Haberler"],
-  fr: ["Bibliothèque", "Académie", "Jeux", "Bazar", "Services", "Tarifs", "Actualités"],
-  ru: ["Библиотека", "Академия", "Игры", "Базар", "Услуги", "Цены", "Новости"],
+export const NAV_LABELS: Record<Locale, [string, string, string, string, string, string, string, string, string, string]> = {
+  en: ["Library", "Academy", "Games", "Bazaar", "Services", "Pricing", "News", "Travel", "Global stores", "File converter"],
+  ar: ["المكتبة", "الأكاديمية", "الألعاب", "البازار", "الخدمات", "الأسعار", "الأخبار", "السفر", "المتاجر العالمية", "محول الملفات"],
+  ur: ["لائبریری", "اکیڈمی", "گیمز", "بازار", "خدمات", "قیمتیں", "خبریں", "سفر", "عالمی اسٹورز", "فائل کنورٹر"],
+  hi: ["पुस्तकालय", "अकादमी", "गेम्स", "बाज़ार", "सेवाएँ", "कीमतें", "समाचार", "यात्रा", "वैश्विक स्टोर", "फ़ाइल कन्वर्टर"],
+  id: ["Perpustakaan", "Akademi", "Permainan", "Bazar", "Layanan", "Harga", "Berita", "Perjalanan", "Toko global", "Konverter file"],
+  ja: ["ライブラリ", "アカデミー", "ゲーム", "バザー", "サービス", "料金", "ニュース", "旅行", "海外ストア", "ファイル変換"],
+  it: ["Biblioteca", "Accademia", "Giochi", "Bazar", "Servizi", "Prezzi", "Notizie", "Viaggi", "Negozi globali", "Convertitore di file"],
+  ko: ["도서관", "아카데미", "게임", "바자르", "서비스", "요금", "뉴스", "여행", "글로벌 스토어", "파일 변환"],
+  nl: ["Bibliotheek", "Academie", "Spellen", "Bazaar", "Diensten", "Prijzen", "Nieuws", "Reizen", "Wereldwijde winkels", "Bestandsconverter"],
+  pl: ["Biblioteka", "Akademia", "Gry", "Bazar", "Usługi", "Cennik", "Wiadomości", "Podróże", "Sklepy globalne", "Konwerter plików"],
+  vi: ["Thư viện", "Học viện", "Trò chơi", "Chợ", "Dịch vụ", "Bảng giá", "Tin tức", "Du lịch", "Cửa hàng toàn cầu", "Chuyển đổi tệp"],
+  bn: ["গ্রন্থাগার", "একাডেমি", "গেমস", "বাজার", "সেবা", "মূল্য", "সংবাদ", "ভ্রমণ", "বৈশ্বিক দোকান", "ফাইল কনভার্টার"],
+  fa: ["کتابخانه", "آکادمی", "بازی‌ها", "بازار", "خدمات", "قیمت‌ها", "اخبار", "سفر", "فروشگاه‌های جهانی", "تبدیل فایل"],
+  es: ["Biblioteca", "Academia", "Juegos", "Bazar", "Servicios", "Precios", "Noticias", "Viajes", "Tiendas globales", "Conversor de archivos"],
+  de: ["Bibliothek", "Akademie", "Spiele", "Basar", "Dienste", "Preise", "Nachrichten", "Reisen", "Globale Shops", "Dateikonverter"],
+  pt: ["Biblioteca", "Academia", "Jogos", "Bazar", "Serviços", "Preços", "Notícias", "Viagens", "Lojas globais", "Conversor de arquivos"],
+  zh: ["图书馆", "学院", "游戏", "集市", "服务", "价格", "新闻", "旅行", "全球商店", "文件转换"],
+  tr: ["Kütüphane", "Akademi", "Oyunlar", "Çarşı", "Hizmetler", "Fiyatlar", "Haberler", "Seyahat", "Global mağazalar", "Dosya dönüştürücü"],
+  fr: ["Bibliothèque", "Académie", "Jeux", "Bazar", "Services", "Tarifs", "Actualités", "Voyages", "Boutiques mondiales", "Convertisseur de fichiers"],
+  ru: ["Библиотека", "Академия", "Игры", "Базар", "Услуги", "Цены", "Новости", "Путешествия", "Мировые магазины", "Конвертер файлов"],
 };
 
 /**
@@ -297,4 +301,70 @@ export const NAV_EXTRA: Partial<Record<NavTarget, Partial<Record<Locale, string[
   services: { en: ["service"], ar: ["خدمة"] },
   pricing: { en: ["plans", "prices", "price", "subscription plans"], ar: ["الباقات", "الاشتراكات", "الخطط", "السعر"] },
   news: { en: ["headlines"], ar: ["اخبار"] },
+  travel: {
+    en: ["flights", "hotels", "car rental", "trips"],
+    ar: ["الطيران", "الفنادق", "حجز طيران", "حجز فندق", "تأجير سيارات", "الرحلات"],
+    ur: ["پروازیں", "ہوٹل", "کار کرایہ"],
+    hi: ["उड़ानें", "होटल", "कार किराया"],
+    id: ["penerbangan", "hotel", "sewa mobil"],
+    ja: ["航空券", "ホテル", "レンタカー"],
+    it: ["voli", "hotel", "noleggio auto"],
+    ko: ["항공권", "호텔", "렌터카"],
+    nl: ["vluchten", "hotels", "autohuur"],
+    pl: ["loty", "hotele", "wynajem samochodu"],
+    vi: ["chuyến bay", "khách sạn", "thuê xe"],
+    bn: ["ফ্লাইট", "হোটেল", "গাড়ি ভাড়া"],
+    fa: ["پرواز", "هتل", "اجاره خودرو"],
+    es: ["vuelos", "hoteles", "alquiler de coches"],
+    de: ["flüge", "hotels", "mietwagen"],
+    pt: ["voos", "hotéis", "aluguel de carros"],
+    zh: ["机票", "酒店", "租车"],
+    tr: ["uçuşlar", "oteller", "araç kiralama"],
+    fr: ["vols", "hôtels", "location de voiture"],
+    ru: ["авиабилеты", "отели", "аренда авто"],
+  },
+  shopping: {
+    en: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "global shopping", "order abroad"],
+    ar: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "امازون", "علي اكسبرس", "علي بابا", "ايباي", "التسوق العالمي", "شراء من الخارج"],
+    ur: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "عالمی خریداری"],
+    hi: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "वैश्विक खरीदारी"],
+    id: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "belanja global"],
+    ja: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "海外通販"],
+    it: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "acquisti globali"],
+    ko: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "해외 직구"],
+    nl: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "wereldwijd winkelen"],
+    pl: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "zakupy globalne"],
+    vi: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "mua hàng quốc tế"],
+    bn: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "বৈশ্বিক কেনাকাটা"],
+    fa: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "خرید جهانی"],
+    es: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "compras globales"],
+    de: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "globales einkaufen"],
+    pt: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "compras globais"],
+    zh: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "海淘", "全球购物"],
+    tr: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "global alışveriş"],
+    fr: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "achats mondiaux"],
+    ru: ["amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "зарубежные покупки"],
+  },
+  files: {
+    en: ["convert files", "file studio", "file conversion"],
+    ar: ["تحويل الملفات", "تحويل ملف", "استوديو الملفات"],
+    ur: ["فائلیں تبدیل کریں", "فائل اسٹوڈیو"],
+    hi: ["फ़ाइलें बदलें", "फ़ाइल स्टूडियो"],
+    id: ["ubah file", "file studio"],
+    ja: ["変換ツール", "ファイルスタジオ"],
+    it: ["converti file", "file studio"],
+    ko: ["파일 변환기", "파일 스튜디오"],
+    nl: ["bestanden converteren", "file studio"],
+    pl: ["konwersja plików", "file studio"],
+    vi: ["đổi định dạng tệp", "file studio"],
+    bn: ["ফাইল রূপান্তর", "ফাইল স্টুডিও"],
+    fa: ["تبدیل فرمت", "استودیو فایل"],
+    es: ["convertir archivos", "file studio"],
+    de: ["dateien umwandeln", "file studio"],
+    pt: ["converter arquivos", "file studio"],
+    zh: ["格式转换", "文件工作室"],
+    tr: ["dosya çevirme", "file studio"],
+    fr: ["convertir des fichiers", "file studio"],
+    ru: ["конвертация файлов", "file studio"],
+  },
 };

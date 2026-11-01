@@ -320,12 +320,20 @@ export function localReply(match: LocalIntentMatch, options: ReplyOptions = {}):
     }
     case "faq.trial":
     case "faq.language":
-    case "faq.contact": {
+    case "faq.contact":
+    case "faq.travel":
+    case "faq.stores":
+    case "faq.files": {
       const faq = match.intent.slice(4) as FaqIntent;
       const text = FAQ_REPLIES[faq][match.locale];
       const path = FAQ_PATHS[faq];
       if (!links || !path) return text;
-      const label = faq === "contact" ? CONTACT_LABEL[match.locale] : labels[NAV_TARGETS.indexOf("pricing")];
+      // The link text is the name of the page the answer points to.
+      const page: Record<FaqIntent, NavTarget | null> = {
+        trial: "pricing", language: null, contact: null, travel: "travel", stores: "shopping", files: "files",
+      };
+      const target = page[faq];
+      const label = target ? labels[NAV_TARGETS.indexOf(target)] : CONTACT_LABEL[match.locale];
       return `${text}${options.format === "plain" ? "\n" : " "}${linkTo(label, path, options)}`;
     }
     default: {

@@ -81,7 +81,8 @@ describe("no phrase means two things", () => {
   });
 
   it("points every page at a real public path", () => {
-    for (const target of NAV_TARGETS) expect(NAV_PATHS[target]).toMatch(/^\/[a-z-]+$/);
+    // One segment, or two for a page that lives inside a section (File Studio).
+    for (const target of NAV_TARGETS) expect(NAV_PATHS[target]).toMatch(/^\/[a-z-]+(\/[a-z-]+)?$/);
   });
 });
 
