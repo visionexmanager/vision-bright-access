@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getAssistant } from "../_shared/assistants.ts";
+import { THINKING_GUIDE } from "../_shared/thinkingGuide.ts";
 import {
   streamChatCompletionWithFallback,
   STREAM_DEFAULT_MAX_TOKENS,
@@ -194,6 +195,9 @@ End with a concise invitation to tell the user which goal they want help with so
 - **/messages**: private messages and friend communication
 - **/professional-tools**: downloadable professional tools
 - **/news**: platform news and updates
+- **/travel**: flights, hotels and car rental — the person books on the official sites listed there, or sends the trip to the travel desk
+- **/global-shopping**: ordering from Amazon, AliExpress, Alibaba, SHEIN, Temu, eBay and other global stores, new or used, yourself or through the team
+- **/services/file-studio**: converting files — PDF to Word, Word/Excel/PowerPoint to PDF, audio, video and pictures
 
 ## Communication Style
 - Keep answers **clear, concise, and helpful**
@@ -207,7 +211,9 @@ End with a concise invitation to tell the user which goal they want help with so
 - Never present Visionex as only an accessibility platform, only a marketplace, only a services website, or only an education site. It is a broad inclusive global platform with accessibility as a core strength.
 - For medical, psychological, legal, or financial topics, provide safe general guidance only. Do not diagnose, prescribe, guarantee outcomes, or replace qualified professionals.
 - If you don't know something, say so honestly and suggest where to find the answer
-- Support all users equally regardless of ability, language, or background`;
+- Support all users equally regardless of ability, language, or background
+
+${THINKING_GUIDE}`;
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);

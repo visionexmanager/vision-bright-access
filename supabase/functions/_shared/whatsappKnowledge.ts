@@ -189,6 +189,40 @@ export function sanitisePassage(text: string | null | undefined, limit = MAX_PAS
 }
 
 /** The question, bounded, or null when there is nothing worth embedding. */
+/** A message this short, with a question before it, is read as a continuation of that question. */
+export const FOLLOW_UP_MAX_CHARS = 60;
+export const FOLLOW_UP_MAX_WORDS = 6;
+/** How much of the earlier question is carried into the search. */
+export const FOLLOW_UP_CONTEXT_CHARS = 240;
+
+/**
+ * The text to search with for this message.
+ *
+ * "And the price?" and «طيب والباقي؟» embed to nothing in particular, so a
+ * follow-up retrieves the wrong passage or none — and the model is then told it
+ * has no source for a question that did have one. A short message that follows
+ * another question by the same person is searched together with it. Only the
+ * person's own words are used (never the assistant's), only the one before, and
+ * only when the new message is short: a full question stands alone, so changing
+ * the subject costs nothing. The result goes through the same bounds as any
+ * query, and the similarity floor still decides whether anything is used.
+ */
+export function contextualQuery(
+  question: string | null | undefined,
+  previousUserMessages: ReadonlyArray<string | null | undefined>,
+): string {
+  const current = (question ?? "").trim();
+  if (!current) return "";
+  const words = current.split(/\s+/).filter(Boolean).length;
+  if (current.length > FOLLOW_UP_MAX_CHARS || words > FOLLOW_UP_MAX_WORDS) return current;
+  for (let i = previousUserMessages.length - 1; i >= 0; i--) {
+    const before = (previousUserMessages[i] ?? "").trim();
+    if (!before || before === current) continue;
+    return `${before.slice(-FOLLOW_UP_CONTEXT_CHARS)} ${current}`;
+  }
+  return current;
+}
+
 export function boundQuery(question: string | null | undefined): string | null {
   const value = (question ?? "").trim();
   if (value.length < MIN_QUERY_CHARS) return null;

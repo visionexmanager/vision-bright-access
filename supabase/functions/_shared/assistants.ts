@@ -8,6 +8,7 @@
 // (transport, streaming, rate limiting) is handled by the provider layer.
 
 import type { AIProvider, ProviderTarget } from "./aiProvider.ts";
+import { THINKING_GUIDE } from "./thinkingGuide.ts";
 
 export interface AssistantConfig {
   id: string;
@@ -29,7 +30,7 @@ const ACCESS_NOTE =
   "Always respond in the same language the user writes in (Arabic, English, etc.).";
 
 function build(role: string, body: string, disclaimer?: string): string {
-  return [role, body, ACCESS_NOTE, disclaimer].filter(Boolean).join("\n\n");
+  return [role, body, THINKING_GUIDE, ACCESS_NOTE, disclaimer].filter(Boolean).join("\n\n");
 }
 
 const DEFAULT_PROVIDER: AIProvider = "openai";
