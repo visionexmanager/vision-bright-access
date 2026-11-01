@@ -340,6 +340,19 @@ export const visibleChars = (text) => (typeof text === "string" ? text.replace(/
  */
 export const MIN_READ_CHARS = 6;
 
+/**
+ * A second reading is kept only if it found clearly more. Page segmentation
+ * mode 3 (the default) reads prose well and loses the cells of a ruled table,
+ * because Tesseract takes the grid lines for noise and gives up on the box;
+ * mode 11 (sparse text) reads every word it can see wherever it is, which is
+ * what a table needs — and the layout step rebuilds the order from the word
+ * boxes anyway. Measured on the server: a three-by-three Arabic table came back
+ * as three words under mode 3.
+ */
+export const SPARSE_PSM = "11";
+export const SPARSE_GAIN = 1.15;
+export const sparseReadWins = (defaultChars, sparseChars) => sparseChars > defaultChars * SPARSE_GAIN;
+
 export const hasTextLayer = (text) => visibleChars(text) >= MIN_TEXT_LAYER_CHARS;
 
 // ── The command lines ────────────────────────────────────────────────────────

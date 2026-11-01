@@ -4,6 +4,7 @@ import {
   DOC_BUDGET_MS,
   DOC_TARGETS,
   MIN_READ_CHARS,
+  sparseReadWins,
   MIN_TEXT_LAYER_CHARS,
   visibleChars,
   canConvertDocument,
@@ -245,5 +246,14 @@ describe("did the reader find words", () => {
     expect(visibleChars("صفحة رقم 1")).toBeGreaterThanOrEqual(MIN_READ_CHARS);
     expect(visibleChars(" 
  ")).toBeLessThan(MIN_READ_CHARS);
+  });
+});
+
+describe("the second, sparse reading", () => {
+  it("is kept only when it found clearly more", () => {
+    expect(sparseReadWins(10, 40)).toBe(true);
+    expect(sparseReadWins(100, 105)).toBe(false);
+    expect(sparseReadWins(100, 100)).toBe(false);
+    expect(sparseReadWins(0, 5)).toBe(true);
   });
 });

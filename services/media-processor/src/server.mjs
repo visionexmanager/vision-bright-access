@@ -57,6 +57,8 @@ import {
   MAX_JOB_PAGES,
   MAX_SYNC_OCR_PAGES,
   MIN_READ_CHARS,
+  SPARSE_PSM,
+  sparseReadWins,
   visibleChars,
   isJobId,
   languageForScript,
@@ -796,7 +798,14 @@ function textToBlocks(text) {
 
 /** One page image read, as layout blocks: paragraphs and tables. */
 async function readPageBlocks(png, language) {
-  const { text, tsv } = await runOcr(png, language, null, null);
+  let { text, tsv } = await runOcr(png, language, null, null);
+  // A ruled table loses its cells under the default mode: read the page again
+  // in sparse mode and keep that only if it found clearly more.
+  const sparse = await runOcr(png, language, SPARSE_PSM, null).catch(() => null);
+  if (sparse && sparseReadWins(visibleChars(text), visibleChars(sparse.text))) {
+    text = sparse.text;
+    tsv = sparse.tsv;
+  }
   const blocks = buildBlocks(parseWords(tsv));
   if (blocks.length > 0) return { blocks, text };
   return { blocks: textToBlocks(text), text };
