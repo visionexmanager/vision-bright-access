@@ -73,6 +73,10 @@ function messageFor(code: string | undefined, status: number): string {
       return "This doesn't look like a document this converter can open.";
     case "unsupported_pair":
       return "That conversion isn't available for this kind of file.";
+    case "expired":
+      return "That conversion is no longer available. Please start it again.";
+    case "too_many_pages":
+      return "That PDF has too many pages to read in one go. Split it into parts of a few hundred pages.";
     case "encrypted":
       return "This PDF is password-protected. Remove the password and try again.";
     case "nothing_readable":
@@ -86,6 +90,69 @@ function messageFor(code: string | undefined, status: number): string {
     default:
       return "This file couldn't be converted. The format may be unsupported, or the file may be damaged.";
   }
+}
+
+const JOB_POLL_MS = 3_000;
+/** The server abandons a job after 40 minutes; the page stops waiting a little after that. */
+const JOB_GIVE_UP_MS = 45 * 60_000;
+
+/**
+ * Wait for a long document's job and return its file.
+ *
+ * Progress runs from 30 to 95 by pages read, so a hundred-page document shows
+ * movement rather than a bar stuck at 80. Asking about a job costs nothing
+ * against the daily allowance (see the function).
+ */
+async function followDocumentJob(params: {
+  url: string;
+  token: string;
+  job: string;
+  started: number;
+  progress: (pct: number) => void;
+}): Promise<ConversionResult> {
+  const ask = (kind: "document-status" | "document-result") =>
+    fetch(params.url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${params.token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, job: params.job }),
+    });
+
+  const fail = (code?: string): ConversionResult => ({
+    success: false,
+    processingMs: Date.now() - params.started,
+    error: messageFor(code, 422),
+  });
+
+  while (Date.now() - params.started < JOB_GIVE_UP_MS) {
+    const response = await ask("document-status");
+    if (response.status === 404) return fail("expired");
+    if (!response.ok && response.status !== 409) return fail();
+    const state = (await response.json().catch(() => ({}))) as {
+      state?: string;
+      pages_done?: number;
+      pages_total?: number;
+      code?: string;
+    };
+
+    if (state.state === "failed") return fail(state.code);
+    if (state.state === "done") {
+      const result = await ask("document-result");
+      if (!result.ok) return fail();
+      const blob = await result.blob();
+      params.progress(100);
+      return {
+        success: true,
+        resultUrl: URL.createObjectURL(blob),
+        resultSize: blob.size,
+        processingMs: Date.now() - params.started,
+      };
+    }
+
+    const total = state.pages_total ?? 0;
+    if (total > 0) params.progress(30 + Math.round(((state.pages_done ?? 0) / total) * 65));
+    await new Promise((resolve) => setTimeout(resolve, JOB_POLL_MS));
+  }
+  return fail("timeout");
 }
 
 /** Base64 without blowing the stack on a 16 MB file. */
@@ -170,6 +237,21 @@ export async function convertOnServer(params: {
         ...(params.options ?? {}),
       }),
     });
+    // A long PDF read by eye: accepted, and being read in the background. Follow
+    // the job here, with real progress, rather than hold one request open.
+    if (response.status === 202) {
+      const accepted = (await response.json().catch(() => ({}))) as { job?: string };
+      if (typeof accepted.job !== "string") {
+        return { success: false, processingMs: Date.now() - started, error: messageFor(undefined, 502) };
+      }
+      return await followDocumentJob({
+        url: `${base}/file-convert`,
+        token: session.access_token,
+        job: accepted.job,
+        started,
+        progress,
+      });
+    }
     progress(80);
 
     if (!response.ok) {

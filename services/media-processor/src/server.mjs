@@ -49,6 +49,17 @@ import {
 import {
   DOC_BUDGET_MS,
   DOC_TARGETS,
+  JOB_BATCH_PAGES,
+  JOB_MAX_MS,
+  JOB_MAX_QUEUED,
+  JOB_SOFFICE_TIMEOUT_MS,
+  JOB_TTL_MS,
+  MAX_JOB_PAGES,
+  MAX_SYNC_OCR_PAGES,
+  isJobId,
+  languageForScript,
+  parseOsdScript,
+  refineArabicLanguage,
   DOC_TARGET_NAMES,
   DOC_INPUT_NAMES,
   DOC_TIMEOUT_MS,
@@ -73,10 +84,11 @@ import {
   stepTimeout,
   textToHtml,
 } from "./docconvert.mjs";
+import { blocksToHtml, blocksToText, buildBlocks, parseWords, startsRtl, wrapHtml } from "./ocrlayout.mjs";
 import { DataHubError, listDatasets, readStorage, resolveDatasetFile } from "./datahub.mjs";
 import { createReadStream } from "node:fs";
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile, readFile, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -732,14 +744,32 @@ async function pdfInfo(bytes) {
   }
 }
 
-/** Every page of a scanned PDF, read with Arabic and English together. Pages beyond the cap are dropped. */
-async function ocrPdf(bytes, deadline) {
-  const pngs = await runTool({
+/** The script of a page image, by Tesseract's own detection; null when it cannot tell. */
+async function detectScript(png) {
+  try {
+    return await runTool({
+      bytes: png,
+      prefix: "osd-",
+      command: "tesseract",
+      timeoutMs: 20_000,
+      build: (input) => [input, "stdout", "--psm", "0", "-l", "osd"],
+      ok: (code) => code === 0,
+      read: ({ stdout }) => parseOsdScript(stdout),
+      failure: "osd_failed",
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Render pages `first` to `last` of a PDF as grey PNGs. */
+function renderPdfPages(bytes, first, last, timeoutMs) {
+  return runTool({
     bytes,
     prefix: "pdfpng-",
     command: "pdftoppm",
-    timeoutMs: stepTimeout(PDFTOPPM_TIMEOUT_MS, deadline),
-    build: (input, dir) => pdftoppmArgs(input, join(dir, "pg"), MAX_OCR_PAGES),
+    timeoutMs,
+    build: (input, dir) => pdftoppmArgs(input, join(dir, "pg"), last, first),
     ok: (code) => code === 0,
     read: async ({ dir }) => {
       const out = [];
@@ -751,25 +781,68 @@ async function ocrPdf(bytes, deadline) {
     },
     failure: "render_failed",
   });
+}
+
+/** Paragraph blocks from plain text, for pages that come from a text layer. */
+function textToBlocks(text) {
+  return String(text)
+    .split(/\n{2,}/)
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .map((p) => ({ type: "para", text: p, rtl: startsRtl(p) }));
+}
+
+/** One page image read, as layout blocks: paragraphs and tables. */
+async function readPageBlocks(png, language) {
+  const { text, tsv } = await runOcr(png, language, null, null);
+  const blocks = buildBlocks(parseWords(tsv));
+  if (blocks.length > 0) return { blocks, text };
+  return { blocks: textToBlocks(text), text };
+}
+
+/**
+ * Pages `first` to `last` of a PDF, read by eye. `state` carries the language
+ * from one call to the next, so a job decides it once, on its first page.
+ * With a `deadline`, pages stop being read when time runs low and those read so
+ * far are returned.
+ */
+async function ocrPdfRange({ bytes, first, last, state, deadline }) {
+  const pngs = await renderPdfPages(bytes, first, last, deadline ? stepTimeout(PDFTOPPM_TIMEOUT_MS, deadline) : PDFTOPPM_TIMEOUT_MS);
   const pages = [];
   for (const png of pngs) {
-    // Out of time: hand back the pages read so far rather than none.
-    if (Date.now() > deadline - OCR_RESERVE_MS) break;
-    const { text } = await runOcr(png.bytes, "ara+eng", null, null);
-    pages.push(text);
+    if (deadline && Date.now() > deadline - OCR_RESERVE_MS) break;
+    if (!state.language) {
+      state.script = await detectScript(png.bytes);
+      state.language = languageForScript(state.script);
+    }
+    let read = await readPageBlocks(png.bytes, state.language);
+    if (!state.refined) {
+      state.refined = true;
+      // Arabic, Persian and Urdu share a script and a detector verdict.
+      const better = state.language.startsWith("ara") ? refineArabicLanguage(read.text) : null;
+      if (better) {
+        state.language = better;
+        read = await readPageBlocks(png.bytes, state.language);
+      }
+    }
+    pages.push(read.blocks);
   }
   return pages;
 }
 
+const pagesToHtml = (pages) => wrapHtml(pages.map((blocks, i) => blocksToHtml(blocks, { pageBreak: i > 0 })).join(""));
+const pagesToText = (pages) => pages.map(blocksToText).join("\n\n");
+const pagesHaveText = (pages) => pages.some((blocks) => hasTextLayer(blocksToText(blocks)));
+
 /** One `soffice` run: bytes in under a name LibreOffice can recognise, the converted file out. */
-function runSoffice(bytes, from, to, deadline) {
+function runSoffice(bytes, from, to, deadline, limitMs = DOC_TIMEOUT_MS) {
   const target = DOC_TARGETS[to];
   return runTool({
     bytes,
     prefix: "doc-",
     command: "soffice",
     inputName: `in.${from}`,
-    timeoutMs: stepTimeout(DOC_TIMEOUT_MS, deadline),
+    timeoutMs: deadline ? stepTimeout(limitMs, deadline) : limitMs,
     build: (input, dir) => sofficeArgs({ input, outDir: dir, profileDir: join(dir, "profile"), from, to }),
     ok: (code) => code === 0,
     read: async ({ dir }) => {
@@ -781,6 +854,130 @@ function runSoffice(bytes, from, to, deadline) {
     },
     failure: "conversion_failed",
   });
+}
+
+// ── Long PDFs run as jobs ────────────────────────────────────────────────────
+//
+// A hundred-page Arabic PDF is read by eye, which is minutes of work. Holding a
+// request open that long is a proxy timeout and a retry waiting to happen, so a
+// long document is accepted at once (202 and an id) and read in the background,
+// five pages at a time. Each batch takes a worker slot, so other requests run
+// between batches rather than waiting for the whole document.
+//
+// Nothing here is a store. A job lives in this process's memory, its result sits
+// in the container's temporary directory, and both are gone after JOB_TTL_MS or
+// when the container restarts. The id is 128 random bits, and is the only thing
+// that authorises a read; the callers that hold it (an Edge Function and a
+// worker) are behind the bearer token and give it only to the person who asked.
+
+const docJobs = new Map();
+let docJobTail = Promise.resolve();
+
+function dropDocJob(id) {
+  const job = docJobs.get(id);
+  if (!job) return;
+  docJobs.delete(id);
+  if (job.dir) rm(job.dir, { recursive: true, force: true }).catch(() => {});
+}
+
+function startDocJob({ bytes, to, totalPages, method }) {
+  const active = [...docJobs.values()].filter((job) => job.state === "queued" || job.state === "running").length;
+  if (active >= JOB_MAX_QUEUED) return null;
+  const job = {
+    id: randomBytes(16).toString("hex"),
+    state: "queued",
+    to,
+    method,
+    pagesTotal: totalPages,
+    pagesDone: 0,
+    createdAt: Date.now(),
+    dir: null,
+    file: null,
+    error: null,
+  };
+  docJobs.set(job.id, job);
+  const timer = setTimeout(() => dropDocJob(job.id), JOB_TTL_MS);
+  timer.unref?.();
+  docJobTail = docJobTail.then(() => runDocJob(job, bytes)).catch(() => {});
+  return job;
+}
+
+async function runDocJob(job, bytes) {
+  const started = Date.now();
+  job.state = "running";
+  try {
+    const state = {};
+    const pages = [];
+    for (let first = 1; first <= job.pagesTotal; first += JOB_BATCH_PAGES) {
+      if (Date.now() - started > JOB_MAX_MS) throw Object.assign(new Error("timeout"), { code: "timeout" });
+      const last = Math.min(job.pagesTotal, first + JOB_BATCH_PAGES - 1);
+      await acquireSlot();
+      let got;
+      try {
+        got = await ocrPdfRange({ bytes, first, last, state, deadline: null });
+      } finally {
+        releaseSlot();
+      }
+      if (got.length === 0) break;
+      pages.push(...got);
+      job.pagesDone = pages.length;
+    }
+    if (!pagesHaveText(pages)) throw Object.assign(new Error("nothing_readable"), { code: "nothing_readable" });
+
+    let output;
+    if (job.to === "txt") {
+      output = Buffer.from(pagesToText(pages), "utf8");
+    } else {
+      await acquireSlot();
+      try {
+        output = await runSoffice(Buffer.from(pagesToHtml(pages), "utf8"), "html", job.to, null, JOB_SOFFICE_TIMEOUT_MS);
+      } finally {
+        releaseSlot();
+      }
+    }
+    if (output.length > MAX_DOC_OUTPUT_BYTES) throw Object.assign(new Error("output_too_large"), { code: "output_too_large" });
+
+    job.dir = await mkdtemp(join(tmpdir(), "docjob-"));
+    job.file = join(job.dir, "result");
+    await writeFile(job.file, output);
+    job.language = state.language ?? null;
+    job.state = "done";
+    log("doc_job", { outcome: "done", to: job.to, pages: job.pagesDone, ms: Date.now() - started, out: output.length, lang: state.language ?? "?" });
+  } catch (error) {
+    job.state = "failed";
+    job.error = error?.code ?? "conversion_failed";
+    log("doc_job", { outcome: job.error, to: job.to, pages: job.pagesDone, ms: Date.now() - started });
+  }
+}
+
+function handleDocJob(req, res, url) {
+  const m = /^\/doc-job\/([0-9a-f]{32})(\/result)?$/.exec(url.pathname);
+  const job = m && isJobId(m[1]) ? docJobs.get(m[1]) : null;
+  if (!job) return send(res, 404, { ok: false, reason: "unknown_job" });
+
+  if (!m[2]) {
+    return send(res, 200, {
+      ok: true,
+      state: job.state,
+      pages_done: job.pagesDone,
+      pages_total: job.pagesTotal,
+      ...(job.state === "failed" ? { reason: job.error } : {}),
+    });
+  }
+  if (job.state !== "done") return send(res, 409, { ok: false, reason: job.state === "failed" ? job.error : "not_ready" });
+
+  return readFile(job.file).then((output) => {
+    res.writeHead(200, {
+      "content-type": DOC_TARGETS[job.to].mime,
+      "content-length": output.length,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      "x-conversion-method": job.method,
+      "x-pages-total": String(job.pagesTotal),
+      "x-pages-read": String(job.pagesDone),
+    });
+    res.end(output);
+  }).catch(() => send(res, 410, { ok: false, reason: "expired" }));
 }
 
 async function handleDocConvert(req, res, correlation) {
@@ -836,29 +1033,42 @@ async function handleDocConvert(req, res, correlation) {
           output = await runSoffice(bytes, "pdf", to, deadline);
         }
       } else {
-        // Only pictures, or Arabic (see docconvert.mjs): read the rendered pages,
-        // then build the document from what was read.
+        // Only pictures, or Arabic-script text (see docconvert.mjs): read the
+        // rendered pages, then build the document from what was read.
         method = arabicByEye ? "ocr-arabic" : "ocr";
-        const pages = await ocrPdf(bytes, deadline);
+
+        // Too long to read inside one request: a job, answered at once.
+        if (totalPages && totalPages > MAX_SYNC_OCR_PAGES) {
+          if (totalPages > MAX_JOB_PAGES) throw Object.assign(new Error("too_many_pages"), { code: "too_many_pages" });
+          const job = startDocJob({ bytes, to, totalPages, method });
+          if (!job) {
+            res.setHeader("retry-after", "30");
+            return send(res, 503, { ok: false, reason: "busy" });
+          }
+          log("doc_job", { correlation, outcome: "queued", pages: totalPages, to });
+          return send(res, 202, { ok: true, job: job.id, pages: totalPages, method });
+        }
+
+        const state = {};
+        let pages = await ocrPdfRange({ bytes, first: 1, last: totalPages ?? MAX_SYNC_OCR_PAGES, state, deadline });
         pagesRead = pages.length;
-        let body = pages;
-        if (!pages.some((p) => hasTextLayer(p))) {
-          // Nothing read from the picture. An Arabic PDF still has its text layer,
+        if (!pagesHaveText(pages)) {
+          // Nothing read from the picture. A PDF with a text layer still has it,
           // ligature fault and all, which beats an empty document.
           if (!arabicByEye) throw Object.assign(new Error("nothing_readable"), { code: "nothing_readable" });
           method = "text-layer";
-          body = [stripBidiControls(text)];
-        } else if (arabicByEye && totalPages && totalPages > pages.length) {
-          // Pages past what could be read in time come from the text layer, so
-          // the document is complete rather than silently short.
+          pages = [textToBlocks(stripBidiControls(text))];
+        } else if (totalPages && totalPages > pages.length && arabicByEye) {
+          // Time ran out before the last page: the rest comes from the text
+          // layer, so the document is complete rather than silently short.
           const rest = stripBidiControls(await pdfText(bytes, pages.length + 1));
           if (hasTextLayer(rest)) {
-            body = [...pages, rest];
+            pages = [...pages, textToBlocks(rest)];
             method = "ocr-arabic+text-layer";
           }
         }
-        if (to === "txt") output = Buffer.from(body.join("\n\n"), "utf8");
-        else output = await runSoffice(Buffer.from(textToHtml(body), "utf8"), "html", to, deadline);
+        if (to === "txt") output = Buffer.from(pagesToText(pages), "utf8");
+        else output = await runSoffice(Buffer.from(pagesToHtml(pages), "utf8"), "html", to, deadline);
       }
     } else if (from === "txt") {
       // A text file has no direction of its own; give each paragraph one.
@@ -1476,6 +1686,8 @@ const server = createServer(async (req, res) => {
           by_family: OUTPUTS_BY_FAMILY,
           families: FAMILY_OF_INPUT,
           max_bytes: MAX_DOC_BYTES,
+          // Long PDFs read by eye are answered with a job id (HTTP 202) and collected with GET /doc-job/<id>.
+          jobs: { max_pages: MAX_JOB_PAGES, sync_pages: MAX_SYNC_OCR_PAGES },
         },
         probe: true,
         // Scene-aware frame sheet for a vision model; a caller checks before relying on it.
@@ -1515,6 +1727,10 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/video-sheet") {
       return await handleVideoSheet(req, res, correlation);
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/doc-job/")) {
+      return await handleDocJob(req, res, url);
     }
 
     if (req.method === "POST" && url.pathname === "/doc-convert") {

@@ -213,11 +213,11 @@ jobs:
             --publish 127.0.0.1:8081:8081 \
             --env-file ~/.visionex-processor.env \
             --add-host host.docker.internal:host-gateway \
-            --memory 2g \
+            --memory 3g \
             --cpus 2 \
             --pids-limit 256 \
             --read-only \
-            --tmpfs /tmp:rw,noexec,nosuid,size=256m \
+            --tmpfs /tmp:rw,noexec,nosuid,size=512m \
             --volume /var/lib/visionex/data:/data/visionex:ro \
             --cap-drop ALL \
             --security-opt no-new-privileges \
@@ -1195,6 +1195,75 @@ jobs:
             say 'csv -> xlsx   : Arabic cells survived'
           else
             echo "::error::csv -> xlsx failed (HTTP $CODE)."; FAILED=1
+          fi
+
+          # 7. Layout and length, which need pages Chrome can write. Without Chrome
+          # these are reported as skipped, never as passed.
+          if [ -z "$CHROME" ]; then
+            say 'tables/long/scan : skipped, no Chrome on this runner'
+          else
+            pdf_of() { timeout 90 "$CHROME" --headless=new --no-sandbox --disable-gpu --no-pdf-header-footer --print-to-pdf="$2" "file://$1" >/dev/null 2>&1; }
+
+            # 7a. A right-to-left table must come back as a Word table
+            printf '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-size:22px"><p dir="rtl">جدول الفواكه</p><table dir="rtl" border="1" style="border-collapse:collapse"><tr><td style="padding:14px 70px">الاسم</td><td style="padding:14px 70px">العدد</td><td style="padding:14px 70px">السعر</td></tr><tr><td style="padding:14px 70px">تفاح</td><td style="padding:14px 70px">3</td><td style="padding:14px 70px">1.20</td></tr><tr><td style="padding:14px 70px">كمثرى</td><td style="padding:14px 70px">12</td><td style="padding:14px 70px">0.80</td></tr></table></body></html>' > "$D/table.html"
+            pdf_of "$D/table.html" "$D/table.pdf"
+            CODE=$(convert "$D/table.pdf" 'to=docx' "$D/table.docx")
+            unzip -p "$D/table.docx" word/document.xml > "$D/table.xml" 2>/dev/null
+            say "table pdf -> docx : HTTP $CODE, method $(method)"
+            if [ "$CODE" = "200" ] && grep -q '<w:tbl>' "$D/table.xml" && grep -q 'تفاح' "$D/table.xml" && grep -q 'كمثرى' "$D/table.xml"; then
+              say 'table pdf -> docx : came back as a Word table with its cells'
+            else
+              echo '::error::The table did not come back as a Word table.'; FAILED=1
+            fi
+
+            # 7b. A long PDF becomes a job, answered at once, and every page is read
+            { printf '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-size:26px">'; for i in $(seq 1 14); do printf '<div style="page-break-after:always" dir="rtl"><p>صفحة رقم %s من الوثيقة الطويلة</p></div>' "$i"; done; printf '</body></html>'; } > "$D/long.html"
+            pdf_of "$D/long.html" "$D/long.pdf"
+            CODE=$(convert "$D/long.pdf" 'to=docx' "$D/long.json")
+            JOB=$(grep -o '"job":"[0-9a-f]*"' "$D/long.json" | head -c 80 | sed 's/"job":"//; s/"//')
+            say "long pdf (14 pages) : HTTP $CODE, job id $([ -n "$JOB" ] && echo received || echo missing)"
+            if [ "$CODE" = "202" ] && [ -n "$JOB" ]; then
+              STATE=queued; N=0
+              while [ "$STATE" != "done" ] && [ "$STATE" != "failed" ] && [ "$N" -lt 60 ]; do
+                sleep 5; N=$((N+1))
+                STATE=$(curl -s --max-time 30 -H "authorization: Bearer $TOKEN" "https://visionex.app/internal/media/doc-job/$JOB" | grep -o '"state":"[a-z]*"' | sed 's/"state":"//; s/"//')
+              done
+              say "long pdf : job state $STATE after $((N*5)) s"
+              CODE=$(curl -s --max-time 60 -o "$D/long.docx" -w '%{http_code}' -H "authorization: Bearer $TOKEN" "https://visionex.app/internal/media/doc-job/$JOB/result")
+              unzip -p "$D/long.docx" word/document.xml > "$D/long.xml" 2>/dev/null
+              PAGES=$(grep -o 'الوثيقة' "$D/long.xml" | wc -l)
+              say "long pdf : result HTTP $CODE, 'الوثيقة' found $PAGES times of 14"
+              if [ "$CODE" = "200" ] && [ "$PAGES" -ge 13 ] && grep -q '14' "$D/long.xml"; then
+                say 'long pdf : all pages read, the last included'
+              else
+                echo '::error::The long PDF was not read to the end.'; FAILED=1
+              fi
+            else
+              echo "::error::A 14-page PDF was not accepted as a job (HTTP $CODE)."; FAILED=1
+            fi
+            CODE=$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' -H "authorization: Bearer $TOKEN" 'https://visionex.app/internal/media/doc-job/00000000000000000000000000000000')
+            [ "$CODE" = "404" ] || { echo "::error::An unknown job id was not a 404 (got $CODE)."; FAILED=1; }
+
+            # 7c. Scans: a picture of text in French, and in Arabic, read in their own models
+            scan_of() { # html-file out-pdf
+              timeout 90 "$CHROME" --headless=new --no-sandbox --disable-gpu --hide-scrollbars --window-size=1000,360 --screenshot="$D/scan.png" "file://$1" >/dev/null 2>&1
+              printf '<!DOCTYPE html><html><body style="margin:0"><img src="scan.png" style="width:100%%"></body></html>' > "$D/scan-wrap.html"
+              pdf_of "$D/scan-wrap.html" "$2"
+            }
+            printf '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font:40px serif;padding:30px"><p>L élève mange un garçon à Paris : déjà vu, ça va très bien.</p><p>Les enfants jouent dans le jardin après la fête.</p></body></html>' > "$D/fr.html"
+            scan_of "$D/fr.html" "$D/fr.pdf"
+            CODE=$(convert "$D/fr.pdf" 'to=txt' "$D/fr.txt")
+            say "scanned French -> txt : HTTP $CODE, method $(method), text: $(tr '\n' '|' < "$D/fr.txt" | head -c 160)"
+            if [ "$CODE" = "200" ] && grep -q 'garçon' "$D/fr.txt" && grep -q 'déjà' "$D/fr.txt"; then
+              say 'scanned French : accents read correctly'
+            else
+              echo '::error::The scanned French lost its accents.'; FAILED=1
+            fi
+            printf '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font:42px serif;padding:30px" dir="rtl"><p>%s</p><p>%s</p></body></html>' "$ARABIC" "$ARABIC2" > "$D/ar.html"
+            scan_of "$D/ar.html" "$D/ar.pdf"
+            CODE=$(convert "$D/ar.pdf" 'to=txt' "$D/ar.txt")
+            say "scanned Arabic -> txt : HTTP $CODE, method $(method)"
+            if [ "$CODE" = "200" ] && grep -q "$ARABIC" "$D/ar.txt"; then say 'scanned Arabic : read correctly'; else echo '::error::The scanned Arabic was not read.'; FAILED=1; fi
           fi
 
           # 7. Refusals: bytes decide, and a pair that makes no sense is refused

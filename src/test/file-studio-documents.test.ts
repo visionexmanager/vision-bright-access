@@ -8,6 +8,7 @@ import {
   DOC_TARGET_NAMES,
   FAMILY_OF_INPUT,
   OUTPUTS_BY_FAMILY,
+  OCR_MODELS,
   canConvertDocument,
 } from "../../services/media-processor/src/docconvert.mjs";
 
@@ -50,6 +51,25 @@ describe("the page and the document engine agree", () => {
     const server = readFileSync("services/media-processor/src/server.mjs", "utf8");
     expect(server).toContain('url.pathname === "/doc-convert"');
     expect(server).toContain("x-conversion-method");
+  });
+
+  it("installs a model for every language the reader may choose, and the script detector", () => {
+    const docker = readFileSync("services/media-processor/Dockerfile", "utf8");
+    expect(docker).toContain("tesseract-ocr-osd");
+    for (const model of OCR_MODELS as string[]) {
+      if (model === "ara") continue; // pinned separately, as the best-quality model
+      expect(docker, model).toContain("tesseract-ocr-" + model.replace("_", "-"));
+    }
+  });
+
+  it("lets a long PDF be followed as a job, on the site and in the function", () => {
+    const fn = readFileSync("supabase/functions/file-convert/index.ts", "utf8");
+    expect(fn).toContain("document-status");
+    expect(fn).toContain("document-result");
+    const client = readFileSync("src/services/file-studio/serverConvert.ts", "utf8");
+    expect(client).toContain("followDocumentJob");
+    const server = readFileSync("services/media-processor/src/server.mjs", "utf8");
+    expect(server).toContain("/doc-job/");
   });
 
   it("installs the engine and an Arabic-capable font in the image", () => {

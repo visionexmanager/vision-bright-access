@@ -145,6 +145,64 @@ export interface LocalConvertResult {
   bytes?: Uint8Array;
   mime?: string;
   code?: string;
+  /** Set with code "job": the document is long and is being read in the background. */
+  jobId?: string;
+  pages?: number;
+}
+
+const JOB_ID = /^[0-9a-f]{32}$/;
+const JOB_POLL_MS = 3_000;
+
+/** One look at a document job: its state, or its finished file. */
+export async function fetchDocJob(params: {
+  config: ProcessorConfig;
+  jobId: string;
+  result?: boolean;
+  fetchImpl?: typeof fetch;
+  signal?: AbortSignal;
+}): Promise<{ status: number; json?: Record<string, unknown>; bytes?: Uint8Array; mime?: string }> {
+  if (!JOB_ID.test(params.jobId)) return { status: 400 };
+  const doFetch = params.fetchImpl ?? fetch;
+  const response = await doFetch(`${params.config.url}/doc-job/${params.jobId}${params.result ? "/result" : ""}`, {
+    method: "GET",
+    signal: params.signal,
+    headers: { authorization: `Bearer ${params.config.token}` },
+  });
+  const type = (response.headers.get("content-type") ?? "").split(";")[0].trim();
+  if (response.ok && params.result) {
+    return { status: response.status, bytes: new Uint8Array(await response.arrayBuffer()), mime: type };
+  }
+  let json: Record<string, unknown> | undefined;
+  try {
+    json = await response.json() as Record<string, unknown>;
+  } catch {
+    // A body that is not JSON tells us nothing beyond the status.
+  }
+  return { status: response.status, json };
+}
+
+/** Wait for a document job and return its file, or the service's reason it failed. */
+async function followDocJob(params: {
+  config: ProcessorConfig;
+  jobId: string;
+  fetchImpl?: typeof fetch;
+  signal: AbortSignal;
+}): Promise<LocalConvertResult> {
+  for (;;) {
+    const status = await fetchDocJob({ ...params });
+    if (status.status === 404) return { ok: false, code: "unknown_job" };
+    const state = status.json?.state;
+    if (state === "failed") {
+      const reason = status.json?.reason;
+      return { ok: false, code: typeof reason === "string" && /^[a-z_]{1,40}$/.test(reason) ? reason : "conversion_failed" };
+    }
+    if (state === "done") {
+      const done = await fetchDocJob({ ...params, result: true });
+      if (!done.bytes || done.bytes.byteLength === 0) return { ok: false, code: "empty_output" };
+      return { ok: true, bytes: done.bytes, mime: done.mime || "application/octet-stream" };
+    }
+    await new Promise((resolve) => setTimeout(resolve, JOB_POLL_MS));
+  }
 }
 
 /**
@@ -161,6 +219,8 @@ export async function convertMediaLocally(params: {
   query: string;
   /** "/doc-convert" for PDF, Word and the other documents; audio, video and images use the default. */
   path?: "/convert" | "/doc-convert";
+  /** Wait for a long document's job instead of returning its id. For a caller that is already in the background. */
+  followJobs?: boolean;
   config?: ProcessorConfig | null;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
@@ -183,6 +243,21 @@ export async function convertMediaLocally(params: {
       },
       body: imageBody(params.bytes),
     });
+
+    if (response.status === 202) {
+      // A long PDF: accepted, and being read. Either hand the id back or wait.
+      let accepted: { job?: unknown; pages?: unknown } = {};
+      try {
+        accepted = await response.json() as typeof accepted;
+      } catch {
+        // Falls through to the upstream error below.
+      }
+      const jobId = typeof accepted.job === "string" && JOB_ID.test(accepted.job) ? accepted.job : null;
+      if (!jobId) return { ok: false, code: "upstream" };
+      const pages = typeof accepted.pages === "number" ? accepted.pages : undefined;
+      if (!params.followJobs) return { ok: false, code: "job", jobId, pages };
+      return await followDocJob({ config, jobId, fetchImpl: params.fetchImpl, signal: controller.signal });
+    }
 
     if (!response.ok) {
       // The service answers a refusal as JSON with a `reason`; anything else on

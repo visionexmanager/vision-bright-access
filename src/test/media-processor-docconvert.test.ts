@@ -8,6 +8,18 @@ import {
   hasTextLayer,
   isRtlParagraph,
   needsOcrForArabic,
+  OCR_LANGUAGE_BY_SCRIPT,
+  OCR_MODELS,
+  DEFAULT_OCR_LANGUAGE,
+  MAX_JOB_PAGES,
+  MAX_SYNC_OCR_PAGES,
+  JOB_TTL_MS,
+  JOB_MAX_MS,
+  isJobId,
+  languageForScript,
+  parseOsdScript,
+  pdftoppmArgs,
+  refineArabicLanguage,
   pdftotextArgs,
   readDocQuery,
   sniffDocument,
@@ -160,16 +172,67 @@ describe("poppler's embedding marks", () => {
 });
 
 describe("which PDFs are read by eye", () => {
-  it("reads Arabic from the page, and keeps Persian and Urdu on the text layer", () => {
+  it("reads Arabic-script text from the page, Persian and Urdu included", () => {
     expect(needsOcrForArabic("السلام عليكم")).toBe(true);
+    expect(needsOcrForArabic("سلام دنیا گل")).toBe(true);
+    expect(needsOcrForArabic("آپ کیسے ہیں")).toBe(true);
     expect(needsOcrForArabic("Hello world")).toBe(false);
-    expect(needsOcrForArabic("سلام دنیا گل")).toBe(false);
-    expect(needsOcrForArabic("آپ کیسے ہیں")).toBe(false);
     expect(needsOcrForArabic(null as unknown as string)).toBe(false);
   });
 
   it("asks poppler for a later range only when told to", () => {
     expect(pdftotextArgs("in", "out")).not.toContain("-f");
     expect(pdftotextArgs("in", "out", 11)).toEqual(["-enc", "UTF-8", "-nopgbrk", "-f", "11", "in", "out"]);
+  });
+});
+
+describe("which language a page is read in", () => {
+  it("reads the script out of Tesseract's detection output", () => {
+    expect(parseOsdScript("Page number: 0\nOrientation in degrees: 90\nScript: Arabic\nScript confidence: 3.2\n")).toBe("Arabic");
+    expect(parseOsdScript("Script: Latin\n")).toBe("Latin");
+    expect(parseOsdScript("Too few characters. Skipping this page")).toBeNull();
+    expect(parseOsdScript(undefined as unknown as string)).toBeNull();
+  });
+
+  it("maps a script to models, and falls back to Arabic with English", () => {
+    expect(languageForScript("Latin")).toContain("fra");
+    expect(languageForScript("Han")).toContain("chi_sim");
+    expect(languageForScript("Cyrillic")).toContain("rus");
+    expect(languageForScript("Klingon")).toBe(DEFAULT_OCR_LANGUAGE);
+    expect(languageForScript(null as unknown as string)).toBe(DEFAULT_OCR_LANGUAGE);
+  });
+
+  it("only ever names models the image installs", () => {
+    for (const language of [...Object.values(OCR_LANGUAGE_BY_SCRIPT), "fas+eng", "urd+eng"] as string[]) {
+      for (const model of language.split("+")) expect(OCR_MODELS, model).toContain(model);
+    }
+  });
+
+  it("looks again at Arabic-script text for Urdu and Persian letters", () => {
+    expect(refineArabicLanguage("یہ ایک ٹیسٹ ہے")).toBe("urd+eng");
+    expect(refineArabicLanguage("این یک گل است")).toBe("fas+eng");
+    expect(refineArabicLanguage("هذا اختبار")).toBeNull();
+    expect(refineArabicLanguage(undefined as unknown as string)).toBeNull();
+  });
+});
+
+describe("long documents", () => {
+  it("answers a short one in the request and a long one with a job", () => {
+    expect(MAX_SYNC_OCR_PAGES).toBeLessThanOrEqual(10);
+    expect(MAX_JOB_PAGES).toBeGreaterThan(100);
+    expect(JOB_TTL_MS).toBeGreaterThan(JOB_MAX_MS);
+  });
+
+  it("accepts only 128-bit hex as a job id", () => {
+    expect(isJobId("0123456789abcdef0123456789abcdef")).toBe(true);
+    expect(isJobId("0123456789ABCDEF0123456789abcdef")).toBe(false);
+    expect(isJobId("../etc/passwd")).toBe(false);
+    expect(isJobId("abc")).toBe(false);
+    expect(isJobId(null as unknown as string)).toBe(false);
+  });
+
+  it("renders a page range", () => {
+    expect(pdftoppmArgs("in", "pg", 10, 6)).toEqual(["-png", "-gray", "-r", "200", "-f", "6", "-l", "10", "in", "pg"]);
+    expect(pdftoppmArgs("in", "pg")).toContain("-f");
   });
 });
