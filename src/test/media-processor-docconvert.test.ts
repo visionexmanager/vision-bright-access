@@ -244,8 +244,7 @@ describe("did the reader find words", () => {
   it("accepts a short document that was really read, and refuses a blank one", () => {
     expect(MIN_READ_CHARS).toBeLessThan(MIN_TEXT_LAYER_CHARS);
     expect(visibleChars("صفحة رقم 1")).toBeGreaterThanOrEqual(MIN_READ_CHARS);
-    expect(visibleChars(" 
- ")).toBeLessThan(MIN_READ_CHARS);
+    expect(visibleChars("   ")).toBeLessThan(MIN_READ_CHARS);
   });
 });
 
