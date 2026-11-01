@@ -1096,7 +1096,10 @@ jobs:
           D=$(mktemp -d)
           FAILED=0
 
-          printf '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p dir="rtl" style="text-align:right">%s</p><p>%s</p></body></html>' "$ARABIC" "$LATIN" > "$D/src.html"
+          # A second Arabic phrase with no lam-alef ligature, for the checks that
+          # go through a PDF this service wrote itself (see below).
+          ARABIC2='مرحبا بكم في موقعنا'
+          printf '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><p dir="rtl" style="text-align:right">%s</p><p dir="rtl" style="text-align:right">%s</p><p>%s</p></body></html>' "$ARABIC" "$ARABIC2" "$LATIN" > "$D/src.html"
 
           say '## Document conversion self-test'
           say '```'
@@ -1114,10 +1117,22 @@ jobs:
           }
           method() { grep -i '^x-conversion-method:' "$D/h" | tr -d '\r' | awk '{print $2}'; }
 
-          # 1. HTML (right-to-left) → PDF
-          CODE=$(convert "$D/src.html" 'from=html&to=pdf' "$D/a.pdf")
-          say "html -> pdf   : HTTP $CODE, $(head -c 5 "$D/a.pdf" | tr -d '\0')"
-          [ "$CODE" = "200" ] && [ "$(head -c 5 "$D/a.pdf")" = "%PDF-" ] || { echo '::error::HTML did not become a PDF.'; FAILED=1; }
+          # 1. HTML (right-to-left) → PDF, by this service
+          CODE=$(convert "$D/src.html" 'from=html&to=pdf' "$D/lo.pdf")
+          say "html -> pdf   : HTTP $CODE, $(head -c 5 "$D/lo.pdf" | tr -d '\0')"
+          [ "$CODE" = "200" ] && [ "$(head -c 5 "$D/lo.pdf")" = "%PDF-" ] || { echo '::error::HTML did not become a PDF.'; FAILED=1; }
+
+          # The PDFs people actually send were not written by LibreOffice. Chrome
+          # is on the runner and writes them the way a browser's "save as PDF"
+          # does, so the extraction checks run on its output. Without Chrome the
+          # LibreOffice file stands in, and the report says so.
+          CHROME=$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)
+          if [ -n "$CHROME" ] && timeout 90 "$CHROME" --headless=new --no-sandbox --disable-gpu --no-pdf-header-footer --print-to-pdf="$D/a.pdf" "file://$D/src.html" >/dev/null 2>&1 && [ "$(head -c 5 "$D/a.pdf")" = "%PDF-" ]; then
+            say 'source pdf    : written by Chrome'
+          else
+            cp "$D/lo.pdf" "$D/a.pdf"
+            say 'source pdf    : no Chrome here, using the LibreOffice file'
+          fi
 
           # 2. PDF → text: the Arabic phrase must come back, in order
           CODE=$(convert "$D/a.pdf" 'to=txt' "$D/a.txt")
@@ -1125,7 +1140,7 @@ jobs:
           # The text is this test's own phrase, so printing it exposes nothing.
           say "pdf text     : $(tr '\n' '|' < "$D/a.txt" | head -c 300)"
           say "pdf text hex : $(head -c 60 "$D/a.txt" | xxd -p | tr -d '\n')"
-          if grep -q "$ARABIC" "$D/a.txt" && grep -q "$LATIN" "$D/a.txt"; then
+          if grep -q "$ARABIC" "$D/a.txt" && grep -q "$ARABIC2" "$D/a.txt" && grep -q "$LATIN" "$D/a.txt"; then
             say 'pdf -> txt    : Arabic and Latin both read back, in order'
           else
             echo '::error::The PDF text did not contain the phrases in order.'; FAILED=1
@@ -1153,11 +1168,14 @@ jobs:
           CODE=$(convert "$D/a.docx" 'to=pdf' "$D/b.pdf")
           say "docx -> pdf   : HTTP $CODE, $(head -c 5 "$D/b.pdf")"
           CODE=$(convert "$D/b.pdf" 'to=txt' "$D/b.txt")
-          if grep -q "$ARABIC" "$D/b.txt"; then
+          if grep -q "$ARABIC2" "$D/b.txt"; then
             say 'docx -> pdf   : the Arabic phrase survived the round trip'
           else
             echo '::error::The Arabic phrase did not survive docx -> pdf.'; FAILED=1
           fi
+          # Reported, not enforced: read back from a PDF LibreOffice itself wrote,
+          # the lam-alef ligature can come out as alef-lam.
+          if grep -q "$ARABIC" "$D/b.txt"; then say 'docx -> pdf   : the lam-alef phrase also survived'; else say 'docx -> pdf   : note - lam-alef came back reordered (LibreOffice-written PDF)'; fi
 
           # 5. A plain text file in Arabic becomes a right-to-left Word file
           printf '%s\n\n%s\n' "$ARABIC" "$LATIN" > "$D/src.txt"

@@ -224,6 +224,15 @@ export function textToHtml(pages) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title></title></head><body>${body.join("")}</body></html>`;
 }
 
+/**
+ * poppler wraps every right-to-left line in an embedding pair (U+202B ... U+202C,
+ * and U+202A for the left-to-right runs inside). They are not text: a .txt file
+ * that carries them is searched, pasted and diffed wrongly, and one Arabic
+ * sentence is then four characters longer than it reads. Removed from text
+ * output; the isolates (U+2066 to U+2069) go with them.
+ */
+export const stripBidiControls = (text) => String(text).replace(/[\u202a-\u202e\u2066-\u2069]/gu, "");
+
 /** Visible characters in extracted PDF text, for deciding whether there is a text layer. */
 export const visibleChars = (text) => (typeof text === "string" ? text.replace(/[\s\f​-‏‪-‮]/gu, "").length : 0);
 

@@ -11,6 +11,7 @@ import {
   sniffDocument,
   sofficeArgs,
   stepTimeout,
+  stripBidiControls,
   textToHtml,
 } from "../../services/media-processor/src/docconvert.mjs";
 
@@ -145,5 +146,13 @@ describe("the time budget", () => {
     expect(stepTimeout(90_000, 1_000_000, 0)).toBe(90_000);
     expect(stepTimeout(90_000, 50_000, 0)).toBe(50_000);
     expect(stepTimeout(90_000, 1_000, 0)).toBe(15_000);
+  });
+});
+
+describe("poppler's embedding marks", () => {
+  it("removes them and nothing else", () => {
+    const raw = String.fromCharCode(0x202b) + "السلام" + String.fromCharCode(0x202a) + "abc" + String.fromCharCode(0x202c, 0x202c);
+    expect(stripBidiControls(raw)).toBe("السلامabc");
+    expect(stripBidiControls("a" + String.fromCharCode(0x200d) + "b")).toBe("a" + String.fromCharCode(0x200d) + "b");
   });
 });

@@ -68,6 +68,7 @@ import {
   readDocQuery,
   sniffDocument,
   sofficeArgs,
+  stripBidiControls,
   stepTimeout,
   textToHtml,
 } from "./docconvert.mjs";
@@ -805,7 +806,7 @@ async function handleDocConvert(req, res, correlation) {
       if (hasTextLayer(text)) {
         if (to === "txt") {
           method = "text-layer";
-          output = Buffer.from(text, "utf8");
+          output = Buffer.from(stripBidiControls(text), "utf8");
         } else {
           method = "layout";
           output = await runSoffice(bytes, "pdf", to, deadline);
