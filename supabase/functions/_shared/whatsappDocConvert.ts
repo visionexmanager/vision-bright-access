@@ -101,8 +101,12 @@ const fold = (text: string): string =>
 /** A caption longer than this is a question or a translation request, not a format. */
 export const DOC_CONVERT_MAX_CHARS = 80;
 
-const NOT_BEFORE = "(?<![\\p{L}\\p{N}])";
-const NOT_AFTER = "(?![\\p{L}\\p{N}])";
+// A Latin name written straight after (or before) Chinese, Japanese or Korean
+// text — «转成word», «PDFに変換» — has no space to bound it, so those scripts
+// count as a boundary as well.
+const CJK = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}]";
+const NOT_BEFORE = `(?:(?<![\\p{L}\\p{N}])|(?<=${CJK}))`;
+const NOT_AFTER = `(?:(?![\\p{L}\\p{N}])|(?=${CJK}))`;
 const word = (alternatives: string) => new RegExp(`${NOT_BEFORE}(?:${alternatives})${NOT_AFTER}`, "u");
 
 // Names that mean nothing else: enough on their own.
@@ -125,7 +129,53 @@ const CUE = word(
   "convert|turn|make|change|save|export|into|to|as|حول|تحويل|اجعل|اجعله|اجعلها|صدر|احفظ|الى|الي|ك|ل",
 );
 
-const TRANSLATE = word("translate|translation|ترجم|ترجمه|traduci|traduire|übersetze|traduz");
+// ── The other languages ──────────────────────────────────────────────────────
+//
+// The format names are the same Latin word everywhere, and the patterns above
+// already read them. What differs is how they are spelled in another script and
+// the verb that says "convert". Matched as plain substrings: several of these
+// scripts do not put spaces between words, so a word boundary would never fire.
+
+const LOCAL_FORMAT_NAMES: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ["pdf", ["пдф", "ピーディーエフ", "피디에프", "पीडीएफ", "پی دی اف", "پی‌دی‌اف", "পিডিএফ"]],
+  ["docx", ["ворд", "ワード", "워드", "वर्ड", "ওয়ার্ড", "word文档", "word 文档"]],
+  ["xlsx", ["эксель", "ексель", "エクセル", "엑셀", "एक्सेल", "ایکسل", "اکسل", "এক্সেল", "excel表格", "excel 表格"]],
+  ["pptx", ["повер поинт", "пауэрпоинт", "パワーポイント", "파워포인트", "पावरपॉइंट", "پاورپوینت", "پاور پوائنٹ", "পাওয়ারপয়েন্ট", "幻灯片"]],
+];
+
+// Words for "text" that are also ordinary words: they need a verb or must be the whole message.
+const LOCAL_TEXT_NAMES: readonly string[] = [
+  "texto", "texte", "testo", "metin", "teks", "văn bản", "tekst", "文本", "文字", "テキスト", "텍스트", "टेक्स्ट", "متن", "টেক্সট", "текст", "ٹیکسٹ",
+];
+
+const LOCAL_CUES: readonly string[] = [
+  "convertir", "pasar a", "pasa a", "cambiar a", "en word", "a word", "a pdf", "en pdf",
+  "convertir en", "transformer", "vers word", "vers pdf",
+  "umwandeln", "konvertieren", "in word", "als pdf", "in pdf", "nach word", "nach pdf",
+  "converti", "convertire", "trasforma", "in word", "in pdf",
+  "converter", "transformar", "para word", "para pdf", "em word", "em pdf",
+  "конвертир", "преобразуй", "преобразовать", "в ворд", "в word", "в pdf", "в пдф", "сделай",
+  "çevir", "dönüştür", "word'e", "pdf'e", "worde", "pdfye",
+  "转换", "转成", "转为", "变成", "换成", "转化",
+  "変換", "にして", "に変換",
+  "변환", "로 바꿔", "으로 바꿔", "로 변환", "으로 변환",
+  "बदल", "कन्वर्ट", "में बदलो", "में बदलें",
+  "تبدیل", "کنورٹ", "ورد میں", "ورد به",
+  "ubah", "konversi", "jadikan", "ke word", "ke pdf",
+  "chuyển", "đổi sang", "sang word", "sang pdf",
+  "omzetten", "converteer", "naar word", "naar pdf",
+  "konwertuj", "zamień", "na word", "na pdf",
+  "রূপান্তর", "বদলাও", "বদলান",
+];
+
+const FOLDED_LOCAL_FORMATS = LOCAL_FORMAT_NAMES.map(([target, names]) => [target, names.map(fold)] as const);
+const FOLDED_LOCAL_TEXT = LOCAL_TEXT_NAMES.map(fold);
+const FOLDED_LOCAL_CUES = LOCAL_CUES.map(fold);
+
+const TRANSLATE = word("translate|translation|ترجم|ترجمه|traduci|traduire|traduis|traducir|traduce|ubersetze|ubersetzen|vertaal|przetlumacz|terjemahkan|tercume|переведи|перевод|traduz|traduza");
+
+// Translate verbs in scripts without spaces, and Indic and Persian forms.
+const TRANSLATE_LOCAL: readonly string[] = ["翻译", "翻譯", "翻訳", "번역", "अनुवाद", "ترجمہ", "অনুবাদ", "dịch", "dich"].map(fold);
 
 /**
  * What the message asks the file to become, and from what, or null.
@@ -140,13 +190,19 @@ export function parseDocConvertRequest(params: {
 }): { target: string; from: DocFormat } | null {
   const text = fold(params.text ?? "");
   if (!text || text.length > DOC_CONVERT_MAX_CHARS) return null;
-  if (TRANSLATE.test(text)) return null;
+  if (TRANSLATE.test(text) || TRANSLATE_LOCAL.some((verb) => text.includes(verb))) return null;
 
   const found = new Set<string>();
   for (const [target, pattern] of UNAMBIGUOUS) if (pattern.test(text)) found.add(target);
-  const cued = CUE.test(text) || AMBIGUOUS.some(([, pattern]) => pattern.test(text) && text.split(/\s+/).length <= 2);
-  const ambiguousHit = AMBIGUOUS.some(([, pattern]) => pattern.test(text));
-  if (cued) for (const [target, pattern] of AMBIGUOUS) if (pattern.test(text)) found.add(target);
+  for (const [target, names] of FOLDED_LOCAL_FORMATS) if (names.some((name) => text.includes(name))) found.add(target);
+  const localCue = FOLDED_LOCAL_CUES.some((cue) => text.includes(cue));
+  const localTextHit = FOLDED_LOCAL_TEXT.some((name) => text.includes(name));
+  const cued = CUE.test(text) || localCue || (AMBIGUOUS.some(([, pattern]) => pattern.test(text)) || localTextHit) && text.split(/\s+/).length <= 2;
+  const ambiguousHit = AMBIGUOUS.some(([, pattern]) => pattern.test(text)) || localTextHit;
+  if (cued) {
+    for (const [target, pattern] of AMBIGUOUS) if (pattern.test(text)) found.add(target);
+    if (localTextHit) found.add("txt");
+  }
   // "pdf and word": a second name without a cue to say it is the target. Ask, do not guess.
   if (ambiguousHit && !cued && found.size > 0) return null;
 

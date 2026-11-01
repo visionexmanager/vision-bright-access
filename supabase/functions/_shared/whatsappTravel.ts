@@ -87,11 +87,92 @@ const PATTERNS: ReadonlyArray<readonly [TravelDomain, RegExp]> = [
   ],
 ];
 
+// ── The other languages ──────────────────────────────────────────────────────
+//
+// The patterns above read Arabic and English. These are the same requests as they
+// are typed in the other eighteen languages of the site, kept as plain phrases
+// (each is folded with the same function as the message, so accents and case
+// need no variants). A phrase is a verb with its noun or a noun that means the
+// booking itself — never a bare "hotel" or "flight", which people also use to
+// say where they are or why they are late.
+
+const LOCAL_TRAVEL_PHRASES: Readonly<Record<TravelDomain, readonly string[]>> = Object.freeze({
+  flights: [
+    "reservar un vuelo", "reservar vuelo", "billete de avión", "billetes de avión", "pasaje aéreo", "comprar un vuelo",
+    "réserver un vol", "billet d'avion", "billets d'avion", "acheter un vol",
+    "flug buchen", "flugticket", "flugtickets", "flug reservieren",
+    "prenotare un volo", "biglietto aereo", "biglietti aerei", "prenota un volo",
+    "reservar um voo", "reservar voo", "passagem aérea", "passagens aéreas", "comprar passagem",
+    "забронировать авиабилет", "купить авиабилет", "авиабилеты", "билет на самолёт", "билет на самолет",
+    "uçak bileti", "uçuş rezervasyonu", "uçak rezervasyonu",
+    "订机票", "买机票", "订票", "机票预订", "预订机票",
+    "航空券を予約", "航空券の予約", "飛行機の予約", "飛行機を予約",
+    "항공권 예약", "비행기 예약", "항공권 구매", "비행기표",
+    "फ्लाइट बुक", "फ्लाइट टिकट", "हवाई टिकट", "हवाई जहाज का टिकट",
+    "فلائٹ بک", "ہوائی ٹکٹ", "فلائٹ کا ٹکٹ",
+    "رزرو پرواز", "بلیط هواپیما", "بلیت هواپیما", "پرواز رزرو",
+    "pesan tiket pesawat", "tiket pesawat", "booking penerbangan", "pesan penerbangan",
+    "đặt vé máy bay", "vé máy bay", "đặt chuyến bay",
+    "vlucht boeken", "vliegticket", "vliegtickets", "vliegtuigticket",
+    "zarezerwować lot", "bilet lotniczy", "bilety lotnicze", "rezerwacja lotu",
+    "ফ্লাইট বুক", "বিমানের টিকিট", "বিমান টিকিট", "ফ্লাইটের টিকিট",
+  ],
+  stays: [
+    "reservar un hotel", "reservar hotel", "reservar una habitación", "reserva de hotel",
+    "réserver un hôtel", "réserver une chambre", "réservation d'hôtel",
+    "hotel buchen", "hotelzimmer", "zimmer buchen", "hotelreservierung",
+    "prenotare un hotel", "prenotare una camera", "prenotazione hotel",
+    "reservar um hotel", "reservar quarto", "reserva de hotel",
+    "забронировать отель", "забронировать гостиницу", "бронь отеля", "бронирование отеля", "забронировать номер",
+    "otel rezervasyonu", "otel ayırtmak", "otel rezerve", "oda ayırtmak",
+    "订酒店", "预订酒店", "订房", "酒店预订", "订住宿",
+    "ホテルを予約", "ホテルの予約", "ホテル予約", "宿を予約",
+    "호텔 예약", "숙소 예약", "숙박 예약", "방 예약",
+    "होटल बुक", "होटल बुकिंग", "कमरा बुक", "रूम बुक",
+    "ہوٹل بک", "ہوٹل بکنگ", "کمرہ بک",
+    "رزرو هتل", "هتل رزرو", "رزرو اتاق",
+    "pesan hotel", "booking hotel", "reservasi hotel", "pesan kamar",
+    "đặt phòng khách sạn", "đặt khách sạn", "đặt phòng",
+    "hotel boeken", "hotelkamer", "kamer boeken",
+    "zarezerwować hotel", "rezerwacja hotelu", "zarezerwować pokój",
+    "হোটেল বুক", "হোটেল বুকিং", "রুম বুক",
+  ],
+  cars: [
+    "alquilar un coche", "alquiler de coches", "alquilar un auto", "alquiler de autos", "alquilar coche",
+    "louer une voiture", "location de voiture", "location de voitures",
+    "mietwagen", "auto mieten", "wagen mieten", "autovermietung",
+    "noleggiare un'auto", "noleggiare un auto", "noleggio auto", "noleggio macchina",
+    "alugar um carro", "aluguel de carro", "aluguer de carro", "alugar carro", "aluguel de carros",
+    "арендовать авто", "аренда авто", "прокат авто", "арендовать машину", "аренда машины", "взять машину напрокат",
+    "araç kiralama", "araba kiralama", "araç kirala", "oto kiralama",
+    "租车", "租一辆车", "租用汽车", "租个车",
+    "レンタカー", "車を借りたい", "車のレンタル",
+    "렌터카", "차량 대여", "렌트카", "자동차 대여",
+    "कार किराए", "कार रेंटल", "गाड़ी किराए", "कार किराये",
+    "کار کرائے", "گاڑی کرائے", "کار رینٹل",
+    "اجاره ماشین", "اجاره خودرو", "کرایه ماشین",
+    "sewa mobil", "rental mobil", "sewa kendaraan",
+    "thuê xe", "thuê ô tô", "thuê xe hơi",
+    "auto huren", "autoverhuur", "huurauto",
+    "wynajem samochodu", "wypożyczyć samochód", "wypożyczenie auta", "wynająć samochód", "wynająć auto",
+    "গাড়ি ভাড়া", "কার রেন্টাল", "গাড়ি ভাড়ায়",
+  ],
+});
+
+const FOLDED_TRAVEL_PHRASES: Readonly<Record<TravelDomain, readonly string[]>> = Object.freeze({
+  flights: LOCAL_TRAVEL_PHRASES.flights.map(fold),
+  stays: LOCAL_TRAVEL_PHRASES.stays.map(fold),
+  cars: LOCAL_TRAVEL_PHRASES.cars.map(fold),
+});
+
 /** Which kind of trip a message asks to arrange, or `null` when it asks for none. */
 export function parseTravelDomain(text: string | null | undefined): TravelDomain | null {
   const folded = fold(text ?? "");
   if (!folded.trim()) return null;
   for (const [domain, pattern] of PATTERNS) if (pattern.test(folded)) return domain;
+  for (const domain of ["flights", "stays", "cars"] as const) {
+    if (FOLDED_TRAVEL_PHRASES[domain].some((phrase) => folded.includes(phrase))) return domain;
+  }
   return null;
 }
 
@@ -111,8 +192,51 @@ const SHOP_PATTERN = new RegExp(
   "u",
 );
 
+// A store's name and a word for ordering, in the other languages. Either alone
+// is ordinary talk (“I saw it on Amazon”); together they are a request.
+const LOCAL_SHOP_STORES: readonly string[] = [
+  "amazon", "aliexpress", "alibaba", "shein", "temu", "ebay", "taobao",
+  "амазон", "алиэкспресс", "алибаба", "шейн", "тему", "ибей",
+  "亚马逊", "速卖通", "阿里巴巴", "希音", "淘宝",
+  "アマゾン", "アリエクスプレス", "アリババ", "シーイン", "テム", "イーベイ",
+  "아마존", "알리익스프레스", "알리바바", "쉬인", "테무", "이베이",
+  "अमेज़न", "अमेज़ॉन", "अलीएक्सप्रेस", "अलीबाबा", "शीइन", "टेमू", "ईबे",
+  "ایمیزون", "علی ایکسپریس", "علی بابا", "شی ان", "ٹیمو", "ای بے",
+  "آمازون", "علی اکسپرس", "علی‌بابا", "شین", "تمو", "ایبی",
+  "অ্যামাজন", "আলিএক্সপ্রেস", "আলিবাবা", "শেইন", "টেমু", "ইবে",
+];
+
+const LOCAL_ORDER_WORDS: readonly string[] = [
+  "pedir", "comprar", "encargar", "pedido",
+  "commander", "acheter", "commande",
+  "bestellen", "kaufen", "bestellung",
+  "ordinare", "acquistare", "ordine",
+  "encomendar", "pedido",
+  "заказать", "купить", "заказ",
+  "sipariş", "satın al", "ısmarla",
+  "下单", "购买", "代购", "帮我买", "订购", "买",
+  "注文", "購入", "買いたい", "取り寄せ",
+  "주문", "구매", "사줘", "직구", "구입",
+  "ऑर्डर", "खरीद", "मंगवा", "मँगवा",
+  "آرڈر", "خرید", "منگوا",
+  "سفارش",
+  "pesan", "beli", "order", "memesan",
+  "đặt hàng", "mua", "order",
+  "kopen", "bestel",
+  "zamówić", "kupić", "zamówienie",
+  "অর্ডার", "কিনতে", "কিনব", "কিনে",
+];
+
+const FOLDED_SHOP_STORES = LOCAL_SHOP_STORES.map(fold);
+const FOLDED_ORDER_WORDS = LOCAL_ORDER_WORDS.map(fold);
+
 /** Whether the sender wants a product ordered from a global online store. */
-export const parseShopIntent = (text: string | null | undefined): boolean => SHOP_PATTERN.test(fold(text ?? ""));
+export const parseShopIntent = (text: string | null | undefined): boolean => {
+  const folded = fold(text ?? "");
+  if (SHOP_PATTERN.test(folded)) return true;
+  return FOLDED_SHOP_STORES.some((store) => folded.includes(store)) &&
+    FOLDED_ORDER_WORDS.some((word) => folded.includes(word));
+};
 
 /** A trip or a store order, or `null` when the message asks for neither. */
 export function parseDeskKind(text: string | null | undefined): DeskKind | null {
