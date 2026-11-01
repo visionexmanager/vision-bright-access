@@ -1,4 +1,5 @@
-// Asking the travel desk for a flight, a room or a car, from WhatsApp.
+// Asking the desk for a flight, a room, a car or a product from a global store,
+// from WhatsApp.
 //
 // ── What this is, and what it is not ────────────────────────────────────────
 //
@@ -18,7 +19,17 @@
 // what the desk needs; whatever comes back is filed verbatim. A request too
 // short to be useful is asked for again rather than filed empty.
 //
+// ── Two routes, as on the website ───────────────────────────────────────────
+//
+// Like the assistive-products desk, the sender chooses: do it themselves on the
+// official sites (the links are sent here, from the same directory the website
+// shows), or have the Visionex team do it. Ordering a product from a store
+// (Amazon, AliExpress, eBay and the rest) is the same shape, with a new/used
+// question; those requests file under the "Global Shopping" service type.
+//
 // Pure: no Deno, no fetch, no client. The webhook owns the insert.
+
+import { GLOBAL_STORES, TRAVEL_SITES } from "./deskDirectory.ts";
 
 /** Same strings as `src/features/travel/requests.ts`; a test pins them together. */
 export const TRAVEL_SERVICE_TYPE = Object.freeze({
@@ -29,8 +40,17 @@ export const TRAVEL_SERVICE_TYPE = Object.freeze({
 
 export type TravelDomain = keyof typeof TRAVEL_SERVICE_TYPE;
 
+/** What a sender can ask the desk for: a trip, or a product from a store. */
+export type DeskKind = TravelDomain | "shop";
+
+export const SHOP_SERVICE_TYPE = "Global Shopping — Order for me";
+
 export const TRAVEL_FEATURE = "services.travel";
+export const SHOP_FEATURE = "services.shop";
+export const TRAVEL_ROUTE_STEP = "desk_route";
 export const TRAVEL_DETAILS_STEP = "travel_details";
+
+export const featureFor = (kind: DeskKind): string => (kind === "shop" ? SHOP_FEATURE : TRAVEL_FEATURE);
 
 /** A request shorter than this cannot name a place and a date. */
 export const MIN_DETAIL_CHARS = 15;
@@ -78,6 +98,50 @@ export function parseTravelDomain(text: string | null | undefined): TravelDomain
 export const isTravelDomain = (value: unknown): value is TravelDomain =>
   value === "flights" || value === "stays" || value === "cars";
 
+export const isDeskKind = (value: unknown): value is DeskKind => value === "shop" || isTravelDomain(value);
+
+const STORE_NAMES =
+  "amazon|alibaba|aliexpress|taobao|shein|temu|ebay|walmart|etsy|noon|jumia|mercado ?libre|flipkart|rakuten|trendyol";
+const STORE_NAMES_AR = "امازون|علي بابا|عليبابا|علي اكسبرس|عليكسبرس|شي ?ان|شيين|تيمو|ايباي|والمارت|نون|جوميا|تاوباو";
+
+const SHOP_PATTERN = new RegExp(
+  String.raw`(?:\b(?:order|buy|get|purchase|import|shop)\b.{0,40}\b(?:${STORE_NAMES}|online store|global store)s?\b` +
+    String.raw`|\b(?:${STORE_NAMES})\b.{0,30}\b(?:order|buy|purchase)\b` +
+    String.raw`|(?:اطلب|اشتري|شراء|طلب|استيراد|بدي|اريد|ابغى|ابي).{0,25}(?:${STORE_NAMES_AR}|${STORE_NAMES}|متجر عالمي|متاجر عالميه))`,
+  "u",
+);
+
+/** Whether the sender wants a product ordered from a global online store. */
+export const parseShopIntent = (text: string | null | undefined): boolean => SHOP_PATTERN.test(fold(text ?? ""));
+
+/** A trip or a store order, or `null` when the message asks for neither. */
+export function parseDeskKind(text: string | null | undefined): DeskKind | null {
+  return parseTravelDomain(text) ?? (parseShopIntent(text) ? "shop" : null);
+}
+
+export type DeskRoute = "direct" | "staff";
+
+const ARABIC_INDIC = /[٠-٩]/g;
+
+/** "1" or "2", or the words for them; `null` for anything else so the question is asked again. */
+export function parseRouteChoice(text: string | null | undefined): DeskRoute | null {
+  const value = fold(text ?? "")
+    .replace(ARABIC_INDIC, (digit) => String(digit.charCodeAt(0) - 0x0660))
+    .replace(/[^\p{L}\p{N} ]/gu, "")
+    .trim();
+  if (!value) return null;
+  if (value === "1" || /\b(direct|myself|yourself|on my own)\b|بنفسي|مباشر|بنفسك|لحالي/u.test(value)) return "direct";
+  if (value === "2" || /\b(team|staff|desk|agent|employee)\b|موظف|فريق|مكتب|انتم|منكم/u.test(value)) return "staff";
+  return null;
+}
+
+/** The official sites for a kind, one per line, ready to follow a heading. */
+export function directLinks(kind: DeskKind): string {
+  const rows =
+    kind === "shop" ? GLOBAL_STORES : TRAVEL_SITES.filter((site) => site.kinds.includes(kind));
+  return rows.map((row) => `${row.name}: ${row.url}`).join("\n");
+}
+
 /** True when the opening message already carries the itinerary. */
 export const looksLikeItinerary = (text: string | null | undefined): boolean =>
   (text ?? "").trim().length >= ITINERARY_CHARS;
@@ -109,7 +173,7 @@ export interface TravelRequestRow {
  * by an emailed code, and a request must not need one. The desk reads the phone.
  */
 export function buildTravelRequest(params: {
-  domain: TravelDomain;
+  domain: DeskKind;
   details: string;
   phone: string;
   name?: string | null;
@@ -120,7 +184,7 @@ export function buildTravelRequest(params: {
     full_name: params.name?.trim() || "WhatsApp",
     email: params.email?.trim() || NO_EMAIL,
     phone: params.phone,
-    service_type: TRAVEL_SERVICE_TYPE[params.domain],
+    service_type: params.domain === "shop" ? SHOP_SERVICE_TYPE : TRAVEL_SERVICE_TYPE[params.domain],
     message: `[WhatsApp] ${params.details}`,
     status: "pending",
   };

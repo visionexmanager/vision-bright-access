@@ -728,6 +728,19 @@
     "text": "Assistive Product Sourcing. طلب أجهزة مساعدة. marketplace. service. Find trusted sellers of assistive products, then have us order one or talk to our team.. اعرف أين تُباع الأجهزة المساعدة، ثم اطلب منا شراءها أو تحدث مع فريقنا.. assistive. device. braille. magnifier. maxiaids. order. buy. vendor. wheelchair. hearing. مساعد. جهاز. برايل. مكبر. ماكسي ايدز. طلب. شراء. متجر. كرسي متحرك. سمع. care-for-myself"
   },
   {
+    "id": "global-shopping",
+    "title_en": "Order from Global Stores",
+    "title_ar": "اطلب من المتاجر العالمية",
+    "tagline_en": "Amazon, AliExpress, eBay and more — order yourself, or have our team order it for you, new or used.",
+    "tagline_ar": "أمازون وعلي إكسبرس وإيباي وغيرها — اطلب بنفسك أو دع فريقنا يطلبه لك، جديداً أو مستعملاً.",
+    "hub": "marketplace",
+    "kind": "service",
+    "path": "/global-shopping",
+    "difficulty": "starter",
+    "vx": 0,
+    "text": "Order from Global Stores. اطلب من المتاجر العالمية. marketplace. service. Amazon, AliExpress, eBay and more — order yourself, or have our team order it for you, new or used.. أمازون وعلي إكسبرس وإيباي وغيرها — اطلب بنفسك أو دع فريقنا يطلبه لك، جديداً أو مستعملاً.. amazon. alibaba. aliexpress. shein. temu. ebay. order. buy. import. used. global stores. امازون. علي بابا. علي اكسبرس. شي ان. تيمو. ايباي. طلب. شراء. استيراد. مستعمل. متاجر عالميه. care-for-myself"
+  },
+  {
     "id": "travel-rides",
     "title_en": "Ride Request",
     "title_ar": "طلب توصيلة",

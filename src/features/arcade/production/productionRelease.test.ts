@@ -9,8 +9,11 @@ describe("Arcade enterprise release contracts",()=>{
   it("publishes Arcade PWA metadata and SEO discovery",()=>{
     const manifest=JSON.parse(readFileSync("public/manifest.webmanifest","utf8"));
     const sitemap=readFileSync("public/sitemap.xml","utf8");
-    expect(manifest.name).toBe("Visionex Arcade");
-    expect(manifest.start_url).toContain("/games");
+    // The installed app is the whole site (decided 2026-11-01); the Arcade stays one tap away as shortcuts.
+    expect(manifest.name).toBe("Visionex");
+    expect(manifest.start_url.startsWith("/")).toBe(true);
+    expect(manifest.start_url).not.toContain("/games");
+    expect(manifest.shortcuts.map((shortcut: { url: string }) => shortcut.url)).toContain("/games");
     expect(sitemap).toContain("/games/accessible");
     expect(sitemap).toContain("/games/tournaments");
   });

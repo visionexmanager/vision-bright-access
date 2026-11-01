@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { SERVICE_TYPE, type SourcingRoute } from "@/features/sourcing/requests";
+import { serviceTypeFor, type SourcingRoute, type SourcingScope } from "@/features/sourcing/requests";
 import type { Contact } from "@/features/travel/useTravelRequest";
 
 export type SourcingState = "idle" | "sending" | "sent" | "error";
@@ -22,7 +22,7 @@ export function useSourcingRequest() {
   }, []);
 
   const send = useCallback(
-    async (route: SourcingRoute, summary: string, contact: Contact) => {
+    async (route: SourcingRoute, summary: string, contact: Contact, scope: SourcingScope = "assistive") => {
       if (!user) {
         setFailure("signedOut");
         setState("error");
@@ -40,7 +40,7 @@ export function useSourcingRequest() {
         full_name: contact.name.trim(),
         email: contact.email.trim(),
         phone: contact.phone.trim() || null,
-        service_type: SERVICE_TYPE[route],
+        service_type: serviceTypeFor(scope, route),
         message: summary,
         status: "pending",
       });

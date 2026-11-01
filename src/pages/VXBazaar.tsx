@@ -5,6 +5,7 @@ import {
   BarChart3, Bell, Flag, Heart, Mail, ShieldCheck, Star, Truck,
   CreditCard, DollarSign, Search, Save, Smartphone,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -759,6 +760,16 @@ export default function VXBazaar() {
 
               <div className="relative z-10 mx-auto mb-4 max-w-4xl px-4">
                 <SmartSearch source="products" />
+              </div>
+
+              <div className="relative z-10 mx-auto mb-5 max-w-4xl px-4">
+                <Link
+                  to="/global-shopping"
+                  className="block rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-start hover:bg-amber-500/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
+                >
+                  <span className="block text-base font-bold text-amber-300">{t("shop.bazaar.title")}</span>
+                  <span className="mt-1 block text-sm text-stone-300">{t("shop.bazaar.body")}</span>
+                </Link>
               </div>
 
               <div className="relative z-10 mx-auto mb-5 grid max-w-4xl gap-2 px-4 md:grid-cols-[1fr_160px_180px]">

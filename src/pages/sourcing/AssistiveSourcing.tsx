@@ -5,6 +5,10 @@
  * they need (and may paste the vendor page), and either asks Visionex to order
  * it, which files a request to the team for a quote, or talks to support on
  * WhatsApp with the request already written. No vendor content is copied.
+ *
+ * The same desk serves ordering from the world's online stores (`scope="global"`):
+ * a directory of stores to order from yourself, the same request form with a
+ * new/used choice, and the same two routes to a person.
  */
 
 import { useMemo, useRef, useState, type FormEvent } from "react";
@@ -25,13 +29,16 @@ import {
   PRODUCT_MAX,
   SPECS_MAX,
   LINK_MAX,
+  CONDITIONS,
   SERVICE_FEE_PERCENT,
   sourcingIssues,
   sourcingSummary,
   type SourcingDraft,
+  type SourcingScope,
   type SourcingRoute,
 } from "@/features/sourcing/requests";
 import { useSourcingRequest } from "@/features/sourcing/useSourcingRequest";
+import { STORES } from "@/features/sourcing/stores";
 import { VENDORS, VENDOR_CATEGORIES } from "@/features/sourcing/vendors";
 import { supportWhatsAppLink } from "@/lib/supportContact";
 
@@ -47,6 +54,11 @@ function countryName(code: string, lang: string): string {
 }
 
 export default function AssistiveSourcing() {
+  return <SourcingDesk scope="assistive" />;
+}
+
+export function SourcingDesk({ scope }: { scope: SourcingScope }) {
+  const global = scope === "global";
   const { t, lang } = useLanguage();
   const { user } = useAuth();
   const { state, failure, send, reset } = useSourcingRequest();
@@ -75,17 +87,17 @@ export default function AssistiveSourcing() {
       return;
     }
     const route = draft.route as SourcingRoute;
-    const summary = sourcingSummary(draft);
+    const summary = sourcingSummary(draft, scope);
     if (route === "support") {
       // No account needed to talk to support, and nothing personal in the link.
       window.open(
-        supportWhatsAppLink(`${t("sourcing.support.prefill")}\n\n${summary}`),
+        supportWhatsAppLink(`${t(global ? "shop.support.prefill" : "sourcing.support.prefill")}\n\n${summary}`),
         "_blank",
         "noopener,noreferrer",
       );
       return;
     }
-    const ok = await send(route, summary, contact);
+    const ok = await send(route, summary, contact, scope);
     if (ok) requestAnimationFrame(() => doneRef.current?.focus());
   };
 
@@ -99,8 +111,8 @@ export default function AssistiveSourcing() {
     <Layout>
       <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
         <header className="space-y-3">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t("sourcing.title")}</h1>
-          <p className="text-muted-foreground">{t("sourcing.lead")}</p>
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t(global ? "shop.title" : "sourcing.title")}</h1>
+          <p className="text-muted-foreground">{t(global ? "shop.lead" : "sourcing.lead")}</p>
           <p>
             <a href="#sourcing-request" className={`text-sm font-medium text-primary underline underline-offset-4 ${focusRing}`}>
               {t("sourcing.skipToForm")}
@@ -110,11 +122,11 @@ export default function AssistiveSourcing() {
 
         <section aria-labelledby="sourcing-vendors" className="mt-8 space-y-4">
           <h2 id="sourcing-vendors" className="text-xl font-semibold">
-            {t("sourcing.vendors.title")}
+            {t(global ? "shop.directory.title" : "sourcing.vendors.title")}
           </h2>
-          <p className="max-w-prose text-sm text-muted-foreground">{t("sourcing.vendors.lead")}</p>
+          <p className="max-w-prose text-sm text-muted-foreground">{t(global ? "shop.directory.lead" : "sourcing.vendors.lead")}</p>
           <ul className="grid gap-4 sm:grid-cols-2">
-            {VENDORS.map((vendor) => (
+            {(global ? [] : VENDORS).map((vendor) => (
               <li key={vendor.id} className="flex flex-col gap-2 rounded-lg border border-border p-4">
                 <h3 className="text-base font-semibold">{vendor.name}</h3>
                 <p className="text-sm text-muted-foreground">
@@ -134,6 +146,22 @@ export default function AssistiveSourcing() {
                   className={`mt-auto inline-flex items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4 hover:no-underline ${focusRing}`}
                 >
                   {t("sourcing.vendors.official")}: {vendor.name}
+                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                  <span className="sr-only">{t("sourcing.vendors.newTab")}</span>
+                </a>
+              </li>
+            ))}
+            {(global ? STORES : []).map((store) => (
+              <li key={store.id} className="flex flex-col gap-2 rounded-lg border border-border p-4">
+                <h3 className="text-base font-semibold">{store.name}</h3>
+                <p className="text-sm text-muted-foreground">{countryName(store.country, lang)}</p>
+                <a
+                  href={store.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`mt-auto inline-flex items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4 hover:no-underline ${focusRing}`}
+                >
+                  {t("sourcing.vendors.official")}: {store.name}
                   <ExternalLink aria-hidden="true" className="h-4 w-4" />
                   <span className="sr-only">{t("sourcing.vendors.newTab")}</span>
                 </a>
@@ -173,7 +201,7 @@ export default function AssistiveSourcing() {
                 labelOf={(field) => t(`sourcing.field.${field}`)}
               />
 
-              <Field id="product" label={t("sourcing.field.product")} hint={t("sourcing.field.productHint")} error={errorFor("product")}>
+              <Field id="product" label={t("sourcing.field.product")} hint={t(global ? "shop.field.productHint" : "sourcing.field.productHint")} error={errorFor("product")}>
                 <Input
                   {...fieldProps("product", true, Boolean(errorFor("product")))}
                   maxLength={PRODUCT_MAX}
@@ -191,7 +219,7 @@ export default function AssistiveSourcing() {
                     className={`h-10 w-full rounded-md border border-input bg-background px-3 text-sm ${focusRing}`}
                   >
                     <option value="">{t("sourcing.field.vendorAny")}</option>
-                    {VENDORS.map((vendor) => (
+                    {(global ? STORES : VENDORS).map((vendor) => (
                       <option key={vendor.id} value={vendor.id}>
                         {vendor.name}
                       </option>
@@ -251,6 +279,28 @@ export default function AssistiveSourcing() {
                   />
                 </Field>
               </div>
+
+              {global ? (
+                <fieldset className="space-y-3 rounded-lg border border-border p-4">
+                  <legend className="px-1 text-sm font-semibold">{t("shop.condition.legend")}</legend>
+                  {CONDITIONS.map((condition) => (
+                    <div key={condition} className="flex items-center gap-3">
+                      <input
+                        id={`condition-${condition}`}
+                        type="radio"
+                        name="condition"
+                        value={condition}
+                        checked={draft.condition === condition}
+                        onChange={() => set("condition", condition)}
+                        className={`h-4 w-4 accent-primary ${focusRing}`}
+                      />
+                      <label htmlFor={`condition-${condition}`} className="text-sm font-medium">
+                        {t(`shop.condition.${condition}`)}
+                      </label>
+                    </div>
+                  ))}
+                </fieldset>
+              ) : null}
 
               <fieldset
                 aria-describedby={errorFor("route") ? "sourcing-route-error" : undefined}
