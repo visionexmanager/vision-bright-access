@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   DOC_BUDGET_MS,
   DOC_TARGETS,
+  MIN_READ_CHARS,
   MIN_TEXT_LAYER_CHARS,
+  visibleChars,
   canConvertDocument,
   hasTextLayer,
   isRtlParagraph,
@@ -234,5 +236,14 @@ describe("long documents", () => {
   it("renders a page range", () => {
     expect(pdftoppmArgs("in", "pg", 10, 6)).toEqual(["-png", "-gray", "-r", "200", "-f", "6", "-l", "10", "in", "pg"]);
     expect(pdftoppmArgs("in", "pg")).toContain("-f");
+  });
+});
+
+describe("did the reader find words", () => {
+  it("accepts a short document that was really read, and refuses a blank one", () => {
+    expect(MIN_READ_CHARS).toBeLessThan(MIN_TEXT_LAYER_CHARS);
+    expect(visibleChars("صفحة رقم 1")).toBeGreaterThanOrEqual(MIN_READ_CHARS);
+    expect(visibleChars(" 
+ ")).toBeLessThan(MIN_READ_CHARS);
   });
 });

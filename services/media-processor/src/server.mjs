@@ -56,6 +56,8 @@ import {
   JOB_TTL_MS,
   MAX_JOB_PAGES,
   MAX_SYNC_OCR_PAGES,
+  MIN_READ_CHARS,
+  visibleChars,
   isJobId,
   languageForScript,
   parseOsdScript,
@@ -832,7 +834,7 @@ async function ocrPdfRange({ bytes, first, last, state, deadline }) {
 
 const pagesToHtml = (pages) => wrapHtml(pages.map((blocks, i) => blocksToHtml(blocks, { pageBreak: i > 0 })).join(""));
 const pagesToText = (pages) => pages.map(blocksToText).join("\n\n");
-const pagesHaveText = (pages) => pages.some((blocks) => hasTextLayer(blocksToText(blocks)));
+const pagesHaveText = (pages) => visibleChars(pagesToText(pages)) >= MIN_READ_CHARS;
 
 /** One `soffice` run: bytes in under a name LibreOffice can recognise, the converted file out. */
 function runSoffice(bytes, from, to, deadline, limitMs = DOC_TIMEOUT_MS) {

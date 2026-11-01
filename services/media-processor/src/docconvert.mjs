@@ -331,6 +331,15 @@ export const needsOcrForArabic = (text) => typeof text === "string" && ARABIC_SC
 /** Visible characters in extracted PDF text, for deciding whether there is a text layer. */
 export const visibleChars = (text) => (typeof text === "string" ? text.replace(/[\s\f​-‏‪-‮]/gu, "").length : 0);
 
+/**
+ * Fewer visible characters than this across a whole document read by eye means
+ * the reading found nothing. Much lower than MIN_TEXT_LAYER_CHARS on purpose:
+ * that one asks "is there a text layer worth keeping" of a page that may hold a
+ * single stamp, this one asks "did the reader find any words" of a document that
+ * may be one table, or fourteen one-line pages.
+ */
+export const MIN_READ_CHARS = 6;
+
 export const hasTextLayer = (text) => visibleChars(text) >= MIN_TEXT_LAYER_CHARS;
 
 // ── The command lines ────────────────────────────────────────────────────────

@@ -1228,7 +1228,7 @@ jobs:
                 sleep 5; N=$((N+1))
                 STATE=$(curl -s --max-time 30 -H "authorization: Bearer $TOKEN" "https://visionex.app/internal/media/doc-job/$JOB" | grep -o '"state":"[a-z]*"' | sed 's/"state":"//; s/"//')
               done
-              say "long pdf : job state $STATE after $((N*5)) s"
+              say "long pdf : job state $STATE after $((N*5)) s: $(curl -s --max-time 30 -H "authorization: Bearer $TOKEN" "https://visionex.app/internal/media/doc-job/$JOB" | head -c 200)"
               CODE=$(curl -s --max-time 60 -o "$D/long.docx" -w '%{http_code}' -H "authorization: Bearer $TOKEN" "https://visionex.app/internal/media/doc-job/$JOB/result")
               unzip -p "$D/long.docx" word/document.xml > "$D/long.xml" 2>/dev/null
               PAGES=$(grep -o 'الوثيقة' "$D/long.xml" | wc -l)
