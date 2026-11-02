@@ -49,3 +49,19 @@ describe("the worker answers the job's owner", () => {
     expect(drain.slice(drain.indexOf("let jobTo")).match(/to: incoming\.from/g)?.length ?? 0).toBe(0);
   });
 });
+
+import { asksAboutFile } from "../../supabase/functions/_shared/whatsappMediaJobs";
+
+describe("asking where a converted file has got to", () => {
+  it("reads the questions people actually type", () => {
+    for (const text of ["وين صار الملف", "وين الملف", "لسا ما وصل التحويل", "شو صار بالتحويل؟", "where is my file", "is the word file ready?", "still not received the file"]) {
+      expect(asksAboutFile(text), text).toBe(true);
+    }
+  });
+
+  it("leaves other messages to the assistant", () => {
+    for (const text of ["وين اقرب صيدلية", "ارسل لي الملف", "where is the pharmacy", "حوله الى word", "كيف حالك", "", "x".repeat(200)]) {
+      expect(asksAboutFile(text), text).toBe(false);
+    }
+  });
+});

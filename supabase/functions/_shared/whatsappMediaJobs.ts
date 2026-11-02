@@ -113,6 +113,25 @@ export const queuedNotice = (language: Language): string => say("mediaJobQueued"
 export const failedNotice = (language: Language): string => say("mediaJobFailed", language);
 
 /**
+ * Whether a short message is asking where a file, or its conversion, has got
+ * to: "وين الملف", "لسا ما وصل التحويل", "where is my file", "is it ready".
+ *
+ * Arabic and English only, like the other intent parsers here; a sender in
+ * another language falls through to the assistant as before. It needs both a
+ * question about arrival and a word about the file, so "where is the pharmacy"
+ * and "send me the file" are not read as status questions. The caller only acts
+ * on it when a conversion actually exists for this conversation.
+ */
+export function asksAboutFile(text: string): boolean {
+  const trimmed = (text ?? "").trim();
+  if (!trimmed || trimmed.length > 60) return false;
+  const folded = trimmed.toLowerCase().replace(/[ً-ٰٟـ]/gu, "").replace(/[أإآ]/gu, "ا").replace(/ى/gu, "ي").replace(/ة/gu, "ه");
+  const arrival = /(وين|فين|اين|لسا|لسه|ما وصل|لم يصل|مو واصل|ما واصل|جاهز|خلص|صار|where|status|ready|still|not (here|received|arrived)|didn.?t (get|receive|arrive)|any news|done yet)/u;
+  const file = /(الملف|ملف|التحويل|تحويل|الوورد|الورد|وورد|ورد|word|pdf|file|convert|document|الفايل)/u;
+  return arrival.test(folded) && file.test(folded);
+}
+
+/**
  * The options a job carries, as the query string the service expects.
  *
  * Built here rather than in the worker so the one place that knows what a job
