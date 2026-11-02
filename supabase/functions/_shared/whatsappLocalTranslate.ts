@@ -36,6 +36,7 @@ export type LocalTranslateFailure =
   | "busy"
   | "timeout"
   | "unreadable"
+  | "invented_number"
   | "bad_response"
   | "error";
 
@@ -58,6 +59,38 @@ export const LOCAL_TRANSLATE_LANGUAGES: readonly string[] = [
   "en", "ar", "bn", "de", "es", "fa", "fr", "hi", "id", "it",
   "ja", "ko", "nl", "pl", "pt", "ru", "tr", "ur", "vi", "zh",
 ];
+
+/**
+ * Numbers of three digits or more in `text`, as plain ASCII digit strings.
+ *
+ * Digits of every script are read (Arabic-Indic, Persian, Devanagari, Bengali,
+ * full-width) and the separators people put inside a number are ignored, so
+ * "1,200" and "١٢٠٠" are the same number.
+ */
+export function bigNumbers(text: string): Set<string> {
+  const ascii = text.replace(/\p{Nd}/gu, (digit) => {
+    let zero = digit.codePointAt(0)!;
+    while (/\p{Nd}/u.test(String.fromCodePoint(zero - 1))) zero--;
+    return String((digit.codePointAt(0)! - zero) % 10);
+  });
+  const joined = ascii.replace(/(?<=\d)[,.،٫٬   ](?=\d{3}(?!\d))/g, "");
+  return new Set(joined.match(/\d{3,}/g) ?? []);
+}
+
+/**
+ * Whether the translation names a number the original never did.
+ *
+ * The model sometimes runs on past the end of a short sentence and adds a date
+ * or a figure ("…until April 2019") that is in no source. A news reader cannot
+ * tell, so a translation with such a number is not used and the caller asks the
+ * provider chain instead. Months written as words in the source and as a digit
+ * in the translation ("March" and "3月") are one digit, below the threshold.
+ */
+export const inventsANumber = (source: string, translation: string): boolean => {
+  const known = bigNumbers(source);
+  for (const number of bigNumbers(translation)) if (!known.has(number)) return true;
+  return false;
+};
 
 /** The service's answer, checked field by field before anyone reads it. */
 export function readTranslatePayload(payload: unknown): LocalTranslateResult {
@@ -108,7 +141,9 @@ export async function translateLocally(params: {
     });
     if (response.status === 503) return { ok: false, reason: "busy" };
     if (!response.ok) return { ok: false, reason: "error" };
-    return readTranslatePayload(await response.json());
+    const result = readTranslatePayload(await response.json());
+    if (result.ok && inventsANumber(params.text, result.text)) return { ok: false, reason: "invented_number" };
+    return result;
   } catch (e) {
     const description = describeError(e);
     if (description.includes("abort") || description.includes("Abort")) return { ok: false, reason: "timeout" };
