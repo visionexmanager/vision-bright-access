@@ -15,9 +15,14 @@ import { chargeDailyLimit } from "../_shared/aiDailyLimit.ts";
 import { publicMediaFailure } from "../_shared/providerInput.ts";
 import { providerRoutableIn, recordProviderOutcome, VIDEO_PROVIDER_SLUG } from "../_shared/providerRecording.ts";
 import {
-  decodeFalJobId, encodeFalJobId, FAL_VIDEO_MODEL, FalError, falCancel, falResult, falStatus, falSubmit,
-  falVideoInput, falVideoUrl, isFalMediaUrl,
+  decodeFalJobId, encodeFalJobId, FalError, falCancel, falResult, falStatus, falSubmit,
+  falVideoUrl, isFalMediaUrl,
 } from "../_shared/providers/fal.ts";
+import {
+  FAL_VIDEO_OPTIONS, aspectFor, checkOption, findFalVideoOption, type FalVideoOption,
+} from "../_shared/providers/falVideoOptions.ts";
+import { databasePorts } from "../_shared/vx/meter.ts";
+import type { ServiceId } from "../_shared/vx/types.ts";
 import { observeShadow, shadowEnabled } from "../_shared/providerSelection.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { makeSlideshow, slideshowReady } from "../_shared/providers/slideshowVideo.ts";
@@ -365,15 +370,17 @@ class FalVideoProvider implements VideoProvider {
 
   async generateVideo(params: VideoGenerateParams): Promise<VideoGenerateResult> {
     try {
-      const requestId = await falSubmit({ key: this.key }, FAL_VIDEO_MODEL, falVideoInput({
+      // `params.model` is one of FAL_VIDEO_OPTIONS (handleGenerate resolved and
+      // priced it). Resolution and sound are the option's own, never the caller's.
+      const option = findFalVideoOption(params.model) ?? findFalVideoOption("wan")!;
+      const requestId = await falSubmit({ key: this.key }, option.endpoint, option.input({
         prompt:         buildPrompt(params),
         negativePrompt: params.negativePrompt,
-        aspectRatio:    params.aspectRatio,
-        resolution:     params.resolution,
+        aspectRatio:    aspectFor(option, params.aspectRatio),
         durationSec:    params.durationSec,
         seed:           params.seed,
       }));
-      return { ok: true, providerJobId: encodeFalJobId(FAL_VIDEO_MODEL, requestId) };
+      return { ok: true, providerJobId: encodeFalJobId(option.endpoint, requestId) };
     } catch (e) {
       // A closed code; publicMediaFailure turns it into the user's sentence.
       return { ok: false, error: `fal ${e instanceof FalError ? e.code : "unknown"}` };
@@ -653,10 +660,24 @@ async function handleGenerate(
   // Templates saved before 2026-09-24 still name sora-2; those, and anything
   // else Luma does not offer, run on ray-2.
   const requestedModel = typeof provider_model === "string" ? provider_model.trim() : "";
+
+  // FAL work is sold in priced options (falVideoOptions.ts). The option must
+  // offer this length and take this prompt exactly as priced; it is refused
+  // before a job row or a VX hold exists, never rounded to something else.
+  const clipSeconds = Number(duration_sec ?? 5);
+  let falOption: FalVideoOption | null = null;
+  if (provider.name === "fal") {
+    const checked = checkOption(
+      requestedModel || "wan", clipSeconds, (prompt as string).trim(),
+      typeof negative_prompt === "string" ? negative_prompt : undefined,
+    );
+    if (!checked.ok) return jsonError(FAL_OPTION_MESSAGES[checked.reason], 400);
+    falOption = checked.option;
+  }
+
   const resolvedModel  = provider.name === "luma"
     ? lumaRequestShape({ model: requestedModel, durationSec: 5, resolution: "720p" }).model
-    // FAL runs one commercially licensed model whatever the caller asked for.
-    : provider.name === "fal" ? FAL_VIDEO_MODEL
+    : falOption ? falOption.id
     : provider.name === "slideshow" ? "gpt-image-1+gpt-4o-mini-tts"
     : requestedModel || "default";
 
@@ -670,8 +691,8 @@ async function handleGenerate(
       prompt:          (prompt as string).trim(),
       negative_prompt: negative_prompt ?? null,
       style:           style ?? "realistic",
-      duration_sec:    duration_sec ?? 5,
-      aspect_ratio:    aspect_ratio ?? "16:9",
+      duration_sec:    falOption ? clipSeconds : duration_sec ?? 5,
+      aspect_ratio:    falOption ? aspectFor(falOption, aspect_ratio) : aspect_ratio ?? "16:9",
       resolution:      resolution ?? "720p",
       fps:             fps ?? 24,
       camera_motion:   camera_motion ?? "static",
@@ -693,6 +714,25 @@ async function handleGenerate(
     // table, a column or a constraint to whoever sent the request.
     console.error("[video-studio] job insert failed:", (jobErr as any)?.code ?? "unknown", (jobErr as any)?.message ?? "");
     return jsonError("The video job could not be started. Please try again later.", 500);
+  }
+
+  // The VX is held before the provider is called, so a refusal costs no
+  // provider money. The key is the job, so a retry of this request cannot hold
+  // twice; the hold is settled when the video is stored and released on any
+  // failure (closeReservation).
+  if (falOption) {
+    const held = await databasePorts(dbService).reserve({
+      userId,
+      serviceId: falOption.serviceId as ServiceId,
+      source: "website",
+      idempotencyKey: `video:${job.id}`,
+      units: clipSeconds,
+      metadata: { option: falOption.id, job_id: job.id },
+    });
+    if (held.ok === false) {
+      await (db as any).from("vx_video_jobs").delete().eq("id", job.id);
+      return reservationRefusal(held);
+    }
   }
 
   // Increment template use_count if used
@@ -728,6 +768,7 @@ async function handleGenerate(
     await (db as any).from("vx_video_jobs").update({
       status: "failed", error_message: failure,
     }).eq("id", job.id);
+    await closeReservation(dbService, job, "release", "submit_rejected");
     return json({ ok: false, job_id: job.id, error: failure });
   }
 
@@ -777,6 +818,7 @@ async function handlePoll(
     await (db as any).from("vx_video_jobs").update({
       status: "failed", error_message: msg, completed_at: new Date().toISOString(),
     }).eq("id", job_id);
+    await closeReservation(dbService, job, "release", "provider_unavailable");
     return json({ ok: true, status: "failed", error: msg });
   }
   const pollResult = await provider.pollJob(job.provider_job_id);
@@ -793,6 +835,7 @@ async function handlePoll(
       error_message: failure,
       completed_at:  new Date().toISOString(),
     }).eq("id", job_id);
+    await closeReservation(dbService, job, "release", "generation_failed");
     return json({ ok: true, status: "failed", error: failure });
   }
 
@@ -870,6 +913,7 @@ async function handlePoll(
       await (db as any).from("vx_video_jobs").update({
         status: "failed", error_message: msg, completed_at: new Date().toISOString(),
       }).eq("id", job_id);
+      await closeReservation(dbService, job, "release", "storage_failed");
       return json({ ok: true, status: "failed", error: msg });
     }
 
@@ -921,6 +965,7 @@ async function handlePoll(
       completed_at:     new Date().toISOString(),
       generation_time_ms: genTime,
     }).eq("id", job_id);
+    await closeReservation(dbService, job, "settle", "completed");
 
     return json({
       ok: true,
@@ -945,13 +990,14 @@ async function handlePoll(
 async function handleCancel(
   body: Record<string, unknown>,
   userId: string,
-  db: SupabaseClient
+  db: SupabaseClient,
+  dbService: SupabaseClient,
 ): Promise<Response> {
   const { job_id } = body as { job_id: string };
 
   const { data: job } = await (db as any)
     .from("vx_video_jobs")
-    .select("provider, provider_job_id, status")
+    .select("id, user_id, provider, provider_job_id, status")
     .eq("id", job_id)
     .eq("user_id", userId)
     .single();
@@ -969,6 +1015,11 @@ async function handleCancel(
     .update({ status: "cancelled", completed_at: new Date().toISOString() })
     .eq("id", job_id)
     .eq("user_id", userId);
+
+  // Only a job still in flight has a hold to give back; a finished one is settled.
+  if (job && ["queued", "preparing", "generating", "rendering", "optimizing"].includes(job.status)) {
+    await closeReservation(dbService, job, "release", "cancelled");
+  }
 
   return json({ ok: true });
 }
@@ -995,6 +1046,97 @@ async function handleDelete(
 
   await (db as any).from("vx_video_jobs").delete().eq("id", job_id).eq("user_id", userId);
   return json({ ok: true });
+}
+
+// ── Priced options ────────────────────────────────────────────────────────────
+
+const FAL_OPTION_MESSAGES = {
+  unknown_option: "That video option is not available.",
+  duration_not_offered: "That video option does not offer this length. Pick one of the lengths it lists.",
+  prompt_too_long: "The prompt is too long for this video option. Please shorten it.",
+} as const;
+
+/** The refusal of a VX hold, in words a person can act on. */
+function reservationRefusal(held: { error: string; balance?: number; required?: number; shortage?: number }): Response {
+  if (held.error === "insufficient_vx") {
+    return json({
+      ok: false, error: "insufficient_vx",
+      required: held.required ?? null, balance: held.balance ?? null, shortage: held.shortage ?? null,
+    }, 402);
+  }
+  if (held.error === "daily_ceiling_reached" || held.error === "plan_allowance_reached") {
+    return json({ ok: false, error: held.error }, 429);
+  }
+  return jsonError("Video generation is not available right now.", 503);
+}
+
+/**
+ * Settle or release the VX held for a job, once.
+ *
+ * The hold is found by its key (`video:<job id>`) and by the job's owner, never
+ * by an id stored on the job row, which the owner can write. Anything that is
+ * not a still-open hold (an old job, a provider that was never priced, a hold
+ * already closed) is left alone. A failure here is logged and never changes the
+ * job: the work finished, and the reaper returns holds nobody closed.
+ */
+async function closeReservation(
+  dbService: SupabaseClient,
+  job: { id: string; user_id?: string; provider?: string; duration_sec?: number; provider_model?: string },
+  how: "settle" | "release",
+  reason: string,
+): Promise<void> {
+  if (job.provider !== "fal" || !job.user_id) return;
+  try {
+    const { data: row } = await (dbService as any)
+      .from("vx_usage_ledger")
+      .select("id, status")
+      .eq("idempotency_key", `video:${job.id}`)
+      .eq("user_id", job.user_id)
+      .maybeSingle();
+    if (!row || row.status !== "reserved") return;
+
+    const ports = databasePorts(dbService);
+    if (how === "release") {
+      await ports.release({ reservationId: row.id, reason, status: "failed" });
+      return;
+    }
+    const option = findFalVideoOption(job.provider_model);
+    await ports.settle({
+      reservationId: row.id,
+      provider: "fal",
+      actualCostUsd: option ? (option.costMilliUsdPerSecond * (job.duration_sec ?? 0)) / 1000 : null,
+    });
+  } catch (e) {
+    console.error("[video-studio] closing the VX hold failed:", e instanceof Error ? e.message : "unknown");
+  }
+}
+
+/** What the person can choose, with the price the database actually charges. */
+async function handleOptions(userId: string, dbService: SupabaseClient): Promise<Response> {
+  if (!Deno.env.get("FAL_KEY")) return json({ ok: true, available: false, options: [] });
+
+  const { data: rows } = await (dbService as any)
+    .from("central_pricing_registry")
+    .select("service_id, vx_price, enabled")
+    .in("service_id", FAL_VIDEO_OPTIONS.map((o) => o.serviceId));
+  const prices = new Map<string, { vx_price: number; enabled: boolean }>(
+    (rows ?? []).map((r: { service_id: string; vx_price: number; enabled: boolean }) => [r.service_id, r]),
+  );
+
+  const options = FAL_VIDEO_OPTIONS
+    .filter((o) => prices.get(o.serviceId)?.enabled)
+    .map((o) => ({
+      id: o.id,
+      label: o.label,
+      description: o.description,
+      durations: o.durations,
+      aspect_ratios: o.aspectRatios,
+      has_audio: o.hasAudio,
+      vx_per_second: prices.get(o.serviceId)!.vx_price,
+    }));
+
+  const { data: balance } = await (dbService as any).rpc("vx_balance", { _user_id: userId });
+  return json({ ok: true, available: options.length > 0, options, balance: typeof balance === "number" ? balance : null });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1054,7 +1196,8 @@ serve(async (req) => {
       return handleGenerate(body, user.id, db, dbService);
     }
     case "poll":     return handlePoll(body, user.id, db, dbService);
-    case "cancel":   return handleCancel(body, user.id, db);
+    case "cancel":   return handleCancel(body, user.id, db, dbService);
+    case "options":  return handleOptions(user.id, dbService);
     case "delete":   return handleDelete(body, user.id, db);
     default:         return jsonError(`Unknown action: ${action}`, 400);
   }

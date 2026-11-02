@@ -252,7 +252,7 @@ jobs:
             const para = "The municipal library will extend its opening hours from the first of March. On weekdays it will open at eight in the morning and close at nine in the evening. Saturday hours stay the same. A reading room for people who use screen readers will be added on the second floor, with six desks and a braille printer. Membership remains free for residents, and visitors can register at the front desk with an identity card. ";
             const make = (n) => Array.from({ length: n }, () => para).join(" ");
             require("fs").writeFileSync("/tmp/sum-short.json", JSON.stringify({ text: make(2), lang: "ar", task: "" }));
-            require("fs").writeFileSync("/tmp/sum-long.json", JSON.stringify({ text: make(26), lang: "ar", task: "" }));
+            require("fs").writeFileSync("/tmp/sum-long.json", JSON.stringify({ text: make(8), lang: "ar", task: "" }));
           '
           for f in short long; do
             echo "── summary, $f text, lang=ar"

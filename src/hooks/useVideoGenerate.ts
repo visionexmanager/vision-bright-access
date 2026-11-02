@@ -48,6 +48,15 @@ const STATUS_PHASE_MAP: Record<VideoJobStatus, GenerationPhase> = {
   cancelled:  "idle",
 };
 
+/** The server's closed refusal codes, in words a person can act on. */
+export function friendlyVideoError(message: string): string {
+  if (message === "insufficient_vx") return "You do not have enough VX for this video. Add VX or pick a cheaper option.";
+  if (message === "daily_ceiling_reached" || message === "plan_allowance_reached") {
+    return "You have reached today's video limit. Try again tomorrow.";
+  }
+  return message;
+}
+
 export function useVideoGenerate() {
   const qc           = useQueryClient();
   const [state, setState] = useState<VideoGenerationState>(INITIAL_STATE);
@@ -228,7 +237,7 @@ export function useVideoGenerate() {
       setState((s) => ({
         ...s,
         phase:        "failed",
-        errorMessage: err instanceof Error ? err.message : "Unknown error",
+        errorMessage: friendlyVideoError(err instanceof Error ? err.message : "Unknown error"),
       }));
       stopPolling();
     }

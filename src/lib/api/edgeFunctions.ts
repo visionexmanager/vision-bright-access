@@ -509,7 +509,7 @@ export async function callSpeechGenerate(
 // ── Video Studio ──────────────────────────────────────────────────────────────
 
 export interface VideoStudioRequest {
-  action:          "generate" | "poll" | "cancel" | "delete";
+  action:          "generate" | "poll" | "cancel" | "delete" | "options";
   job_id?:         string;
   title?:          string;
   prompt?:         string;
@@ -539,6 +539,22 @@ export interface VideoStudioResponse {
   storage_path?:   string;
   asset_id?:       string;
   error?:          string;
+  /** `options`: whether priced video options can be offered, and which. */
+  available?:      boolean;
+  options?:        VideoOptionInfo[];
+  /** `options`: the caller's VX balance, or null when it could not be read. */
+  balance?:        number | null;
+}
+
+/** One priced video choice, as the server describes it. */
+export interface VideoOptionInfo {
+  id:            string;
+  label:         string;
+  description:   string;
+  durations:     number[];
+  aspect_ratios: string[];
+  has_audio:     boolean;
+  vx_per_second: number;
 }
 
 export async function callVideoStudio(

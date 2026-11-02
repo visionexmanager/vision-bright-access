@@ -18,6 +18,8 @@ import { VideoStyleSelector } from "./VideoStyleSelector";
 import { AudioAttachment } from "./AudioAttachment";
 import { VideoTemplateDialog } from "./VideoTemplateDialog";
 import { VideoJobStatus } from "./VideoJobStatus";
+import { VideoOptionPicker } from "./VideoOptionPicker";
+import { useVideoOptions } from "@/hooks/useVideoOptions";
 import type { VideoGenerateForm, AudioMode } from "@/lib/types/video-studio";
 import type { VideoTemplate } from "@/lib/types/video-studio";
 import {
@@ -38,8 +40,10 @@ const isActive = (phase: GenerationPhase) =>
 
 const MIN_DURATION_SEC = 3;
 
+const FAL_PROVIDER = "fal";
+
 const isKnownProvider = (id: string) =>
-  id === AUTO_PROVIDER || VIDEO_PROVIDERS.some((p) => p.id === id);
+  id === AUTO_PROVIDER || id === FAL_PROVIDER || VIDEO_PROVIDERS.some((p) => p.id === id);
 
 export function VideoGeneratorPanel({
   form, setForm, onGenerate, genState, onReset,
@@ -75,12 +79,26 @@ export function VideoGeneratorPanel({
   // other than 4/8/12 seconds in landscape or portrait, and Luma caps at 10s.
   // Offering more than the provider honours means a silent downgrade or a 400.
   const providerConfig = resolveProviderConfig(form.provider);
-  const maxDuration    = providerConfig.maxDuration;
-  const durationChoices = providerConfig.allowedDurations;
+
+  // The priced fal options: when the server offers them, one is always chosen
+  // (the cheapest until the person picks), and its lengths and shapes replace
+  // the provider's, because the price is for exactly that configuration.
+  const { data: videoOptions } = useVideoOptions();
+  const priced = videoOptions?.available ? videoOptions.options : [];
+  const falOption = priced.find((o) => form.provider === FAL_PROVIDER && o.id === form.providerModel);
+  useEffect(() => {
+    if (priced.length > 0 && !falOption) {
+      setForm((f) => ({ ...f, provider: FAL_PROVIDER, providerModel: priced[0].id }));
+    }
+  }, [priced, falOption, setForm]);
+
+  const maxDuration    = falOption ? Math.max(...falOption.durations) : providerConfig.maxDuration;
+  const durationChoices = falOption ? falOption.durations : providerConfig.allowedDurations;
   const aspectChoices   = useMemo(() => {
-    const allowed = providerConfig.allowedAspectRatios;
-    return allowed ? ASPECT_RATIOS.filter((a) => allowed.includes(a.value)) : ASPECT_RATIOS;
-  }, [providerConfig]);
+    const allowed = falOption ? falOption.aspect_ratios : providerConfig.allowedAspectRatios;
+    const list = allowed ? ASPECT_RATIOS.filter((a) => (allowed as string[]).includes(a.value)) : ASPECT_RATIOS;
+    return list.length > 0 ? list : ASPECT_RATIOS;
+  }, [providerConfig, falOption]);
 
   // Snap the form back into range when the provider (or a loaded template)
   // leaves it outside what the provider accepts.
@@ -139,6 +157,18 @@ export function VideoGeneratorPanel({
         </p>
       </div>
 
+      {/* Priced options: what each costs in VX, before anything is spent. */}
+      {priced.length > 0 && (
+        <VideoOptionPicker
+          options={priced}
+          value={falOption?.id ?? ""}
+          durationSec={form.durationSec}
+          balance={videoOptions?.balance ?? null}
+          disabled={busy}
+          onChange={(o) => setForm((f) => ({ ...f, provider: FAL_PROVIDER, providerModel: o.id }))}
+        />
+      )}
+
       {/* Quick settings row */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
@@ -161,7 +191,7 @@ export function VideoGeneratorPanel({
           <Label className="text-xs" id="vx-duration-label">
             Duration{" "}
             <span className="text-muted-foreground">
-              {durationChoices ? `(${providerConfig.name})` : `(max ${maxDuration}s)`}
+              {durationChoices ? `(${falOption ? falOption.label.split(" — ")[0] : providerConfig.name})` : `(max ${maxDuration}s)`}
             </span>
           </Label>
           {durationChoices ? (
