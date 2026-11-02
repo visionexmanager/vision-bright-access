@@ -590,7 +590,10 @@ describe("the webhook is wired to exactly this policy", () => {
     // Wired exactly like the other three: through `askAssistant`, handed
     // `chainProvider()`, naming no provider of its own.
     expect(asks).toBe(4);
-    expect(webhook.match(/chainProvider\(\)/g)?.length).toBe(asks);
+    // Plus one hand-off: the news translator (whatsappNewsTranslate.ts) makes its
+    // own askAssistant call and the webhook gives it chainProvider() like every
+    // other ask, so provider order is still decided in one place.
+    expect(webhook.match(/chainProvider\(\)/g)?.length).toBe(asks + 1);
     expect(webhook).not.toMatch(/askAssistant\([\s\S]{0,2000}?\}\s*,\s*\{\s*provider:/);
   });
 
