@@ -447,7 +447,7 @@ The images are the ${shown} page(s) of a scanned PDF, in order.${cutoff} Read th
 }
 
 /** What the server's own model is trusted to read whole; longer goes to the chain. */
-export const LOCAL_SUMMARY_MAX_CHARS = 11_000;
+export const LOCAL_SUMMARY_MAX_CHARS = 4_000;
 
 /** The server's own summariser: text and the sender's request in, an answer or null out. */
 export type LocalSummariser = (text: string, task: string) => Promise<string | null>;
