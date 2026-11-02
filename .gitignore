@@ -47,6 +47,8 @@ supabase/.temp/
 *.py
 # ...except the local text-to-speech service, whose source is Python.
 !services/local-tts/*.py
+# ...and the translation model server, which the translator container runs.
+!services/translator/*.py
 set-supabase-secret.sh
 
 # Codex / AI tool artifacts
