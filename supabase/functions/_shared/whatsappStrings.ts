@@ -763,6 +763,10 @@ const BASE_STRINGS = {
     ar: "إلى أي صيغة أحوّله؟",
     en: "What should I convert it to?",
   },
+  intentSuggest: {
+    ar: "هل تقصد «{title}»؟ أرسل «{alias}» لفتحها.",
+    en: "Did you mean “{title}”? Send “{alias}” to open it.",
+  },
   mediaJobQueued: {
     ar: "جارٍ التحويل. سأرسل لك الملف حالما يجهز.",
     en: "Working on it. I will send you the file as soon as it is ready.",
