@@ -4858,6 +4858,105 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_free_replies: {
+        Row: {
+          channel: string
+          sent: number
+          subject: string
+          window_start: string
+        }
+        Insert: {
+          channel: string
+          sent?: number
+          subject: string
+          window_start?: string
+        }
+        Update: {
+          channel?: string
+          sent?: number
+          subject?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      chat_memory: {
+        Row: {
+          channel: string
+          profile: Json
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          profile?: Json
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          profile?: Json
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      chat_signups: {
+        Row: {
+          attempts: number
+          begin_window_at: string | null
+          begins_in_window: number
+          channel: string
+          code_expires_at: string | null
+          code_hash: string | null
+          display_name: string | null
+          email: string | null
+          last_sent_at: string | null
+          proven_at: string | null
+          sends_in_window: number
+          step: string | null
+          subject: string
+          target_user_id: string | null
+          updated_at: string
+          window_started_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          begin_window_at?: string | null
+          begins_in_window?: number
+          channel: string
+          code_expires_at?: string | null
+          code_hash?: string | null
+          display_name?: string | null
+          email?: string | null
+          last_sent_at?: string | null
+          proven_at?: string | null
+          sends_in_window?: number
+          step?: string | null
+          subject: string
+          target_user_id?: string | null
+          updated_at?: string
+          window_started_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          begin_window_at?: string | null
+          begins_in_window?: number
+          channel?: string
+          code_expires_at?: string | null
+          code_hash?: string | null
+          display_name?: string | null
+          email?: string | null
+          last_sent_at?: string | null
+          proven_at?: string | null
+          sends_in_window?: number
+          step?: string | null
+          subject?: string
+          target_user_id?: string | null
+          updated_at?: string
+          window_started_at?: string | null
+        }
+        Relationships: []
+      }
       communities: {
         Row: {
           category: string | null
@@ -6428,12 +6527,12 @@ export type Database = {
           host_id: string | null
           id: string
           max_players: number
+          p2p_seq: number
           players: Json
+          rtc_signal: Json | null
           status: string
           updated_at: string | null
           winner_id: string | null
-          p2p_seq: number
-          rtc_signal: Json | null
         }
         Insert: {
           created_at?: string | null
@@ -6444,12 +6543,12 @@ export type Database = {
           host_id?: string | null
           id: string
           max_players?: number
+          p2p_seq?: number
           players?: Json
+          rtc_signal?: Json | null
           status?: string
           updated_at?: string | null
           winner_id?: string | null
-          p2p_seq?: number
-          rtc_signal?: Json | null
         }
         Update: {
           created_at?: string | null
@@ -6460,12 +6559,94 @@ export type Database = {
           host_id?: string | null
           id?: string
           max_players?: number
+          p2p_seq?: number
           players?: Json
+          rtc_signal?: Json | null
           status?: string
           updated_at?: string | null
           winner_id?: string | null
-          p2p_seq?: number
-          rtc_signal?: Json | null
+        }
+        Relationships: []
+      }
+      geo_place_labels: {
+        Row: {
+          label: string
+          lang: string
+          place_id: number
+        }
+        Insert: {
+          label: string
+          lang: string
+          place_id: number
+        }
+        Update: {
+          label?: string
+          lang?: string
+          place_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_place_labels_place_id_fkey"
+            columns: ["place_id"]
+            isOneToOne: false
+            referencedRelation: "geo_places"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geo_place_names: {
+        Row: {
+          name_key: string
+          place_id: number
+        }
+        Insert: {
+          name_key: string
+          place_id: number
+        }
+        Update: {
+          name_key?: string
+          place_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_place_names_place_id_fkey"
+            columns: ["place_id"]
+            isOneToOne: false
+            referencedRelation: "geo_places"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geo_places: {
+        Row: {
+          country_code: string | null
+          feature_code: string | null
+          id: number
+          latitude: number
+          longitude: number
+          name: string
+          population: number | null
+          timezone: string | null
+        }
+        Insert: {
+          country_code?: string | null
+          feature_code?: string | null
+          id: number
+          latitude: number
+          longitude: number
+          name: string
+          population?: number | null
+          timezone?: string | null
+        }
+        Update: {
+          country_code?: string | null
+          feature_code?: string | null
+          id?: number
+          latitude?: number
+          longitude?: number
+          name?: string
+          population?: number | null
+          timezone?: string | null
         }
         Relationships: []
       }
@@ -22052,6 +22233,24 @@ export type Database = {
           },
         ]
       }
+      meta_identities: {
+        Row: {
+          subject: string
+          user_id: string
+          verified_at: string
+        }
+        Insert: {
+          subject: string
+          user_id: string
+          verified_at?: string
+        }
+        Update: {
+          subject?: string
+          user_id?: string
+          verified_at?: string
+        }
+        Relationships: []
+      }
       meta_messages: {
         Row: {
           body: string
@@ -22621,6 +22820,7 @@ export type Database = {
       }
       newsletter_subscribers: {
         Row: {
+          channel: string
           email: string
           id: string
           lang: string
@@ -22629,11 +22829,11 @@ export type Database = {
           name: string | null
           subscribed_at: string | null
           topics: string[] | null
-          channel: string
           wa_last_sent_date: string | null
           wa_phone: string | null
         }
         Insert: {
+          channel?: string
           email: string
           id?: string
           lang?: string
@@ -22642,11 +22842,11 @@ export type Database = {
           name?: string | null
           subscribed_at?: string | null
           topics?: string[] | null
-          channel?: string
           wa_last_sent_date?: string | null
           wa_phone?: string | null
         }
         Update: {
+          channel?: string
           email?: string
           id?: string
           lang?: string
@@ -22655,7 +22855,6 @@ export type Database = {
           name?: string | null
           subscribed_at?: string | null
           topics?: string[] | null
-          channel?: string
           wa_last_sent_date?: string | null
           wa_phone?: string | null
         }
@@ -27057,6 +27256,63 @@ export type Database = {
           },
         ]
       }
+      whatsapp_intent_index: {
+        Row: {
+          catalog_hash: string
+          content: string
+          created_at: string
+          embedding: string
+          node_id: string
+        }
+        Insert: {
+          catalog_hash: string
+          content: string
+          created_at?: string
+          embedding: string
+          node_id: string
+        }
+        Update: {
+          catalog_hash?: string
+          content?: string
+          created_at?: string
+          embedding?: string
+          node_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_isp_pending: {
+        Row: {
+          action: string
+          expires_at: string
+          key: string
+          kind: string | null
+          lang: string
+          nonce: string
+          stage: string
+          value: string | null
+        }
+        Insert: {
+          action: string
+          expires_at: string
+          key?: string
+          kind?: string | null
+          lang?: string
+          nonce: string
+          stage: string
+          value?: string | null
+        }
+        Update: {
+          action?: string
+          expires_at?: string
+          key?: string
+          kind?: string | null
+          lang?: string
+          nonce?: string
+          stage?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
       whatsapp_media_jobs: {
         Row: {
           attempts: number
@@ -27198,6 +27454,38 @@ export type Database = {
           sent_at?: string
         }
         Relationships: []
+      }
+      whatsapp_recent_documents: {
+        Row: {
+          conversation_id: string
+          filename: string | null
+          media_id: string
+          mime_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          conversation_id: string
+          filename?: string | null
+          media_id: string
+          mime_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          conversation_id?: string
+          filename?: string | null
+          media_id?: string
+          mime_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_recent_documents_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_speech_cache: {
         Row: {
@@ -28100,6 +28388,56 @@ export type Database = {
         }
         Returns: number
       }
+      chat_bind_identity: {
+        Args: { _channel: string; _subject: string; _user_id: string }
+        Returns: boolean
+      }
+      chat_free_reply_allow: {
+        Args: { _channel: string; _subject: string }
+        Returns: boolean
+      }
+      chat_memory_get: {
+        Args: { _channel: string; _subject: string }
+        Returns: Json
+      }
+      chat_memory_put: {
+        Args: { _channel: string; _profile: Json; _subject: string }
+        Returns: boolean
+      }
+      chat_signup_begin: {
+        Args: { _channel: string; _subject: string }
+        Returns: string
+      }
+      chat_signup_bind: {
+        Args: { _channel: string; _subject: string; _user_id: string }
+        Returns: string
+      }
+      chat_signup_cancel: {
+        Args: { _channel: string; _subject: string }
+        Returns: undefined
+      }
+      chat_signup_confirm: {
+        Args: { _channel: string; _code_hash: string; _subject: string }
+        Returns: Json
+      }
+      chat_signup_request_code: {
+        Args: {
+          _channel: string
+          _code_hash: string
+          _email: string
+          _subject: string
+          _ttl_minutes?: number
+        }
+        Returns: Json
+      }
+      chat_signup_set_name: {
+        Args: { _channel: string; _name: string; _subject: string }
+        Returns: string
+      }
+      chat_signup_state: {
+        Args: { _channel: string; _subject: string }
+        Returns: Json
+      }
       check_ai_anon_rate_limit: {
         Args: { _caller_hash: string; _function_name: string }
         Returns: boolean
@@ -28158,6 +28496,14 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      claim_whatsapp_news: {
+        Args: { p_phone: string }
+        Returns: {
+          lang: string
+          status: string
+          topics: string[]
+        }[]
       }
       cleanup_old_tv_data: {
         Args: never
@@ -29533,6 +29879,15 @@ export type Database = {
         Args: { _minutes?: number; _pages?: number }
         Returns: undefined
       }
+      lookup_geo_place: {
+        Args: { _key: string }
+        Returns: {
+          country_code: string
+          latitude: number
+          longitude: number
+          name: string
+        }[]
+      }
       mark_escalation_viewed: {
         Args: { _escalation_id: string }
         Returns: undefined
@@ -29616,6 +29971,13 @@ export type Database = {
           similarity: number
         }[]
       }
+      match_whatsapp_intents: {
+        Args: { match_count: number; p_hash: string; query_embedding: string }
+        Returns: {
+          node_id: string
+          similarity: number
+        }[]
+      }
       maybe_revoke_trial: {
         Args: { _device_id: string; _user_id: string }
         Returns: undefined
@@ -29643,6 +30005,19 @@ export type Database = {
           source: string
           status: string
           units: number
+        }[]
+      }
+      nearest_geo_place: {
+        Args: {
+          _lang: string
+          _latitude: number
+          _longitude: number
+          _max_km?: number
+        }
+        Returns: {
+          country_code: string
+          distance_km: number
+          label: string
         }[]
       }
       notify_self: {
@@ -29917,6 +30292,7 @@ export type Database = {
         Args: { _coupon_id: string; _user_id: string }
         Returns: undefined
       }
+      release_whatsapp_news: { Args: { p_phone: string }; Returns: undefined }
       report_kids_review: {
         Args: { _reason: string; _review_id: string }
         Returns: undefined
