@@ -29,7 +29,7 @@ on:
         required: true
         default: status
         type: choice
-        options: [status, start, stop, test, enable, disable]
+        options: [status, start, stop, test, enable, disable, diagnose]
 
 permissions:
   contents: read
@@ -159,6 +159,28 @@ jobs:
         run: |
           set -uo pipefail
           ssh target 'sudo docker rm -f visionex-describer >/dev/null 2>&1; echo "removed; the cached model files are kept"' | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Why a description is slow or times out: what the container says, what it
+      # is using, and how fast it produces words with no picture involved.
+      - name: Diagnose the model
+        if: inputs.action == 'diagnose'
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          GW=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
+          echo '```'
+          echo "--- uptime / load"; uptime
+          echo "--- containers"; sudo docker stats --no-stream --format '{{.Name}} cpu={{.CPUPerc}} mem={{.MemUsage}}'
+          echo "--- top processes"; ps -eo pcpu,pmem,comm --sort=-pcpu | head -6
+          echo "--- describer log (last 25)"; sudo docker logs --tail 25 visionex-describer 2>&1 | cut -c1-220
+          echo "--- one text-only request, 40 tokens"
+          START=$(date +%s)
+          curl -sS --max-time 120 "http://$GW:8098/v1/chat/completions" -H 'content-type: application/json' \
+            -d '{"messages":[{"role":"user","content":"Write one sentence about the sea."}],"max_tokens":40,"stream":false}' | cut -c1-400
+          echo; echo "seconds: $(( $(date +%s) - START ))"
+          echo '```'
+          REMOTE
 
       # The processor, not the model, is what the Edge Function calls, so this
       # goes through the processor: from inside its container to the model, then
