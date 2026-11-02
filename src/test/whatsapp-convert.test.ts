@@ -514,3 +514,26 @@ describe("the arguments a picture conversion is built from", () => {
     expect(convert.IMAGE_TIMEOUT_MS).toBeLessThan(convert.AUDIO_TIMEOUT_MS);
   });
 });
+
+describe("the converted file keeps the sender's file name", () => {
+  it("gives the original name the new extension", () => {
+    expect(outputFilename("docx", "report.pdf")).toBe("report.docx");
+    expect(outputFilename("docx", "تقرير المبيعات 2026.pdf")).toBe("تقرير المبيعات 2026.docx");
+    expect(outputFilename("pdf", "Quarterly plan v2.final.docx")).toBe("Quarterly plan v2.final.pdf");
+  });
+
+  it("falls back to the neutral name when there is none, or nothing usable is left", () => {
+    expect(outputFilename("mp3")).toBe("visionex.mp3");
+    expect(outputFilename("mp3", null)).toBe("visionex.mp3");
+    expect(outputFilename("docx", "   ")).toBe("visionex.docx");
+    expect(outputFilename("docx", "...pdf")).toBe("visionex.docx");
+  });
+
+  it("removes what is unsafe in a name somebody typed", () => {
+    const evil = `a${String.fromCharCode(0x202e)}b${String.fromCharCode(0)}c.pdf`;
+    expect(outputFilename("docx", evil)).toBe("abc.docx");
+    expect(outputFilename("docx", "../../etc/passwd.pdf")).toBe("etc passwd.docx");
+    expect(outputFilename("docx", 'we"ird<name>|x.pdf')).toBe("we ird name x.docx");
+    expect(outputFilename("docx", `${"x".repeat(200)}.pdf`).length).toBe(80 + ".docx".length);
+  });
+});

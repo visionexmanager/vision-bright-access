@@ -34,6 +34,8 @@ export interface MediaJob {
   options?: Record<string, unknown> | null;
   source_media_id: string;
   source_mime?: string | null;
+  /** The sender's own file name, when Meta gave one (documents). */
+  source_filename?: string | null;
   attempts: number;
 }
 
@@ -81,16 +83,47 @@ export interface WorkerPorts {
  * What to call the file the sender receives.
  *
  * WhatsApp shows this name, and it is read out by a screen reader before
- * anything else about the attachment — so it has to say what the file is rather
- * than what this system called the job. A uuid would be technically fine and
- * useless to hear.
+ * anything else about the attachment — so it has to say what the file is. For a
+ * document the sender sent, that is its own name with the new extension
+ * ("report.pdf" comes back as "report.docx"): it is the name they will look for.
+ * Meta gives no name for an audio note, a video or a photo, and then it is
+ * `visionex.<ext>`.
  *
- * The name carries no part of the sender's own filename. Meta does not give us
- * one for an inbound audio note anyway, and echoing back a name somebody sent is
- * a way to put their text into a field neither end validates.
+ * The sender's name is cleaned first, because it is text somebody typed that
+ * ends up in a field neither end validates: control and bidirectional-override
+ * characters, path separators and the characters a file system refuses are
+ * removed, runs of spaces collapse, and it is cut to eighty characters. Letters
+ * of every script are kept — an Arabic name stays Arabic. What is left empty
+ * falls back to `visionex`.
  */
-export function outputFilename(target: string): string {
-  return `visionex.${target}`;
+export function outputFilename(target: string, sourceName?: string | null): string {
+  return `${safeBaseName(sourceName) ?? "visionex"}.${target}`;
+}
+
+const MAX_BASE_NAME = 80;
+
+// Built from code points rather than written out: a control character, a direction
+// override or a byte-order mark typed into a source file is invisible there.
+const UNSAFE_CHARACTERS = new RegExp(
+  `[${[[0, 0x1f], [0x7f, 0x9f], [0x200e, 0x200f], [0x202a, 0x202e], [0x2066, 0x2069], [0xfeff, 0xfeff]]
+    .map(([from, to]) => String.fromCharCode(from) + "-" + String.fromCharCode(to)).join("")}]`,
+  "gu",
+);
+
+/** The sender's file name without its extension and without anything unsafe, or null. */
+export function safeBaseName(sourceName?: string | null): string | null {
+  if (typeof sourceName !== "string") return null;
+  const withoutExtension = sourceName.replace(/\.[A-Za-z0-9]{1,5}$/u, "");
+  const cleaned = withoutExtension
+    .normalize("NFC")
+    // Control characters, direction marks and overrides, isolates, the BOM.
+    .replace(UNSAFE_CHARACTERS, "")
+    // Path separators and what a file system refuses.
+    .replace(/[\\/:*?"<>|]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .replace(/^[\s.]+|[\s.]+$/gu, "");
+  const bounded = [...cleaned].slice(0, MAX_BASE_NAME).join("").trim();
+  return bounded.length > 0 ? bounded : null;
 }
 
 /**
@@ -121,7 +154,7 @@ export async function runMediaJob(job: MediaJob, ports: WorkerPorts): Promise<Jo
       // honest reading of it here is "nothing came back" rather than an upload
       // of `undefined`.
       if (converted.ok && converted.bytes?.length && converted.mime) {
-        const filename = outputFilename(job.target);
+        const filename = outputFilename(job.target, job.source_filename);
         const delivered = await ports.deliver(converted.bytes, converted.mime, filename);
         // A delivery failure is not a conversion failure, and is told apart:
         //  - too large for WhatsApp: will not change on a retry, and the sender
