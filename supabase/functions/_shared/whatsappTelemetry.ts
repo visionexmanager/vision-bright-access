@@ -103,6 +103,10 @@ export const TELEMETRY_FIELDS: readonly string[] = [
   "turns",
   "attempt",
   "count",
+  // Similarity of the best feature and its lead over the next, as numbers.
+  // Said about a message, never from it.
+  "top",
+  "margin",
 
   // Timing.
   "ms",
