@@ -33,6 +33,11 @@ export const FAL_QUEUE_BASE = "https://queue.fal.run";
 export const FAL_MODELS = {
   "fal-ai/flux/schnell": { kind: "image", commercial: true, note: "FLUX.1 [schnell]; fal.ai: Commercial use" },
   "fal-ai/wan/v2.2-5b/text-to-video": { kind: "video", commercial: true, note: "Wan 2.2 5B; fal.ai: Commercial use" },
+  // Read on each model's fal.ai page on 2026-11-02: the "Commercial use" badge
+  // is shown for all three. Prices and settings are in falVideoOptions.ts.
+  "pixverse/v6/text-to-video": { kind: "video", commercial: true, note: "PixVerse V6; fal.ai: Commercial use" },
+  "xai/grok-imagine-video/text-to-video": { kind: "video", commercial: true, note: "Grok Imagine Video; fal.ai: Commercial use" },
+  "fal-ai/kling-video/v2.6/pro/text-to-video": { kind: "video", commercial: true, note: "Kling 2.6 Pro; fal.ai: Commercial use" },
   "fal-ai/ltx-video": { kind: "video", commercial: false, note: "fal.ai: Research only — blocked until commercial licensing is verified" },
 } as const;
 
