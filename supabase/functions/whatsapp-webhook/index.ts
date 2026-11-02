@@ -3900,7 +3900,12 @@ Deno.serve(async (req) => {
           // LOCAL_DESCRIBE=on and the server's model is running; either missing
           // leaves `answered` null and the sender gets exactly what they got before.
           let answered = seen;
-          if (!seen && (!mode || mode === "describe") && !explainReportImage) {
+          // Also when the provider that answered said it could not read the
+          // picture. With the funded chain out of credit, the answer comes from
+          // the weakest fallback (a Gemini flash-lite), which says "unclear" for
+          // photographs the server's own model describes well — and an answer
+          // that is not a description is not worth more than none.
+          if ((!seen || !seen.readable || !seen.answer) && (!mode || mode === "describe") && !explainReportImage) {
             const local = await describeLocally({
               bytes: inspected.bytes,
               mimeType: media.mimeType,
