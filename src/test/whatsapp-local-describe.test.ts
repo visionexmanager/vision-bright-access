@@ -169,12 +169,12 @@ describe("where it is wired", () => {
   const deploy = readFileSync(".github/workflows/deploy-media-processor.yml", "utf8");
   const describer = readFileSync(".github/workflows/deploy-vision-describer.yml", "utf8");
 
-  it("runs after the paid chain, only when it produced nothing, and only in describe mode", () => {
+  it("runs after the paid chain, when it produced nothing or only an unreadable answer, and only in describe mode", () => {
     const paid = webhook.indexOf("const seen = await understandImage(");
     const local = webhook.indexOf("await describeLocally(");
     expect(paid).toBeGreaterThan(-1);
     expect(local).toBeGreaterThan(paid);
-    expect(webhook).toContain('if (!seen && (!mode || mode === "describe") && !explainReportImage) {');
+    expect(webhook).toContain('if ((!seen || !seen.readable || !seen.answer) && (!mode || mode === "describe") && !explainReportImage) {');
   });
 
   it("logs outcome and length, never the description", () => {
