@@ -451,6 +451,7 @@ import {
   parseConvertRequest,
 } from "../_shared/whatsappConvertIntent.ts";
 import {
+  asksAboutFile,
   failedNotice,
   LEASE_SECONDS,
   MAX_ATTEMPTS,
@@ -2161,6 +2162,13 @@ Deno.serve(async (req) => {
           console.error("[whatsapp] media drain failed:", describeError(e));
         }
       };
+
+      // Every inbound message drains the queue, whatever it is. The queue was
+      // meant to work that way from the start (see the comment above), but only
+      // the branches that queue something ever called the drain, so a job that
+      // failed once sat there until somebody asked for another conversion —
+      // which is how two PDFs stayed unconverted for hours. Cheap when empty.
+      if (token && phoneNumberId) EdgeRuntime.waitUntil(drainOneMediaJob());
 
       /**
        * The latest headlines, fetched and delivered.
@@ -5020,6 +5028,30 @@ Deno.serve(async (req) => {
           "reply",
         );
         continue;
+      }
+
+      // "Where is my file?" while a conversion is queued, running or has failed:
+      // answered from the job itself. The assistant used to take this question
+      // and ask the sender to send the picture again.
+      if (!incoming.media && !humanOwnsThis && asksAboutFile(questionText)) {
+        const { data: latest } = await db
+          .from("whatsapp_media_jobs")
+          .select("status")
+          .eq("conversation_id", conversationId)
+          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const asked = latest?.status === "queued" || latest?.status === "running"
+          ? queuedNotice(answerLanguage)
+          : latest?.status === "failed"
+          ? failedNotice(answerLanguage)
+          : null;
+        if (asked) {
+          await reply(asked, "reply");
+          log("media_job", { outcome: "status_asked", status: latest?.status });
+          continue;
+        }
       }
 
       // "Make it Word" after a document was shared in an earlier message.
