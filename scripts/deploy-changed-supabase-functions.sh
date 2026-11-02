@@ -113,6 +113,7 @@ deploy_function() {
   local -a args=(
     functions deploy "$function_name"
     --project-ref "$SUPABASE_PROJECT_REF"
+    --yes
   )
 
   if [[ -n "${NO_VERIFY_JWT[$function_name]:-}" ]]; then
