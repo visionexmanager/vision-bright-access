@@ -249,6 +249,7 @@ import {
 } from "../_shared/whatsappKids.ts";
 import {
   articleText,
+  type NewsArticle,
   formatArticle,
   NEWS_EXCLUDED_CATEGORY,
   NEWS_ID_PREFIX,
@@ -483,6 +484,8 @@ installChatAttemptRecording();
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
 import { noticeReasonFor, voiceToText } from "../_shared/whatsappVoiceTurn.ts";
 import { chainProvider } from "../_shared/whatsappAskProvider.ts";
+import { withTranslations } from "../_shared/whatsappNewsTranslate.ts";
+import { translateLocally } from "../_shared/whatsappLocalTranslate.ts";
 import {
   AI_CONVERSATION,
   AI_MENU,
@@ -2152,6 +2155,19 @@ Deno.serve(async (req) => {
        * nothing had been asked would be quietly ignoring half the message. It
        * says which of the two happened, then shows the latest.
        */
+      // The sender's language where the table has none yet; written back so the
+      // next reader in that language costs nothing.
+      const localizeNews = (articles: NewsArticle[]) =>
+        withTranslations({
+          articles,
+          language: answerLanguage,
+          languageName: LANGUAGE_ENDONYM[answerLanguage],
+          provider: chainProvider(),
+          save: async (id, translations) => {
+            await db.from("news_articles").update({ translations }).eq("id", id);
+          },
+        });
+
       const showNews = async (
         options: { note?: string; category?: string | null } = {},
       ): Promise<boolean> => {
@@ -2185,7 +2201,7 @@ Deno.serve(async (req) => {
           return false;
         }
 
-        const articles = readArticles(data);
+        const articles = await localizeNews(readArticles(data));
         if (articles.length === 0) {
           log("news", { outcome: "empty" });
           await reply(say("newsEmpty", answerLanguage).replace("{url}", NEWS_URL), "reply");
@@ -2257,7 +2273,7 @@ Deno.serve(async (req) => {
             .order("published_at", { ascending: false, nullsFirst: false })
             .limit(40);
           const text = loadError ? "" : dailyDigest({
-            articles: readArticles(rows),
+            articles: await localizeNews(readArticles(rows)),
             language: answerLanguage,
             heading: say("newsDigestHeading", answerLanguage),
             categories: digestCategories(row?.topics),
@@ -3227,7 +3243,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const [article] = readArticles(row ? [row] : []);
+        const [article] = await localizeNews(readArticles(row ? [row] : []));
         if (!article) {
           // Stale or unknown: say so once, then show what is actually there.
           log("news", { outcome: "stale" });
@@ -3480,6 +3496,18 @@ Deno.serve(async (req) => {
         const docSource = incoming.media.kind === "document"
           ? docSourceFormat({ mimeType: incoming.media.mimeType, filename: incoming.media.filename })
           : null;
+        // Remembered so a conversion asked for in the next message — the usual
+        // order: send, read the summary, then "to Word" — finds the file.
+        if (docSource) {
+          const { error: rememberError } = await db.from("whatsapp_recent_documents").upsert({
+            conversation_id: conversationId,
+            media_id: incoming.media.id,
+            mime_type: incoming.media.mimeType ?? null,
+            filename: incoming.media.filename ?? null,
+            updated_at: new Date().toISOString(),
+          });
+          if (rememberError) console.error("[whatsapp] could not remember a document:", describeError(rememberError));
+        }
         const docAsk = docSource && !humanOwnsThis && !assistantOwnsInput(session.feature) && featureOn("services.convert")
           ? parseDocConvertRequest({ text: incoming.text ?? "", source: docSource })
           : null;
@@ -4962,6 +4990,43 @@ Deno.serve(async (req) => {
           "reply",
         );
         continue;
+      }
+
+      // "Make it Word" after a document was shared in an earlier message.
+      // Short text only, so an ordinary message never costs a lookup.
+      if (
+        !incoming.media && !humanOwnsThis && !aiFocused && featureOn("services.convert") &&
+        questionText.trim() && questionText.trim().length <= 80 && !asksToConvert(questionText)
+      ) {
+        const { data: recent } = await db
+          .from("whatsapp_recent_documents")
+          .select("media_id, mime_type, filename, updated_at")
+          .eq("conversation_id", conversationId)
+          .maybeSingle();
+        const fresh = recent && Date.now() - new Date(recent.updated_at).getTime() < 7 * 24 * 60 * 60 * 1000;
+        const recentSource = fresh ? docSourceFormat({ mimeType: recent.mime_type, filename: recent.filename }) : null;
+        const followUp = recentSource ? parseDocConvertRequest({ text: questionText, source: recentSource }) : null;
+        if (recent && followUp) {
+          const { error: queueError } = await db.from("whatsapp_media_jobs").insert({
+            conversation_id: conversationId,
+            wa_message_id: incoming.messageId,
+            target: followUp.target,
+            options: { from: followUp.from },
+            source_media_id: recent.media_id,
+            source_mime: recent.mime_type ?? null,
+            language: answerLanguage,
+            spoken_input: spokenInput,
+          });
+          if (queueError && queueError.code !== "23505") {
+            console.error("[whatsapp] could not queue a document conversion:", describeError(queueError));
+            await reply(featureErrorNotice(answerLanguage), "unsupported");
+            continue;
+          }
+          await reply(queuedNotice(answerLanguage), "reply");
+          log("media_job", { outcome: "queued", target: followUp.target, kind: "document_followup" });
+          EdgeRuntime.waitUntil(drainOneMediaJob());
+          continue;
+        }
       }
 
       // Asking for the feature with nothing attached — the menu row, typed or

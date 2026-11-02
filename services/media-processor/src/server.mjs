@@ -159,6 +159,13 @@ import {
   isDescribeLanguage,
   readDescribeAnswer,
 } from "./describe.mjs";
+import {
+  MAX_TRANSLATE_BODY_BYTES,
+  TRANSLATE_LANGUAGES,
+  TRANSLATE_TIMEOUT_MS,
+  checkTranslateRequest,
+  readTranslateAnswer,
+} from "./translate.mjs";
 
 const PORT = Number(process.env.PORT ?? 8081);
 
@@ -169,6 +176,9 @@ const PORT = Number(process.env.PORT ?? 8081);
  * model container is started separately and is off until someone starts it.
  */
 const DESCRIBER_URL = (process.env.DESCRIBER_URL ?? "").replace(/\/+$/, "");
+
+/** The same, for the translation model (`deploy-translator.yml`); empty means /translate is `not_configured`. */
+const TRANSLATOR_URL = (process.env.TRANSLATOR_URL ?? "").replace(/\/+$/, "");
 const HOST = process.env.HOST ?? "0.0.0.0";
 
 /**
@@ -1248,6 +1258,60 @@ async function handleOcr(req, res, correlation) {
 }
 
 /**
+ * Translate text with the local translation model.
+ *
+ * One at a time, like /describe: the model owns the cores it is given, and a
+ * second request is told to go elsewhere (`busy`) instead of queueing. The
+ * text is never logged, only its length and the language it went into.
+ */
+let translating = false;
+
+async function handleTranslate(req, res, correlation) {
+  if (!TRANSLATOR_URL) return send(res, 200, { ok: false, reason: "not_configured" });
+  if (translating) {
+    res.setHeader("retry-after", "10");
+    return send(res, 503, { ok: false, reason: "busy" });
+  }
+  let body;
+  try {
+    body = JSON.parse((await readBody(req, MAX_TRANSLATE_BODY_BYTES)).toString("utf8"));
+  } catch (error) {
+    return send(res, error.code === "too_large" ? 413 : 400, { ok: false, reason: error.code === "too_large" ? "body_too_large" : "bad_json" });
+  }
+  const checked = checkTranslateRequest(body);
+  if (!checked.ok) return send(res, 422, { ok: false, reason: checked.reason });
+
+  if (translating) return send(res, 503, { ok: false, reason: "busy" });
+  translating = true;
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), TRANSLATE_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${TRANSLATOR_URL}/translate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: checked.text, target: checked.target }),
+      signal: controller.signal,
+    });
+    if (response.status === 503) return send(res, 503, { ok: false, reason: "busy" });
+    if (!response.ok) {
+      log("translate_failed", { correlation, ms: Date.now() - startedAt, reason: `model_${response.status}` });
+      return send(res, 200, { ok: false, reason: "model_error" });
+    }
+    const answer = readTranslateAnswer(await response.json());
+    log("translate", { correlation, ms: Date.now() - startedAt, chars: checked.text.length, out: answer ? answer.length : 0, lang: checked.target });
+    return send(res, 200, answer ? { ok: true, text: answer, ms: Date.now() - startedAt } : { ok: false, reason: "unreadable" });
+  } catch (error) {
+    const reason = error.name === "AbortError" ? "timeout" : error.code ?? "unknown";
+    log("translate_failed", { correlation, ms: Date.now() - startedAt, reason });
+    return send(res, 200, { ok: false, reason });
+  } finally {
+    clearTimeout(deadline);
+    translating = false;
+  }
+}
+
+/**
  * Describe one photograph with the local vision model.
  *
  * The model has three cores and about forty seconds per picture, so exactly one
@@ -1708,12 +1772,17 @@ const server = createServer(async (req, res) => {
         overpass: true,
         // Present only when a model container is configured; a caller checks before relying on it.
         describe: DESCRIBER_URL ? { languages: Object.keys(DESCRIBE_LANGUAGES) } : false,
+        translate: TRANSLATOR_URL ? { languages: TRANSLATE_LANGUAGES } : false,
         concurrency: MAX_CONCURRENT,
       });
     }
 
     if (req.method === "POST" && url.pathname === "/ocr") {
       return await handleOcr(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/translate") {
+      return await handleTranslate(req, res, correlation);
     }
 
     if (req.method === "POST" && url.pathname === "/describe") {

@@ -1,0 +1,209 @@
+name: Translator
+
+# Starts, stops and tests the translation model that runs on the production
+# server (MADLAD-400 3B, int8, CTranslate2, CPU). It translates news and other
+# short texts into the site's twenty languages without a provider.
+#
+# It goes in front of the paid chain, because it costs nothing per call and its
+# answers are saved; the provider chain remains the fallback when this is busy,
+# down or off. Off by default in two places: nothing runs until `start` is
+# chosen, and the Edge Function does not call it until `LOCAL_TRANSLATE` is `on`
+# (`enable`). See supabase/functions/_shared/whatsappLocalTranslate.ts.
+#
+# ── What it touches ─────────────────────────────────────────────────────────
+#
+# One container, `visionex-translator`, published on the Docker bridge address
+# only (port 8097): reachable from the media processor container, not from the
+# internet. Three cores and 6 GB at most. nginx is not touched. The model files
+# (about 3 GB, pinned to one revision) and the Python packages are cached under
+# /var/lib/visionex so a restart downloads nothing.
+#
+# The media processor must have been redeployed once after this change so that
+# it knows where the model is (TRANSLATOR_URL); `test` checks that.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "status = report only. start = run the model container. stop = remove it. test = prove the processor reaches it and translates into every language. enable / disable = set or remove the LOCAL_TRANSLATE secret on the Edge Functions."
+        required: true
+        default: status
+        type: choice
+        options: [status, start, stop, test, enable, disable]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: translator
+  cancel-in-progress: false
+
+jobs:
+  translator:
+    name: Translator
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Switch the Edge secret
+        if: inputs.action == 'enable' || inputs.action == 'disable'
+        shell: bash
+        env:
+          ACTION:               ${{ inputs.action }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          npm install -g supabase@latest >/dev/null 2>&1
+          if [[ "$ACTION" == "enable" ]]; then
+            supabase secrets set LOCAL_TRANSLATE=on --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+          else
+            supabase secrets unset LOCAL_TRANSLATE --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+          fi
+          if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q '^ *LOCAL_TRANSLATE '; then
+            echo "LOCAL_TRANSLATE is set."
+          else
+            echo "LOCAL_TRANSLATE is not set."
+          fi
+
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          for v in HOST USER KEY; do [ -z "${!v}" ] && { echo "::error::Missing secret for $v"; exit 1; }; done
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_deploy
+            ConnectTimeout 15
+            BatchMode yes
+            ServerAliveInterval 30
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'echo connected' >/dev/null
+
+      - name: Report what is there now
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          echo '```'
+          echo "translator: $(sudo docker ps -a --filter name=^visionex-translator$ --format '{{.Status}}' | head -1)"
+          echo "describer : $(sudo docker ps -a --filter name=^visionex-describer$ --format '{{.Status}}' | head -1)"
+          echo "load      : $(cut -d' ' -f1-3 /proc/loadavg) on $(nproc) cores"
+          echo "free RAM  : $(free -m | awk '/^Mem:/{print $7" MB available"}')"
+          echo "disk free : $(df -BG --output=avail /var/lib | tail -1 | tr -d ' ')"
+          echo "cache     : $(sudo du -sh /var/lib/visionex/translator-cache 2>/dev/null | cut -f1)"
+          echo '```'
+          REMOTE
+
+      - name: Start the model
+        if: inputs.action == 'start'
+        run: |
+          set -uo pipefail
+          # The script is the repository's, copied to the server; the container
+          # runs it and installs its packages into the same directory once.
+          ssh target 'sudo mkdir -p /var/lib/visionex/translator /var/lib/visionex/translator-cache && sudo tee /var/lib/visionex/translator/server.py >/dev/null' < services/translator/server.py
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          # Removed first, so a restart does not count its own memory against itself.
+          sudo docker rm -f visionex-translator >/dev/null 2>&1 || true
+          FREE=$(free -m | awk '/^Mem:/{print $7}')
+          if [ "$FREE" -lt 6000 ]; then
+            echo "Refusing to start: only ${FREE} MB available, the model needs about 4 GB beside the website."
+            echo "(Stop the vision describer first if it is running.)"
+            exit 1
+          fi
+          GW=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
+          [ -n "$GW" ] || { echo "No bridge gateway address."; exit 1; }
+
+          sudo docker pull python:3.12-slim >/dev/null
+          echo "Starting (the first start installs packages and downloads about 3 GB, several minutes)…"
+          sudo docker run -d \
+            --name visionex-translator \
+            --restart unless-stopped \
+            --publish "$GW:8097:8080" \
+            --cpus 3 --memory 6g --pids-limit 256 \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --env PYTHONPATH=/app/pylib --env HF_HOME=/root/.cache/hf --env TRANSLATOR_THREADS=3 \
+            --volume /var/lib/visionex/translator:/app \
+            --volume /var/lib/visionex/translator-cache:/root/.cache \
+            python:3.12-slim \
+            sh -c '[ -d /app/pylib/ctranslate2 ] || pip install --quiet --no-cache-dir --target /app/pylib ctranslate2==4.8.4 sentencepiece==0.2.2 huggingface-hub==2.4.0; exec python /app/server.py' >/dev/null
+
+          for i in $(seq 1 150); do
+            if curl -fsS --max-time 3 "http://$GW:8097/health" >/dev/null 2>&1; then
+              echo "ready after about $((i * 5)) seconds at $GW:8097"
+              exit 0
+            fi
+            sudo docker ps -q --filter name=^visionex-translator$ | grep -q . || break
+            sleep 5
+          done
+          echo "The model did not become ready. Last log lines:"
+          sudo docker logs --tail 15 visionex-translator 2>&1 | cut -c1-200
+          exit 1
+          REMOTE
+
+      - name: Stop the model
+        if: inputs.action == 'stop'
+        run: |
+          set -uo pipefail
+          ssh target 'sudo docker rm -f visionex-translator >/dev/null 2>&1; echo "removed; the cached model files are kept"' | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Goes through the processor, which is what the Edge Function calls: from
+      # inside its container to the model, then one passage into each language
+      # with the real token. Timings and the output go into the job summary so
+      # a reader of each language can judge the quality.
+      - name: Test through the processor
+        if: inputs.action == 'test'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          [ -n "${TOKEN:-}" ] || { echo '::error::PROCESSOR_TOKEN is not set.'; exit 1; }
+
+          echo "── the processor reaches the model"
+          ssh target 'sudo docker exec visionex-media node -e "
+            const u = process.env.TRANSLATOR_URL;
+            if (!u) { console.log(\"TRANSLATOR_URL is not set: redeploy the media processor first\"); process.exit(2); }
+            fetch(u + \"/health\").then(r => { console.log(\"model health:\", r.status); process.exit(r.ok ? 0 : 3); })
+              .catch(e => { console.log(\"unreachable:\", e.cause?.code ?? e.message); process.exit(4); });
+          "'
+          rc=$?
+          [ $rc -eq 0 ] || { echo "::error::The processor cannot reach the model (exit $rc)."; exit 1; }
+
+          TEXT='The city council approved a new plan to make public transport easier to use for blind and low-vision residents. Work begins in March.'
+          printf 'Authorization: Bearer %s\n' "$TOKEN" | ssh target 'umask 077; cat > /tmp/vx-hdr'
+          failed=""
+          { echo '| language | ms | translation |'; echo '|---|---|---|'; } >> "$GITHUB_STEP_SUMMARY"
+          for lang in ar bn de es fa fr hi id it ja ko nl pl pt ru tr ur vi zh; do
+            node -e 'process.stdout.write(JSON.stringify({text:process.argv[1],target:process.argv[2]}))' "$TEXT" "$lang" | ssh target 'cat > /tmp/vx-body.json'
+            ssh target "curl -sS --max-time 130 -H @/tmp/vx-hdr -H 'content-type: application/json' --data-binary @/tmp/vx-body.json http://127.0.0.1:8081/translate" > "/tmp/tr-$lang.json"
+            out=$(node -e 'const j=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); console.log(j.ok?j.ms+"|"+j.text.replace(/\|/g,"/"):"FAIL|"+j.reason)' "/tmp/tr-$lang.json" 2>/dev/null || echo "FAIL|bad_json")
+            echo "$lang  $out" | cut -c1-300
+            echo "| $lang | ${out%%|*} | ${out#*|} |" >> "$GITHUB_STEP_SUMMARY"
+            case "$out" in FAIL*) failed="$failed $lang";; esac
+            # A reply that is the English passage unchanged did not translate.
+            if grep -q 'The city council approved' "/tmp/tr-$lang.json"; then failed="$failed $lang(untranslated)"; fi
+          done
+          ssh target 'rm -f /tmp/vx-hdr /tmp/vx-body.json'
+          if [ -n "$failed" ]; then
+            echo "::error::No translation for:$failed"
+            exit 1
+          fi
+          echo "All nineteen languages came back translated; read the table in the job summary."
+
+      - name: Forget the key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy ~/.ssh/config

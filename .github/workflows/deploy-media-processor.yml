@@ -185,7 +185,9 @@ jobs:
           # (deploy-vision-describer.yml). Nothing listens there until someone
           # starts that container, and /describe is never called until the Edge
           # Function's LOCAL_DESCRIBE secret is `on`, so setting it is inert.
-          printf 'PROCESSOR_TOKEN=%s\nDESCRIBER_URL=http://host.docker.internal:8098\n' "$TOKEN" \
+          # TRANSLATOR_URL likewise, for deploy-translator.yml: inert until that
+          # container runs and the Edge Function's LOCAL_TRANSLATE is `on`.
+          printf 'PROCESSOR_TOKEN=%s\nDESCRIBER_URL=http://host.docker.internal:8098\nTRANSLATOR_URL=http://host.docker.internal:8097\n' "$TOKEN" \
             | ssh target 'umask 077 && cat > ~/.visionex-processor.env'
           echo "Token delivered."
 
