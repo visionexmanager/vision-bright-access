@@ -115,8 +115,10 @@ jobs:
           set -uo pipefail
           ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
           set -uo pipefail
+          # Removed first, so a restart does not count its own memory against itself.
+          sudo docker rm -f visionex-describer >/dev/null 2>&1 || true
           FREE=$(free -m | awk '/^Mem:/{print $7}')
-          if [ "$FREE" -lt 9000 ]; then
+          if [ "$FREE" -lt 7000 ]; then
             echo "Refusing to start: only ${FREE} MB available, the model needs about 6 GB beside the website."
             exit 1
           fi
@@ -137,6 +139,7 @@ jobs:
             --cpus 3 --memory 6g --pids-limit 512 \
             --cap-drop ALL --security-opt no-new-privileges \
             --volume /var/lib/visionex/describer-cache:/root/.cache \
+            --env LLAMA_ARG_CACHE_RAM=0 \
             ghcr.io/ggml-org/llama.cpp:server \
             -hf bartowski/Qwen_Qwen3-VL-4B-Instruct-GGUF:Q4_K_M \
             --host 0.0.0.0 --port 8080 -c 4096 -np 1 -t 3 --no-webui >/dev/null
