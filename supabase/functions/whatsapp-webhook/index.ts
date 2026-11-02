@@ -206,7 +206,7 @@ import {
   voiceModeExplainer,
   verbosityDirective,
 } from "../_shared/whatsappPreferences.ts";
-import { docSourceFormat, parseDocConvertRequest } from "../_shared/whatsappDocConvert.ts";
+import { DOC_CONVERT_MIMES, docSourceFormat, parseDocConvertRequest } from "../_shared/whatsappDocConvert.ts";
 import {
   buildTravelRequest,
   directLinks,
@@ -1977,6 +1977,30 @@ Deno.serve(async (req) => {
 
           const jobLanguage = (job.language ?? "en") as Language;
 
+          // The claim takes the oldest job of anybody, and this delivery may
+          // belong to somebody else: the file and every notice go to the job's
+          // own conversation, never to whoever's message happened to drain it.
+          let jobTo = incoming.from;
+          if (job.conversation_id !== conversationId) {
+            const { data: owner } = await db
+              .from("whatsapp_conversations")
+              .select("wa_phone")
+              .eq("id", job.conversation_id)
+              .maybeSingle();
+            if (!owner?.wa_phone) {
+              await db.rpc("whatsapp_finish_media_job", { _id: job.id, _status: "failed", _error_code: "no_recipient" });
+              return;
+            }
+            jobTo = owner.wa_phone as string;
+          }
+          const tellOwner = async (text: string, kind: "reply" | "unsupported") => {
+            if (jobTo === incoming.from) {
+              await reply(text, kind);
+            } else if (token && phoneNumberId) {
+              await sendWhatsAppText({ phoneNumberId, token, to: jobTo, body: text });
+            }
+          };
+
           // Two kinds of work, one queue. The claim does not care which, and
           // neither does the lease or the sweep — only the middle differs.
           if (job.operation === "translate") {
@@ -2023,7 +2047,7 @@ Deno.serve(async (req) => {
                   return answer.status === "answered" ? answer.text : null;
                 },
                 sendText: async (text) => {
-                  await reply(text, "reply");
+                  await tellOwner(text, "reply");
                   return true;
                 },
                 sendFile: async (content, filename, mime) => {
@@ -2031,7 +2055,7 @@ Deno.serve(async (req) => {
                   const delivered = await deliverAsset({
                     phoneNumberId,
                     token,
-                    to: incoming.from,
+                    to: jobTo,
                     asset: {
                       bytes: new TextEncoder().encode(content),
                       mimeType: mime,
@@ -2052,7 +2076,7 @@ Deno.serve(async (req) => {
                 // the page; an empty file needs a different file; a protected
                 // one needs an unprotected copy.
                 notify: async (reason) => {
-                  await reply(
+                  await tellOwner(
                     reason === "scanned_pdf" ? scannedPdfNotice(jobLanguage)
                       : reason === "encrypted_pdf" ? encryptedDocumentNotice(jobLanguage)
                       : reason === "unsupported_format" ? unsupportedDocumentNotice(jobLanguage)
@@ -2077,11 +2101,17 @@ Deno.serve(async (req) => {
             {
               download: async (mediaId) => {
                 if (!token) return null;
+                // A document conversion carries its source format in the options.
+                // It used to be downloaded as a "video" like everything else,
+                // and that kind's type list refuses a PDF, so every PDF to Word
+                // job failed at once and was retried until it gave up.
+                const isDocument = typeof job.options?.from === "string";
                 const media = await downloadMedia({
                   mediaId,
-                  // The ceiling that matters here is the conversion service's,
-                  // and `video` carries the largest of the media limits.
-                  kind: "video",
+                  // Otherwise the ceiling that matters is the conversion
+                  // service's, and `video` carries the largest of the limits.
+                  kind: isDocument ? "document" : "video",
+                  extraMimes: isDocument ? DOC_CONVERT_MIMES : undefined,
                   token,
                   trace: correlationId,
                 });
@@ -2094,7 +2124,7 @@ Deno.serve(async (req) => {
                 const delivered = await deliverAsset({
                   phoneNumberId,
                   token,
-                  to: incoming.from,
+                  to: jobTo,
                   asset: { bytes, mimeType, fileName: filename, caption: deliveryCaption(mimeType, jobLanguage) },
                 });
                 log("asset_delivery", { flow: "convert", ...deliveryLogFields(delivered, "bytes", mimeType) });
@@ -2115,7 +2145,7 @@ Deno.serve(async (req) => {
                 await sendWhatsAppText({
                   phoneNumberId,
                   token,
-                  to: incoming.from,
+                  to: jobTo,
                   // A file too large for WhatsApp is not a failed conversion:
                   // the sender is told what would get it through.
                   body: kind === "too_large" ? say("assetTooLarge", jobLanguage) : failedNotice(jobLanguage),
