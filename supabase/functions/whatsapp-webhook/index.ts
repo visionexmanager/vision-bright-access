@@ -487,6 +487,7 @@ import { noticeReasonFor, voiceToText } from "../_shared/whatsappVoiceTurn.ts";
 import { chainProvider } from "../_shared/whatsappAskProvider.ts";
 import { withTranslations } from "../_shared/whatsappNewsTranslate.ts";
 import { translateLocally } from "../_shared/whatsappLocalTranslate.ts";
+import { summarizeLocally } from "../_shared/whatsappLocalSummarize.ts";
 import { guessIntent, looksLikeARequest } from "../_shared/whatsappIntent.ts";
 import {
   AI_CONVERSATION,
@@ -2203,6 +2204,11 @@ Deno.serve(async (req) => {
           language: answerLanguage,
           languageName: LANGUAGE_ENDONYM[answerLanguage],
           provider: chainProvider(),
+          local: async (text, language) => {
+            const result = await translateLocally({ text, language });
+            log("news_translate", result.ok ? { ok: true, ms: result.ms } : { ok: false, reason: result.reason });
+            return result.ok ? result.text : null;
+          },
           save: async (id, translations) => {
             await db.from("news_articles").update({ translations }).eq("id", id);
           },
@@ -4036,6 +4042,15 @@ Deno.serve(async (req) => {
               ? reportPrompt(LANGUAGE_ENDONYM[answerLanguage])
               : incoming.media.caption ?? "",
             languageName: LANGUAGE_ENDONYM[answerLanguage],
+            local: async (text, task) => {
+              // A health report has its own careful prompt; the small model does not get it.
+              if (explainReport) return null;
+              const result = await summarizeLocally({ text, language: answerLanguage, task });
+              // A text the server's model could only read part of is the chain's to answer.
+              const usable = result.ok && !result.truncated;
+              log("local_summarize", usable ? { ok: true, ms: result.ms } : { ok: false, reason: result.ok ? "truncated" : result.reason });
+              return usable ? result.text : null;
+            },
           });
           if (!read.ok) {
             // Each reason needs a different thing from the sender, so each one

@@ -51,3 +51,16 @@ describe("a conversion asked for after the document was sent", () => {
     expect(parseDocConvertRequest({ text: "حوّله إلى وورد", source: "pdf" })).toEqual({ target: "docx", from: "pdf" });
   });
 });
+
+describe("the webhook hands the server's translator to the news path", () => {
+  // It was imported and never passed, so with the paid providers down every
+  // article reached an Arabic reader in English.
+  it("passes `local` into withTranslations", async () => {
+    const { readFileSync } = await import("node:fs");
+    const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
+    const start = webhook.indexOf("const localizeNews");
+    const body = webhook.slice(start, start + 900);
+    expect(body).toContain("local: async (text, language)");
+    expect(body).toContain("translateLocally({ text, language })");
+  });
+});
