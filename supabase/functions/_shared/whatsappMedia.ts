@@ -149,6 +149,12 @@ export async function downloadMedia(params: {
   token: string;
   descriptor?: MediaDescriptor | null;
   /**
+   * Further types accepted for this one download, on top of the kind's own.
+   * A conversion job names the formats its engine converts; the reading paths
+   * pass nothing and keep their narrower list.
+   */
+  extraMimes?: readonly string[];
+  /**
    * The delivery's correlation id, for the lines this prints.
    *
    * Optional, and used for nothing but a log suffix. It is what lets a failed
@@ -167,7 +173,8 @@ export async function downloadMedia(params: {
     console.error(`[whatsapp-media] refused a download host outside Meta${trace(params.trace)}`);
     return { ok: false, reason: "blocked_host" };
   }
-  if (!isAllowedMime(params.kind, descriptor.mimeType)) {
+  const declared = descriptor.mimeType.split(";")[0].trim().toLowerCase();
+  if (!isAllowedMime(params.kind, descriptor.mimeType) && !(params.extraMimes ?? []).includes(declared)) {
     return { ok: false, reason: "unsupported_type" };
   }
 

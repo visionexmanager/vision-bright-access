@@ -71,6 +71,13 @@ const MIME_TO_FORMAT: Readonly<Record<string, DocFormat>> = Object.freeze({
 });
 
 /**
+ * Every type a conversion job may download, for `downloadMedia`'s `extraMimes`.
+ * A phone often labels a Word file `application/octet-stream`, so that is
+ * accepted here too; the engine refuses what it cannot open.
+ */
+export const DOC_CONVERT_MIMES: readonly string[] = [...Object.keys(MIME_TO_FORMAT), "application/octet-stream"];
+
+/**
  * What a document attachment is, from its MIME type or its name; `null` for
  * anything this cannot convert. WhatsApp phones often send a generic
  * `application/octet-stream`, so the extension is the fallback.
