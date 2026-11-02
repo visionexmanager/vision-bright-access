@@ -196,6 +196,9 @@ jobs:
             case "$out" in FAIL*) failed="$failed $lang";; esac
             # A reply that is the English passage unchanged did not translate.
             if grep -q 'The city council approved' "/tmp/tr-$lang.json"; then failed="$failed $lang(untranslated)"; fi
+            # The passage names no year, so a year in the answer was invented
+            # (the first run produced "2019" and "until October" from nothing).
+            if grep -q -E '20[0-9]{2}' "/tmp/tr-$lang.json"; then failed="$failed $lang(invented-year)"; fi
           done
           ssh target 'rm -f /tmp/vx-hdr /tmp/vx-body.json'
           if [ -n "$failed" ]; then

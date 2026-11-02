@@ -34,7 +34,7 @@ LANGUAGES = {
 NO_SPACE = {"zh", "ja"}
 
 MAX_CHARS = 6000
-MAX_SEGMENT_CHARS = 300
+MAX_SEGMENT_CHARS = 400
 THREADS = int(os.environ.get("TRANSLATOR_THREADS", "3"))
 
 model_path = snapshot_download(REPO, revision=REVISION)
@@ -47,45 +47,60 @@ SENTENCE_END = re.compile(r"(?<=[.!?؟。！？…])\s+")
 
 
 def segments(paragraph):
-    """Sentences, with anything still too long cut at a space."""
-    out = []
+    """Sentences packed into pieces of at most MAX_SEGMENT_CHARS.
+
+    A short sentence translated on its own is where this model invents
+    (a 2026-11-02 test turned "Work begins in March." into a sentence about
+    October and another about 2019), so neighbouring sentences travel together
+    and give it something to be faithful to. A single over-long sentence is cut
+    at a space.
+    """
+    sentences = []
     for sentence in SENTENCE_END.split(paragraph.strip()):
         sentence = sentence.strip()
         while len(sentence) > MAX_SEGMENT_CHARS:
             cut = sentence.rfind(" ", 0, MAX_SEGMENT_CHARS)
             cut = cut if cut > 40 else MAX_SEGMENT_CHARS
-            out.append(sentence[:cut].strip())
+            sentences.append(sentence[:cut].strip())
             sentence = sentence[cut:].strip()
         if sentence:
-            out.append(sentence)
-    return out
+            sentences.append(sentence)
+    pieces, current = [], ""
+    for sentence in sentences:
+        if current and len(current) + 1 + len(sentence) > MAX_SEGMENT_CHARS:
+            pieces.append(current)
+            current = sentence
+        else:
+            current = f"{current} {sentence}".strip()
+    if current:
+        pieces.append(current)
+    return pieces
+
+
+def translate_piece(piece, target):
+    tokens = tokenizer.encode(f"<2{target}> {piece}", out_type=str)
+    # A translation is never many times longer than its source; the cap is what
+    # stops the model running on into text that was not there.
+    cap = min(256, int(len(tokens) * 2.5) + 10)
+    result = translator.translate_batch(
+        [tokens],
+        beam_size=4,
+        no_repeat_ngram_size=4,
+        repetition_penalty=1.1,
+        max_decoding_length=cap,
+    )
+    return tokenizer.decode(result[0].hypotheses[0]).strip()
 
 
 def translate(text, target):
-    paragraphs = [p for p in text.split("\n")]
-    flat, owner = [], []
-    for index, paragraph in enumerate(paragraphs):
-        for piece in segments(paragraph):
-            flat.append(piece)
-            owner.append(index)
-    if not flat:
-        return ""
-    batches = [tokenizer.encode(f"<2{target}> {piece}", out_type=str) for piece in flat]
-    results = translator.translate_batch(
-        batches,
-        batch_type="tokens",
-        max_batch_size=1024,
-        beam_size=2,
-        no_repeat_ngram_size=3,
-        repetition_penalty=1.5,
-        max_decoding_length=256,
-    )
-    rendered = [tokenizer.decode(r.hypotheses[0]).strip() for r in results]
-    joiner = "" if target in NO_SPACE else " "
-    lines = [[] for _ in paragraphs]
-    for index, piece in zip(owner, rendered):
-        lines[index].append(piece)
-    return "\n".join(joiner.join(parts) for parts in lines).strip()
+    paragraphs = text.split("
+")
+    lines = []
+    for paragraph in paragraphs:
+        pieces = [translate_piece(piece, target) for piece in segments(paragraph)]
+        lines.append(("" if target in NO_SPACE else " ").join(pieces))
+    return "
+".join(lines).strip()
 
 
 class Handler(BaseHTTPRequestHandler):
