@@ -166,6 +166,14 @@ import {
   checkTranslateRequest,
   readTranslateAnswer,
 } from "./translate.mjs";
+import {
+  MAX_SUMMARIZE_BODY_BYTES,
+  SUMMARIZE_TIMEOUT_MS,
+  checkSummarizeRequest,
+  readSummaryAnswer,
+  splitForSummary,
+  summarizeRequestBody,
+} from "./summarize.mjs";
 
 const PORT = Number(process.env.PORT ?? 8081);
 
@@ -1396,6 +1404,83 @@ async function handleDescribe(req, res, correlation) {
   }
 }
 
+const PARAGRAPH_BREAK = "\n\n";
+
+/**
+ * Summarise a document's text with the local model.
+ *
+ * It is the same model, and the same single place, as the describer, so the
+ * one `describing` flag covers both: a second request, of either kind, is told
+ * `busy` and the caller goes to a provider. A long text is summarised in up to
+ * three pieces and then once more; the whole job has one deadline.
+ */
+async function handleSummarize(req, res, correlation) {
+  if (!DESCRIBER_URL) return send(res, 200, { ok: false, reason: "not_configured" });
+  if (describing) {
+    res.setHeader("retry-after", "30");
+    return send(res, 503, { ok: false, reason: "busy" });
+  }
+  let body;
+  try {
+    body = JSON.parse((await readBody(req, MAX_SUMMARIZE_BODY_BYTES)).toString("utf8"));
+  } catch (error) {
+    return send(res, error.code === "too_large" ? 413 : 400, { ok: false, reason: error.code === "too_large" ? "body_too_large" : "bad_json" });
+  }
+  const checked = checkSummarizeRequest(body);
+  if (!checked.ok) return send(res, 422, { ok: false, reason: checked.reason });
+
+  if (describing) return send(res, 503, { ok: false, reason: "busy" });
+  describing = true;
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), SUMMARIZE_TIMEOUT_MS);
+  const ask = async (payload) => {
+    const response = await fetch(`${DESCRIBER_URL}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    if (!response.ok) throw Object.assign(new Error("model"), { code: `model_${response.status}` });
+    return readSummaryAnswer(await response.json());
+  };
+  try {
+    const { chunks, truncated } = splitForSummary(checked.text);
+    let answer;
+    if (chunks.length === 1) {
+      answer = await ask(summarizeRequestBody({ languageName: checked.language, text: chunks[0], task: checked.task, mode: "whole" }));
+    } else {
+      const partials = [];
+      for (const chunk of chunks) {
+        const part = await ask(summarizeRequestBody({ languageName: checked.language, text: chunk, task: "", mode: "partial" }));
+        if (part) partials.push(part);
+      }
+      answer = partials.length === 0
+        ? null
+        : await ask(summarizeRequestBody({ languageName: checked.language, text: partials.join(PARAGRAPH_BREAK), task: checked.task, mode: "final" }));
+    }
+    log("summarize", {
+      correlation,
+      ms: Date.now() - startedAt,
+      // Lengths only, never the document or the summary.
+      chars: checked.text.length,
+      pieces: chunks.length,
+      out: answer ? answer.length : 0,
+      lang: Object.keys(DESCRIBE_LANGUAGES).find((k) => DESCRIBE_LANGUAGES[k] === checked.language),
+    });
+    return send(res, 200, answer
+      ? { ok: true, text: answer, truncated, pieces: chunks.length, ms: Date.now() - startedAt }
+      : { ok: false, reason: "unreadable" });
+  } catch (error) {
+    const reason = error.name === "AbortError" ? "timeout" : error.code ?? "unknown";
+    log("summarize_failed", { correlation, ms: Date.now() - startedAt, reason });
+    return send(res, 200, { ok: false, reason });
+  } finally {
+    clearTimeout(deadline);
+    describing = false;
+  }
+}
+
 /**
  * Decode the barcodes in one photograph.
  *
@@ -1773,6 +1858,7 @@ const server = createServer(async (req, res) => {
         // Present only when a model container is configured; a caller checks before relying on it.
         describe: DESCRIBER_URL ? { languages: Object.keys(DESCRIBE_LANGUAGES) } : false,
         translate: TRANSLATOR_URL ? { languages: TRANSLATE_LANGUAGES } : false,
+        summarize: DESCRIBER_URL ? { languages: Object.keys(DESCRIBE_LANGUAGES) } : false,
         concurrency: MAX_CONCURRENT,
       });
     }
@@ -1783,6 +1869,10 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/translate") {
       return await handleTranslate(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/summarize") {
+      return await handleSummarize(req, res, correlation);
     }
 
     if (req.method === "POST" && url.pathname === "/describe") {

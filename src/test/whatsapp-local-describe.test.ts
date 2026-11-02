@@ -195,6 +195,6 @@ describe("where it is wired", () => {
     expect(describer).toContain('--publish "$GW:8098:8080"');
     expect(describer).not.toMatch(/--publish "?0\.0\.0\.0/);
     expect(describer).toContain("workflow_dispatch");
-    expect(describer).toContain("options: [status, start, stop, test, enable, disable]");
+    expect(describer).toContain("options: [status, start, stop, test, enable, disable, diagnose, test-summary, enable-summary, disable-summary]");
   });
 });

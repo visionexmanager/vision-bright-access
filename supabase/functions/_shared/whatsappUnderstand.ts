@@ -446,6 +446,12 @@ The images are the ${shown} page(s) of a scanned PDF, in order.${cutoff} Read th
   }
 }
 
+/** What the server's own model is trusted to read whole; longer goes to the chain. */
+export const LOCAL_SUMMARY_MAX_CHARS = 11_000;
+
+/** The server's own summariser: text and the sender's request in, an answer or null out. */
+export type LocalSummariser = (text: string, task: string) => Promise<string | null>;
+
 /** Read a customer's document. Format policy lives in `classifyDocument`. */
 export async function understandDocument(params: {
   bytes: Uint8Array;
@@ -454,6 +460,12 @@ export async function understandDocument(params: {
   question: string;
   languageName: string;
   targets?: ProviderTarget[];
+  /**
+   * The server's own summariser: the document's words and the sender's request
+   * in, an answer out, or null to ask the provider chain as before. Handed in
+   * so this module stays free of the processor and of the environment.
+   */
+  local?: LocalSummariser;
 }): Promise<DocumentResult> {
   const shape = classifyDocument(params.mimeType);
   if (shape === "unsupported") return { ok: false, reason: "unreadable_format" };
@@ -468,6 +480,8 @@ export async function understandDocument(params: {
   if (targets.length === 0) return { ok: false, reason: "no_reader" };
 
   let userText = params.question || "Summarise this document and answer any obvious question it raises.";
+  // The document's own words, without the instruction around them.
+  let sourceText = "";
 
   if (shape === "text") {
     const text = new TextDecoder("utf-8", { fatal: false })
@@ -475,7 +489,8 @@ export async function understandDocument(params: {
       .slice(0, DOCUMENT_TEXT_BUDGET)
       .trim();
     if (!text) return { ok: false, reason: "empty" };
-    userText = `${userText}\n\nDocument${params.filename ? ` (${params.filename})` : ""}:\n${text}`;
+    sourceText = text;
+    userText =`${userText}\n\nDocument${params.filename ? ` (${params.filename})` : ""}:\n${text}`;
   } else if (shape === "office") {
     // Unpacked on Visionex's own server and then travelling as text, which is
     // the same shape the PDF branch below already has. This replaces a refusal
@@ -502,6 +517,7 @@ export async function understandDocument(params: {
     // The part count is given to the model for the same reason the PDF branch
     // gives it a page count: "slide 3 of 40" is a different answer from "slide
     // 3 of 3", and it cannot see the deck.
+    sourceText = extracted.text;
     const kind = officeKind(params.mimeType);
     const label = params.filename ? ` (${params.filename})` : "";
     userText = [
@@ -537,6 +553,7 @@ export async function understandDocument(params: {
     }
     // The page count is given to the model because "page 3 of 40" is a
     // different answer from "page 3 of 3", and it cannot see the pagination.
+    sourceText = extracted.text;
     const label = [params.filename, extracted.title].filter(Boolean).join(" — ");
     userText = [
       userText,
@@ -544,6 +561,14 @@ export async function understandDocument(params: {
       `PDF${label ? ` (${label})` : ""}${extracted.pages ? `, ${extracted.pages} page(s)` : ""}:`,
       extracted.text,
     ].join("\n");
+  }
+
+  // The server's model first: free, and kept off the paid chain. Only a text it
+  // can read whole (a longer one is better served by the chain), and any miss
+  // falls through to the chain below.
+  if (params.local && sourceText.length > 0 && sourceText.length <= LOCAL_SUMMARY_MAX_CHARS) {
+    const answer = await params.local(sourceText, params.question).catch(() => null);
+    if (answer) return { ok: true, value: { readable: true, answer } };
   }
 
   try {
