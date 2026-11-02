@@ -2098,6 +2098,7 @@ Deno.serve(async (req) => {
               target: job.target,
               options: job.options ?? {},
               source_media_id: job.source_media_id,
+              source_filename: job.source_filename,
               attempts: job.attempts,
             },
             {
@@ -3559,6 +3560,8 @@ Deno.serve(async (req) => {
             options: { from: docAsk.from },
             source_media_id: incoming.media.id,
             source_mime: incoming.media.mimeType ?? null,
+            // So the converted file keeps the name the sender knows it by.
+            source_filename: incoming.media.filename ?? null,
             language: answerLanguage,
             spoken_input: spokenInput,
           });
@@ -5082,6 +5085,7 @@ Deno.serve(async (req) => {
             options: { from: followUp.from },
             source_media_id: recent.media_id,
             source_mime: recent.mime_type ?? null,
+            source_filename: recent.filename ?? null,
             language: answerLanguage,
             spoken_input: spokenInput,
           });
