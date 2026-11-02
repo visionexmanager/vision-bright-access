@@ -17,6 +17,14 @@ import type { NewsArticle } from "./whatsappNews.ts";
 /** Most articles translated for one reply; the rest are shown as they are. */
 export const NEWS_TRANSLATE_LIMIT = 12;
 
+/**
+ * Articles the server's own model translates in one reply, one after another:
+ * it works on one text at a time (a second is told `busy`), and each takes a
+ * few seconds. The rest of the reply goes to the provider chain at once, and
+ * whatever either path translates is saved, so the next reader finds it done.
+ */
+export const LOCAL_TRANSLATE_SLOTS = 4;
+
 const SEPARATOR = "|||";
 
 const needsTranslation = (article: NewsArticle, language: string): boolean => {
@@ -97,9 +105,9 @@ export async function withTranslations(params: {
   if (wanted.length === 0) return articles;
 
   const done = new Map<string, NewsArticle>();
-  await Promise.all(wanted.map(async (article) => {
+  const one = async (article: NewsArticle, withLocal: boolean) => {
     try {
-      const result = await translateArticle(article, language, languageName, provider, local);
+      const result = await translateArticle(article, language, languageName, provider, withLocal ? local : undefined);
       if (!result) return;
       const translations = { ...(article.translations ?? {}), [language]: result };
       done.set(article.id, { ...article, translations });
@@ -107,6 +115,13 @@ export async function withTranslations(params: {
     } catch {
       // The article goes out in its own language.
     }
-  }));
+  };
+
+  const slots = local ? wanted.slice(0, LOCAL_TRANSLATE_SLOTS) : [];
+  const overflow = local ? wanted.slice(LOCAL_TRANSLATE_SLOTS) : wanted;
+  await Promise.all([
+    (async () => { for (const article of slots) await one(article, true); })(),
+    ...overflow.map((article) => one(article, false)),
+  ]);
   return articles.map((a) => done.get(a.id) ?? a);
 }

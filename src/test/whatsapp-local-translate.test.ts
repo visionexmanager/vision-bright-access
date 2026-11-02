@@ -76,3 +76,25 @@ describe("a news article through the local translator first", () => {
     }
   });
 });
+
+import { bigNumbers, inventsANumber } from "../../supabase/functions/_shared/whatsappLocalTranslate";
+
+describe("a translation may not add a number", () => {
+  it("reads numbers in any script and ignores separators", () => {
+    expect([...bigNumbers("In 2019, 1,200 people and ١٢٠٠ and ۲۰۱۹ and 3")].sort()).toEqual(["1200", "2019"]);
+  });
+
+  it("flags an invented year but accepts a month written as a digit", () => {
+    expect(inventsANumber("Work begins in March.", "작업은 3월에 시작되며, 2019년 4월까지 진행될 예정이다.")).toBe(true);
+    expect(inventsANumber("Work begins in March.", "工程将于3月开始。")).toBe(false);
+    expect(inventsANumber("Opened in 2019 with 1,200 seats.", "افتُتح عام ٢٠١٩ بـ 1200 مقعد.")).toBe(false);
+  });
+
+  it("rejects an answer that invents a number", async () => {
+    const result = await translateLocally({
+      text: "Work begins in March.", language: "ko", config, read: on,
+      fetchImpl: reply(200, { ok: true, text: "3월에 시작, 2019년까지", ms: 1 }) as never,
+    });
+    expect(result).toEqual({ ok: false, reason: "invented_number" });
+  });
+});
