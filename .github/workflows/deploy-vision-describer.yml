@@ -63,9 +63,9 @@ jobs:
           NAME=LOCAL_DESCRIBE
           [[ "$ACTION" == *-summary ]] && NAME=LOCAL_SUMMARIZE
           if [[ "$ACTION" == enable* ]]; then
-            supabase secrets set "$NAME=on" --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+            supabase secrets set "$NAME=on" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
           else
-            supabase secrets unset "$NAME" --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+            supabase secrets unset "$NAME" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
           fi
           if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q "^ *$NAME "; then
             echo "$NAME is set."
