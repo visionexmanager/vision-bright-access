@@ -129,6 +129,11 @@ jobs:
           [ -n "$GW" ] || { echo "No bridge gateway address."; exit 1; }
 
           sudo docker pull python:3.12-slim >/dev/null
+          # A script that does not even parse is reported now, not after a
+          # thirteen-minute wait for a health check that can never pass.
+          sudo docker run --rm --volume /var/lib/visionex/translator:/app:ro python:3.12-slim \
+            python -c "import ast; ast.parse(open('/app/server.py', encoding='utf-8').read())" \
+            || { echo "server.py does not parse."; exit 1; }
           echo "Starting (the first start installs packages and downloads about 3 GB, several minutes)…"
           sudo docker run -d \
             --name visionex-translator \
