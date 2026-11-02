@@ -144,11 +144,13 @@ check("an event recorded after settlement is reported as late", rc.vx_ledger.gap
 check("a settled hold with no events is reported", rc.vx_ledger.gaps.settled_without_events === 1);
 check("plan allowance grants count only subscription grant rows", rc.plan_allowance_grants.subscription_grant_rows === 1 && rc.plan_allowance_grants.subscription_grant_vx === 100);
 check("the budget block shows the ledger/interactions view next to what ai_usage_events recorded", rc.budget.as_seen_by_check_ai_budget_today.requests === 0 && rc.budget.recorded_in_ai_usage_events_today.calls >= 8);
-check("charging registry: nothing enabled, reported", rc.charging_registry.services_enabled === 0 && rc.charging_registry.ai_chat_enabled === false);
+// The five video options (migration 20261103) are the only services switched on; chat and the rest are not.
+check("charging registry: only the five video options enabled, reported", rc.charging_registry.services_enabled === 5 && rc.charging_registry.ai_chat_enabled === false);
 const wanted = ["unpriced_calls_present", "calls_without_usage_present", "missing_usage_present", "estimated_usage_present", "duplicate_events_present", "late_events_present",
-  "expired_holds_with_events", "provider_cost_without_user_charge", "settled_holds_without_events", "provider_cost_recorded_but_no_service_enabled_for_charging",
+  "expired_holds_with_events", "provider_cost_without_user_charge", "settled_holds_without_events",
   "budget_token_and_request_limits_do_not_read_ai_usage_events"];
 check("every expected flag is raised", wanted.every((f) => rc.flags.includes(f)));
+check("the no-service-enabled flag is no longer raised once a service is priced", !rc.flags.includes("provider_cost_recorded_but_no_service_enabled_for_charging"));
 check("the result is never presented as an invoice", rc.verified_invoice_total === false);
 
 await db.exec("delete from public.ai_budgets where scope='global'");
