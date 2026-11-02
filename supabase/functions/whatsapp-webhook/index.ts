@@ -487,6 +487,7 @@ import { noticeReasonFor, voiceToText } from "../_shared/whatsappVoiceTurn.ts";
 import { chainProvider } from "../_shared/whatsappAskProvider.ts";
 import { withTranslations } from "../_shared/whatsappNewsTranslate.ts";
 import { translateLocally } from "../_shared/whatsappLocalTranslate.ts";
+import { guessIntent, looksLikeARequest } from "../_shared/whatsappIntent.ts";
 import {
   AI_CONVERSATION,
   AI_MENU,
@@ -6500,6 +6501,49 @@ Deno.serve(async (req) => {
         } catch (e) {
           // A summary is an optimisation. Losing it costs context, not the reply.
           console.error("[whatsapp] summary refresh failed:", describeError(e));
+        }
+      }
+
+      // ── "Did you mean…?" ──────────────────────────────────────────────
+      //
+      // Everything that matches words has declined by here. A short message that
+      // is clearly *about* one of our features, in words we never stored, gets
+      // asked about it instead of a general answer. It never opens anything: the
+      // reply tells the sender what to type, and that goes through the router.
+      // `INTENT_SUGGEST=off` switches it off with no deploy; the log carries a
+      // score and a reason, never the message.
+      if (
+        !aiFocused && !humanOwnsThis && incoming.text && looksLikeARequest(questionText) &&
+        (Deno.env.get("INTENT_SUGGEST") ?? "").trim().toLowerCase() !== "off"
+      ) {
+        try {
+          const found = await guessIntent({
+            db,
+            embed: (texts) => createEmbedding(texts),
+            text: questionText,
+            language: answerLanguage,
+            isOn: (nodeId) => featureOn(nodeId),
+          });
+          log("intent", {
+            outcome: found.guess ? "suggested" : "none",
+            reason: found.reason,
+            node: found.guess?.nodeId ?? null,
+            top: Math.round(found.top * 1000) / 1000,
+            margin: Math.round(found.margin * 1000) / 1000,
+          });
+          if (found.guess) {
+            await reply(
+              say("intentSuggest", answerLanguage)
+                .replace("{title}", found.guess.title)
+                .replace("{alias}", found.guess.alias),
+              "reply",
+            );
+            continue;
+          }
+        } catch (e) {
+          // Embeddings are a convenience: a provider that is down costs the
+          // suggestion, never the answer.
+          console.error("[whatsapp] intent suggestion failed:", describeError(e));
         }
       }
 
