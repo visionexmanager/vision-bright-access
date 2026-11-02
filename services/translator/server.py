@@ -93,14 +93,12 @@ def translate_piece(piece, target):
 
 
 def translate(text, target):
-    paragraphs = text.split("
-")
+    paragraphs = text.split("\n")
     lines = []
     for paragraph in paragraphs:
         pieces = [translate_piece(piece, target) for piece in segments(paragraph)]
         lines.append(("" if target in NO_SPACE else " ").join(pieces))
-    return "
-".join(lines).strip()
+    return "\n".join(lines).strip()
 
 
 class Handler(BaseHTTPRequestHandler):
