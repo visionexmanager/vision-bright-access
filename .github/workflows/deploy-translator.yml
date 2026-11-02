@@ -58,9 +58,9 @@ jobs:
           set -euo pipefail
           npm install -g supabase@latest >/dev/null 2>&1
           if [[ "$ACTION" == "enable" ]]; then
-            supabase secrets set LOCAL_TRANSLATE=on --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+            supabase secrets set LOCAL_TRANSLATE=on --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
           else
-            supabase secrets unset LOCAL_TRANSLATE --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+            supabase secrets unset LOCAL_TRANSLATE --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
           fi
           if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q '^ *LOCAL_TRANSLATE '; then
             echo "LOCAL_TRANSLATE is set."

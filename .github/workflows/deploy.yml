@@ -265,7 +265,7 @@ jobs:
             echo "::error::GitHub secret OPENAI_API_KEY is not configured."
             exit 1
           fi
-          supabase secrets set OPENAI_API_KEY="$OPENAI_API_KEY" --project-ref "$SUPABASE_PROJECT_REF"
+          supabase secrets set OPENAI_API_KEY="$OPENAI_API_KEY" --project-ref "$SUPABASE_PROJECT_REF" --yes
         env:
           OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -284,7 +284,7 @@ jobs:
               echo "::notice::GitHub secret $name is not configured — skipping."
               continue
             fi
-            supabase secrets set "$name=$value" --project-ref "$SUPABASE_PROJECT_REF"
+            supabase secrets set "$name=$value" --project-ref "$SUPABASE_PROJECT_REF" --yes
             echo "Synced $name."
           done
         env:
@@ -416,7 +416,7 @@ jobs:
             if [[ -z "$value" ]]; then
               continue
             fi
-            supabase secrets set "$name=$value" --project-ref "$SUPABASE_PROJECT_REF"
+            supabase secrets set "$name=$value" --project-ref "$SUPABASE_PROJECT_REF" --yes
             echo "Synced $name."
           done
         env:
