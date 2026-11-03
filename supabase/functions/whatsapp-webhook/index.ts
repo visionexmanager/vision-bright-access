@@ -3727,12 +3727,10 @@ Deno.serve(async (req) => {
             await recoverVoiceState();
             continue;
           }
-        } else if (
-          incoming.media.kind === "image" || incoming.media.kind === "sticker" ||
+        } else if (incoming.media.kind === "image" || incoming.media.kind === "sticker" ||
           // A picture sent "as a file" (HEIC, BMP, TIFF, AVIF, a full-size
           // JPEG) arrives as a document with an image type. It is a picture.
-          (incoming.media.kind === "document" && isImageMime(incoming.media.mimeType))
-        ) {
+          (incoming.media.kind === "document" && isImageMime(incoming.media.mimeType))) {
 
           const downloaded = await downloadMedia({
             mediaId: incoming.media.id,
@@ -3752,7 +3750,7 @@ Deno.serve(async (req) => {
             mimeType: downloaded.mimeType,
           });
           if (!normalised.ok) {
-            log("image_rejected", { reason: `convert_${normalised.reason}`, chars: downloaded.bytes.byteLength });
+            log("image_convert_failed", { reason: `convert_${normalised.reason}`, chars: downloaded.bytes.byteLength });
             await reply(mediaFailureNotice(answerLanguage, incoming.media.kind, "unsupported_type"), "unsupported");
             continue;
           }
