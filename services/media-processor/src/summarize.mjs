@@ -23,13 +23,23 @@ export const MAX_SUMMARIZE_INPUT_CHARS = 60_000;
 export const MAX_TASK_CHARS = 300;
 
 /** About 1,200 tokens of Latin script, fewer of Arabic: well inside the window. */
-export const CHUNK_CHARS = 4_000;
+export const CHUNK_CHARS = 2_500;
 export const MAX_CHUNKS = 3;
 
 /** The whole job, every piece included. The caller allows slightly longer. */
 export const SUMMARIZE_TIMEOUT_MS = 95_000;
-export const PARTIAL_TOKENS = 220;
-export const FINAL_TOKENS = 450;
+export const PARTIAL_TOKENS = 160;
+export const FINAL_TOKENS = 320;
+
+/**
+ * No new piece is started once this much of the job has gone, if one is done.
+ *
+ * This box has no GPU. A 3,500-character Arabic text asked for eight sentences
+ * ran past the 95 s deadline and returned nothing, though the first piece alone
+ * was a perfectly good summary. The loop now stops reading in time to leave the
+ * final pass a real share of the deadline, and says it stopped (`truncated`).
+ */
+export const STOP_NEW_PIECES_MS = 45_000;
 export const MAX_SUMMARY_CHARS = 3_000;
 
 /** The request body, or why it is not acceptable. */
@@ -94,8 +104,8 @@ export function summarizeRequestBody({ languageName, text, task, mode }) {
   const instruction = mode === "partial"
     ? `This is one part of a longer document. Summarise this part in a few sentences, in ${languageName}.`
     : mode === "final"
-      ? `These are summaries of consecutive parts of one document. ${goal} Write one summary of the whole, in ${languageName}, at most eight sentences.`
-      : `${goal} Answer in ${languageName}, at most eight sentences.`;
+      ? `These are summaries of consecutive parts of one document. ${goal} Write one summary of the whole, in ${languageName}, at most six sentences.`
+      : `${goal} Answer in ${languageName}, at most six sentences.`;
   return {
     messages: [
       { role: "system", content: summarizeSystemPrompt(languageName) },
