@@ -77,6 +77,13 @@ export const DELIVERY_HOSTS: Readonly<Record<string, readonly string[]>> = {
   rijksmuseum: ["iiif.micr.io"],
   // Flickr: only a photo whose own licence allows it (see licenceAllows).
   flickr: ["staticflickr.com"],
+  // NASA's own image server, and the free stock and CC0 collections. Unsplash, Europeana and DPLA are
+  // left out on purpose: Unsplash requires hotlinking, and the other two point at the holding
+  // institution's own site, which is not a host we name. Their results arrive as a link with the licence.
+  nasa: ["images-assets.nasa.gov"],
+  pexels: ["images.pexels.com"],
+  pixabay: ["pixabay.com", "cdn.pixabay.com"],
+  smithsonian: ["ids.si.edu"],
   // Research: the open repositories and publishers whose open-access PDFs a server can fetch.
   // Left out on purpose: Europe PMC, PubMed Central, bioRxiv and medRxiv, which answer a bot challenge.
   openalex: [
@@ -90,8 +97,8 @@ export const KIND_SEARCH: Readonly<Record<FileKind, { categories: readonly strin
   book: { categories: ["books", "education"], providers: ["gutenberg", "openstax", "internet_archive"] },
   audiobook: { categories: ["audio"], providers: ["internet_archive"] },
   video: { categories: ["video"], providers: ["internet_archive", "wikimedia_commons"] },
-  // Freely licensed pictures, in the order they are preferred: Commons and Openverse first, then the museums' CC0 images, then Flickr.
-  image: { categories: ["images"], providers: ["wikimedia_commons", "openverse", "met_museum", "artic", "cleveland_museum", "rijksmuseum", "flickr"] },
+  // Freely licensed pictures, in the order they are preferred: Commons and Openverse first, then the museums' CC0 images, NASA, the Smithsonian, Flickr, the free stock sites, and last the aggregators that only link.
+  image: { categories: ["images"], providers: ["wikimedia_commons", "openverse", "met_museum", "artic", "cleveland_museum", "rijksmuseum", "nasa", "smithsonian", "flickr", "pexels", "pixabay", "unsplash", "europeana", "dpla"] },
   audio: { categories: ["audio"], providers: ["wikimedia_commons", "internet_archive"] },
   // A paper or a PDF: an open-access full text with a stated open licence, or a PDF on Commons.
   document: { categories: ["documents"], providers: ["openalex", "wikimedia_commons"] },
@@ -293,7 +300,31 @@ const NO_DERIVATIVES = /(?:^|[\s-])ND(?:[\s-]|$)/i;
  * Only a licence that permits passing the work on qualifies, and a
  * no-derivatives licence never gets a resized or converted copy.
  */
+/**
+ * Collections that name a licence and serve the picture from a host we name. `licence` is the one
+ * licence name a collection may carry, `pick` chooses the address, and `convert` says the file is
+ * resized on the processor (its originals can be far over Meta's limit) instead of sent as it is.
+ */
+const STOCK_IMAGE: Readonly<Record<string, { address: RegExp; licence: RegExp; pick: (i: ExternalContentItem) => string | null; convert: boolean }>> = {
+  nasa: { address: /^https:\/\/images-assets\.nasa\.gov\/image\/[\w.%()+-]+\/[\w.~%()+ -]+\.(?:jpg|jpeg|png)$/i, licence: /^No known copyright$/, pick: (i) => i.previewUrl, convert: true },
+  smithsonian: { address: /^https:\/\/ids\.si\.edu\/ids\/deliveryService\?id=[\w.:-]{1,80}$/, licence: /^CC0$/, pick: (i) => i.downloadUrl, convert: true },
+  pexels: { address: /^https:\/\/images\.pexels\.com\/photos\/\d+\/[\w.-]+\.(?:jpe?g|png)(?:\?[\w=&.%-]{0,120})?$/i, licence: /^Pexels License$/, pick: (i) => i.previewUrl, convert: false },
+  pixabay: { address: /^https:\/\/(?:cdn\.)?pixabay\.com\/(?:photo|get)\/[\w/.-]+\.(?:jpe?g|png)$/i, licence: /^Pixabay Content License$/, pick: (i) => i.previewUrl, convert: false },
+};
+
+function stockCandidate(item: ExternalContentItem, hosts: readonly string[]): FileCandidate | null {
+  const rule = STOCK_IMAGE[item.provider];
+  if (!rule || !item.license || !rule.licence.test(item.license.name)) return null;
+  const url = rule.pick(item);
+  if (!url || !rule.address.test(url)) return null;
+  const mime = /\.png(?:\?|$)/i.test(url) ? "image/png" : "image/jpeg";
+  return rule.convert
+    ? { url, mime: "image/jpeg", fileName: fileNameFor(item.title, "image/jpeg"), size: null, hosts, mustConvert: true, convert: TO_JPEG }
+    : { url, mime, fileName: fileNameFor(item.title, mime), size: null, hosts };
+}
+
 function imageCandidate(item: ExternalContentItem, hosts: readonly string[]): FileCandidate | null {
+  if (item.provider in STOCK_IMAGE) return stockCandidate(item, hosts);
   const limit = deliveryRuleFor("image/jpeg")?.maxBytes ?? 0;
   if (!item.downloadUrl && item.provider !== "openverse") return null;
   if (item.provider === "openverse") {
