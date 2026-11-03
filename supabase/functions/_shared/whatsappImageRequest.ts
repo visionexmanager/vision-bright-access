@@ -259,7 +259,9 @@ export interface AssetRequest {
 
 const AUDIO_WORDS = [
   "audio recording", "audio recordings", "audio clip", "audio", "recording", "recordings", "sound", "sounds",
+  "sound effect", "sound effects", "sfx", "noise", "noises", "ambience", "ambient sound", "birdsong",
   "تسجيل صوتي", "تسجيلات صوتية", "مقطع صوتي", "تسجيل", "صوتية", "صوت",
+  "أصوات", "اصوات", "مؤثر صوتي", "مؤثرات صوتية", "هدير", "ضجيج", "جلبة", "خرير", "زقزقة", "دوي", "رنين", "نغمة", "نغمات",
   "অডিও", "রেকর্ডিং", "শব্দ",
   "aufnahme", "tonaufnahme", "geräusch", "klang",
   "grabación", "grabacion", "sonido",
