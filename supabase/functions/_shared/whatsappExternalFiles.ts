@@ -81,7 +81,10 @@ export const DELIVERY_HOSTS: Readonly<Record<string, readonly string[]>> = {
   // left out on purpose: Unsplash requires hotlinking, and the other two point at the holding
   // institution's own site, which is not a host we name. Their results arrive as a link with the licence.
   nasa: ["images-assets.nasa.gov"],
-  pexels: ["images.pexels.com"],
+  pexels: ["images.pexels.com", "videos.pexels.com"],
+  // Freesound's public previews (an MP3 each). Jamendo is left out on purpose: its free API tier is for
+  // non-commercial use, and Visionex is a service, so its tracks arrive as a link to their page.
+  freesound: ["cdn.freesound.org"],
   pixabay: ["pixabay.com", "cdn.pixabay.com"],
   smithsonian: ["ids.si.edu"],
   wellcome: ["iiif.wellcomecollection.org"],
@@ -231,8 +234,29 @@ export function licenceAllows(licence: { name: string } | null | undefined, modi
 
 const extensionOf = (url: string): string => /\.([a-z0-9]{2,5})(?:[?#]|$)/i.exec(url)?.[1]?.toLowerCase() ?? "";
 
+/**
+ * Sound and film from the keyed collections: a Freesound preview, a Pexels or Pixabay video. Each is held
+ * to its own host, its own address shape and its own licence name; a film over Meta's limit is shrunk on
+ * the processor rather than refused.
+ */
+const STOCK_MEDIA: Readonly<Record<string, { kind: "audio" | "video"; address: RegExp; licence: RegExp; pick: (i: ExternalContentItem) => string | null }>> = {
+  freesound: { kind: "audio", address: /^https:\/\/cdn\.freesound\.org\/previews\/\d{1,6}\/\d{1,12}_\d{1,12}-(?:hq|lq)\.mp3$/, licence: /^(?:CC0|CC BY)(?: \d\.\d)?$/, pick: (i) => i.previewUrl },
+  pexels: { kind: "video", address: /^https:\/\/videos\.pexels\.com\/video-files\/\d{1,12}\/[\w.-]+\.mp4$/, licence: /^Pexels License$/, pick: (i) => i.downloadUrl },
+  pixabay: { kind: "video", address: /^https:\/\/cdn\.pixabay\.com\/video\/[\w/.-]+\.mp4$/, licence: /^Pixabay Content License$/, pick: (i) => i.previewUrl },
+};
+
+function stockMediaCandidate(item: ExternalContentItem, kind: "audio" | "video", hosts: readonly string[]): FileCandidate | null {
+  const rule = STOCK_MEDIA[item.provider];
+  if (!rule || rule.kind !== kind || !item.license || !rule.licence.test(item.license.name)) return null;
+  const url = rule.pick(item);
+  if (!url || !rule.address.test(url)) return null;
+  const mime = kind === "audio" ? TO_MP3.mime : TO_MP4.mime;
+  return { url, mime, fileName: fileNameFor(item.title, mime), size: item.sizeBytes, hosts, ...(kind === "video" ? { convert: TO_MP4 } : {}) };
+}
+
 /** Audio and video from Wikimedia Commons: what Meta takes as it is, or converted on the processor. */
 function commonsMediaCandidate(item: ExternalContentItem, kind: "audio" | "video", hosts: readonly string[]): FileCandidate | null {
+  if (item.provider !== "wikimedia_commons") return stockMediaCandidate(item, kind, hosts);
   const original = item.provider === "wikimedia_commons" ? commonsOriginal(item.downloadUrl) : null;
   if (!original) return null;
   let mime = (item.mimeType ?? "").toLowerCase();

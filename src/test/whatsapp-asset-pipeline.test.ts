@@ -231,7 +231,7 @@ describe("papers and documents", () => {
 });
 
 describe("the sources that stay links, by design", () => {
-  it.each(["youtube", "vimeo", "dailymotion", "unsplash", "europeana", "dpla", "arxiv", "crossref", "europe_pmc", "core", "doab", "open_library", "podcast_index", "apple_podcasts", "freesound", "jamendo", "wikipedia"])(
+  it.each(["youtube", "vimeo", "dailymotion", "unsplash", "europeana", "dpla", "arxiv", "crossref", "europe_pmc", "core", "doab", "open_library", "podcast_index", "apple_podcasts", "jamendo", "wikipedia"])(
     "%s is never a delivered file, whatever it claims",
     (provider) => {
       expect(DELIVERY_HOSTS[provider]).toBeUndefined();
