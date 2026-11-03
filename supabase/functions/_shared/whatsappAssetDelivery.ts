@@ -145,7 +145,10 @@ export type DeliveryFailure =
   | "asset_content_mismatch"
   | "whatsapp_upload_rejected"
   | "whatsapp_send_rejected"
-  | "whatsapp_transport_error";
+  | "whatsapp_transport_error"
+  | "meta_send_rejected"
+  | "meta_transport_error"
+  | "meta_url_required";
 
 const IP_LITERAL = /^(\d{1,3}(\.\d{1,3}){3}|\[[0-9a-f:.]+\])$/i;
 

@@ -9172,6 +9172,7 @@ export const translations: Record<string, string> = {
   "library.openSources.action.view": "Görüntüle",
   "library.openSources.open": "{provider} üzerinde aç",
   "library.openSources.download": "İndir",
+  "library.openSources.downloadUnavailable": "Bu dosya yalnızca kaynağında açılabilir. Yandaki bağlantıyı kullanın.",
   "library.openSources.loadingMedia": "Yükleniyor…",
   "library.openSources.mediaUnavailable": "Bu öğe burada oynatılamıyor. Bunun yerine kaynağında açın.",
   "library.openSources.playerTitle": "{provider} oynatıcısı: {title}",

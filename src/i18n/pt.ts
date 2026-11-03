@@ -9172,6 +9172,7 @@ export const translations: Record<string, string> = {
   "library.openSources.action.view": "Ver",
   "library.openSources.open": "Abrir em {provider}",
   "library.openSources.download": "Baixar",
+  "library.openSources.downloadUnavailable": "Este arquivo só pode ser aberto na fonte. Use o link ao lado.",
   "library.openSources.loadingMedia": "Carregando…",
   "library.openSources.mediaUnavailable": "Este item não pode ser reproduzido aqui. Abra-o na fonte.",
   "library.openSources.playerTitle": "Player do {provider}: {title}",

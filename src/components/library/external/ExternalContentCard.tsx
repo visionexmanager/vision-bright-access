@@ -1,10 +1,18 @@
-import { forwardRef, useId } from "react";
+import { forwardRef, useId, useState } from "react";
 import { Bookmark, BookmarkCheck, Check, Download, ExternalLink, FolderPlus, Play, Eye, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
-import type { ExternalContentItem } from "@/services/library/externalContent";
+import { fetchExternalFile, type ExternalContentItem } from "@/services/library/externalContent";
+
+/** Result types that can be a file at all; the server decides whether this one is. */
+const FILE_TYPES = new Set(["image", "audio", "video", "document", "book"]);
+
+/** Whether to offer the file: it has a stated licence and an address the source gave for the work itself. */
+export function canOfferFile(item: ExternalContentItem): boolean {
+  return !!item.license && FILE_TYPES.has(item.contentType) && !!(item.downloadUrl || item.previewUrl);
+}
 
 /** "h:mm:ss" or "m:ss". */
 export function formatDuration(seconds: number): string {
@@ -58,6 +66,24 @@ interface Props {
 export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(function ExternalContentCard({ item, onPreview, saved = false, savePending = false, onToggleSave, projectAction, saveKeys }, headingRef) {
   const { t, lang } = useLanguage();
   const titleId = useId();
+  const [fileState, setFileState] = useState<"idle" | "busy" | "unavailable">("idle");
+  const saveFile = async () => {
+    setFileState("busy");
+    try {
+      const { blob, fileName } = await fetchExternalFile(item.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      setFileState("idle");
+    } catch {
+      setFileState("unavailable");
+    }
+  };
   const hintId = useId();
   const action = previewAction(item);
   const newTab = <span className="sr-only"> ({t("library.researchAssistant.external.opensInNewTab")})</span>;
@@ -172,17 +198,24 @@ export const ExternalContentCard = forwardRef<HTMLHeadingElement, Props>(functio
               </>
             );
           })()}
-          {item.downloadUrl && (
-            <Button asChild size="sm" variant="ghost" className="gap-1.5">
-              <a href={item.downloadUrl} target="_blank" rel="noopener noreferrer">
-                <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                {t("library.openSources.download")}
-                <span className="sr-only">: {item.title}</span>
-                {newTab}
-              </a>
+          {canOfferFile(item) && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="gap-1.5"
+              onClick={saveFile}
+              disabled={fileState === "busy"}
+              aria-busy={fileState === "busy"}
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              {fileState === "busy" ? t("library.openSources.loadingMedia") : t("library.openSources.download")}
+              <span className="sr-only">: {item.title}</span>
             </Button>
           )}
         </div>
+        <p role="status" aria-live="polite" className={fileState === "unavailable" ? "text-xs text-muted-foreground" : "sr-only"}>
+          {fileState === "unavailable" ? t("library.openSources.downloadUnavailable") : ""}
+        </p>
       </div>
     </Card>
   );

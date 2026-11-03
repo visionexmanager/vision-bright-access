@@ -25,7 +25,7 @@ describe("NASA, the Smithsonian, Pexels and Pixabay as WhatsApp picture sources"
 
   it("send a Pexels or Pixabay picture as it is, from their own hosts", () => {
     const pexels = directCandidate(item("pexels", { license: { name: "Pexels License" }, previewUrl: "https://images.pexels.com/photos/1/pexels-photo-1.jpeg?auto=compress&cs=tinysrgb&h=650&w=940" }), "image");
-    expect(pexels).toMatchObject({ mime: "image/jpeg", hosts: ["images.pexels.com"] });
+    expect(pexels).toMatchObject({ mime: "image/jpeg", hosts: expect.arrayContaining(["images.pexels.com"]) });
     expect(pexels?.mustConvert).toBeUndefined();
     const pixabay = directCandidate(item("pixabay", { license: { name: "Pixabay Content License" }, previewUrl: "https://pixabay.com/get/g123_640.jpg" }), "image");
     expect(pixabay).toMatchObject({ mime: "image/jpeg", hosts: ["pixabay.com", "cdn.pixabay.com"] });

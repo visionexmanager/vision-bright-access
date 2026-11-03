@@ -85,6 +85,12 @@ import {
 import { installChatAttemptRecording } from "../_shared/chatRecorder.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { isAuthorized, requireActiveSubscription } from "../_shared/subscriptionGate.ts";
+import { deliverMetaAsset } from "../_shared/messaging/metaDelivery.ts";
+import { attachExternalFile, findExternalLinks } from "../_shared/whatsappExternalFiles.ts";
+import { deliveryFallbackText } from "../_shared/whatsappAssetDelivery.ts";
+import { parseAssetRequest, parseImageRequest } from "../_shared/whatsappImageRequest.ts";
+import { translateWithChain } from "../_shared/whatsappQueryTranslate.ts";
+import { convertMediaLocally, processorAvailable } from "../_shared/whatsappProcessor.ts";
 import { subscriptionRequiredShortNotice } from "../_shared/whatsappEntitlements.ts";
 
 installUsageMetering("meta-messaging-webhook");
@@ -544,6 +550,61 @@ Deno.serve(async (req) => {
       // Once a human owns the conversation the assistant stops answering, so
       // the customer is not talking to both at once.
       if (conversation.control === "human" || conversation.escalated) continue;
+
+      // ── A picture, a recording, a film or a paper that already exists ─────
+      //
+      // The same request rules and the same licensed sources as the WhatsApp
+      // assistant, and the same answer: the file itself, with its credit as the
+      // next message. A request that asks for the link gets the link; a file that
+      // cannot be delivered (Instagram takes no uploaded bytes, a source refuses)
+      // falls back to the result's own page; anything else carries on below.
+      {
+        const imageRequest = parseImageRequest(incoming.text);
+        const assetRequest = imageRequest ? null : parseAssetRequest(incoming.text);
+        const request = imageRequest
+          ? { kind: "image" as const, query: imageRequest.query, count: imageRequest.count, wantsLink: imageRequest.wantsLink }
+          : assetRequest;
+        if (request) {
+          const fileDeps = {
+            fetch: (url: string, init?: RequestInit) => fetch(url, init),
+            env: (name: string) => Deno.env.get(name),
+            translate: translateWithChain,
+          };
+          if (request.wantsLink) {
+            const links = await findExternalLinks({ kind: request.kind, query: request.query, language }, fileDeps);
+            if (links.length > 0) {
+              await reply(links.map((l) => `${l.title}\n${l.url}`).join("\n\n"), "reply");
+              continue;
+            }
+          } else {
+            const attached = await attachExternalFile(
+              { kind: request.kind, query: request.query, language, count: request.count },
+              {
+                ...fileDeps,
+                convert: processorAvailable() ? (bytes: Uint8Array, query: string) => convertMediaLocally({ bytes, query }) : undefined,
+                deliver: (asset) => deliverMetaAsset({
+                  channel: incoming.channel as "messenger" | "instagram",
+                  fromAccountId: incoming.recipientId,
+                  toUserId: incoming.senderId,
+                  token,
+                  asset,
+                }),
+                sendText: (body) => reply(body, "reply"),
+              },
+            );
+            console.log(`[meta-messaging] external_file flow=${request.kind} outcome=${attached.outcome} tried=${attached.tried}${attached.outcome === "none" ? ` reason=${attached.detail ?? attached.reason}` : ` provider=${attached.provider}`}`);
+            if (attached.outcome === "delivered") {
+              // The file itself is not stored, only that one went.
+              await db.from("meta_messages").insert({ conversation_id: conversation.id, direction: "outbound", kind: "file", body: `[${request.kind}] ${request.query}`.slice(0, 200) });
+              continue;
+            }
+            if (attached.link) {
+              await reply(deliveryFallbackText(language).replace("{url}", attached.link.url), "reply");
+              continue;
+            }
+          }
+        }
+      }
 
       // ── The existing assistant, unchanged ─────────────────────────────
       const { data: history } = await db

@@ -9280,6 +9280,7 @@ export const translations: Record<string, string> = {
   "library.openSources.action.view": "عرض",
   "library.openSources.open": "فتح في {provider}",
   "library.openSources.download": "تنزيل",
+  "library.openSources.downloadUnavailable": "لا يمكن حفظ هذا الملف من هنا، ويمكن فتحه عند مصدره فقط. استخدم الرابط المجاور.",
   "library.openSources.loadingMedia": "جارٍ التحميل…",
   "library.openSources.mediaUnavailable": "لا يمكن تشغيل هذا العنصر هنا. افتحه في مصدره بدلًا من ذلك.",
   "library.openSources.playerTitle": "مشغّل {provider}: {title}",

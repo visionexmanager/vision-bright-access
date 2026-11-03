@@ -9167,6 +9167,7 @@ export const translations: Record<string, string> = {
   "library.openSources.action.view": "보기",
   "library.openSources.open": "{provider}에서 열기",
   "library.openSources.download": "다운로드",
+  "library.openSources.downloadUnavailable": "이 파일은 출처에서만 열 수 있습니다. 옆의 링크를 이용하세요.",
   "library.openSources.loadingMedia": "불러오는 중…",
   "library.openSources.mediaUnavailable": "이 항목은 여기에서 재생할 수 없습니다. 출처에서 여세요.",
   "library.openSources.playerTitle": "{provider} 플레이어: {title}",
