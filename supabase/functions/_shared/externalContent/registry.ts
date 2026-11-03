@@ -8,6 +8,7 @@
  */
 
 import { artic, clevelandMuseum, metMuseum } from "./providers/museums.ts";
+import { ccmixter, inaturalist, sepiasearch, wellcome } from "./providers/open.ts";
 import { core, dpla, europeana, flickr, freesound, googleBooks, jamendo, pexels, pixabay, podcastIndex, smithsonian, unsplash, vimeo, youtube } from "./providers/keyed.ts";
 import { applePodcasts, dailymotion, radioBrowser } from "./providers/media.ts";
 import { arxiv, openAlex } from "./providers/scholarly.ts";
@@ -32,6 +33,10 @@ export const CONTENT_PROVIDERS: readonly ContentProvider[] = [
   artic,
   clevelandMuseum,
   rijksmuseum,
+  wellcome,
+  inaturalist,
+  ccmixter,
+  sepiasearch,
   openLibrary,
   gutenberg,
   standardEbooks,
