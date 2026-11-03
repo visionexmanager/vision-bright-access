@@ -2901,6 +2901,7 @@ export const translations: Record<string, string> = {
   "library.openSources.action.view": "देखें",
   "library.openSources.open": "{provider} पर खोलें",
   "library.openSources.download": "डाउनलोड करें",
+  "library.openSources.downloadUnavailable": "यह फ़ाइल यहाँ से सहेजी नहीं जा सकती, इसे केवल इसके स्रोत पर खोला जा सकता है। पास का लिंक इस्तेमाल करें।",
   "library.openSources.loadingMedia": "लोड हो रहा है…",
   "library.openSources.mediaUnavailable": "यह आइटम यहाँ नहीं चल सकता। इसे इसके स्रोत पर खोलें।",
   "library.openSources.playerTitle": "{provider} प्लेयर: {title}",

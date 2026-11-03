@@ -9167,6 +9167,7 @@ export const translations: Record<string, string> = {
   "library.openSources.action.view": "Lihat",
   "library.openSources.open": "Buka di {provider}",
   "library.openSources.download": "Unduh",
+  "library.openSources.downloadUnavailable": "File ini hanya dapat dibuka di sumbernya. Gunakan tautan di sampingnya.",
   "library.openSources.loadingMedia": "Memuat…",
   "library.openSources.mediaUnavailable": "Item ini tidak dapat diputar di sini. Buka di sumbernya.",
   "library.openSources.playerTitle": "Pemutar {provider}: {title}",

@@ -9172,6 +9172,7 @@ export const translations: Record<string, string> = {
   "library.openSources.action.view": "Bekijken",
   "library.openSources.open": "Openen bij {provider}",
   "library.openSources.download": "Downloaden",
+  "library.openSources.downloadUnavailable": "Dit bestand kan alleen bij de bron worden geopend. Gebruik de link ernaast.",
   "library.openSources.loadingMedia": "Laden…",
   "library.openSources.mediaUnavailable": "Dit item kan hier niet worden afgespeeld. Open het bij de bron.",
   "library.openSources.playerTitle": "{provider}-speler: {title}",

@@ -9167,6 +9167,7 @@ export const translations: Record<string, string> = {
   "library.openSources.action.view": "مشاهده",
   "library.openSources.open": "باز کردن در {provider}",
   "library.openSources.download": "دانلود",
+  "library.openSources.downloadUnavailable": "این فایل را فقط در منبع آن می‌توان باز کرد. از پیوند کنار آن استفاده کنید.",
   "library.openSources.loadingMedia": "در حال بارگذاری…",
   "library.openSources.mediaUnavailable": "این مورد اینجا پخش نمی‌شود. آن را در منبعش باز کنید.",
   "library.openSources.playerTitle": "پخش‌کنندهٔ {provider}: {title}",

@@ -9167,6 +9167,7 @@ export const translations: Record<string, string> = {
   "library.openSources.action.view": "دیکھیں",
   "library.openSources.open": "{provider} پر کھولیں",
   "library.openSources.download": "ڈاؤن لوڈ",
+  "library.openSources.downloadUnavailable": "یہ فائل یہاں سے محفوظ نہیں کی جا سکتی، صرف اس کے ماخذ پر کھولی جا سکتی ہے۔ ساتھ والا لنک استعمال کریں۔",
   "library.openSources.loadingMedia": "لوڈ ہو رہا ہے…",
   "library.openSources.mediaUnavailable": "یہ آئٹم یہاں نہیں چل سکتا۔ اسے اس کے ذریعے پر کھولیں۔",
   "library.openSources.playerTitle": "{provider} پلیئر: {title}",

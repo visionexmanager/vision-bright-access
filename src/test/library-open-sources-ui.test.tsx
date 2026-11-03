@@ -146,12 +146,12 @@ describe("Open Sources page", () => {
     expect(within(card).getByRole("img", { name: "The full Moon over the sea" })).toBeInTheDocument();
     expect(within(card).getByRole("link", { name: /License: CC BY-SA 4.0 \(opens in a new tab\)/ })).toHaveAttribute("href", "https://creativecommons.org/licenses/by-sa/4.0/");
     expect(within(card).getByRole("link", { name: /Open at Wikimedia Commons.*Full Moon.*opens in a new tab/ })).toHaveAttribute("rel", "noopener noreferrer");
-    expect(within(card).getByRole("link", { name: /Download.*Full Moon/ })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: /Download.*Full Moon/ })).toBeInTheDocument();
     expect(within(card).getByText(/Jane, CC BY-SA 4.0, via Wikimedia Commons/)).toBeInTheDocument();
 
     const paper = screen.getByRole("article", { name: "A paper" });
     expect(within(paper).getByText("License not stated. Check the source before reusing it.")).toBeInTheDocument();
-    expect(within(paper).queryByRole("link", { name: /Download/ })).toBeNull();
+    expect(within(paper).queryByRole("button", { name: /Download/ })).toBeNull();
     // Nothing to play inside the Library: only the link out, and the Save toggle.
     expect(within(paper).queryByRole("button", { name: /^(Play|Read|View):/ })).toBeNull();
     expect(within(paper).getByRole("button", { name: "Save: A paper" })).toBeInTheDocument();

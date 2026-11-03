@@ -9167,6 +9167,7 @@ export const translations: Record<string, string> = {
   "library.openSources.action.view": "Xem",
   "library.openSources.open": "Mở trên {provider}",
   "library.openSources.download": "Tải xuống",
+  "library.openSources.downloadUnavailable": "Tệp này chỉ có thể mở tại nguồn của nó. Hãy dùng liên kết bên cạnh.",
   "library.openSources.loadingMedia": "Đang tải…",
   "library.openSources.mediaUnavailable": "Không thể phát mục này tại đây. Hãy mở nó tại nguồn.",
   "library.openSources.playerTitle": "Trình phát {provider}: {title}",

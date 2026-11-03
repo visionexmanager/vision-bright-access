@@ -9167,6 +9167,7 @@ export const translations: Record<string, string> = {
   "library.openSources.action.view": "查看",
   "library.openSources.open": "在 {provider} 打开",
   "library.openSources.download": "下载",
+  "library.openSources.downloadUnavailable": "此文件只能在其来源处打开。请使用旁边的链接。",
   "library.openSources.loadingMedia": "正在加载…",
   "library.openSources.mediaUnavailable": "此内容无法在这里播放。请到来源处打开。",
   "library.openSources.playerTitle": "{provider} 播放器：{title}",
