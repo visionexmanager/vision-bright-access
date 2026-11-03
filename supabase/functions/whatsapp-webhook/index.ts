@@ -75,6 +75,11 @@ import {
   businessAccountIdOf,
 } from "../_shared/whatsapp.ts";
 import { downloadMedia, mediaFailureNotice } from "../_shared/whatsappMedia.ts";
+import {
+  CONVERTIBLE_IMAGE_MIMES,
+  isImageMime,
+  normaliseImage,
+} from "../_shared/whatsappImageNormalise.ts";
 import { transcribeVoice, transcriptionFailureNotice } from "../_shared/whatsappTranscribe.ts";
 import { recordSttAttempts } from "../_shared/providerRecording.ts";
 import {
@@ -3722,18 +3727,36 @@ Deno.serve(async (req) => {
             await recoverVoiceState();
             continue;
           }
-        } else if (incoming.media.kind === "image" || incoming.media.kind === "sticker") {
+        } else if (
+          incoming.media.kind === "image" || incoming.media.kind === "sticker" ||
+          // A picture sent "as a file" (HEIC, BMP, TIFF, AVIF, a full-size
+          // JPEG) arrives as a document with an image type. It is a picture.
+          (incoming.media.kind === "document" && isImageMime(incoming.media.mimeType))
+        ) {
 
-          const media = await downloadMedia({
+          const downloaded = await downloadMedia({
             mediaId: incoming.media.id,
-            kind: incoming.media.kind,
+            kind: incoming.media.kind === "document" ? "image" : incoming.media.kind,
             token,
             trace: correlationId,
+            extraMimes: CONVERTIBLE_IMAGE_MIMES,
           });
-          if (!media.ok) {
-            await reply(mediaFailureNotice(answerLanguage, incoming.media.kind, media.reason), "unsupported");
+          if (!downloaded.ok) {
+            await reply(mediaFailureNotice(answerLanguage, incoming.media.kind, downloaded.reason), "unsupported");
             continue;
           }
+
+          // Any other picture format is made into a PNG the readers take.
+          const normalised = await normaliseImage({
+            bytes: downloaded.bytes,
+            mimeType: downloaded.mimeType,
+          });
+          if (!normalised.ok) {
+            log("image_rejected", { reason: `convert_${normalised.reason}`, chars: downloaded.bytes.byteLength });
+            await reply(mediaFailureNotice(answerLanguage, incoming.media.kind, "unsupported_type"), "unsupported");
+            continue;
+          }
+          const media = { ok: true as const, bytes: normalised.bytes, mimeType: normalised.mimeType };
 
           // ── Before a photograph leaves this server ────────────────────────
           //
