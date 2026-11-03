@@ -121,6 +121,8 @@ import {
   IMAGE_TARGETS,
   IMAGE_TIMEOUT_MS,
   imageArgs,
+  heifArgs,
+  isHeif,
   audioArgs,
   gifArgs,
   MAX_CONVERT_BYTES,
@@ -348,6 +350,25 @@ async function runTool({ bytes, prefix, command, build, timeoutMs, ok, read, fai
     // leaks a directory per failed request fills a disk in a week.
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
+}
+
+/** Decode a HEIC/HEIF picture to PNG with libheif (heif-convert). */
+function heifToPng(bytes) {
+  return runTool({
+    bytes,
+    prefix: "heif-",
+    command: "heif-convert",
+    inputName: "in.heic",
+    timeoutMs: IMAGE_TIMEOUT_MS,
+    build: (input, dir) => heifArgs(input, join(dir, "out.png")),
+    ok: (code) => code === 0,
+    read: async ({ dir }) => {
+      const png = await readFile(join(dir, "out.png"));
+      if (png.length === 0) throw new Error("empty_output");
+      return png;
+    },
+    failure: "conversion_failed",
+  });
 }
 
 /** Run Tesseract over one image. */
@@ -649,7 +670,7 @@ async function handleConvert(req, res, correlation) {
   }
   const options = parsed.options;
 
-  const bytes = await receiveMedia(req, res, correlation);
+  let bytes = await receiveMedia(req, res, correlation);
   if (!bytes) return;
 
   const target = options.to === "gif"
@@ -663,6 +684,10 @@ async function handleConvert(req, res, correlation) {
   await acquireSlot();
   const started = Date.now();
   try {
+    // ffmpeg here has no HEIF decoder; an iPhone photograph goes through
+    // libheif first and arrives at ffmpeg as the PNG it expects.
+    if (options.kind === "image" && isHeif(bytes)) bytes = await heifToPng(bytes);
+
     const output = await runTool({
       bytes,
       prefix: "conv-",

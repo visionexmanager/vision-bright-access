@@ -294,3 +294,23 @@ describe("a contact sheet: six frames of a video in one picture", () => {
     expect(convert.imageArgs("in.png", "out.jpg", parsed.options)).toContain("scale=640:-2");
   });
 });
+
+describe("HEIC/HEIF intake", () => {
+  const box = (brand: string) => {
+    const b = new Uint8Array(16);
+    b.set([0, 0, 0, 16, 0x66, 0x74, 0x79, 0x70]);
+    b.set([...brand].map((ch) => ch.charCodeAt(0)), 8);
+    return b;
+  };
+  it("recognises the HEIF brands by their bytes", () => {
+    for (const brand of ["heic", "heix", "mif1", "msf1"]) expect(convert.isHeif(box(brand))).toBe(true);
+  });
+  it("does not mistake an mp4, a JPEG or a short buffer for HEIF", () => {
+    expect(convert.isHeif(box("isom"))).toBe(false);
+    expect(convert.isHeif(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]))).toBe(false);
+    expect(convert.isHeif(new Uint8Array(4))).toBe(false);
+  });
+  it("passes only the two fixed paths to heif-convert", () => {
+    expect(convert.heifArgs("/t/in.heic", "/t/out.png")).toEqual(["/t/in.heic", "/t/out.png"]);
+  });
+});
