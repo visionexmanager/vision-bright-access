@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useStartGameSession, useEndGameSession } from "@/features/visionkids/hooks/games/useGameEngagement";
 import { useAwardXp, useAwardCoins, useAwardAchievement, usePlayerGameStats } from "@/features/visionkids/hooks/games/useGameEngagement";
 import { useBumpDailyChallengeProgress, useBumpWeeklyChallengeProgress, useDailyChallenges, useWeeklyChallenges } from "@/features/visionkids/hooks/games/useGameChallenges";
+import { playKidsSound } from "@/features/visionkids/audio/kidsSound";
 import type { Game } from "@/features/visionkids/types/games.types";
 import type { GameEngineState } from "@/features/visionkids/types/games.types";
 
@@ -71,6 +72,7 @@ export function useGameSession(options: UseGameSessionOptions) {
 
   const start = useCallback(async () => {
     finishedRef.current = false;
+    playKidsSound("start");
     setState({
       status: "playing",
       score: 0,
@@ -104,7 +106,11 @@ export function useGameSession(options: UseGameSessionOptions) {
   const pause = useCallback(() => setState((prev) => (prev.status === "playing" ? { ...prev, status: "paused" } : prev)), []);
   const resume = useCallback(() => setState((prev) => (prev.status === "paused" ? { ...prev, status: "playing" } : prev)), []);
 
-  const addScore = useCallback((delta: number) => setState((prev) => ({ ...prev, score: Math.max(0, prev.score + delta) })), []);
+  const addScore = useCallback((delta: number) => {
+    if (delta > 0) playKidsSound(delta >= 10 ? "correct" : "point");
+    else if (delta < 0) playKidsSound("wrong");
+    setState((prev) => ({ ...prev, score: Math.max(0, prev.score + delta) }));
+  }, []);
 
   const consumeHint = useCallback((): boolean => {
     let granted = false;
@@ -121,6 +127,7 @@ export function useGameSession(options: UseGameSessionOptions) {
       if (finishedRef.current) return;
       finishedRef.current = true;
       clearTicker();
+      playKidsSound(won ? "win" : "lose");
 
       setState((prev) => ({ ...prev, status: won ? "won" : "lost" }));
 
@@ -169,6 +176,7 @@ export function useGameSession(options: UseGameSessionOptions) {
   );
 
   const loseLife = useCallback(() => {
+    if (hasLives) playKidsSound("wrong");
     setState((prev) => {
       if (!hasLives) return prev;
       const lives = Math.max(0, prev.lives - 1);
