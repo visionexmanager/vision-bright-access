@@ -1,5 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Volume2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { cancelKidsSpeech, kidsSpeechSupported, speakKids, speakKidsIfOn } from "@/features/visionkids/audio/kidsSound";
 import { GameShell } from "@/features/visionkids/components/games/engine/GameShell";
 import { useGameSession } from "@/features/visionkids/components/games/engine/useGameSession";
 import type { Game } from "@/features/visionkids/types/games.types";
@@ -57,7 +59,7 @@ export function QuizGame({
   renderPrompt,
   optionColumns = 2,
 }: QuizGameProps) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [round, setRound] = useState<QuizRound>(() => buildRound());
   const [correct, setCorrect] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
@@ -70,6 +72,14 @@ export function QuizGame({
     hasTimer: true,
     timeLimitSeconds,
   });
+
+  const roundText = `${instruction}. ${round.prompt}. ${round.detail ?? ""}. ${round.options.join(". ")}`;
+  // A reader who turned reading aloud on hears each new question; the Listen button is there for everyone else.
+  useEffect(() => {
+    if (state.status === "playing" && !picked) speakKidsIfOn(roundText, lang);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [round, state.status]);
+  useEffect(() => cancelKidsSpeech, []);
 
   const nextRound = useCallback(() => {
     setRound(buildRound());
@@ -120,6 +130,15 @@ export function QuizGame({
     >
       <div className="rounded-2xl border-2 border-border bg-card p-6 text-center">
         <p className="text-sm text-muted-foreground">{instruction}</p>
+        {kidsSpeechSupported() && (
+          <button
+            type="button"
+            onClick={() => speakKids(roundText, lang)}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-xl border-2 border-border px-3 py-1.5 text-sm font-semibold hover:bg-muted"
+          >
+            <Volume2 className="h-4 w-4" aria-hidden="true" /> {t("kids.games.listen")}
+          </button>
+        )}
 
         {renderPrompt ? (
           renderPrompt(round)
