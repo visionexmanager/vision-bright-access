@@ -84,6 +84,10 @@ export const DELIVERY_HOSTS: Readonly<Record<string, readonly string[]>> = {
   pexels: ["images.pexels.com"],
   pixabay: ["pixabay.com", "cdn.pixabay.com"],
   smithsonian: ["ids.si.edu"],
+  wellcome: ["iiif.wellcomecollection.org"],
+  inaturalist: ["inaturalist-open-data.s3.amazonaws.com"],
+  // SepiaSearch (PeerTube) and ccMixter are not here on purpose: PeerTube videos sit on whatever server the
+  // author chose, and ccMixter blocks hotlinked downloads. Both arrive as a link with their licence.
   // Research: the open repositories and publishers whose open-access PDFs a server can fetch.
   // Left out on purpose: Europe PMC, PubMed Central, bioRxiv and medRxiv, which answer a bot challenge.
   openalex: [
@@ -96,10 +100,10 @@ export const DELIVERY_HOSTS: Readonly<Record<string, readonly string[]>> = {
 export const KIND_SEARCH: Readonly<Record<FileKind, { categories: readonly string[]; providers: readonly string[] }>> = {
   book: { categories: ["books", "education"], providers: ["gutenberg", "openstax", "internet_archive"] },
   audiobook: { categories: ["audio"], providers: ["internet_archive"] },
-  video: { categories: ["video"], providers: ["internet_archive", "wikimedia_commons"] },
+  video: { categories: ["video"], providers: ["internet_archive", "wikimedia_commons", "sepiasearch", "pexels", "pixabay"] },
   // Freely licensed pictures, in the order they are preferred: Commons and Openverse first, then the museums' CC0 images, NASA, the Smithsonian, Flickr, the free stock sites, and last the aggregators that only link.
-  image: { categories: ["images"], providers: ["wikimedia_commons", "openverse", "met_museum", "artic", "cleveland_museum", "rijksmuseum", "nasa", "smithsonian", "flickr", "pexels", "pixabay", "unsplash", "europeana", "dpla"] },
-  audio: { categories: ["audio"], providers: ["wikimedia_commons", "internet_archive"] },
+  image: { categories: ["images"], providers: ["wikimedia_commons", "openverse", "met_museum", "artic", "cleveland_museum", "rijksmuseum", "nasa", "smithsonian", "wellcome", "inaturalist", "flickr", "pexels", "pixabay", "unsplash", "europeana", "dpla"] },
+  audio: { categories: ["audio"], providers: ["wikimedia_commons", "internet_archive", "ccmixter", "freesound", "jamendo"] },
   // A paper or a PDF: an open-access full text with a stated open licence, or a PDF on Commons.
   document: { categories: ["documents"], providers: ["openalex", "wikimedia_commons"] },
 };
@@ -309,6 +313,8 @@ const STOCK_IMAGE: Readonly<Record<string, { address: RegExp; licence: RegExp; p
   nasa: { address: /^https:\/\/images-assets\.nasa\.gov\/image\/[\w.%()+-]+\/[\w.~%()+ -]+\.(?:jpg|jpeg|png)$/i, licence: /^No known copyright$/, pick: (i) => i.previewUrl, convert: true },
   smithsonian: { address: /^https:\/\/ids\.si\.edu\/ids\/deliveryService\?id=[\w.:-]{1,80}$/, licence: /^CC0$/, pick: (i) => i.downloadUrl, convert: true },
   pexels: { address: /^https:\/\/images\.pexels\.com\/photos\/\d+\/[\w.-]+\.(?:jpe?g|png)(?:\?[\w=&.%-]{0,120})?$/i, licence: /^Pexels License$/, pick: (i) => i.previewUrl, convert: false },
+  wellcome: { address: /^https:\/\/iiif\.wellcomecollection\.org\/image\/[A-Za-z0-9_-]{3,40}\/full\/![0-9]{3,4},[0-9]{3,4}\/0\/default\.jpg$/, licence: /^(?:CC0|Public Domain Mark|CC BY(?:-SA)?(?: \d\.\d)?)$/, pick: (i) => i.downloadUrl, convert: false },
+  inaturalist: { address: /^https:\/\/inaturalist-open-data\.s3\.amazonaws\.com\/photos\/\d{1,12}\/large\.(?:jpe?g|png)$/i, licence: /^(?:CC0|CC BY(?:-SA)?)$/, pick: (i) => i.downloadUrl, convert: false },
   pixabay: { address: /^https:\/\/(?:cdn\.)?pixabay\.com\/(?:photo|get)\/[\w/.-]+\.(?:jpe?g|png)$/i, licence: /^Pixabay Content License$/, pick: (i) => i.previewUrl, convert: false },
 };
 

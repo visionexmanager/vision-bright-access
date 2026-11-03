@@ -225,8 +225,8 @@ describe("papers and documents", () => {
 
   it("searches only the sources that can deliver, for documents, recordings and videos", () => {
     expect(KIND_SEARCH.document).toEqual({ categories: ["documents"], providers: ["openalex", "wikimedia_commons"] });
-    expect(KIND_SEARCH.audio).toEqual({ categories: ["audio"], providers: ["wikimedia_commons", "internet_archive"] });
-    expect(KIND_SEARCH.video.providers).toEqual(["internet_archive", "wikimedia_commons"]);
+    expect(KIND_SEARCH.audio).toEqual({ categories: ["audio"], providers: ["wikimedia_commons", "internet_archive", "ccmixter", "freesound", "jamendo"] });
+    expect(KIND_SEARCH.video.providers).toEqual(["internet_archive", "wikimedia_commons", "sepiasearch", "pexels", "pixabay"]);
   });
 });
 

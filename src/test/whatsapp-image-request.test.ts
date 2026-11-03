@@ -128,7 +128,7 @@ describe("the image sources", () => {
   it("asks only sources whose terms allow passing the picture on, for images", () => {
     expect(KIND_SEARCH.image).toEqual({
       categories: ["images"],
-      providers: ["wikimedia_commons", "openverse", "met_museum", "artic", "cleveland_museum", "rijksmuseum", "nasa", "smithsonian", "flickr", "pexels", "pixabay", "unsplash", "europeana", "dpla"],
+      providers: ["wikimedia_commons", "openverse", "met_museum", "artic", "cleveland_museum", "rijksmuseum", "nasa", "smithsonian", "wellcome", "inaturalist", "flickr", "pexels", "pixabay", "unsplash", "europeana", "dpla"],
     });
     for (const provider of ["youtube", "vimeo", "unsplash", "europeana", "dpla", "dailymotion"]) expect(DELIVERY_HOSTS[provider]).toBeUndefined();
     expect(DELIVERY_HOSTS.wikimedia_commons).toEqual(["upload.wikimedia.org", "commons.wikimedia.org", "thumb.wikimedia.org"]);
