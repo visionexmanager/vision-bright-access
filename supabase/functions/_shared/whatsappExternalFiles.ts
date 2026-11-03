@@ -431,10 +431,22 @@ export async function declaredSize(url: string, hosts: readonly string[], fetchI
  * no address, no link. Public domain and CC0 need none. A licence that asks for credit (CC BY and the
  * like) gets it here, so the sender receives the file and nothing else.
  */
+/**
+ * A title a screen reader can speak. Commons titles are file names ("IMG 4821 DSC", "Moon 2010-10-25 Luc Viatour",
+ * "P1020345"), and VoiceOver reads those as nonsense words; a title that is mostly codes or numbers is left out.
+ */
+export function readableTitle(title: string | undefined | null): string {
+  const t = (title ?? "").replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  const words = t.split(" ");
+  const codeLike = words.filter((w) => /\d/.test(w) && /[\p{L}]/u.test(w) ? true : /^\d{3,}$/.test(w) || /^[A-Z]{2,5}\d+$/.test(w)).length;
+  return codeLike * 2 >= words.length ? "" : t;
+}
+
 export function attributionCaption(item: ExternalContentItem): string | undefined {
   const licence = item.license?.name ?? "";
   if (!licence || /^(CC0|Public Domain|United States Government|No known copyright)/i.test(licence)) return undefined;
-  const text = [[item.title, item.creator].filter(Boolean).join(" — "), [licence, item.providerName].filter(Boolean).join(" · ")].filter(Boolean).join("\n");
+  const text = [[readableTitle(item.title), item.creator].filter(Boolean).join(" — "), [licence, item.providerName].filter(Boolean).join(" · ")].filter(Boolean).join("\n");
   return text.length > 400 ? text.slice(0, 399) + "…" : text;
 }
 
