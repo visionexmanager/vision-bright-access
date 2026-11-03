@@ -61,7 +61,7 @@ export async function deliverMetaAsset(params: {
     if (!bytes) {
       if (!asset.url || !asset.allowedHosts?.length) return fail("asset_invalid");
       const fetched = await fetchAssetBytes({ url: asset.url, allowedHosts: asset.allowedHosts, maxBytes: rule.maxBytes, fetchImpl: doFetch });
-      if (!fetched.ok) return fail(fetched.reason);
+      if ("reason" in fetched) return fail(fetched.reason);
       bytes = fetched.bytes;
     }
     if (bytes.byteLength === 0) return fail("asset_invalid");
