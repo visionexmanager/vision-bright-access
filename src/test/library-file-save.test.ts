@@ -8,7 +8,7 @@ const item = (provider: string, over: Record<string, unknown>) =>
   makeItem(provider, { provider, providerItemId: "1", title: "Moon", contentType: "image", externalUrl: "https://example.org/x", ...over } as never);
 const pexelsPhoto = item("pexels", { license: { name: "Pexels License" }, previewUrl: "https://images.pexels.com/photos/1/pexels-photo-1.png" });
 
-const serve = (body: Uint8Array, type = "image/png") => vi.fn(async () => new Response(body, { status: 200, headers: { "content-type": type } }));
+const serve = (body: Uint8Array, type = "image/png") => vi.fn(async () => new Response(body as BodyInit, { status: 200, headers: { "content-type": type } }));
 
 describe("saving a Library result as a file", () => {
   it("hands over the file under the chat channels' rules, with a safe name", async () => {
