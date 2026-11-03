@@ -130,9 +130,16 @@ const escape = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** Words in a spaced script need a boundary; CJK and Hangul have none, so they match anywhere. */
 function wordPattern(words: readonly string[]): RegExp {
-  const parts = [...new Set(words)]
-    .sort((a, b) => b.length - a.length)
-    .map((w) => (SPACED_SCRIPT.test(w) ? `(?<![\\p{L}\\p{N}])${escape(w)}(?![\\p{L}\\p{N}])` : escape(w)));
+  const unique = [...new Set(words)].sort((a, b) => b.length - a.length);
+  const spaced = unique.filter((w) => SPACED_SCRIPT.test(w)).map(escape);
+  const unspaced = unique.filter((w) => !SPACED_SCRIPT.test(w)).map(escape);
+  // One pair of boundary checks around all the spaced words, not one pair per word. The two forms match the
+  // same text, but a pattern with a lookbehind and a lookahead on each of ~170 alternatives cost 50-140 ms of CPU
+  // to compile the first time it ran, and eight of them made the first picture request after a cold start
+  // exceed the 2 s limit (HTTP 546) before it was answered.
+  const parts: string[] = [];
+  if (spaced.length) parts.push(`(?<![\\p{L}\\p{N}])(?:${spaced.join("|")})(?![\\p{L}\\p{N}])`);
+  if (unspaced.length) parts.push(unspaced.join("|"));
   return new RegExp(parts.join("|"), "iu");
 }
 
