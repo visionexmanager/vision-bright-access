@@ -406,7 +406,66 @@ export function matchesRequest(item: ExternalContentItem, query: string, loose =
   if (terms.length === 0) return false;
   // A picture's title is often a file name; its description and tags say what it shows.
   const haystack = `${item.title} ${item.creator ?? ""}${loose ? ` ${item.description ?? ""} ${(item.tags ?? []).join(" ")}` : ""}`.toLocaleLowerCase();
-  return terms.filter((w) => haystack.includes(w)).length >= Math.min(terms.length, need);
+  // A word also counts through its synonyms: a recording titled "Aircraft flyover" answers "airplane".
+  return terms.filter((w) => haystack.includes(w) || (SOUND_SYNONYMS[w] ?? []).some((s) => haystack.includes(s))).length >= Math.min(terms.length, need);
+}
+
+/** Words a recording is more often titled by than by the one a sender types. */
+export const SOUND_SYNONYMS: Readonly<Record<string, readonly string[]>> = {
+  airplane: ["aeroplane", "aircraft", "jet", "flyover", "airliner", "plane"],
+  aeroplane: ["airplane", "aircraft", "jet", "flyover", "airliner"],
+  plane: ["airplane", "aeroplane", "aircraft", "jet", "flyover"],
+  jet: ["aircraft", "airplane", "flyover"],
+  helicopter: ["chopper", "rotor"],
+  car: ["automobile", "vehicle", "traffic", "engine"],
+  train: ["railway", "locomotive", "railroad"],
+  ship: ["boat", "vessel", "horn"],
+  sea: ["ocean", "waves", "surf", "beach"],
+  ocean: ["sea", "waves", "surf"],
+  waves: ["surf", "sea", "ocean"],
+  rain: ["raindrops", "rainfall", "downpour", "storm"],
+  thunder: ["thunderstorm", "storm", "lightning"],
+  wind: ["breeze", "gust", "storm"],
+  fire: ["flames", "crackling", "campfire", "bonfire"],
+  river: ["stream", "creek", "brook", "water"],
+  bird: ["birds", "birdsong", "chirping", "songbird"],
+  birds: ["bird", "birdsong", "chirping", "songbird"],
+  cat: ["meow", "kitten"],
+  dog: ["bark", "barking", "puppy"],
+  lion: ["roar", "roaring"],
+  horse: ["hooves", "neigh", "galloping"],
+  cow: ["moo", "cattle"],
+  frog: ["frogs", "croaking"],
+  bell: ["bells", "chime", "ringing"],
+  clock: ["ticking", "tick"],
+  crowd: ["applause", "cheering", "audience"],
+  applause: ["clapping", "crowd", "cheering"],
+  baby: ["infant", "crying", "laughing"],
+  footsteps: ["walking", "steps"],
+  door: ["knock", "creak", "slam"],
+  engine: ["motor", "idle", "revving"],
+  siren: ["ambulance", "alarm", "police"],
+  explosion: ["blast", "boom", "bomb"],
+  piano: ["keyboard"],
+  guitar: ["strings"],
+  drum: ["drums", "percussion"],
+  keyboard: ["typing", "keys"],
+  typing: ["keyboard", "keys"],
+};
+
+/**
+ * Speech where a sound was asked for. Commons holds thousands of recordings of people reading an article aloud
+ * or saying a word ("En-Airplane mode"); a request for "an aeroplane" must not return one. Judged on the
+ * title, description and tags, and only for words the sender did not use themselves.
+ */
+const SPOKEN_TITLE = /^(?:en|de|fr|es|it|pt|ru|ar|nl|pl|sv|ja|zh|tr|fa|he|ko|uk|cs|fi|da|no|hu|el|ro|bg|hi|id|vi|ca)-/i;
+const SPOKEN_WORDS = /\b(?:spoken|speech|speaking|pronunciation|pronounced|narrat\w*|read(?:ing)? aloud|audiobook|interview|lecture|podcast|announcement|voice(?:-?over)?|recited|recitation|mode|article|wikipedia)\b/gi;
+
+export function looksSpoken(item: ExternalContentItem, query: string): boolean {
+  const asked = query.toLocaleLowerCase();
+  if (SPOKEN_TITLE.test(item.title) && !SPOKEN_TITLE.test(query)) return true;
+  const text = `${item.title} ${item.description ?? ""} ${(item.tags ?? []).join(" ")}`;
+  return (text.match(SPOKEN_WORDS) ?? []).some((w) => !asked.includes(w.toLocaleLowerCase()));
 }
 
 /**
@@ -583,6 +642,19 @@ async function attemptAttach(
   params: { kind: FileKind; query: string; language: string; count?: number },
   deps: AttachDeps,
 ): Promise<AttachOutcome> {
+  const first = await attemptOnce(params, deps);
+  // A bare noun ("airplane") ranks articles and speech first; "airplane sound" finds the recording.
+  if (first.outcome === "delivered" || params.kind !== "audio") return first;
+  const query = stripFileWish(params.query);
+  if (/\b(?:sound|noise|sfx|recording|ambience|ambient)\b/i.test(query) || query.length < 2) return first;
+  const second = await attemptOnce({ ...params, query: `${query} sound` }, deps);
+  return second.outcome === "delivered" ? second : { ...first, tried: first.tried + second.tried };
+}
+
+async function attemptOnce(
+  params: { kind: FileKind; query: string; language: string; count?: number },
+  deps: AttachDeps,
+): Promise<AttachOutcome> {
   const query = stripFileWish(params.query);
   if (query.length < 2) return { outcome: "none", reason: "no_query", tried: 0 };
 
@@ -618,6 +690,8 @@ async function attemptAttach(
     // the catalogue's own ranking decides; a book, a paper or a film is held to its title.
     const catalogueRanked = params.kind === "audio" || params.kind === "video" || params.kind === "document";
     if (params.kind !== "image" && !matchesRequest(item, query, catalogueRanked, catalogueRanked ? 1 : 2)) continue;
+    // "The sound of an aeroplane" is not a voice reading the article "Airplane mode".
+    if (params.kind === "audio" && looksSpoken(item, query)) continue;
     if (LINK_FALLBACK_KINDS.has(params.kind) && !link && /^https:\/\//i.test(item.externalUrl)) link = { url: item.externalUrl, title: item.title };
     const candidate = item.provider === "internet_archive"
       // A recording from the Archive is chosen the way an audiobook chapter is: a small MP3 that fits.
