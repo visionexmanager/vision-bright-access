@@ -100,6 +100,9 @@ interface NasaEntry {
   links?: Array<{ href?: string; render?: string; width?: number }>;
 }
 
+/** NASA states its imagery is generally not copyrighted; items with third-party rights say so themselves. */
+const NASA_LICENSE = { name: "No known copyright", url: "https://www.nasa.gov/nasa-brand-center/images-and-media/" };
+
 function nasaItem(entry: NasaEntry, files?: string[]): ExternalContentItem | null {
   const data = entry.data?.[0];
   const id = typeof data?.nasa_id === "string" && data.nasa_id.length <= 200 ? data.nasa_id : null;
@@ -131,6 +134,8 @@ function nasaItem(entry: NasaEntry, files?: string[]): ExternalContentItem | nul
     externalUrl: `https://images.nasa.gov/details/${encodeURIComponent(id)}`,
     creator: cleanOrNull(data.photographer ?? data.secondary_creator, 160),
     publisher: center ? `NASA ${center}` : "NASA",
+    // Images only: NASA's video and audio were left unlicensed on purpose, and still are.
+    license: media === "image" ? NASA_LICENSE : null,
     attribution: center ? `NASA/${center}` : "NASA",
     tags: tagList(data.keywords),
     publishedAt: typeof data.date_created === "string" ? data.date_created.slice(0, 10) : null,

@@ -191,10 +191,9 @@ export const pixabay: ContentProvider = {
   categories: ["images", "video"],
   auth: { kind: "api_key", env: ["PIXABAY_API_KEY"] },
   capabilities: { search: true, preview: true, embed: false, download: false },
-  licenseNote: "Pixabay Content License; the API forbids permanent hotlinking, so results are shown and linked, never stored.",
+  licenseNote: "Pixabay Content License: free to use and to download; the API forbids permanent hotlinking, so a picture is fetched and sent, never linked from a page.",
   rateLimit: "100 requests per 60 seconds; results must be cached for 24 hours.",
   healthQuery: "flower",
-  deferredByOwner: "Postponed by the owner on 2026-10-12 pending a future decision. The adapter, the secret name and the deploy sync are kept; nothing is called.",
   async search(params, ctx) {
     const key = secret(ctx, "PIXABAY_API_KEY");
     const q = new URLSearchParams({ key, q: params.query.slice(0, 100), page: String(params.page), per_page: String(Math.max(3, params.limit)), safesearch: "true", lang: params.language });
