@@ -122,3 +122,13 @@ describe("the document reader asks the server's model first", () => {
     expect(local).toContain("!result.truncated");
   });
 });
+
+describe("the summary stays inside the deadline", () => {
+  it("stops reading new pieces in time to leave the final pass most of the budget", async () => {
+    const { STOP_NEW_PIECES_MS, SUMMARIZE_TIMEOUT_MS } = await import("../../services/media-processor/src/summarize.mjs");
+    expect(STOP_NEW_PIECES_MS).toBeLessThan(SUMMARIZE_TIMEOUT_MS / 2);
+  });
+  it("keeps a piece small enough that three of them and a final pass can be planned for", () => {
+    expect(CHUNK_CHARS).toBeLessThanOrEqual(2_500);
+  });
+});

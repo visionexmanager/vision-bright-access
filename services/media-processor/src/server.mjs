@@ -175,6 +175,7 @@ import {
   readSummaryAnswer,
   splitForSummary,
   summarizeRequestBody,
+  STOP_NEW_PIECES_MS,
 } from "./summarize.mjs";
 
 const PORT = Number(process.env.PORT ?? 8081);
@@ -1470,19 +1471,36 @@ async function handleSummarize(req, res, correlation) {
     return readSummaryAnswer(await response.json());
   };
   try {
-    const { chunks, truncated } = splitForSummary(checked.text);
+    const split = splitForSummary(checked.text);
+    const { chunks } = split;
+    let truncated = split.truncated;
     let answer;
     if (chunks.length === 1) {
       answer = await ask(summarizeRequestBody({ languageName: checked.language, text: chunks[0], task: checked.task, mode: "whole" }));
     } else {
       const partials = [];
       for (const chunk of chunks) {
+        // Out of time to read more: summarise what is read rather than lose it.
+        if (partials.length > 0 && Date.now() - startedAt > STOP_NEW_PIECES_MS) {
+          truncated = true;
+          break;
+        }
         const part = await ask(summarizeRequestBody({ languageName: checked.language, text: chunk, task: "", mode: "partial" }));
         if (part) partials.push(part);
       }
-      answer = partials.length === 0
-        ? null
-        : await ask(summarizeRequestBody({ languageName: checked.language, text: partials.join(PARAGRAPH_BREAK), task: checked.task, mode: "final" }));
+      if (partials.length === 0) answer = null;
+      else if (partials.length === 1 && !checked.task) answer = partials[0];
+      else {
+        try {
+          answer = await ask(summarizeRequestBody({ languageName: checked.language, text: partials.join(PARAGRAPH_BREAK), task: checked.task, mode: "final" }));
+        } catch (error) {
+          // The pieces were each summarised; their join is a worse answer than the
+          // final pass but a far better one than a timeout.
+          if (error.name !== "AbortError") throw error;
+          answer = partials.join(PARAGRAPH_BREAK).slice(0, 3_000);
+          truncated = true;
+        }
+      }
     }
     log("summarize", {
       correlation,
