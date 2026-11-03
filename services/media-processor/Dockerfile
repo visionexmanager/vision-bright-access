@@ -50,7 +50,7 @@ RUN apt-get update \
       tesseract-ocr-chi-sim \
       tesseract-ocr-chi-tra \
       ffmpeg \
-      libheif-examples 
+      libheif-examples \
       zbar-tools \
       poppler-utils \
       curl \
