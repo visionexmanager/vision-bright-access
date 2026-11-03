@@ -149,6 +149,22 @@ const WEBP_Q = { small: "50", balanced: "78", high: "92" };
  * door. The rotation is applied to the pixels first, so dropping the metadata
  * cannot leave a picture on its side.
  */
+/**
+ * Is this a HEIC/HEIF picture? An ISO base media file whose major brand is one
+ * of the HEIF family. Read from the bytes, never from the sender's claim.
+ */
+export function isHeif(bytes) {
+  if (!bytes || bytes.length < 12) return false;
+  const at = (i, n) => String.fromCharCode(...bytes.subarray(i, i + n));
+  if (at(4, 4) !== "ftyp") return false;
+  return ["heic", "heix", "heim", "heis", "hevc", "hevx", "mif1", "msf1"].includes(at(8, 4));
+}
+
+/** libheif's converter: input, then the PNG to write. Fixed arguments only. */
+export function heifArgs(input, output) {
+  return [input, output];
+}
+
 export function imageArgs(input, output, options) {
   const target = IMAGE_TARGETS[options.to];
   const args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", input];
