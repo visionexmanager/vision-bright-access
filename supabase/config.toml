@@ -95,3 +95,10 @@ verify_jwt = false
 # one cron action and requires a signed-in admin for everything else.
 [functions.provider-hub]
 verify_jwt = false
+
+
+# Alexa Custom Skill requests cannot present a Supabase JWT. This endpoint is
+# public at the gateway but fails closed unless it verifies Alexa's signing
+# certificate, request signature, timestamp, and the configured skill ID.
+[functions.layla-assistant]
+verify_jwt = false
