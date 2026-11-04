@@ -865,9 +865,9 @@ describe("reply language", () => {
   it("the webhooks use it for the notice and the replies, not just the model", () => {
     const meta = readFileSync("supabase/functions/meta-messaging-webhook/index.ts", "utf8");
     const wa = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
-    expect(meta).toContain("detectChatLanguage");
+    expect(meta).toContain("signupLanguage");
     expect(meta).toMatch(/subscriptionRequiredShortNotice\(wideLanguage/);
     expect(wa).toMatch(/subscriptionRequiredNotice\(gateLanguage\)/);
-    expect(wa).toContain("languageFor(incoming.text");
+    expect(wa).toContain("signupLanguage(");
   });
 });

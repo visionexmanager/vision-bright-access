@@ -174,7 +174,7 @@ import {
 import { isAuthorized, requireActiveSubscription } from "../_shared/subscriptionGate.ts";
 import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
 import { smartFreeReply } from "../_shared/chatFreeMemory.ts";
-import { languageFor } from "../_shared/chatLanguage.ts";
+import { isFieldValue, languageFor, signupLanguage } from "../_shared/chatLanguage.ts";
 import {
   formatWeather,
   parseWeatherRequest,
@@ -2563,7 +2563,23 @@ Deno.serve(async (req) => {
           });
           // The one notice goes out whichever way this message then goes: a
           // sender whose first message was "link account" is still told.
-          const gateLanguage = languageFor(incoming.text, null, answerLanguage);
+          // Pinned across the sign-up: a name, an email or a code carries no
+          // language, so the sender's earlier messages decide (see signupLanguage).
+          const preferred = existing?.preferred_language as string | null | undefined;
+          const gateLanguage = await signupLanguage(
+            incoming.text,
+            async () => {
+              const { data } = await db
+                .from("whatsapp_messages")
+                .select("body")
+                .eq("conversation_id", conversationId)
+                .eq("direction", "inbound")
+                .order("created_at", { ascending: false })
+                .limit(8);
+              return ((data ?? []) as { body: string | null }[]).map((r) => r.body);
+            },
+            isFieldValue(incoming.text) ? (isSupportedLanguage(preferred) ? preferred : "en") : answerLanguage,
+          );
           if (verdict === "blocked_first_notice") {
             // Sent as text directly, not through `reply`: a voice note in
             // would be answered by synthesis, which is a paid provider.
