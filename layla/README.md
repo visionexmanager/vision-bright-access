@@ -5,7 +5,7 @@ This directory is an independent Supabase project scaffold for the Layla Alexa C
 ## Architecture
 
 - Supabase Edge Function: `layla-assistant`
-- Gemini model: `gemini-2.5-flash-lite`, called server-side using `GEMINI_API_KEY`
+- Gemini model: `gemini-flash-lite-latest` (alias, so a retired version cannot 404 again), called server-side using `GEMINI_API_KEY`
 - Alexa authentication: ASK signature/certificate verifier, timestamp verifier, and exact `ALEXA_SKILL_ID` match
 - Session context: latest eight user/assistant messages in Alexa session attributes only
 - Limits: 64 KiB request body, 1,200 characters per prompt/history message, 320 output tokens, 15 user turns per session
