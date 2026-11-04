@@ -1,7 +1,4 @@
-import {
-  SkillRequestSignatureVerifier,
-  TimestampVerifier,
-} from "npm:ask-sdk-express-adapter@2.0.0/lib/verifier/index.js";
+import askVerifiers from "npm:ask-sdk-express-adapter@2.0.0/dist/verifier/index.js";
 import {
   type AlexaEnvelope,
   alexaSpeechResponse,
@@ -24,6 +21,7 @@ const SYSTEM_PROMPT = `
 إذا لم تفهمي السؤال، اطلبي توضيحاً بسيطاً.
 `.trim();
 
+const { SkillRequestSignatureVerifier, TimestampVerifier } = askVerifiers;
 const signatureVerifier = new SkillRequestSignatureVerifier();
 const timestampVerifier = new TimestampVerifier();
 

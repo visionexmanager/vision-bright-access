@@ -81,3 +81,11 @@ Deno.test("Alexa response has a reprompt while session is open", () => {
   assertEquals(result.response.outputSpeech.text, "أهلاً");
   assertEquals(!!result.response.reprompt, true);
 });
+
+Deno.test("the Alexa verifier package exposes the classes index.ts uses", async () => {
+  const { default: verifiers } = await import(
+    "npm:ask-sdk-express-adapter@2.0.0/dist/verifier/index.js"
+  );
+  assertEquals(typeof verifiers.SkillRequestSignatureVerifier, "function");
+  assertEquals(typeof verifiers.TimestampVerifier, "function");
+});
