@@ -43,34 +43,34 @@ Deno.test("extracts a bounded free-form question", () => {
         intent: { slots: { question: { value: "x".repeat(2_000) } } },
       },
     }).length,
-    1_200,
+    700,
   );
 });
 
-Deno.test("history rejects malformed roles and keeps the newest eight messages", () => {
+Deno.test("history rejects malformed roles and keeps the newest sixteen messages", () => {
   const input = [
     ...Array.from(
-      { length: 10 },
+      { length: 20 },
       (_, i) => ({ role: i % 2 ? "assistant" : "user", content: String(i) }),
     ),
     { role: "system", content: "reject" },
     { role: "user", content: 42 },
   ];
   const result = historyOf(input);
-  assertEquals(result.length, 8);
-  assertEquals(result[0].content, "2");
-  assertEquals(result[7].content, "9");
+  assertEquals(result.length, 16);
+  assertEquals(result[0].content, "4");
+  assertEquals(result[15].content, "19");
 });
 
-Deno.test("next history keeps the latest eight messages", () => {
-  const old = Array.from({ length: 8 }, (_, i) => ({
+Deno.test("next history keeps the latest sixteen messages", () => {
+  const old = Array.from({ length: 16 }, (_, i) => ({
     role: i % 2 ? "assistant" as const : "user" as const,
     content: String(i),
   }));
   const result = nextHistory(old, "new question", "new answer");
-  assertEquals(result.length, 8);
-  assertEquals(result[6].content, "new question");
-  assertEquals(result[7].content, "new answer");
+  assertEquals(result.length, 16);
+  assertEquals(result[14].content, "new question");
+  assertEquals(result[15].content, "new answer");
 });
 
 Deno.test("Alexa response has a reprompt while session is open", () => {

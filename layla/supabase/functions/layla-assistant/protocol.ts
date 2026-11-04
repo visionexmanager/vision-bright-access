@@ -16,8 +16,8 @@ export type AlexaEnvelope = {
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
-const MAX_HISTORY_MESSAGES = 8;
-const MAX_MESSAGE_CHARS = 1_200;
+const MAX_HISTORY_MESSAGES = 16;
+const MAX_MESSAGE_CHARS = 700;
 
 export function applicationIdOf(envelope: AlexaEnvelope): string | undefined {
   return envelope.session?.application?.applicationId ??

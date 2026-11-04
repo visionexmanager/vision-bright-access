@@ -5,7 +5,12 @@
       "intents": [
         {
           "name": "AskLaylaIntent",
-          "slots": [{ "name": "question", "type": "AMAZON.SearchQuery" }],
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
           "samples": [
             "اسألي {question}",
             "قولي {question}",
@@ -31,10 +36,128 @@
             "ماذا عن {question}"
           ]
         },
-        { "name": "AMAZON.HelpIntent", "samples": [] },
-        { "name": "AMAZON.StopIntent", "samples": [] },
-        { "name": "AMAZON.CancelIntent", "samples": [] },
-        { "name": "AMAZON.FallbackIntent", "samples": [] }
+        {
+          "name": "WhatIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "شو {question}",
+            "ما {question}",
+            "ماذا {question}",
+            "إيش {question}"
+          ]
+        },
+        {
+          "name": "HowIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "كيف {question}",
+            "كيفية {question}"
+          ]
+        },
+        {
+          "name": "WhyIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "ليش {question}",
+            "لماذا {question}"
+          ]
+        },
+        {
+          "name": "WhoIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "مين {question}",
+            "من {question}",
+            "من هو {question}"
+          ]
+        },
+        {
+          "name": "WhereIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "وين {question}",
+            "أين {question}"
+          ]
+        },
+        {
+          "name": "HowManyIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "كم {question}",
+            "قديش {question}"
+          ]
+        },
+        {
+          "name": "WhenIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "إيمتى {question}",
+            "متى {question}"
+          ]
+        },
+        {
+          "name": "IsIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "هل {question}"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
       ],
       "types": []
     }
