@@ -6,8 +6,8 @@ import {
   type AlexaEnvelope,
   alexaSpeechResponse,
   applicationIdOf,
-  historyOf,
   type ChatMessage,
+  historyOf,
   nextHistory,
   userTextOf,
 } from "./protocol.ts";
