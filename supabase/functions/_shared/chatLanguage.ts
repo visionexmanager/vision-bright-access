@@ -103,3 +103,49 @@ export function languageFor(
 const LANG_ID_OR_OTHER: Record<string, true> = Object.fromEntries(
   ["en", "ar", "ur", "hi", "id", "ja", "it", "ko", "nl", "pl", "vi", "bn", "fa", "es", "de", "pt", "zh", "tr", "fr", "ru"].map((l) => [l, true]),
 );
+
+// ── A sign-up keeps ONE language ─────────────────────────────────────────────
+//
+// A sign-up is mostly the sender typing data: a name, an email address, a code.
+// None of that is a sentence, so none of it says what language the sender
+// speaks, yet each message used to be answered in whatever the detector
+// guessed for it. A person who started in Arabic got the name prompt in
+// English and the code prompt, and the code email, in Portuguese, could not
+// read either, and pasted the email back instead of the code.
+//
+// The rule: a message that is plainly data, or that carries no language of its
+// own, never decides. The language of the sender's most recent message that did
+// decides, and only when there is none does the fallback. A sentence that is
+// clearly in another language still switches it, so a real change is honoured.
+
+const EMAIL_ONLY = /^\s*[^\s@]+@[^\s@]+\.[^\s@]+\s*$/;
+const CODE_ONLY = /^\s*[\d\s٠-٩۰-۹-]{4,12}\s*$/u;
+
+/** True for an email address or a bare code: input, not conversation. */
+export function isFieldValue(text: string | null | undefined): boolean {
+  const t = (text ?? "").trim();
+  return !!t && (EMAIL_ONLY.test(t) || CODE_ONLY.test(t));
+}
+
+/**
+ * The language a sign-up turn is answered in.
+ *
+ * `history` loads the sender's earlier inbound messages, newest first; it is
+ * only called when this message cannot decide for itself.
+ */
+export async function signupLanguage(
+  text: string | null | undefined,
+  history: () => Promise<readonly (string | null)[]>,
+  fallback: SupportedLanguage = "en",
+): Promise<SupportedLanguage> {
+  if (!isFieldValue(text)) {
+    const own = detectChatLanguage(text);
+    if (own.confident) return own.lang;
+  }
+  for (const earlier of await history()) {
+    if (isFieldValue(earlier)) continue;
+    const d = detectChatLanguage(earlier);
+    if (d.confident) return d.lang;
+  }
+  return fallback;
+}
