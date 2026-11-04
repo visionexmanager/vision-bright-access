@@ -51,13 +51,15 @@ jobs:
           PROJECT_REF: ${{ secrets.LAYLA_SUPABASE_PROJECT_REF }}
           GEMINI_KEY: ${{ secrets.LAYLA_GEMINI_API_KEY || secrets.GEMINI_API_KEY }}
           SKILL_ID: ${{ secrets.LAYLA_ALEXA_SKILL_ID }}
+          GROQ_KEY: ${{ secrets.LAYLA_GROQ_API_KEY || secrets.GROQ_API_KEY }}
         run: |
           set -euo pipefail
+          args=("GEMINI_API_KEY=$GEMINI_KEY" "ALEXA_SKILL_ID=$SKILL_ID")
+          if [[ -n "${GROQ_KEY:-}" ]]; then args+=("GROQ_API_KEY=$GROQ_KEY"); fi
           supabase secrets set --yes \
             --project-ref "$PROJECT_REF" \
             --workdir layla \
-            "GEMINI_API_KEY=$GEMINI_KEY" \
-            "ALEXA_SKILL_ID=$SKILL_ID"
+            "${args[@]}"
 
       - name: Deploy Layla Edge Function
         env:

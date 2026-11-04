@@ -1,4 +1,5 @@
 import { validateTimestamp, verifyAlexaSignature } from "./alexa-verifier.ts";
+import { answerQuestion } from "./llm.ts";
 import {
   type AlexaEnvelope,
   alexaSpeechResponse,
@@ -29,73 +30,6 @@ function jsonResponse(body: unknown, status = 200): Response {
       "Cache-Control": "no-store",
     },
   });
-}
-
-const GEMINI_MODELS: [string, number][] = [
-  ["gemini-flash-lite-latest", 5_500],
-  ["gemini-flash-latest", 2_000],
-];
-
-async function answerQuestion(
-  history: ChatMessage[],
-  question: string,
-  apiKey: string,
-): Promise<string> {
-  const messages: ChatMessage[] = [...history, {
-    role: "user",
-    content: question,
-  }];
-  const contents = messages.map((message) => ({
-    role: message.role === "assistant" ? "model" : "user",
-    parts: [{ text: message.content }],
-  }));
-  // Alexa gives up after ~8 s, so each model gets a short budget and the
-  // second one is only tried when the first is overloaded or slow.
-  let response: Response | undefined;
-  for (const [model, budgetMs] of GEMINI_MODELS) {
-    try {
-      const attempt = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
-          },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents,
-            generationConfig: {
-              maxOutputTokens: 320,
-              temperature: 0.7,
-            },
-          }),
-          signal: AbortSignal.timeout(budgetMs),
-        },
-      );
-      if (attempt.ok) {
-        response = attempt;
-        break;
-      }
-      console.error("Layla Gemini request failed:", model, attempt.status);
-    } catch (error) {
-      console.error(
-        "Layla Gemini request error:",
-        model,
-        error instanceof Error ? error.name : "unknown",
-      );
-    }
-  }
-  if (!response) throw new Error("Gemini request failed");
-  const result = await response.json();
-  const parts = result?.candidates?.[0]?.content?.parts;
-  const answer = Array.isArray(parts)
-    ? parts.map((part: { text?: unknown }) =>
-      typeof part.text === "string" ? part.text : ""
-    ).join("").trim()
-    : "";
-  if (!answer) throw new Error("Gemini returned an empty answer");
-  return answer.slice(0, 7_500);
 }
 
 Deno.serve(async (req: Request) => {
@@ -191,7 +125,15 @@ Deno.serve(async (req: Request) => {
 
   try {
     const history = historyOf(attrs.laylaHistory);
-    const answer = await answerQuestion(history, question, geminiApiKey);
+    const answer = await answerQuestion(
+      history,
+      question,
+      {
+        gemini: geminiApiKey,
+        groq: Deno.env.get("GROQ_API_KEY")?.trim() || undefined,
+      },
+      SYSTEM_PROMPT,
+    );
     return jsonResponse(alexaSpeechResponse(answer, {
       laylaHistory: nextHistory(history, question, answer),
       laylaTurns: turns + 1,
