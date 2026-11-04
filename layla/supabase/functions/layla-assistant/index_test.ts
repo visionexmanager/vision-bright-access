@@ -1,0 +1,137 @@
+import {
+  alexaSpeechResponse,
+  applicationIdOf,
+  historyOf,
+  nextHistory,
+  userTextOf,
+} from "./protocol.ts";
+import { assertEquals } from "jsr:@std/assert@1";
+
+Deno.test("reads the Alexa application id from session or context", () => {
+  assertEquals(
+    applicationIdOf({ session: { application: { applicationId: "skill-1" } } }),
+    "skill-1",
+  );
+  assertEquals(
+    applicationIdOf({
+      context: { System: { application: { applicationId: "skill-2" } } },
+    }),
+    "skill-2",
+  );
+});
+
+Deno.test("extracts a bounded free-form question", () => {
+  assertEquals(
+    userTextOf({
+      request: { intent: { slots: { question: { value: "مرحبا ليلى" } } } },
+    }),
+    "مرحبا ليلى",
+  );
+  assertEquals(
+    userTextOf({
+      request: {
+        intent: {
+          slots: { question: { value: " " }, query: { value: "hello" } },
+        },
+      },
+    }),
+    "hello",
+  );
+  assertEquals(
+    userTextOf({
+      request: {
+        intent: { slots: { question: { value: "x".repeat(2_000) } } },
+      },
+    }).length,
+    700,
+  );
+});
+
+Deno.test("history rejects malformed roles and keeps the newest sixteen messages", () => {
+  const input = [
+    ...Array.from(
+      { length: 20 },
+      (_, i) => ({ role: i % 2 ? "assistant" : "user", content: String(i) }),
+    ),
+    { role: "system", content: "reject" },
+    { role: "user", content: 42 },
+  ];
+  const result = historyOf(input);
+  assertEquals(result.length, 16);
+  assertEquals(result[0].content, "4");
+  assertEquals(result[15].content, "19");
+});
+
+Deno.test("next history keeps the latest sixteen messages", () => {
+  const old = Array.from({ length: 16 }, (_, i) => ({
+    role: i % 2 ? "assistant" as const : "user" as const,
+    content: String(i),
+  }));
+  const result = nextHistory(old, "new question", "new answer");
+  assertEquals(result.length, 16);
+  assertEquals(result[14].content, "new question");
+  assertEquals(result[15].content, "new answer");
+});
+
+Deno.test("Alexa response has a reprompt while session is open", () => {
+  const result = alexaSpeechResponse("أهلاً", { turn: 1 }, false);
+  assertEquals(result.version, "1.0");
+  assertEquals(result.sessionAttributes.turn, 1);
+  assertEquals(result.response.shouldEndSession, false);
+  assertEquals(result.response.outputSpeech.text, "أهلاً");
+  assertEquals(!!result.response.reprompt, true);
+});
+
+Deno.test("the checked-in Arabic model is generated from starters.ts", async () => {
+  const { buildModel, STARTERS } = await import("./starters.ts");
+  const file = JSON.parse(
+    await Deno.readTextFile(
+      new URL("../../../alexa/interaction-model.ar-SA.json", import.meta.url),
+    ),
+  );
+  assertEquals(file, buildModel());
+  // Alexa rejects a model where two intents share an utterance.
+  const seen = new Set<string>();
+  for (const intent of file.interactionModel.languageModel.intents) {
+    for (const sample of intent.samples) {
+      assertEquals(seen.has(sample), false, `duplicate sample: ${sample}`);
+      seen.add(sample);
+    }
+  }
+  assertEquals(Object.keys(STARTERS).length < 200, true);
+});
+
+Deno.test("memory marker is stripped from speech and returned separately", async () => {
+  const { splitMemory, isForgetRequest, sanitizeMemory } = await import(
+    "./memory.ts"
+  );
+  assertEquals(
+    splitMemory("أهلاً يا محمد! [[ذاكرة: اسمه محمد، بيحب تركيا]]"),
+    { speech: "أهلاً يا محمد!", memory: "اسمه محمد، بيحب تركيا" },
+  );
+  // A cut-off marker is never spoken and never saved.
+  assertEquals(
+    splitMemory("حلو كتير [[ذاكرة: اسمه مح"),
+    { speech: "حلو كتير", memory: null },
+  );
+  assertEquals(splitMemory("جواب عادي"), { speech: "جواب عادي", memory: null });
+  assertEquals(isForgetRequest("انسي كل شي"), true);
+  assertEquals(isForgetRequest("شو الطقس اليوم"), false);
+  assertEquals(sanitizeMemory("a\u0000b   c".padEnd(900, "x")).length, 500);
+});
+
+Deno.test("user id is hashed and never stored raw", async () => {
+  const { hashUser } = await import("./memory.ts");
+  const hash = await hashUser("amzn1.ask.account.TEST");
+  assertEquals(hash.length, 64);
+  assertEquals(hash.includes("TEST"), false);
+});
+
+Deno.test("spoken answers are trimmed to a clean sentence", async () => {
+  const { trimToSentence } = await import("./llm.ts");
+  const long = "جملة قصيرة. ".repeat(80);
+  const out = trimToSentence(long, 200);
+  assertEquals(out.length <= 200, true);
+  assertEquals(out.endsWith("."), true);
+  assertEquals(trimToSentence("قصير"), "قصير");
+});

@@ -1,0 +1,6 @@
+project_id = "layla-alexa-assistant"
+
+[functions.layla-assistant]
+# Alexa cannot send a Supabase JWT. The function independently validates
+# Alexa's request signature, certificate, timestamp, and exact Skill ID.
+verify_jwt = false
