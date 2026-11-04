@@ -91,9 +91,10 @@ function candidates(
   maxTokens: number,
   spreadMs: number,
 ): Candidate[] {
+  const geminiDelay = keys.groq ? spreadMs : 0;
   const list: Candidate[] = [{
     name: "gemini",
-    delayMs: 0,
+    delayMs: geminiDelay,
     run: (signal) =>
       askGemini(
         "gemini-flash-lite-latest",
