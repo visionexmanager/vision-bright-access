@@ -55,7 +55,7 @@ jobs:
           set -euo pipefail
           supabase secrets set --yes \
             --project-ref "$PROJECT_REF" \
-            --workdir layla/supabase \
+            --workdir layla \
             "GEMINI_API_KEY=$GEMINI_KEY" \
             "ALEXA_SKILL_ID=$SKILL_ID"
 
@@ -67,4 +67,4 @@ jobs:
           supabase functions deploy layla-assistant --yes \
             --project-ref "$PROJECT_REF" \
             --no-verify-jwt \
-            --workdir layla/supabase
+            --workdir layla
