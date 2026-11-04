@@ -254,9 +254,11 @@ jobs:
           SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
           CRON_SECRET:   ${{ secrets.CRON_SECRET }}
         run: |
-          curl -sS -o /dev/null -w "Translate HTTP %{http_code}\n" \
-            -X POST \
-            "$SUPABASE_URL/functions/v1/news-generate?translate=true" \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            --max-time 140
+          for L in ar bn de es fa fr hi id it ja ko nl pl pt ru tr ur vi zh; do
+            curl -sS -o /dev/null -w "translate $L HTTP %{http_code}\n" \
+              -X POST \
+              "$SUPABASE_URL/functions/v1/news-generate?translate=true&language=$L" \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -H "Content-Type: application/json" \
+              --max-time 120 || true
+          done
