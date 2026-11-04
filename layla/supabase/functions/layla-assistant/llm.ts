@@ -30,7 +30,7 @@ async function askGemini(
           role: message.role === "assistant" ? "model" : "user",
           parts: [{ text: message.content }],
         })),
-        generationConfig: { maxOutputTokens: 220, temperature: 0.7 },
+        generationConfig: { maxOutputTokens: 330, temperature: 0.7 },
       }),
       signal: AbortSignal.timeout(budgetMs),
     },

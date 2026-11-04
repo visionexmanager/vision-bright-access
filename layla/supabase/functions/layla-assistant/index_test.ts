@@ -100,3 +100,29 @@ Deno.test("the checked-in Arabic model is generated from starters.ts", async () 
   }
   assertEquals(Object.keys(STARTERS).length < 200, true);
 });
+
+Deno.test("memory marker is stripped from speech and returned separately", async () => {
+  const { splitMemory, isForgetRequest, sanitizeMemory } = await import(
+    "./memory.ts"
+  );
+  assertEquals(
+    splitMemory("أهلاً يا محمد! [[ذاكرة: اسمه محمد، بيحب تركيا]]"),
+    { speech: "أهلاً يا محمد!", memory: "اسمه محمد، بيحب تركيا" },
+  );
+  // A cut-off marker is never spoken and never saved.
+  assertEquals(
+    splitMemory("حلو كتير [[ذاكرة: اسمه مح"),
+    { speech: "حلو كتير", memory: null },
+  );
+  assertEquals(splitMemory("جواب عادي"), { speech: "جواب عادي", memory: null });
+  assertEquals(isForgetRequest("انسي كل شي"), true);
+  assertEquals(isForgetRequest("شو الطقس اليوم"), false);
+  assertEquals(sanitizeMemory("a\u0000b   c".padEnd(900, "x")).length, 500);
+});
+
+Deno.test("user id is hashed and never stored raw", async () => {
+  const { hashUser } = await import("./memory.ts");
+  const hash = await hashUser("amzn1.ask.account.TEST");
+  assertEquals(hash.length, 64);
+  assertEquals(hash.includes("TEST"), false);
+});

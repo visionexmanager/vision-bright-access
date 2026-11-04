@@ -2,9 +2,15 @@ export type AlexaEnvelope = {
   version?: string;
   session?: {
     application?: { applicationId?: string };
+    user?: { userId?: string };
     attributes?: Record<string, unknown>;
   };
-  context?: { System?: { application?: { applicationId?: string } } };
+  context?: {
+    System?: {
+      application?: { applicationId?: string };
+      user?: { userId?: string };
+    };
+  };
   request?: {
     type?: string;
     intent?: {
@@ -82,4 +88,9 @@ export function alexaSpeechResponse(
       }),
     },
   };
+}
+
+export function userIdOf(envelope: AlexaEnvelope): string | undefined {
+  return envelope.session?.user?.userId ??
+    envelope.context?.System?.user?.userId;
 }
