@@ -30,7 +30,9 @@ Deno.test("extracts a bounded free-form question", () => {
   assertEquals(
     userTextOf({
       request: {
-        intent: { slots: { question: { value: " " }, query: { value: "hello" } } },
+        intent: {
+          slots: { question: { value: " " }, query: { value: "hello" } },
+        },
       },
     }),
     "hello",
