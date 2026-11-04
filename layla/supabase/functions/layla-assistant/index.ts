@@ -1,5 +1,6 @@
 import { validateTimestamp, verifyAlexaSignature } from "./alexa-verifier.ts";
 import { answerQuestion } from "./llm.ts";
+import { questionWordFor } from "./starters.ts";
 import {
   type AlexaEnvelope,
   alexaSpeechResponse,
@@ -12,18 +13,6 @@ import {
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_SESSION_TURNS = 40;
-// Intents whose sample starts with a fixed question word: Alexa strips the word
-// (it is part of the sample), so it is put back before asking the model.
-const QUESTION_WORDS: Record<string, string> = {
-  WhatIntent: "شو",
-  HowIntent: "كيف",
-  WhyIntent: "ليش",
-  WhoIntent: "مين",
-  WhereIntent: "وين",
-  HowManyIntent: "كم",
-  WhenIntent: "إيمتى",
-  IsIntent: "هل",
-};
 const SYSTEM_PROMPT = `
 أنتِ ليلى، رفيقة حديث صوتية ذكية ودافئة. هدفك أن يحسّ المستخدم أنه عم يحكي مع شخص حقيقي ذكي ولطيف، مش مع جهاز.
 الأسلوب: لهجة لبنانية طبيعية وعفوية (مثل: هلّق، شو، كتير، منيح، يعني، إيه)، مش فصحى متكلّفة ولا ترجمة حرفية.
@@ -123,7 +112,7 @@ Deno.serve(async (req: Request) => {
 
   const spoken = userTextOf(envelope);
   const question = spoken
-    ? `${QUESTION_WORDS[intentName] ?? ""} ${spoken}`.trim()
+    ? `${questionWordFor(intentName)} ${spoken}`.trim()
     : "";
   if (!question) {
     return jsonResponse(alexaSpeechResponse(

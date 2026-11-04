@@ -81,3 +81,22 @@ Deno.test("Alexa response has a reprompt while session is open", () => {
   assertEquals(result.response.outputSpeech.text, "أهلاً");
   assertEquals(!!result.response.reprompt, true);
 });
+
+Deno.test("the checked-in Arabic model is generated from starters.ts", async () => {
+  const { buildModel, STARTERS } = await import("./starters.ts");
+  const file = JSON.parse(
+    await Deno.readTextFile(
+      new URL("../../../alexa/interaction-model.ar-SA.json", import.meta.url),
+    ),
+  );
+  assertEquals(file, buildModel());
+  // Alexa rejects a model where two intents share an utterance.
+  const seen = new Set<string>();
+  for (const intent of file.interactionModel.languageModel.intents) {
+    for (const sample of intent.samples) {
+      assertEquals(seen.has(sample), false, `duplicate sample: ${sample}`);
+      seen.add(sample);
+    }
+  }
+  assertEquals(Object.keys(STARTERS).length < 200, true);
+});

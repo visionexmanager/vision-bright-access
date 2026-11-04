@@ -17,15 +17,7 @@
             "احكي لي {question}",
             "احكيلي {question}",
             "بدي اعرف {question}",
-            "بدي {question}",
             "أريد أن أعرف {question}",
-            "طيب {question}",
-            "طب {question}",
-            "وكمان {question}",
-            "كمان {question}",
-            "وبعدين {question}",
-            "يعني {question}",
-            "ليلى {question}",
             "عطيني {question}",
             "خبريني {question}",
             "فيكي {question}",
@@ -140,6 +132,504 @@
           ],
           "samples": [
             "هل {question}"
+          ]
+        },
+        {
+          "name": "IamIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "أنا {question}",
+            "انا {question}"
+          ]
+        },
+        {
+          "name": "YouIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "إنت {question}",
+            "أنتِ {question}",
+            "انتي {question}"
+          ]
+        },
+        {
+          "name": "HeIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "هو {question}"
+          ]
+        },
+        {
+          "name": "SheIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "هي {question}"
+          ]
+        },
+        {
+          "name": "WeIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "نحنا {question}",
+            "نحن {question}"
+          ]
+        },
+        {
+          "name": "HaveIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "عندي {question}",
+            "عندنا {question}"
+          ]
+        },
+        {
+          "name": "WantIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "بدي {question}",
+            "بدنا {question}"
+          ]
+        },
+        {
+          "name": "LoveIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "بحب {question}",
+            "بحبّ {question}"
+          ]
+        },
+        {
+          "name": "NotIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "مش {question}"
+          ]
+        },
+        {
+          "name": "NoIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "لا {question}",
+            "لأ {question}"
+          ]
+        },
+        {
+          "name": "YesIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "إيه {question}",
+            "أه {question}",
+            "نعم {question}"
+          ]
+        },
+        {
+          "name": "ThanksIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "شكراً {question}",
+            "شكرا {question}",
+            "يسلمو {question}"
+          ]
+        },
+        {
+          "name": "OkIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "تمام {question}",
+            "ماشي {question}",
+            "أوكي {question}",
+            "منيح {question}"
+          ]
+        },
+        {
+          "name": "ButIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "بس {question}",
+            "لكن {question}"
+          ]
+        },
+        {
+          "name": "BecauseIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "لأن {question}",
+            "لأنو {question}"
+          ]
+        },
+        {
+          "name": "ThenIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "وبعدين {question}",
+            "بعدين {question}"
+          ]
+        },
+        {
+          "name": "ImagineIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "تخيلي {question}",
+            "تخيل {question}"
+          ]
+        },
+        {
+          "name": "HeardIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "سمعت {question}"
+          ]
+        },
+        {
+          "name": "SawIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "شفت {question}"
+          ]
+        },
+        {
+          "name": "KnowIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "بعرف {question}"
+          ]
+        },
+        {
+          "name": "DontKnowIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "ما بعرف {question}"
+          ]
+        },
+        {
+          "name": "WasIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "كنت {question}"
+          ]
+        },
+        {
+          "name": "WillIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "رح {question}"
+          ]
+        },
+        {
+          "name": "MustIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "لازم {question}"
+          ]
+        },
+        {
+          "name": "CanIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "فيني {question}",
+            "فينا {question}"
+          ]
+        },
+        {
+          "name": "LetsIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "خلينا {question}"
+          ]
+        },
+        {
+          "name": "ComeIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "تعي {question}"
+          ]
+        },
+        {
+          "name": "ThisIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "هيدا {question}",
+            "هيدي {question}",
+            "هاي {question}",
+            "هذا {question}"
+          ]
+        },
+        {
+          "name": "IfIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "إذا {question}",
+            "لو {question}"
+          ]
+        },
+        {
+          "name": "MaybeIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "ممكن {question}"
+          ]
+        },
+        {
+          "name": "CanYouIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "بتقدري {question}",
+            "بتعرفي {question}"
+          ]
+        },
+        {
+          "name": "DoingIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "عم {question}"
+          ]
+        },
+        {
+          "name": "TodayIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "اليوم {question}",
+            "أمس {question}",
+            "بكرا {question}"
+          ]
+        },
+        {
+          "name": "ThereIsIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "في {question}"
+          ]
+        },
+        {
+          "name": "EveryIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "كل {question}"
+          ]
+        },
+        {
+          "name": "SoIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "يعني {question}"
+          ]
+        },
+        {
+          "name": "AndIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "وكمان {question}",
+            "كمان {question}"
+          ]
+        },
+        {
+          "name": "OkThenIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "طيب {question}",
+            "طب {question}"
+          ]
+        },
+        {
+          "name": "HeyLaylaIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "يا ليلى {question}",
+            "ليلى {question}"
           ]
         },
         {
