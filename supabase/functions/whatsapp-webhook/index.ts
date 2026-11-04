@@ -75,6 +75,11 @@ import {
   businessAccountIdOf,
 } from "../_shared/whatsapp.ts";
 import { downloadMedia, mediaFailureNotice } from "../_shared/whatsappMedia.ts";
+import {
+  CONVERTIBLE_IMAGE_MIMES,
+  isImageMime,
+  normaliseImage,
+} from "../_shared/whatsappImageNormalise.ts";
 import { transcribeVoice, transcriptionFailureNotice } from "../_shared/whatsappTranscribe.ts";
 import { recordSttAttempts } from "../_shared/providerRecording.ts";
 import {
@@ -169,7 +174,7 @@ import {
 import { isAuthorized, requireActiveSubscription } from "../_shared/subscriptionGate.ts";
 import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
 import { smartFreeReply } from "../_shared/chatFreeMemory.ts";
-import { languageFor } from "../_shared/chatLanguage.ts";
+import { isFieldValue, languageFor, signupLanguage } from "../_shared/chatLanguage.ts";
 import {
   formatWeather,
   parseWeatherRequest,
@@ -487,6 +492,7 @@ import { noticeReasonFor, voiceToText } from "../_shared/whatsappVoiceTurn.ts";
 import { chainProvider } from "../_shared/whatsappAskProvider.ts";
 import { withTranslations } from "../_shared/whatsappNewsTranslate.ts";
 import { translateLocally } from "../_shared/whatsappLocalTranslate.ts";
+import { summarizeLocally } from "../_shared/whatsappLocalSummarize.ts";
 import { guessIntent, looksLikeARequest } from "../_shared/whatsappIntent.ts";
 import {
   AI_CONVERSATION,
@@ -2203,6 +2209,11 @@ Deno.serve(async (req) => {
           language: answerLanguage,
           languageName: LANGUAGE_ENDONYM[answerLanguage],
           provider: chainProvider(),
+          local: async (text, language) => {
+            const result = await translateLocally({ text, language });
+            log("news_translate", result.ok ? { ok: true, ms: result.ms } : { ok: false, reason: result.reason });
+            return result.ok ? result.text : null;
+          },
           save: async (id, translations) => {
             await db.from("news_articles").update({ translations }).eq("id", id);
           },
@@ -2552,7 +2563,23 @@ Deno.serve(async (req) => {
           });
           // The one notice goes out whichever way this message then goes: a
           // sender whose first message was "link account" is still told.
-          const gateLanguage = languageFor(incoming.text, null, answerLanguage);
+          // Pinned across the sign-up: a name, an email or a code carries no
+          // language, so the sender's earlier messages decide (see signupLanguage).
+          const preferred = existing?.preferred_language as string | null | undefined;
+          const gateLanguage = await signupLanguage(
+            incoming.text,
+            async () => {
+              const { data } = await db
+                .from("whatsapp_messages")
+                .select("body")
+                .eq("conversation_id", conversationId)
+                .eq("direction", "inbound")
+                .order("created_at", { ascending: false })
+                .limit(8);
+              return ((data ?? []) as { body: string | null }[]).map((r) => r.body);
+            },
+            isFieldValue(incoming.text) ? (isSupportedLanguage(preferred) ? preferred : "en") : answerLanguage,
+          );
           if (verdict === "blocked_first_notice") {
             // Sent as text directly, not through `reply`: a voice note in
             // would be answered by synthesis, which is a paid provider.
@@ -3716,18 +3743,34 @@ Deno.serve(async (req) => {
             await recoverVoiceState();
             continue;
           }
-        } else if (incoming.media.kind === "image" || incoming.media.kind === "sticker") {
+        } else if (incoming.media.kind === "image" || incoming.media.kind === "sticker" ||
+          // A picture sent "as a file" (HEIC, BMP, TIFF, AVIF, a full-size
+          // JPEG) arrives as a document with an image type. It is a picture.
+          (incoming.media.kind === "document" && isImageMime(incoming.media.mimeType))) {
 
-          const media = await downloadMedia({
+          const downloaded = await downloadMedia({
             mediaId: incoming.media.id,
-            kind: incoming.media.kind,
+            kind: incoming.media.kind === "document" ? "image" : incoming.media.kind,
             token,
             trace: correlationId,
+            extraMimes: CONVERTIBLE_IMAGE_MIMES,
           });
-          if (!media.ok) {
-            await reply(mediaFailureNotice(answerLanguage, incoming.media.kind, media.reason), "unsupported");
+          if (!downloaded.ok) {
+            await reply(mediaFailureNotice(answerLanguage, incoming.media.kind, downloaded.reason), "unsupported");
             continue;
           }
+
+          // Any other picture format is made into a PNG the readers take.
+          const normalised = await normaliseImage({
+            bytes: downloaded.bytes,
+            mimeType: downloaded.mimeType,
+          });
+          if (!normalised.ok) {
+            log("image_convert_failed", { reason: `convert_${normalised.reason}`, chars: downloaded.bytes.byteLength });
+            await reply(mediaFailureNotice(answerLanguage, incoming.media.kind, "unsupported_type"), "unsupported");
+            continue;
+          }
+          const media = { ok: true as const, bytes: normalised.bytes, mimeType: normalised.mimeType };
 
           // ── Before a photograph leaves this server ────────────────────────
           //
@@ -4036,6 +4079,15 @@ Deno.serve(async (req) => {
               ? reportPrompt(LANGUAGE_ENDONYM[answerLanguage])
               : incoming.media.caption ?? "",
             languageName: LANGUAGE_ENDONYM[answerLanguage],
+            local: async (text, task) => {
+              // A health report has its own careful prompt; the small model does not get it.
+              if (explainReport) return null;
+              const result = await summarizeLocally({ text, language: answerLanguage, task });
+              // A text the server's model could only read part of is the chain's to answer.
+              const usable = result.ok && !result.truncated;
+              log("local_summarize", usable ? { ok: true, ms: result.ms } : { ok: false, reason: result.ok ? "truncated" : result.reason });
+              return usable ? result.text : null;
+            },
           });
           if (!read.ok) {
             // Each reason needs a different thing from the sender, so each one

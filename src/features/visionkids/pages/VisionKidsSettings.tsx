@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { Moon, Sun, Eye, Type, Wand2 } from "lucide-react";
+import { Moon, Sun, Eye, Type, Wand2, Volume2 } from "lucide-react";
+import {
+  getKidsSoundEnabled, setKidsSoundEnabled, getKidsSpeechEnabled, setKidsSpeechEnabled, kidsSpeechSupported, playKidsSound,
+} from "@/features/visionkids/audio/kidsSound";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -119,6 +122,36 @@ export default function VisionKidsSettings() {
                 onCheckedChange={(checked) => { setKidsReduceMotion(checked); bump(); }}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Volume2 className="h-5 w-5 text-kids-primary" aria-hidden="true" />
+              {t("kids.settings.sound")}
+            </CardTitle>
+            <CardDescription>{t("kids.settings.soundDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="kids-game-sounds" className="text-sm font-medium">{t("kids.settings.gameSounds")}</Label>
+              <Switch
+                id="kids-game-sounds"
+                checked={getKidsSoundEnabled()}
+                onCheckedChange={(checked) => { setKidsSoundEnabled(checked); if (checked) playKidsSound("correct"); bump(); }}
+              />
+            </div>
+            {kidsSpeechSupported() && (
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="kids-read-aloud" className="text-sm font-medium">{t("kids.settings.readAloud")}</Label>
+                <Switch
+                  id="kids-read-aloud"
+                  checked={getKidsSpeechEnabled()}
+                  onCheckedChange={(checked) => { setKidsSpeechEnabled(checked); bump(); }}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 

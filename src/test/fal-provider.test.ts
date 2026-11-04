@@ -264,13 +264,15 @@ describe("video-studio wiring", () => {
     expect(studio.match(/getProvider\(job\.provider, \{ existingJob: true \}\)/g)).toHaveLength(2);
   });
 
-  it("runs only the commercial Wan model, stores the result in Visionex storage, and fetches only from FAL's CDN", () => {
-    expect(cls).toContain("falSubmit({ key: this.key }, FAL_VIDEO_MODEL,");
+  it("runs only priced, commercially licensed options, stores the result in Visionex storage, and fetches only from FAL's CDN", () => {
+    // The endpoint comes from a priced option (falVideoOptions.ts, whose test
+    // checks every endpoint is commercial), and falSubmit refuses any other.
+    expect(cls).toContain("falSubmit({ key: this.key }, option.endpoint,");
     expect(cls).not.toMatch(/ltx/i);
     expect(cls).toContain("publicAssetUrls = false;");
     expect(cls).toContain("if (!isFalMediaUrl(url)) return Promise.reject(");
     expect(cls).toContain('fetch(url, { redirect: "error" })');
-    expect(generate).toContain('provider.name === "fal" ? FAL_VIDEO_MODEL');
+    expect(generate).toContain("falOption ? falOption.id");
   });
 
   it("a poll that cannot reach FAL keeps the job processing instead of failing a paid render", () => {

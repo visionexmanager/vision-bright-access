@@ -19,6 +19,7 @@
  *   content_providers     — the external content provider registry and each provider's state
  *   content_search        — query -> normalised items from every ready provider (images, audio, video, books, data…)
  *   content_item          — item_id -> one item resolved to playable files (NASA video, podcast episodes)
+ *   content_file          — item_id -> the file itself (base64), only where the chat channels may deliver it
  *   content_health        — admin only: live check of every provider, saved for the admin panel
  *
  * Auth: user-jwt required. Access to every book_id is checked via
@@ -36,6 +37,7 @@ import {
   checkAllProviders, getYouTubeResource, normalizeSearchInput, normalizeYouTubeSearch, resolveExternalItem, searchExternalContent, searchYouTube,
   summarizeProviders, UNSUPPORTED_PROVIDERS, youtubeErrorResponse, youtubeStats,
 } from "../_shared/externalContent/index.ts";
+import { libraryFileKind, prepareLibraryFile, toBase64 } from "../_shared/libraryFile.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 import { subscriptionGate } from "../_shared/subscriptionGate.ts";
 import { requireSection } from "../_shared/entitlements.ts";
@@ -46,7 +48,7 @@ function json(data: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
 }
 
-type ContentMode = "content_providers" | "content_search" | "content_item" | "content_health" | "youtube_search" | "youtube_resource" | "youtube_stats";
+type ContentMode = "content_providers" | "content_search" | "content_item" | "content_file" | "content_health" | "youtube_search" | "youtube_resource" | "youtube_stats";
 type Mode = "summarize_multiple" | "compare_books" | "compare_authors" | "literature_review" | "research_outline" | "suggest_references" | "external_sources" | "knowledge_gaps" | ContentMode;
 
 interface RequestBody {
@@ -72,7 +74,7 @@ interface RequestBody {
   resource_id?: string;
 }
 
-const CONTENT_MODES: ReadonlySet<string> = new Set<ContentMode>(["content_providers", "content_search", "content_item", "content_health", "youtube_search", "youtube_resource", "youtube_stats"]);
+const CONTENT_MODES: ReadonlySet<string> = new Set<ContentMode>(["content_providers", "content_search", "content_item", "content_file", "content_health", "youtube_search", "youtube_resource", "youtube_stats"]);
 const readEnv = (name: string) => Deno.env.get(name);
 
 /**
@@ -145,6 +147,16 @@ async function handleContentMode(
   if (body.mode === "content_item") {
     const item = await resolveExternalItem(String(body.item_id ?? ""), { fetch, env: readEnv });
     return item ? json({ ok: true, item }, 200, cors) : json({ error: "Item not found" }, 404, cors);
+  }
+
+  if (body.mode === "content_file") {
+    const item = await resolveExternalItem(String(body.item_id ?? ""), { fetch, env: readEnv });
+    if (!item) return json({ error: "Item not found" }, 404, cors);
+    if (!libraryFileKind(item)) return json({ error: "file_unavailable", reason: "not_deliverable" }, 422, cors);
+    const file = await prepareLibraryFile(item, { fetch });
+    // A reason code only: the address can carry a key, and the reader needs a label, not a message.
+    if (!file.ok) return json({ error: "file_unavailable", reason: file.reason }, 422, cors);
+    return json({ ok: true, mimeType: file.mimeType, fileName: file.fileName, data: toBase64(file.bytes) }, 200, cors);
   }
 
   // content_search

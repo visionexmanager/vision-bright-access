@@ -118,7 +118,11 @@ const PATTERNS: Array<[Language, RegExp]> = Object.entries(STOPWORDS).map(
  */
 export function detectLanguage(text: string): DetectedLanguage | null {
   const sample = (text ?? "").trim().slice(0, 4_000);
-  if (sample.length < MIN_CHARS) return null;
+  // Length only matters where letters are ambiguous. A script with one owner
+  // (Hindi, Bengali, Korean, Russian, Japanese, Chinese) or an Urdu/Persian-only
+  // letter says its language in two characters; "你好" or "привет" used to be
+  // answered in whatever language the sender had last chosen.
+  const tooShort = sample.length < MIN_CHARS;
 
   // ── 1. Scripts with one owner ─────────────────────────────────────────────
   if (HAS.devanagari.test(sample)) return { language: "hi", confidence: 1 };
@@ -136,12 +140,14 @@ export function detectLanguage(text: string): DetectedLanguage | null {
   if (HAS.arabic.test(sample)) {
     if (URDU_LETTERS.test(sample)) return { language: "ur", confidence: 0.9 };
     if (PERSIAN_LETTERS.test(sample)) return { language: "fa", confidence: 0.9 };
-    return { language: "ar", confidence: 0.8 };
+    // Plain Arabic letters are shared with Persian and Urdu: too little text
+    // cannot tell them apart, so a short one keeps the sender's own choice.
+    return tooShort ? null : { language: "ar", confidence: 0.8 };
   }
 
   // ── 3. The Latin seven, and the four that share their alphabet ────────────
   const words = sample.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? [];
-  if (words.length < 3) return null;
+  if (tooShort || words.length < 3) return null;
 
   const scores = new Map<Language, number>();
   let total = 0;

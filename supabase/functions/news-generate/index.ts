@@ -15,6 +15,10 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { providerErrorSummary } from "../_shared/providerInput.ts";
 import { meteredFetch } from "../_shared/meteredFetch.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
+import { chainProvider } from "../_shared/whatsappAskProvider.ts";
+import { withTranslations } from "../_shared/whatsappNewsTranslate.ts";
+import { LANGUAGE_ENDONYM } from "../_shared/whatsappLanguages.ts";
+import type { NewsArticle } from "../_shared/whatsappNews.ts";
 
 installUsageMetering("news-generate");
 
@@ -412,6 +416,51 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const newsletterOnly = url.searchParams.get("newsletter_only") === "true"
     || req.headers.get("x-newsletter-only") === "true";
+
+  // translate=true: fill in the languages the daily collection (English only)
+  // leaves missing, so the website shows news in every locale. Cron/admin only,
+  // like the rest of this function; results are saved, so a language is paid
+  // for once per article and a run that times out simply continues next day.
+  if (url.searchParams.get("translate") === "true") {
+    const { data: rows } = await supabase
+      .from("news_articles")
+      .select("id, title, description, category, published_at, translations")
+      .eq("published", true)
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .limit(40);
+    const latest: NewsArticle[] = (rows ?? []).map((r) => ({
+      id: r.id, title: r.title ?? "", description: r.description ?? "", category: r.category,
+      publishedAt: r.published_at, translations: (r.translations as NewsArticle["translations"]) ?? null,
+    }));
+    const all = Object.keys(LANGUAGE_ENDONYM).filter((l) => l !== "en") as Array<keyof typeof LANGUAGE_ENDONYM>;
+    // One language per call keeps a call inside the function's compute limit (a
+    // run for all nineteen at once was cut off); the workflow loops over them.
+    const only = url.searchParams.get("language");
+    const languages = only ? all.filter((l) => l === only) : all;
+    const provider = chainProvider();
+    // Each language re-reads the row, so two languages never overwrite each other's map.
+    let done = 0;
+    for (let i = 0; i < languages.length; i += 1) {
+      await Promise.all(languages.slice(i, i + 1).map(async (language) => {
+        const { data: fresh } = await supabase.from("news_articles").select("id, translations").in("id", latest.map((a) => a.id));
+        const current = new Map((fresh ?? []).map((r) => [r.id as string, r.translations as NewsArticle["translations"]]));
+        const out = await withTranslations({
+          articles: latest.map((a) => ({ ...a, translations: current.get(a.id) ?? a.translations })),
+          language,
+          languageName: LANGUAGE_ENDONYM[language],
+          provider,
+          save: async (id, translations) => {
+            // Merge into the latest map: only this language's key is ours.
+            const { data: row } = await supabase.from("news_articles").select("translations").eq("id", id).single();
+            const merged = { ...((row?.translations as Record<string, unknown>) ?? {}), [language]: translations[language] };
+            await supabase.from("news_articles").update({ translations: merged }).eq("id", id);
+          },
+        });
+        done += out.filter((a) => a.translations?.[language]?.title).length;
+      }));
+    }
+    return Response.json({ translated_rows: done }, { headers: CORS });
+  }
 
   let articles: GeneratedArticle[] = [];
 

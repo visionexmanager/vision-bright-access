@@ -29,7 +29,7 @@ on:
         required: true
         default: status
         type: choice
-        options: [status, start, stop, test, enable, disable]
+        options: [status, start, stop, test, enable, disable, diagnose, test-summary, enable-summary, disable-summary]
 
 permissions:
   contents: read
@@ -49,7 +49,7 @@ jobs:
 
       # The other half of "off". This one name only; nothing else is touched.
       - name: Switch the Edge secret
-        if: inputs.action == 'enable' || inputs.action == 'disable'
+        if: inputs.action == 'enable' || inputs.action == 'disable' || inputs.action == 'enable-summary' || inputs.action == 'disable-summary'
         shell: bash
         env:
           ACTION:               ${{ inputs.action }}
@@ -58,15 +58,19 @@ jobs:
         run: |
           set -euo pipefail
           npm install -g supabase@latest >/dev/null 2>&1
-          if [[ "$ACTION" == "enable" ]]; then
-            supabase secrets set LOCAL_DESCRIBE=on --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+          # enable / disable switch picture descriptions; the -summary pair
+          # switches document summaries, which use the same model.
+          NAME=LOCAL_DESCRIBE
+          [[ "$ACTION" == *-summary ]] && NAME=LOCAL_SUMMARIZE
+          if [[ "$ACTION" == enable* ]]; then
+            supabase secrets set "$NAME=on" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
           else
-            supabase secrets unset LOCAL_DESCRIBE --project-ref "$SUPABASE_PROJECT_REF" >/dev/null
+            supabase secrets unset "$NAME" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
           fi
-          if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q '^ *LOCAL_DESCRIBE '; then
-            echo "LOCAL_DESCRIBE is set."
+          if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q "^ *$NAME "; then
+            echo "$NAME is set."
           else
-            echo "LOCAL_DESCRIBE is not set."
+            echo "$NAME is not set."
           fi
 
       - name: Open the connection
@@ -115,8 +119,10 @@ jobs:
           set -uo pipefail
           ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
           set -uo pipefail
+          # Removed first, so a restart does not count its own memory against itself.
+          sudo docker rm -f visionex-describer >/dev/null 2>&1 || true
           FREE=$(free -m | awk '/^Mem:/{print $7}')
-          if [ "$FREE" -lt 9000 ]; then
+          if [ "$FREE" -lt 7000 ]; then
             echo "Refusing to start: only ${FREE} MB available, the model needs about 6 GB beside the website."
             exit 1
           fi
@@ -137,6 +143,7 @@ jobs:
             --cpus 3 --memory 6g --pids-limit 512 \
             --cap-drop ALL --security-opt no-new-privileges \
             --volume /var/lib/visionex/describer-cache:/root/.cache \
+            --env LLAMA_ARG_CACHE_RAM=0 \
             ghcr.io/ggml-org/llama.cpp:server \
             -hf bartowski/Qwen_Qwen3-VL-4B-Instruct-GGUF:Q4_K_M \
             --host 0.0.0.0 --port 8080 -c 4096 -np 1 -t 3 --no-webui >/dev/null
@@ -159,6 +166,28 @@ jobs:
         run: |
           set -uo pipefail
           ssh target 'sudo docker rm -f visionex-describer >/dev/null 2>&1; echo "removed; the cached model files are kept"' | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Why a description is slow or times out: what the container says, what it
+      # is using, and how fast it produces words with no picture involved.
+      - name: Diagnose the model
+        if: inputs.action == 'diagnose'
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          GW=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
+          echo '```'
+          echo "--- uptime / load"; uptime
+          echo "--- containers"; sudo docker stats --no-stream --format '{{.Name}} cpu={{.CPUPerc}} mem={{.MemUsage}}'
+          echo "--- top processes"; ps -eo pcpu,pmem,comm --sort=-pcpu | head -6
+          echo "--- describer log (last 25)"; sudo docker logs --tail 25 visionex-describer 2>&1 | cut -c1-220
+          echo "--- one text-only request, 40 tokens"
+          START=$(date +%s)
+          curl -sS --max-time 120 "http://$GW:8098/v1/chat/completions" -H 'content-type: application/json' \
+            -d '{"messages":[{"role":"user","content":"Write one sentence about the sea."}],"max_tokens":40,"stream":false}' | cut -c1-400
+          echo; echo "seconds: $(( $(date +%s) - START ))"
+          echo '```'
+          REMOTE
 
       # The processor, not the model, is what the Edge Function calls, so this
       # goes through the processor: from inside its container to the model, then
@@ -208,6 +237,32 @@ jobs:
             exit 1
           fi
           echo "All twenty languages described the drawn picture in their own language."
+
+      # A real summary through the processor: one short text, then one long
+      # enough to be cut into pieces, each in Arabic, timed. The texts are
+      # invented here; nothing of anyone's is sent.
+      - name: Test a summary through the processor
+        if: inputs.action == 'test-summary'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          [ -n "${TOKEN:-}" ] || { echo '::error::PROCESSOR_TOKEN is not set.'; exit 1; }
+          node -e '
+            const para = "The municipal library will extend its opening hours from the first of March. On weekdays it will open at eight in the morning and close at nine in the evening. Saturday hours stay the same. A reading room for people who use screen readers will be added on the second floor, with six desks and a braille printer. Membership remains free for residents, and visitors can register at the front desk with an identity card. ";
+            const make = (n) => Array.from({ length: n }, () => para).join(" ");
+            require("fs").writeFileSync("/tmp/sum-short.json", JSON.stringify({ text: make(2), lang: "ar", task: "" }));
+            require("fs").writeFileSync("/tmp/sum-long.json", JSON.stringify({ text: make(8), lang: "ar", task: "" }));
+          '
+          for f in short long; do
+            echo "── summary, $f text, lang=ar"
+            START=$(date +%s)
+            scp -q /tmp/sum-$f.json target:/tmp/sum-$f.json
+            printf 'Authorization: Bearer %s\n' "$TOKEN" | ssh target "curl -sS --max-time 130 -H @- -H 'content-type: application/json' --data-binary @/tmp/sum-$f.json http://127.0.0.1:8081/summarize; rm -f /tmp/sum-$f.json" | tee /tmp/sum-$f.out | cut -c1-900
+            echo; echo "wall seconds: $(( $(date +%s) - START ))"
+            grep -q '"ok":true' /tmp/sum-$f.out || { echo "::error::No summary came back for the $f text."; exit 1; }
+          done
+          echo "Both summaries came back."
 
       - name: Forget the key
         if: always()

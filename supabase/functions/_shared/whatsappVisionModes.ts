@@ -63,12 +63,14 @@ export const COMMAND_MAX_CHARS = 80;
 const TRANSLATE = [
   /\b(translate|translation)\b/i,
   /(ترجم|ترجمة|ترجملي|ترجم لي)/,
+  /(?<![p{L}])(traduce|traducir|traduzir|traduza|traduire|traduis|traduisez|traduci|tradurre|übersetze|übersetzen|çevir|vertaal|przetłumacz|terjemahkan|dịch|переведи|перевести|перевод|अनुवाद|翻译|翻譯|翻訳|번역)(?![p{L}])/iu,
 ];
 
 const PRODUCT = [
   /\b(product|barcode|bar code|ingredients|expiry|expiration|best before|nutrition|label)\b/i,
   /\b(what|which)\b.{0,20}\b(product|brand|item)\b/i,
   /(منتج|المنتج|باركود|الباركود|المكونات|مكونات|الصلاحية|تاريخ الصلاحية|انتهاء|ماركة)/,
+  /(?<![p{L}])(producto|código de barras|ingredientes|caducidad|produit|code-barres|ingrédients|péremption|produkt|strichcode|inhaltsstoffe|verfallsdatum|prodotto|codice a barre|ingredienti|scadenza|produto|código de barras|validade|ürün|barkod|içindekiler|son kullanma|продукт|штрихкод|состав|срок годности|उत्पाद|बारकोड|सामग्री|产品|条形码|成分|商品|バーコード|제품|바코드)(?![p{L}])/iu,
 ];
 
 const FIND_OBJECT = [
@@ -80,12 +82,14 @@ const READ_TEXT = [
   /\b(read|reading|ocr)\b/i,
   /\b(what does (it|this) say|what'?s written|transcribe)\b/i,
   /(اقرأ|اقرا|إقرأ|اقرألي|قراءة|شو مكتوب|شو المكتوب|ايش مكتوب|وش مكتوب|النص)/,
+  /(?<![p{L}])(lee|leer|lire|lesen|leggi|leggere|leia|ler|прочитай|прочти|читай|पढ़ो|पढ़|读|朗读|読んで|읽어|que dit|qu'est-ce qui est écrit|qué dice|was steht|cosa c'è scritto|o que diz|ne yazıyor|что написано)(?![p{L}])/iu,
 ];
 
 const DESCRIBE = [
   /\b(describe|description)\b/i,
   /\b(what('?s| is| are)?\s+(this|that|in (the|this) (photo|picture|image))|what do you see)\b/i,
   /(وصف|صف لي|صفلي|وصفلي|شو هذا|شو هاد|ايش هذا|وش هذا|شو في الصورة|شو بالصورة|شو شايف)/,
+  /(?<![p{L}])(describe|descríbeme|descreva|décris|décrire|beschreibe|beschreiben|descrivi|descrivere|tarif et|açıkla|опиши|опишите|वर्णन|बताओ क्या है|描述|说明|説明して|설명해|qué es esto|qu'est-ce que c'est|was ist das|cos'è questo|o que é isto|bu ne|что это)(?![p{L}])/iu,
 ];
 
 /**

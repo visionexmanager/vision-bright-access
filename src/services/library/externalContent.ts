@@ -44,6 +44,42 @@ export async function resolveExternalItem(itemId: string): Promise<ExternalConte
   return data.item;
 }
 
+/** Why a file could not be saved: the source only allows its own page, or the transfer failed. */
+export class FileUnavailableError extends Error {
+  constructor(readonly reason: string) {
+    super("file_unavailable");
+    this.name = "FileUnavailableError";
+  }
+}
+
+export interface ExternalFile {
+  blob: Blob;
+  fileName: string;
+}
+
+/**
+ * The file itself, fetched by the server under the same rules as the chat
+ * channels (a named host, a licence that allows passing it on, a size limit).
+ * Throws FileUnavailableError when the source only allows opening its own page.
+ */
+export async function fetchExternalFile(itemId: string): Promise<ExternalFile> {
+  const { data, error } = await supabase.functions.invoke("library-research-assistant", { body: { mode: "content_file", item_id: itemId } });
+  const body = data as { ok?: boolean; mimeType?: string; fileName?: string; data?: string; reason?: string } | null;
+  if (error || !body?.ok || !body.data || !body.mimeType) {
+    // A refusal carries its reason in the body of a non-2xx answer, which the client library keeps in the error.
+    let reason = body?.reason ?? "failed";
+    const context = (error as { context?: Response } | null)?.context;
+    if (context && typeof context.json === "function") {
+      reason = ((await context.json().catch(() => null)) as { reason?: string } | null)?.reason ?? reason;
+    }
+    throw new FileUnavailableError(reason);
+  }
+  const binary = atob(body.data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return { blob: new Blob([bytes], { type: body.mimeType }), fileName: body.fileName ?? "download" };
+}
+
 export function fetchExternalProviders(): Promise<{ providers: ProviderSummary[]; unsupported: UnsupportedProvider[] }> {
   return invoke({ mode: "content_providers" });
 }

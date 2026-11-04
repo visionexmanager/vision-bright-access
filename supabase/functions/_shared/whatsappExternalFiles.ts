@@ -77,6 +77,20 @@ export const DELIVERY_HOSTS: Readonly<Record<string, readonly string[]>> = {
   rijksmuseum: ["iiif.micr.io"],
   // Flickr: only a photo whose own licence allows it (see licenceAllows).
   flickr: ["staticflickr.com"],
+  // NASA's own image server, and the free stock and CC0 collections. Unsplash, Europeana and DPLA are
+  // left out on purpose: Unsplash requires hotlinking, and the other two point at the holding
+  // institution's own site, which is not a host we name. Their results arrive as a link with the licence.
+  nasa: ["images-assets.nasa.gov"],
+  pexels: ["images.pexels.com", "videos.pexels.com"],
+  // Freesound's public previews (an MP3 each). Jamendo is left out on purpose: its free API tier is for
+  // non-commercial use, and Visionex is a service, so its tracks arrive as a link to their page.
+  freesound: ["cdn.freesound.org"],
+  pixabay: ["pixabay.com", "cdn.pixabay.com"],
+  smithsonian: ["ids.si.edu"],
+  wellcome: ["iiif.wellcomecollection.org"],
+  inaturalist: ["inaturalist-open-data.s3.amazonaws.com"],
+  // SepiaSearch (PeerTube) and ccMixter are not here on purpose: PeerTube videos sit on whatever server the
+  // author chose, and ccMixter blocks hotlinked downloads. Both arrive as a link with their licence.
   // Research: the open repositories and publishers whose open-access PDFs a server can fetch.
   // Left out on purpose: Europe PMC, PubMed Central, bioRxiv and medRxiv, which answer a bot challenge.
   openalex: [
@@ -89,10 +103,10 @@ export const DELIVERY_HOSTS: Readonly<Record<string, readonly string[]>> = {
 export const KIND_SEARCH: Readonly<Record<FileKind, { categories: readonly string[]; providers: readonly string[] }>> = {
   book: { categories: ["books", "education"], providers: ["gutenberg", "openstax", "internet_archive"] },
   audiobook: { categories: ["audio"], providers: ["internet_archive"] },
-  video: { categories: ["video"], providers: ["internet_archive", "wikimedia_commons"] },
-  // Freely licensed pictures, in the order they are preferred: Commons and Openverse first, then the museums' CC0 images, then Flickr.
-  image: { categories: ["images"], providers: ["wikimedia_commons", "openverse", "met_museum", "artic", "cleveland_museum", "rijksmuseum", "flickr"] },
-  audio: { categories: ["audio"], providers: ["wikimedia_commons", "internet_archive"] },
+  video: { categories: ["video"], providers: ["internet_archive", "wikimedia_commons", "sepiasearch", "pexels", "pixabay"] },
+  // Freely licensed pictures, in the order they are preferred: Commons and Openverse first, then the museums' CC0 images, NASA, the Smithsonian, Flickr, the free stock sites, and last the aggregators that only link.
+  image: { categories: ["images"], providers: ["wikimedia_commons", "openverse", "met_museum", "artic", "cleveland_museum", "rijksmuseum", "nasa", "smithsonian", "wellcome", "inaturalist", "flickr", "pexels", "pixabay", "unsplash", "europeana", "dpla"] },
+  audio: { categories: ["audio"], providers: ["wikimedia_commons", "internet_archive", "ccmixter", "freesound", "jamendo"] },
   // A paper or a PDF: an open-access full text with a stated open licence, or a PDF on Commons.
   document: { categories: ["documents"], providers: ["openalex", "wikimedia_commons"] },
 };
@@ -220,8 +234,29 @@ export function licenceAllows(licence: { name: string } | null | undefined, modi
 
 const extensionOf = (url: string): string => /\.([a-z0-9]{2,5})(?:[?#]|$)/i.exec(url)?.[1]?.toLowerCase() ?? "";
 
+/**
+ * Sound and film from the keyed collections: a Freesound preview, a Pexels or Pixabay video. Each is held
+ * to its own host, its own address shape and its own licence name; a film over Meta's limit is shrunk on
+ * the processor rather than refused.
+ */
+const STOCK_MEDIA: Readonly<Record<string, { kind: "audio" | "video"; address: RegExp; licence: RegExp; pick: (i: ExternalContentItem) => string | null }>> = {
+  freesound: { kind: "audio", address: /^https:\/\/cdn\.freesound\.org\/previews\/\d{1,6}\/\d{1,12}_\d{1,12}-(?:hq|lq)\.mp3$/, licence: /^(?:CC0|CC BY)(?: \d\.\d)?$/, pick: (i) => i.previewUrl },
+  pexels: { kind: "video", address: /^https:\/\/videos\.pexels\.com\/video-files\/\d{1,12}\/[\w.-]+\.mp4$/, licence: /^Pexels License$/, pick: (i) => i.downloadUrl },
+  pixabay: { kind: "video", address: /^https:\/\/cdn\.pixabay\.com\/video\/[\w/.-]+\.mp4$/, licence: /^Pixabay Content License$/, pick: (i) => i.previewUrl },
+};
+
+function stockMediaCandidate(item: ExternalContentItem, kind: "audio" | "video", hosts: readonly string[]): FileCandidate | null {
+  const rule = STOCK_MEDIA[item.provider];
+  if (!rule || rule.kind !== kind || !item.license || !rule.licence.test(item.license.name)) return null;
+  const url = rule.pick(item);
+  if (!url || !rule.address.test(url)) return null;
+  const mime = kind === "audio" ? TO_MP3.mime : TO_MP4.mime;
+  return { url, mime, fileName: fileNameFor(item.title, mime), size: item.sizeBytes, hosts, ...(kind === "video" ? { convert: TO_MP4 } : {}) };
+}
+
 /** Audio and video from Wikimedia Commons: what Meta takes as it is, or converted on the processor. */
 function commonsMediaCandidate(item: ExternalContentItem, kind: "audio" | "video", hosts: readonly string[]): FileCandidate | null {
+  if (item.provider !== "wikimedia_commons") return stockMediaCandidate(item, kind, hosts);
   const original = item.provider === "wikimedia_commons" ? commonsOriginal(item.downloadUrl) : null;
   if (!original) return null;
   let mime = (item.mimeType ?? "").toLowerCase();
@@ -293,7 +328,33 @@ const NO_DERIVATIVES = /(?:^|[\s-])ND(?:[\s-]|$)/i;
  * Only a licence that permits passing the work on qualifies, and a
  * no-derivatives licence never gets a resized or converted copy.
  */
+/**
+ * Collections that name a licence and serve the picture from a host we name. `licence` is the one
+ * licence name a collection may carry, `pick` chooses the address, and `convert` says the file is
+ * resized on the processor (its originals can be far over Meta's limit) instead of sent as it is.
+ */
+const STOCK_IMAGE: Readonly<Record<string, { address: RegExp; licence: RegExp; pick: (i: ExternalContentItem) => string | null; convert: boolean }>> = {
+  nasa: { address: /^https:\/\/images-assets\.nasa\.gov\/image\/[\w.%()+-]+\/[\w.~%()+ -]+\.(?:jpg|jpeg|png)$/i, licence: /^No known copyright$/, pick: (i) => i.previewUrl, convert: true },
+  smithsonian: { address: /^https:\/\/ids\.si\.edu\/ids\/deliveryService\?id=[\w.:-]{1,80}$/, licence: /^CC0$/, pick: (i) => i.downloadUrl, convert: true },
+  pexels: { address: /^https:\/\/images\.pexels\.com\/photos\/\d+\/[\w.-]+\.(?:jpe?g|png)(?:\?[\w=&.%-]{0,120})?$/i, licence: /^Pexels License$/, pick: (i) => i.previewUrl, convert: false },
+  wellcome: { address: /^https:\/\/iiif\.wellcomecollection\.org\/image\/[A-Za-z0-9_-]{3,40}\/full\/![0-9]{3,4},[0-9]{3,4}\/0\/default\.jpg$/, licence: /^(?:CC0|Public Domain Mark|CC BY(?:-SA)?(?: \d\.\d)?)$/, pick: (i) => i.downloadUrl, convert: false },
+  inaturalist: { address: /^https:\/\/inaturalist-open-data\.s3\.amazonaws\.com\/photos\/\d{1,12}\/large\.(?:jpe?g|png)$/i, licence: /^(?:CC0|CC BY(?:-SA)?)$/, pick: (i) => i.downloadUrl, convert: false },
+  pixabay: { address: /^https:\/\/(?:cdn\.)?pixabay\.com\/(?:photo|get)\/[\w/.-]+\.(?:jpe?g|png)$/i, licence: /^Pixabay Content License$/, pick: (i) => i.previewUrl, convert: false },
+};
+
+function stockCandidate(item: ExternalContentItem, hosts: readonly string[]): FileCandidate | null {
+  const rule = STOCK_IMAGE[item.provider];
+  if (!rule || !item.license || !rule.licence.test(item.license.name)) return null;
+  const url = rule.pick(item);
+  if (!url || !rule.address.test(url)) return null;
+  const mime = /\.png(?:\?|$)/i.test(url) ? "image/png" : "image/jpeg";
+  return rule.convert
+    ? { url, mime: "image/jpeg", fileName: fileNameFor(item.title, "image/jpeg"), size: null, hosts, mustConvert: true, convert: TO_JPEG }
+    : { url, mime, fileName: fileNameFor(item.title, mime), size: null, hosts };
+}
+
 function imageCandidate(item: ExternalContentItem, hosts: readonly string[]): FileCandidate | null {
+  if (item.provider in STOCK_IMAGE) return stockCandidate(item, hosts);
   const limit = deliveryRuleFor("image/jpeg")?.maxBytes ?? 0;
   if (!item.downloadUrl && item.provider !== "openverse") return null;
   if (item.provider === "openverse") {
@@ -345,7 +406,66 @@ export function matchesRequest(item: ExternalContentItem, query: string, loose =
   if (terms.length === 0) return false;
   // A picture's title is often a file name; its description and tags say what it shows.
   const haystack = `${item.title} ${item.creator ?? ""}${loose ? ` ${item.description ?? ""} ${(item.tags ?? []).join(" ")}` : ""}`.toLocaleLowerCase();
-  return terms.filter((w) => haystack.includes(w)).length >= Math.min(terms.length, need);
+  // A word also counts through its synonyms: a recording titled "Aircraft flyover" answers "airplane".
+  return terms.filter((w) => haystack.includes(w) || (SOUND_SYNONYMS[w] ?? []).some((s) => haystack.includes(s))).length >= Math.min(terms.length, need);
+}
+
+/** Words a recording is more often titled by than by the one a sender types. */
+export const SOUND_SYNONYMS: Readonly<Record<string, readonly string[]>> = {
+  airplane: ["aeroplane", "aircraft", "jet", "flyover", "airliner", "plane"],
+  aeroplane: ["airplane", "aircraft", "jet", "flyover", "airliner"],
+  plane: ["airplane", "aeroplane", "aircraft", "jet", "flyover"],
+  jet: ["aircraft", "airplane", "flyover"],
+  helicopter: ["chopper", "rotor"],
+  car: ["automobile", "vehicle", "traffic", "engine"],
+  train: ["railway", "locomotive", "railroad"],
+  ship: ["boat", "vessel", "horn"],
+  sea: ["ocean", "waves", "surf", "beach"],
+  ocean: ["sea", "waves", "surf"],
+  waves: ["surf", "sea", "ocean"],
+  rain: ["raindrops", "rainfall", "downpour", "storm"],
+  thunder: ["thunderstorm", "storm", "lightning"],
+  wind: ["breeze", "gust", "storm"],
+  fire: ["flames", "crackling", "campfire", "bonfire"],
+  river: ["stream", "creek", "brook", "water"],
+  bird: ["birds", "birdsong", "chirping", "songbird"],
+  birds: ["bird", "birdsong", "chirping", "songbird"],
+  cat: ["meow", "kitten"],
+  dog: ["bark", "barking", "puppy"],
+  lion: ["roar", "roaring"],
+  horse: ["hooves", "neigh", "galloping"],
+  cow: ["moo", "cattle"],
+  frog: ["frogs", "croaking"],
+  bell: ["bells", "chime", "ringing"],
+  clock: ["ticking", "tick"],
+  crowd: ["applause", "cheering", "audience"],
+  applause: ["clapping", "crowd", "cheering"],
+  baby: ["infant", "crying", "laughing"],
+  footsteps: ["walking", "steps"],
+  door: ["knock", "creak", "slam"],
+  engine: ["motor", "idle", "revving"],
+  siren: ["ambulance", "alarm", "police"],
+  explosion: ["blast", "boom", "bomb"],
+  piano: ["keyboard"],
+  guitar: ["strings"],
+  drum: ["drums", "percussion"],
+  keyboard: ["typing", "keys"],
+  typing: ["keyboard", "keys"],
+};
+
+/**
+ * Speech where a sound was asked for. Commons holds thousands of recordings of people reading an article aloud
+ * or saying a word ("En-Airplane mode"); a request for "an aeroplane" must not return one. Judged on the
+ * title, description and tags, and only for words the sender did not use themselves.
+ */
+const SPOKEN_TITLE = /^(?:en|de|fr|es|it|pt|ru|ar|nl|pl|sv|ja|zh|tr|fa|he|ko|uk|cs|fi|da|no|hu|el|ro|bg|hi|id|vi|ca)-/i;
+const SPOKEN_WORDS = /\b(?:spoken|speech|speaking|pronunciation|pronounced|narrat\w*|read(?:ing)? aloud|audiobook|interview|lecture|podcast|announcement|voice(?:-?over)?|recited|recitation|mode|article|wikipedia)\b/gi;
+
+export function looksSpoken(item: ExternalContentItem, query: string): boolean {
+  const asked = query.toLocaleLowerCase();
+  if (SPOKEN_TITLE.test(item.title) && !SPOKEN_TITLE.test(query)) return true;
+  const text = `${item.title} ${item.description ?? ""} ${(item.tags ?? []).join(" ")}`;
+  return (text.match(SPOKEN_WORDS) ?? []).some((w) => !asked.includes(w.toLocaleLowerCase()));
 }
 
 /**
@@ -370,10 +490,22 @@ export async function declaredSize(url: string, hosts: readonly string[], fetchI
  * no address, no link. Public domain and CC0 need none. A licence that asks for credit (CC BY and the
  * like) gets it here, so the sender receives the file and nothing else.
  */
+/**
+ * A title a screen reader can speak. Commons titles are file names ("IMG 4821 DSC", "Moon 2010-10-25 Luc Viatour",
+ * "P1020345"), and VoiceOver reads those as nonsense words; a title that is mostly codes or numbers is left out.
+ */
+export function readableTitle(title: string | undefined | null): string {
+  const t = (title ?? "").replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  const words = t.split(" ");
+  const codeLike = words.filter((w) => /\d/.test(w) && /[\p{L}]/u.test(w) ? true : /^\d{3,}$/.test(w) || /^[A-Z]{2,5}\d+$/.test(w)).length;
+  return codeLike * 2 >= words.length ? "" : t;
+}
+
 export function attributionCaption(item: ExternalContentItem): string | undefined {
   const licence = item.license?.name ?? "";
   if (!licence || /^(CC0|Public Domain|United States Government|No known copyright)/i.test(licence)) return undefined;
-  const text = [[item.title, item.creator].filter(Boolean).join(" — "), [licence, item.providerName].filter(Boolean).join(" · ")].filter(Boolean).join("\n");
+  const text = [[readableTitle(item.title), item.creator].filter(Boolean).join(" — "), [licence, item.providerName].filter(Boolean).join(" · ")].filter(Boolean).join("\n");
   return text.length > 400 ? text.slice(0, 399) + "…" : text;
 }
 
@@ -510,6 +642,19 @@ async function attemptAttach(
   params: { kind: FileKind; query: string; language: string; count?: number },
   deps: AttachDeps,
 ): Promise<AttachOutcome> {
+  const first = await attemptOnce(params, deps);
+  // A bare noun ("airplane") ranks articles and speech first; "airplane sound" finds the recording.
+  if (first.outcome === "delivered" || params.kind !== "audio") return first;
+  const query = stripFileWish(params.query);
+  if (/\b(?:sound|noise|sfx|recording|ambience|ambient)\b/i.test(query) || query.length < 2) return first;
+  const second = await attemptOnce({ ...params, query: `${query} sound` }, deps);
+  return second.outcome === "delivered" ? second : { ...first, tried: first.tried + second.tried };
+}
+
+async function attemptOnce(
+  params: { kind: FileKind; query: string; language: string; count?: number },
+  deps: AttachDeps,
+): Promise<AttachOutcome> {
   const query = stripFileWish(params.query);
   if (query.length < 2) return { outcome: "none", reason: "no_query", tried: 0 };
 
@@ -545,6 +690,8 @@ async function attemptAttach(
     // the catalogue's own ranking decides; a book, a paper or a film is held to its title.
     const catalogueRanked = params.kind === "audio" || params.kind === "video" || params.kind === "document";
     if (params.kind !== "image" && !matchesRequest(item, query, catalogueRanked, catalogueRanked ? 1 : 2)) continue;
+    // "The sound of an aeroplane" is not a voice reading the article "Airplane mode".
+    if (params.kind === "audio" && looksSpoken(item, query)) continue;
     if (LINK_FALLBACK_KINDS.has(params.kind) && !link && /^https:\/\//i.test(item.externalUrl)) link = { url: item.externalUrl, title: item.title };
     const candidate = item.provider === "internet_archive"
       // A recording from the Archive is chosen the way an audiobook chapter is: a small MP3 that fits.

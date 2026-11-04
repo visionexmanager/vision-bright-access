@@ -132,7 +132,7 @@ describe("directCandidate: only a licensed item on a named host, and only a type
       expect(directCandidate(item, "book"), provider).toBeNull();
     }
     // The two image hosts were added on purpose (whatsapp-image-request.test.ts); a book from either still never qualifies.
-    expect(Object.keys(DELIVERY_HOSTS).sort()).toEqual(["artic", "cleveland_museum", "flickr", "gutenberg", "internet_archive", "met_museum", "openalex", "openstax", "openverse", "rijksmuseum", "wikimedia_commons"]);
+    expect(Object.keys(DELIVERY_HOSTS).sort()).toEqual(["artic", "cleveland_museum", "flickr", "freesound", "gutenberg", "inaturalist", "internet_archive", "met_museum", "nasa", "openalex", "openstax", "openverse", "pexels", "pixabay", "rijksmuseum", "smithsonian", "wellcome", "wikimedia_commons"]);
     expect(KIND_SEARCH.audiobook.providers).toEqual(["internet_archive"]);
   });
 });
