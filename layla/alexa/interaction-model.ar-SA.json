@@ -1,0 +1,25 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "ليلى الذكية",
+      "intents": [
+        {
+          "name": "AskLaylaIntent",
+          "slots": [{ "name": "question", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "اسألي {question}",
+            "قولي {question}",
+            "احكي لي {question}",
+            "بدي اعرف {question}",
+            "أريد أن أعرف {question}"
+          ]
+        },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] }
+      ],
+      "types": []
+    }
+  }
+}
