@@ -106,7 +106,11 @@ Deno.serve(async (req: Request) => {
   try {
     await signatureVerifier.verify(rawBody, verifierHeaders);
     await timestampVerifier.verify(rawBody);
-  } catch {
+  } catch (error) {
+    console.error(
+      "Layla verification failed:",
+      error instanceof Error ? error.message.slice(0, 200) : "unknown",
+    );
     return jsonResponse({ error: "Unverified Alexa request" }, 400);
   }
 
