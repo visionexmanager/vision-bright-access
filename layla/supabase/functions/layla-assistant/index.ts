@@ -32,8 +32,8 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 const GEMINI_MODELS: [string, number][] = [
-  ["gemini-flash-lite-latest", 4_000],
-  ["gemini-flash-latest", 3_000],
+  ["gemini-flash-lite-latest", 5_000],
+  ["gemini-flash-latest", 2_500],
 ];
 
 async function answerQuestion(
@@ -65,7 +65,11 @@ async function answerQuestion(
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
             contents,
-            generationConfig: { maxOutputTokens: 320, temperature: 0.7 },
+            generationConfig: {
+              maxOutputTokens: 320,
+              temperature: 0.7,
+              thinkingConfig: { thinkingBudget: 0 },
+            },
           }),
           signal: AbortSignal.timeout(budgetMs),
         },
