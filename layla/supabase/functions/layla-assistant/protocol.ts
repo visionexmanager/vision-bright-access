@@ -20,8 +20,8 @@ const MAX_HISTORY_MESSAGES = 8;
 const MAX_MESSAGE_CHARS = 1_200;
 
 export function applicationIdOf(envelope: AlexaEnvelope): string | undefined {
-  return envelope.session?.application?.applicationId
-    ?? envelope.context?.System?.application?.applicationId;
+  return envelope.session?.application?.applicationId ??
+    envelope.context?.System?.application?.applicationId;
 }
 
 export function userTextOf(envelope: AlexaEnvelope): string {
@@ -37,9 +37,10 @@ export function historyOf(value: unknown): ChatMessage[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter((item): item is ChatMessage =>
-      !!item && typeof item === "object"
-      && ((item as ChatMessage).role === "user" || (item as ChatMessage).role === "assistant")
-      && typeof (item as ChatMessage).content === "string"
+      !!item && typeof item === "object" &&
+      ((item as ChatMessage).role === "user" ||
+        (item as ChatMessage).role === "assistant") &&
+      typeof (item as ChatMessage).content === "string"
     )
     .slice(-MAX_HISTORY_MESSAGES)
     .map((item): ChatMessage => ({
@@ -48,7 +49,11 @@ export function historyOf(value: unknown): ChatMessage[] {
     }));
 }
 
-export function nextHistory(history: ChatMessage[], userText: string, answer: string): ChatMessage[] {
+export function nextHistory(
+  history: ChatMessage[],
+  userText: string,
+  answer: string,
+): ChatMessage[] {
   return [
     ...history,
     { role: "user" as const, content: userText.slice(0, MAX_MESSAGE_CHARS) },
@@ -69,7 +74,10 @@ export function alexaSpeechResponse(
       shouldEndSession,
       ...(shouldEndSession ? {} : {
         reprompt: {
-          outputSpeech: { type: "PlainText", text: "أنا سامعتك، شو بتحب تسألني؟" },
+          outputSpeech: {
+            type: "PlainText",
+            text: "أنا سامعتك، شو بتحب تسألني؟",
+          },
         },
       }),
     },
