@@ -48,8 +48,8 @@ export function historyOf(value: unknown): ChatMessage[] {
       && typeof (item as ChatMessage).content === "string"
     )
     .slice(-MAX_HISTORY_MESSAGES)
-    .map((item) => ({
-      role: item.role,
+    .map((item): ChatMessage => ({
+      role: item.role as ChatMessage["role"],
       content: item.content.slice(0, MAX_MESSAGE_CHARS),
     }));
 }
