@@ -53,7 +53,7 @@ jobs:
           SKILL_ID: ${{ secrets.LAYLA_ALEXA_SKILL_ID }}
         run: |
           set -euo pipefail
-          supabase secrets set \
+          supabase secrets set --yes \
             --project-ref "$PROJECT_REF" \
             --workdir layla/supabase \
             "GEMINI_API_KEY=$GEMINI_KEY" \
@@ -64,7 +64,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.LAYLA_SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.LAYLA_SUPABASE_PROJECT_REF }}
         run: |
-          supabase functions deploy layla-assistant \
+          supabase functions deploy layla-assistant --yes \
             --project-ref "$PROJECT_REF" \
             --no-verify-jwt \
             --workdir layla/supabase
