@@ -56,7 +56,8 @@ import { recordSecurityEvent } from "../_shared/securityGuard.ts";
 import { getAssistant } from "../_shared/assistants.ts";
 import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
 import { smartFreeReply } from "../_shared/chatFreeMemory.ts";
-import { detectChatLanguage } from "../_shared/chatLanguage.ts";
+import { signupLanguage } from "../_shared/chatLanguage.ts";
+import { isSupportedLanguage } from "../_shared/whatsappLanguages.ts";
 import { sendLinkCodeEmail } from "../_shared/whatsappIdentity.ts";
 import { streamChatCompletionWithFallback, ProviderError } from "../_shared/aiProvider.ts";
 import {
@@ -209,20 +210,20 @@ async function escalate(db: Service, conversationId: string, reason: string) {
  * the fallback. Never announced and never asked about.
  */
 async function signupLanguageFor(db: Service, conversationId: string, text: string, fallback: string): Promise<string> {
-  const own = detectChatLanguage(text);
-  if (own.confident) return own.lang;
-  const { data } = await db
-    .from("meta_messages")
-    .select("body")
-    .eq("conversation_id", conversationId)
-    .eq("direction", "inbound")
-    .order("created_at", { ascending: false })
-    .limit(6);
-  for (const row of (data ?? []) as { body: string | null }[]) {
-    const earlier = detectChatLanguage(row.body ?? "");
-    if (earlier.confident) return earlier.lang;
-  }
-  return fallback;
+  return signupLanguage(
+    text,
+    async () => {
+      const { data } = await db
+        .from("meta_messages")
+        .select("body")
+        .eq("conversation_id", conversationId)
+        .eq("direction", "inbound")
+        .order("created_at", { ascending: false })
+        .limit(8);
+      return ((data ?? []) as { body: string | null }[]).map((r) => r.body);
+    },
+    isSupportedLanguage(fallback) ? fallback : "en",
+  );
 }
 
 // ── Handler ──────────────────────────────────────────────────────────────────
