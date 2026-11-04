@@ -37,8 +37,15 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-async function answerQuestion(history: ChatMessage[], question: string, apiKey: string): Promise<string> {
-  const messages: ChatMessage[] = [...history, { role: "user", content: question }];
+async function answerQuestion(
+  history: ChatMessage[],
+  question: string,
+  apiKey: string,
+): Promise<string> {
+  const messages: ChatMessage[] = [...history, {
+    role: "user",
+    content: question,
+  }];
   const contents = messages.map((message) => ({
     role: message.role === "assistant" ? "model" : "user",
     parts: [{ text: message.content }],
@@ -60,21 +67,24 @@ async function answerQuestion(history: ChatMessage[], question: string, apiKey: 
     },
   );
   if (!response.ok) {
-    // Do not log provider response bodies or credentials.
     console.error("Layla Gemini request failed:", response.status);
     throw new Error("Gemini request failed");
   }
   const result = await response.json();
   const parts = result?.candidates?.[0]?.content?.parts;
   const answer = Array.isArray(parts)
-    ? parts.map((part: { text?: unknown }) => typeof part.text === "string" ? part.text : "").join("").trim()
+    ? parts.map((part: { text?: unknown }) =>
+      typeof part.text === "string" ? part.text : ""
+    ).join("").trim()
     : "";
   if (!answer) throw new Error("Gemini returned an empty answer");
   return answer.slice(0, 7_500);
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
 
   const configuredSkillId = Deno.env.get("ALEXA_SKILL_ID")?.trim();
   const geminiApiKey = Deno.env.get("GEMINI_API_KEY")?.trim();
@@ -83,7 +93,9 @@ Deno.serve(async (req: Request) => {
   }
 
   const contentLength = Number(req.headers.get("content-length") ?? "0");
-  if (contentLength > MAX_BODY_BYTES) return jsonResponse({ error: "Request too large" }, 413);
+  if (contentLength > MAX_BODY_BYTES) {
+    return jsonResponse({ error: "Request too large" }, 413);
+  }
   const rawBody = await req.text();
   if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
     return jsonResponse({ error: "Request too large" }, 413);
@@ -106,7 +118,10 @@ Deno.serve(async (req: Request) => {
   } catch {
     return jsonResponse({ error: "Invalid JSON" }, 400);
   }
-  if (envelope.version !== "1.0" || applicationIdOf(envelope) !== configuredSkillId) {
+  if (
+    envelope.version !== "1.0" ||
+    applicationIdOf(envelope) !== configuredSkillId
+  ) {
     return jsonResponse({ error: "Skill application mismatch" }, 403);
   }
 
@@ -123,8 +138,13 @@ Deno.serve(async (req: Request) => {
   }
 
   const intentName = envelope.request?.intent?.name ?? "";
-  if (intentName === "AMAZON.StopIntent" || intentName === "AMAZON.CancelIntent") {
-    return jsonResponse(alexaSpeechResponse("أكيد، نهارك سعيد. منحكي بعدين!", {}, true));
+  if (
+    intentName === "AMAZON.StopIntent" ||
+    intentName === "AMAZON.CancelIntent"
+  ) {
+    return jsonResponse(
+      alexaSpeechResponse("أكيد، نهارك سعيد. منحكي بعدين!", {}, true),
+    );
   }
   if (intentName === "AMAZON.HelpIntent") {
     return jsonResponse(alexaSpeechResponse(
@@ -159,7 +179,10 @@ Deno.serve(async (req: Request) => {
       laylaTurns: turns + 1,
     }));
   } catch (error) {
-    console.error("Layla request failed:", error instanceof Error ? error.name : "unknown");
+    console.error(
+      "Layla request failed:",
+      error instanceof Error ? error.name : "unknown",
+    );
     return jsonResponse(alexaSpeechResponse(
       "ما قدرت أوصل للمساعد الذكي هلّق. جرّب بعد شوي.",
       attrs,
