@@ -31,6 +31,11 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+const GEMINI_MODELS: [string, number][] = [
+  ["gemini-flash-lite-latest", 4_000],
+  ["gemini-flash-latest", 3_000],
+];
+
 async function answerQuestion(
   history: ChatMessage[],
   question: string,
@@ -44,26 +49,41 @@ async function answerQuestion(
     role: message.role === "assistant" ? "model" : "user",
     parts: [{ text: message.content }],
   }));
-  const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents,
-        generationConfig: { maxOutputTokens: 320, temperature: 0.7 },
-      }),
-      signal: AbortSignal.timeout(6_000),
-    },
-  );
-  if (!response.ok) {
-    console.error("Layla Gemini request failed:", response.status);
-    throw new Error("Gemini request failed");
+  // Alexa gives up after ~8 s, so each model gets a short budget and the
+  // second one is only tried when the first is overloaded or slow.
+  let response: Response | undefined;
+  for (const [model, budgetMs] of GEMINI_MODELS) {
+    try {
+      const attempt = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents,
+            generationConfig: { maxOutputTokens: 320, temperature: 0.7 },
+          }),
+          signal: AbortSignal.timeout(budgetMs),
+        },
+      );
+      if (attempt.ok) {
+        response = attempt;
+        break;
+      }
+      console.error("Layla Gemini request failed:", model, attempt.status);
+    } catch (error) {
+      console.error(
+        "Layla Gemini request error:",
+        model,
+        error instanceof Error ? error.name : "unknown",
+      );
+    }
   }
+  if (!response) throw new Error("Gemini request failed");
   const result = await response.json();
   const parts = result?.candidates?.[0]?.content?.parts;
   const answer = Array.isArray(parts)
