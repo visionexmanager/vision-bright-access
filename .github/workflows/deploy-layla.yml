@@ -52,10 +52,14 @@ jobs:
           GEMINI_KEY: ${{ secrets.LAYLA_GEMINI_API_KEY || secrets.GEMINI_API_KEY }}
           SKILL_ID: ${{ secrets.LAYLA_ALEXA_SKILL_ID }}
           GROQ_KEY: ${{ secrets.LAYLA_GROQ_API_KEY || secrets.GROQ_API_KEY }}
+          OPENAI_KEY: ${{ secrets.LAYLA_OPENAI_API_KEY || secrets.OPENAI_API_KEY }}
+          MISTRAL_KEY: ${{ secrets.LAYLA_MISTRAL_API_KEY || secrets.MISTRAL_API_KEY }}
         run: |
           set -euo pipefail
           args=("GEMINI_API_KEY=$GEMINI_KEY" "ALEXA_SKILL_ID=$SKILL_ID")
           if [[ -n "${GROQ_KEY:-}" ]]; then args+=("GROQ_API_KEY=$GROQ_KEY"); fi
+          if [[ -n "${OPENAI_KEY:-}" ]]; then args+=("OPENAI_API_KEY=$OPENAI_KEY"); fi
+          if [[ -n "${MISTRAL_KEY:-}" ]]; then args+=("MISTRAL_API_KEY=$MISTRAL_KEY"); fi
           supabase secrets set --yes \
             --project-ref "$PROJECT_REF" \
             --workdir layla \

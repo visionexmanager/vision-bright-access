@@ -169,6 +169,8 @@ Deno.serve(async (req: Request) => {
       {
         gemini: geminiApiKey,
         groq: Deno.env.get("GROQ_API_KEY")?.trim() || undefined,
+        openai: Deno.env.get("OPENAI_API_KEY")?.trim() || undefined,
+        mistral: Deno.env.get("MISTRAL_API_KEY")?.trim() || undefined,
       },
       system,
     );
@@ -178,6 +180,8 @@ Deno.serve(async (req: Request) => {
       const keys = {
         gemini: geminiApiKey,
         groq: Deno.env.get("GROQ_API_KEY")?.trim() || undefined,
+        openai: Deno.env.get("OPENAI_API_KEY")?.trim() || undefined,
+        mistral: Deno.env.get("MISTRAL_API_KEY")?.trim() || undefined,
       };
       // After Alexa has its answer, update the stored memory in the background.
       const task = (async () => {
