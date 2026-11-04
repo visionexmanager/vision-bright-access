@@ -1,0 +1,38 @@
+name: Layla isolated CI
+
+on:
+  pull_request:
+    paths:
+      - "layla/**"
+      - ".github/workflows/layla-check.yml"
+  push:
+    branches:
+      - "codex/layla-standalone-supabase"
+    paths:
+      - "layla/**"
+      - ".github/workflows/layla-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify isolated Layla backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+          cache: true
+
+      - name: Format check
+        run: deno fmt --check layla/supabase/functions/layla-assistant
+
+      - name: Protocol tests
+        run: deno test --allow-env layla/supabase/functions/layla-assistant
+
+      - name: Edge Function type check
+        run: deno check --no-lock --node-modules-dir=none layla/supabase/functions/layla-assistant/index.ts
