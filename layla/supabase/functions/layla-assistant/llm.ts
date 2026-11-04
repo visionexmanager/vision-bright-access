@@ -5,7 +5,7 @@ import type { ChatMessage } from "./protocol.ts";
 export type LlmKeys = { gemini: string; groq?: string };
 
 const GEMINI_ATTEMPTS: [string, number][] = [
-  ["gemini-flash-lite-latest", 3_500],
+  ["gemini-flash-lite-latest", 4_500],
 ];
 const GROQ_ATTEMPT: [string, number] = ["openai/gpt-oss-20b", 3_000];
 
@@ -111,4 +111,57 @@ export async function answerQuestion(
     }
   }
   throw new Error("All providers failed");
+}
+
+const MEMORY_PROMPT = (memory: string, question: string, answer: string) =>
+  `أنتَ مدير ذاكرة لمساعدة صوتية. الذاكرة الحالية عن المستخدم: ${
+    memory || "(فارغة)"
+  }
+آخر تبادل:
+المستخدم: ${question}
+المساعدة: ${answer}
+
+اكتب الذاكرة المحدّثة كجملة أو جملتين بالعربية (حد أقصى 300 حرف)، تحتوي فقط على حقائق ثابتة ومفيدة عن المستخدم: الاسم، ما يحب أو لا يحب، عمله، عائلته، خطط جارية، لغته المفضلة.
+لا تدخل كلمات سر ولا أرقام بطاقات أو هويات أو عناوين دقيقة ولا معلومات صحية أو مالية حساسة، ولا شيئاً طلب المستخدم عدم حفظه.
+إذا لم يتغير شيء، أخرج كلمة NONE فقط. أخرج الذاكرة أو NONE بدون أي شرح.`;
+
+/** Runs after the spoken answer has been sent, so it can take its time. */
+export async function updateMemory(
+  memory: string,
+  question: string,
+  answer: string,
+  keys: LlmKeys,
+): Promise<string | null> {
+  const prompt = MEMORY_PROMPT(memory, question, answer);
+  const messages: ChatMessage[] = [{ role: "user", content: prompt }];
+  const system = "أخرج النص المطلوب فقط.";
+  const attempts: (() => Promise<string>)[] = [
+    () =>
+      askGemini(
+        "gemini-flash-lite-latest",
+        12_000,
+        keys.gemini,
+        system,
+        messages,
+      ),
+  ];
+  if (keys.groq) {
+    const groqKey = keys.groq;
+    attempts.push(() =>
+      askGroq(GROQ_ATTEMPT[0], 8_000, groqKey, system, messages)
+    );
+  }
+  for (const attempt of attempts) {
+    try {
+      const text = (await attempt()).replace(/\s+/g, " ").trim();
+      if (!text || /^NONE\b/i.test(text)) return null;
+      return text.slice(0, 500);
+    } catch (error) {
+      console.error(
+        "Layla memory update failed:",
+        error instanceof Error ? error.message.slice(0, 60) : "unknown",
+      );
+    }
+  }
+  return null;
 }
