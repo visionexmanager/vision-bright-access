@@ -239,3 +239,17 @@ jobs:
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | head -1)
           echo "Newsletter HTTP $HTTP_CODE: $BODY"
+
+      - name: Translate new articles into every language
+        # Best effort: a failure here leaves English, never blocks the newsletter.
+        continue-on-error: true
+        env:
+          SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET:   ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sS -o /dev/null -w "Translate HTTP %{http_code}\n" \
+            -X POST \
+            "$SUPABASE_URL/functions/v1/news-generate?translate=true" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --max-time 140
