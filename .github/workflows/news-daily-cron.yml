@@ -8,6 +8,11 @@ on:
     # under load — offsetting the minute keeps this close to on-time.
     - cron: "7 4 * * *"
   workflow_dispatch:
+    inputs:
+      translate_only:
+        description: "Only translate stored articles; collect nothing and email nobody"
+        type: boolean
+        default: false
 
 jobs:
   generate-news:
@@ -19,6 +24,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Collect headlines from RSS & save to Supabase
+        if: ${{ !inputs.translate_only }}
         env:
           SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:         ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -225,6 +231,7 @@ jobs:
           EOF
 
       - name: Send newsletter via edge function
+        if: ${{ !inputs.translate_only }}
         env:
           SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
           CRON_SECRET:   ${{ secrets.CRON_SECRET }}
