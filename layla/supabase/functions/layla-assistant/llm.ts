@@ -154,7 +154,14 @@ export async function updateMemory(
   for (const attempt of attempts) {
     try {
       const text = (await attempt()).replace(/\s+/g, " ").trim();
-      if (!text || /^NONE\b/i.test(text)) return null;
+      if (!text) {
+        console.error("Layla memory update: empty model output");
+        continue;
+      }
+      if (/^NONE\b/i.test(text)) {
+        console.error("Layla memory update: nothing new");
+        return null;
+      }
       return text.slice(0, 500);
     } catch (error) {
       console.error(
