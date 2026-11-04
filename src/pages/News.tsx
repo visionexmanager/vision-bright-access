@@ -74,6 +74,30 @@ export default function News() {
 
   useEffect(() => { load(); }, []);
 
+  // The daily collection stores English only. Ask the server to translate what
+  // is missing in the reader's language; it saves the result, so later readers
+  // get it without a call. Failure leaves the English text, as before.
+  useEffect(() => {
+    if (lang === "en" || articles.length === 0) return;
+    const missing = articles
+      .filter((a) => !a.translations?.[lang]?.title)
+      .slice(0, 12)
+      .map((a) => a.id);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    supabase.functions
+      .invoke("news-translate", { body: { language: lang, ids: missing } })
+      .then(({ data }) => {
+        const got = (data as { translations?: Record<string, ArticleLang> } | null)?.translations;
+        if (cancelled || !got || Object.keys(got).length === 0) return;
+        setArticles((prev) =>
+          prev.map((a) => (got[a.id] ? { ...a, translations: { ...(a.translations ?? {}), [lang]: got[a.id] } } : a)),
+        );
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [lang, articles.length]);
+
   // Breaking News is a separate, page-only section — never mixed into the
   // regular category grid/filters (and never emailed, see news-generate).
   const breakingArticles = articles.filter((a) => a.category === "breaking");
