@@ -2,6 +2,11 @@ name: Deploy Layla (manual)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [codex/layla-standalone-supabase]
+    paths:
+      - layla/supabase/**
+      - .github/workflows/deploy-layla.yml
 
 permissions:
   contents: read
