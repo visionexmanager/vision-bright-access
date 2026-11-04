@@ -432,12 +432,16 @@ Deno.serve(async (req: Request) => {
       id: r.id, title: r.title ?? "", description: r.description ?? "", category: r.category,
       publishedAt: r.published_at, translations: (r.translations as NewsArticle["translations"]) ?? null,
     }));
-    const languages = Object.keys(LANGUAGE_ENDONYM).filter((l) => l !== "en") as Array<keyof typeof LANGUAGE_ENDONYM>;
+    const all = Object.keys(LANGUAGE_ENDONYM).filter((l) => l !== "en") as Array<keyof typeof LANGUAGE_ENDONYM>;
+    // One language per call keeps a call inside the function's compute limit (a
+    // run for all nineteen at once was cut off); the workflow loops over them.
+    const only = url.searchParams.get("language");
+    const languages = only ? all.filter((l) => l === only) : all;
     const provider = chainProvider();
     // Each language re-reads the row, so two languages never overwrite each other's map.
     let done = 0;
-    for (let i = 0; i < languages.length; i += 4) {
-      await Promise.all(languages.slice(i, i + 4).map(async (language) => {
+    for (let i = 0; i < languages.length; i += 1) {
+      await Promise.all(languages.slice(i, i + 1).map(async (language) => {
         const { data: fresh } = await supabase.from("news_articles").select("id, translations").in("id", latest.map((a) => a.id));
         const current = new Map((fresh ?? []).map((r) => [r.id as string, r.translations as NewsArticle["translations"]]));
         const out = await withTranslations({
