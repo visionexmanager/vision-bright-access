@@ -124,21 +124,28 @@ function candidates(
   }
   if (keys.groq) {
     const key = keys.groq;
-    list.push({
-      name: "groq",
-      delayMs: spreadMs,
-      run: (signal) =>
-        askChatCompletions(
-          "groq",
-          "https://api.groq.com/openai/v1/chat/completions",
-          key,
-          "openai/gpt-oss-20b",
-          system,
-          messages,
-          { max_tokens: maxTokens + 300, reasoning_effort: "low" },
-          signal,
-        ),
-    });
+    for (
+      const [name, model, delayMs] of [
+        ["groq-120b", "openai/gpt-oss-120b", 0],
+        ["groq-20b", "openai/gpt-oss-20b", spreadMs],
+      ] as [string, string, number][]
+    ) {
+      list.push({
+        name,
+        delayMs,
+        run: (signal) =>
+          askChatCompletions(
+            "groq",
+            "https://api.groq.com/openai/v1/chat/completions",
+            key,
+            model,
+            system,
+            messages,
+            { max_tokens: maxTokens + 300, reasoning_effort: "low" },
+            signal,
+          ),
+      });
+    }
   }
   if (keys.mistral) {
     const key = keys.mistral;
@@ -212,6 +219,21 @@ async function race(
   }
 }
 
+/** Keeps spoken answers short and never ends mid-sentence. */
+export function trimToSentence(text: string, max = 520): string {
+  const clean = text.replace(/s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+  const window = clean.slice(0, max);
+  const cut = Math.max(
+    window.lastIndexOf("."),
+    window.lastIndexOf("!"),
+    window.lastIndexOf("؟"),
+    window.lastIndexOf("?"),
+    window.lastIndexOf("،"),
+  );
+  return (cut > 120 ? window.slice(0, cut + 1) : window).trim();
+}
+
 export async function answerQuestion(
   history: ChatMessage[],
   question: string,
@@ -228,7 +250,7 @@ export async function answerQuestion(
     7_000,
   );
   console.error("Layla answered by:", name);
-  return text.slice(0, 7_500);
+  return trimToSentence(text);
 }
 
 const MEMORY_PROMPT = (memory: string, question: string, answer: string) =>
@@ -237,6 +259,7 @@ const MEMORY_PROMPT = (memory: string, question: string, answer: string) =>
 - سجّل أي معلومة شخصية ثابتة يذكرها المستخدم: الاسم، ما يحبه أو لا يحبه، عمله أو دراسته، عائلته، مكان سكنه (المدينة فقط)، خططه الجارية، لغته.
 - ادمجها مع الذاكرة القديمة واحتفظ بالقديم المفيد. اكتب جملة أو جملتين بالعربية، بحد أقصى 300 حرف.
 - لا تسجّل كلمات سر ولا أرقام بطاقات أو هويات أو عناوين دقيقة ولا معلومات صحية أو مالية حساسة ولا شيئاً طلب المستخدم عدم حفظه.
+- لا تضف أي معلومة لم يقلها المستخدم صراحة، ولا تخمّن ولا تفسّر كلاماً غير واضح.
 - فقط إذا لم يذكر المستخدم أي معلومة شخصية جديدة، اكتب NONE.
 أمثلة:
 الذاكرة: (فارغة) | المستخدم: أنا اسمي سامي وبحب كرة القدم → اسمه سامي، بيحب كرة القدم.

@@ -126,3 +126,12 @@ Deno.test("user id is hashed and never stored raw", async () => {
   assertEquals(hash.length, 64);
   assertEquals(hash.includes("TEST"), false);
 });
+
+Deno.test("spoken answers are trimmed to a clean sentence", async () => {
+  const { trimToSentence } = await import("./llm.ts");
+  const long = "جملة قصيرة. ".repeat(80);
+  const out = trimToSentence(long, 200);
+  assertEquals(out.length <= 200, true);
+  assertEquals(out.endsWith("."), true);
+  assertEquals(trimToSentence("قصير"), "قصير");
+});
