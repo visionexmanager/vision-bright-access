@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
   }
   if (intentName === "AMAZON.HelpIntent") {
     return jsonResponse(alexaSpeechResponse(
-      "بس اسألني سؤالك بعد ما تقول: ليلى، اسمعيني. فيك تسألني عن معلومات أو تطلب مني أساعدك بالتفكير.",
+      "فيك تسألني أي شي. ابدأ جملتك بكلمة مثل: اسألي، أو قولي، أو طيب، وبعدها سؤالك.",
       envelope.session?.attributes ?? {},
     ));
   }
@@ -108,7 +108,7 @@ Deno.serve(async (req: Request) => {
   const question = userTextOf(envelope);
   if (!question) {
     return jsonResponse(alexaSpeechResponse(
-      "ما وصلني السؤال بوضوح. جرّب قول: اسألي ليلى، وبعدها سؤالك.",
+      "ما فهمتك منيح. ابدأ بكلمة مثل: طيب، أو قولي، أو اسألي، وبعدها سؤالك.",
       envelope.session?.attributes ?? {},
     ));
   }
