@@ -3,13 +3,13 @@ import {
   TimestampVerifier,
 } from "npm:ask-sdk-express-adapter@2.0.0/lib/verifier/index.js";
 import {
+  type AlexaEnvelope,
   alexaSpeechResponse,
   applicationIdOf,
   historyOf,
+  type ChatMessage,
   nextHistory,
   userTextOf,
-  type AlexaEnvelope,
-  type ChatMessage,
 } from "./protocol.ts";
 
 const MAX_BODY_BYTES = 64 * 1024;
