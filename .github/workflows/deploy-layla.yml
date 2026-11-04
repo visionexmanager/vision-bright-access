@@ -23,7 +23,7 @@ jobs:
         env:
           LAYLA_SUPABASE_ACCESS_TOKEN: ${{ secrets.LAYLA_SUPABASE_ACCESS_TOKEN }}
           LAYLA_SUPABASE_PROJECT_REF: ${{ secrets.LAYLA_SUPABASE_PROJECT_REF }}
-          LAYLA_GEMINI_API_KEY: ${{ secrets.LAYLA_GEMINI_API_KEY }}
+          LAYLA_GEMINI_API_KEY: ${{ secrets.LAYLA_GEMINI_API_KEY || secrets.GEMINI_API_KEY }}
           LAYLA_ALEXA_SKILL_ID: ${{ secrets.LAYLA_ALEXA_SKILL_ID }}
         run: |
           set -euo pipefail
@@ -44,7 +44,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.LAYLA_SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.LAYLA_SUPABASE_PROJECT_REF }}
-          GEMINI_KEY: ${{ secrets.LAYLA_GEMINI_API_KEY }}
+          GEMINI_KEY: ${{ secrets.LAYLA_GEMINI_API_KEY || secrets.GEMINI_API_KEY }}
           SKILL_ID: ${{ secrets.LAYLA_ALEXA_SKILL_ID }}
         run: |
           set -euo pipefail
