@@ -63,6 +63,12 @@ jobs:
     # solution-style ("files": [] plus project references), so a bare run
     # type-checks zero files and passes unconditionally.
     - name: TypeScript type check
+      # The project is ~4,700 files and tsc peaks near 2.7 GB, right at the
+      # default Node 20 heap on this runner: a few new imports tipped it into an
+      # out-of-memory abort (exit 134) with no type error. A larger ceiling
+      # removes the cliff; it does not change what is checked.
+      env:
+        NODE_OPTIONS: --max-old-space-size=6144
       run: pnpm run typecheck
 
     - name: ESLint
