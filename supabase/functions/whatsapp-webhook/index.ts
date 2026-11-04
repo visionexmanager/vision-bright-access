@@ -175,6 +175,7 @@ import { isAuthorized, requireActiveSubscription } from "../_shared/subscription
 import { runChatSignupTurn, signupOfferText } from "../_shared/chatSignup.ts";
 import { smartFreeReply } from "../_shared/chatFreeMemory.ts";
 import { isFieldValue, languageFor, signupLanguage } from "../_shared/chatLanguage.ts";
+import { runTrialLane } from "../_shared/whatsappTrialLane.ts";
 import {
   formatWeather,
   parseWeatherRequest,
@@ -2593,6 +2594,41 @@ Deno.serve(async (req) => {
             });
             if (token && phoneNumberId) {
               await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: notice });
+            }
+          }
+          // The free week's local lane: a photo's text, a QR or barcode, or an
+          // Office document, read on Visionex's own server with no model, no
+          // paid provider and no fallback to one, within a counted allowance the
+          // sender is told about (see whatsappTrialLane.ts). It runs only after
+          // the gate has refused, and never for a silenced or human-owned number.
+          if (
+            incoming.media && token && phoneNumberId &&
+            (verdict === "blocked_first_notice" || verdict === "blocked_silent") &&
+            !assistantIsSilenced(existing as Record<string, unknown> | null, Date.now())
+          ) {
+            try {
+              const media = incoming.media;
+              const lane = await runTrialLane(
+                {
+                  rpc: (fn, args) => db.rpc(fn, args),
+                  download: () => downloadMedia({ mediaId: media.id, kind: media.kind, token, trace: correlationId }),
+                },
+                { waPhone: incoming.from, media, language: gateLanguage },
+              );
+              if (lane.handled && lane.reply) {
+                log("trial_lane", { outcome: lane.outcome ?? "handled" });
+                await db.from("whatsapp_messages").insert({
+                  conversation_id: conversationId,
+                  direction: "outbound",
+                  body: lane.reply,
+                  kind: "reply",
+                  medium: replyMedium({ spokenInput: false, body: lane.reply }),
+                });
+                await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: lane.reply });
+              }
+            } catch (e) {
+              console.error("[whatsapp] trial lane failed:", describeError(e));
+              log("feature_error", { node: "trial_lane" });
             }
           }
           // Sign-up from this chat. Typed text only, never for a number a person

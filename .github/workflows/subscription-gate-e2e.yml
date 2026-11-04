@@ -61,5 +61,7 @@ jobs:
         run: node scripts/sql/data-hub-scenarios.mjs
       - name: Sign up from a chat, memory and throttles (PGlite)
         run: node scripts/sql/chat-signup-scenarios.mjs
+      - name: Free-week local features allowance (PGlite)
+        run: node scripts/sql/trial-local-features-scenarios.mjs
       - name: Ten simultaneous connections on a real PostgreSQL
         run: node scripts/sql/ai-subscription-gate-concurrency.mjs
