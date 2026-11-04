@@ -57,7 +57,7 @@ async function answerQuestion(
         contents,
         generationConfig: { maxOutputTokens: 320, temperature: 0.7 },
       }),
-      signal: AbortSignal.timeout(25_000),
+      signal: AbortSignal.timeout(6_000),
     },
   );
   if (!response.ok) {
