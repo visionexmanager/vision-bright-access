@@ -10,6 +10,7 @@ import {
   nextHistory,
   userTextOf,
   type AlexaEnvelope,
+  type ChatMessage,
 } from "./protocol.ts";
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -64,10 +65,11 @@ async function readGemini(stream: ReadableStream<Uint8Array>): Promise<string> {
 }
 
 async function answerQuestion(history: ReturnType<typeof historyOf>, question: string): Promise<string> {
+  const messages: ChatMessage[] = [...history, { role: "user", content: question }];
   const stream = await geminiStreamChatCompletion({
     model: "gemini-flash-lite-latest",
     system: SYSTEM_PROMPT,
-    messages: [...history, { role: "user", content: question }],
+    messages,
     maxTokens: 320,
   });
   return await readGemini(stream);
