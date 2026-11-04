@@ -164,7 +164,7 @@ export async function updateMemory(
         continue;
       }
       if (/^NONE\b/i.test(text)) {
-        console.error("Layla memory update: nothing new");
+        console.error("Layla memory update: nothing new | DEBUG:", text.slice(0, 80));
         return null;
       }
       return text.slice(0, 500);
