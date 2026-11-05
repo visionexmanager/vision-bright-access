@@ -277,9 +277,11 @@ export function withLocalChat(
       timeoutMs: Math.max(10_000, LOCAL_CHAT_TIMEOUT_MS - spent),
     });
     // Counts and timings only, never the question or the passages.
+    // `sources` is a flat label (the telemetry allowlist drops objects).
+    const sources = Object.keys(used).join("_") || "none";
     options.log?.("ai_local_chat", local.ok
-      ? { ok: true, mode, ms: local.ms, chars: local.text.length, grounded: reference !== "", used }
-      : { ok: false, mode, reason: "reason" in local ? local.reason : "error", grounded: reference !== "", used });
+      ? { ok: true, mode, ms: local.ms, chars: local.text.length, grounded: reference !== "", sources }
+      : { ok: false, mode, reason: "reason" in local ? local.reason : "error", grounded: reference !== "", sources });
     return local.ok ? { text: local.text, provider: LOCAL_CHAT_PROVIDER, model: LOCAL_CHAT_MODEL } : null;
   }
 }

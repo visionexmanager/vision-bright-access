@@ -102,3 +102,11 @@ describe("the server's own chat model, service side", () => {
     expect(readChatAnswer({})).toBeNull();
   });
 });
+
+describe("what the log keeps", () => {
+  it("lets the diagnostic fields through the telemetry allowlist, and still drops an object", async () => {
+    const { sanitiseFields } = await import("../../supabase/functions/_shared/whatsappTelemetry");
+    const kept = sanitiseFields({ ok: true, mode: "only", grounded: false, sources: "wikipedia_exchange-rates", used: { wikipedia: 1 } });
+    expect(kept).toEqual({ ok: true, mode: "only", grounded: false, sources: "wikipedia_exchange-rates" });
+  });
+});

@@ -120,7 +120,7 @@ describe("the switches and the hand-off", () => {
     expect(String(box.body!.reference)).toContain("Blue Party");
     expect(box.body!.today).toBe("2026-11-05");
     expect(logged[0][0]).toBe("ai_local_chat");
-    expect(logged[0][1]).toMatchObject({ ok: true, grounded: true, used: { wikipedia: 1 } });
+    expect(logged[0][1]).toMatchObject({ ok: true, grounded: true, sources: "wikipedia" });
     // The log never carries the question or a passage.
     expect(JSON.stringify(logged)).not.toContain("Atlantis");
   });

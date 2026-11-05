@@ -130,6 +130,16 @@ export const TELEMETRY_FIELDS: readonly string[] = [
   "verified",
   "ok",
 
+  // The local chat model (whatsappLocalChat.ts): which switch position was in
+  // force ("fallback", "first", "only"), whether any reference lines reached the
+  // model, and which sources supplied them, as source names from a fixed list
+  // joined by underscores. Said about the lookup, never from the question: a
+  // log that shows an empty reference is what tells "the model did not know"
+  // apart from "the model was never told".
+  "mode",
+  "grounded",
+  "sources",
+
   // Delivering a file (whatsappAssetDelivery.ts). Which producer, a MIME type
   // out of a fixed list, where the bytes came from ("bytes" or "url" — never
   // the URL), how big, how many tries, and why it failed: a category, not a
