@@ -37,7 +37,7 @@ const TIMEOUT_MS = 45_000;
 // Bytez, FAL, RunPod, Luma, ElevenLabs) are never called in this mode — a pull
 // request runs it; the full sweep is a deliberate dispatch with scope "all".
 const LIVE_ONLY = args.includes("--live-only");
-const LIVE_PROVIDERS = new Set(["openai", "gemini", "groq", "mistral"]);
+const LIVE_PROVIDERS = new Set(["openai", "gemini", "groq", "cerebras", "mistral"]);
 const PAUSED = (() => {
   const src = readFileSync(new URL("../../supabase/functions/_shared/aiProvider.ts", import.meta.url), "utf8");
   const block = src.slice(src.indexOf("export const PAUSED_MODELS"), src.indexOf("]);", src.indexOf("export const PAUSED_MODELS")));
@@ -300,6 +300,21 @@ async function groq(key) {
   }
 }
 
+async function cerebras(key) {
+  const base = "https://api.cerebras.ai/v1";
+  const listing = await listIds(`${base}/models`, bearer(key));
+  inventory.cerebras = { list_status: listing.status, model_count: listing.ids.length, ids: listing.ids };
+  // gpt-oss reasons before it answers, as on Groq: the adapter sends low effort
+  // and headroom on top of the answer's budget (aiProvider.ts completionBudget).
+  const extra = { max_completion_tokens: 700, reasoning_effort: "low" };
+  await openAICompatible("cerebras", base, key, {
+    chat: ["gpt-oss-120b"],
+    tool: ["gpt-oss-120b"],
+    vision: [],
+    extra: { "gpt-oss-120b": extra },
+  });
+}
+
 async function mistral(key) {
   const base = "https://api.mistral.ai/v1";
   const listing = await listIds(`${base}/models`, bearer(key));
@@ -387,6 +402,7 @@ const PROVIDERS = [
   ["anthropic", "ANTHROPIC_API_KEY", anthropic],
   ["gemini", "GEMINI_API_KEY", gemini],
   ["groq", "GROQ_API_KEY", groq],
+  ["cerebras", "CEREBRAS_API_KEY", cerebras],
   ["mistral", "MISTRAL_API_KEY", mistral],
   ["nvidia_nim", "NVIDIA_NIM_API_KEY", nvidiaNim],
   ["openrouter", "OPENROUTER_API_KEY", openrouter],
