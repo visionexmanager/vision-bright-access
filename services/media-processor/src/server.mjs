@@ -1384,6 +1384,9 @@ async function handleChat(req, res, correlation) {
   const startedAt = Date.now();
   const controller = new AbortController();
   const deadline = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
+  // The caller gave up (its own deadline is shorter than ours): stop the model
+  // reading a prompt nobody will wait for, which would hold a slot for a minute.
+  res.on("close", () => { if (!res.writableEnded) controller.abort(); });
   try {
     const response = await fetch(`${CHAT_URL}/v1/chat/completions`, {
       method: "POST",

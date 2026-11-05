@@ -68,7 +68,7 @@ describe("the server's own chat model, edge side", () => {
     }) as unknown as typeof fetch;
     await chatLocally({ request, config, read: on, fetchImpl });
     expect(seen!.auth).toBe("Bearer t");
-    expect(seen!.body.max_tokens).toBe(320);
+    expect(seen!.body.max_tokens).toBe(200);
   });
 });
 
@@ -95,7 +95,7 @@ describe("the server's own chat model, service side", () => {
   it("switches thinking off and strips any reasoning from the answer", () => {
     const checked = checkChatRequest({ system: "s", messages: [{ role: "user", content: "hi" }], max_tokens: 99999 });
     if (!checked.ok) throw new Error("expected ok");
-    expect(checked.maxTokens).toBe(320);
+    expect(checked.maxTokens).toBe(200);
     expect(chatRequestBody(checked).chat_template_kwargs).toEqual({ enable_thinking: false });
     expect(readChatAnswer({ choices: [{ message: { content: "<think>hidden</think>Paris." } }] })).toBe("Paris.");
     expect(readChatAnswer({ choices: [{ message: { content: "<think>only</think>" } }] })).toBeNull();

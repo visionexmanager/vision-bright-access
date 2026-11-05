@@ -149,7 +149,7 @@ describe("gathering", () => {
     expect(out!.text).toContain("[Wikipedia current events, 2026-11-04] The Bangladeshi garment industry");
     expect(out!.text).toContain("Polish Constitutional Tribunal crisis escalates");
     expect(out!.text).not.toContain("short");
-    expect(out!.text.length).toBeLessThanOrEqual(1_100);
+    expect(out!.text.length).toBeLessThanOrEqual(700);
   });
 
   it("keeps only items about the topic when the question names one", async () => {
@@ -238,5 +238,67 @@ describe("where the local model sits", () => {
     const provider = withLocalChat(async () => { paid = true; return { text: "paid", provider: "p", model: "m" }; }, { read: readWith("only"), fetchImpl: busy, config });
     expect((await provider(request)).text).toBe("");
     expect(paid).toBe(false);
+  });
+});
+
+describe("the request the local model is actually sent", () => {
+  const long = (n: number, ch = "س") => ch.repeat(n);
+  const bigRequest = {
+    system: "RULES ".repeat(900),
+    messages: [
+      { role: "user" as const, content: "SUMMARY " + long(3000) },
+      { role: "user" as const, content: "first question " + long(900) },
+      { role: "assistant" as const, content: "first answer " + long(900) },
+      { role: "user" as const, content: long(900) + " ما هي عاصمة لبنان؟" },
+    ],
+    maxTokens: 700,
+  };
+
+  it("replaces the full system prompt with a small one that names the language", async () => {
+    const { compactForLocal, localSystemPrompt } = await import("../../supabase/functions/_shared/whatsappLocalChat");
+    const out = compactForLocal(bigRequest, "ar");
+    expect(out.system).toBe(localSystemPrompt("ar"));
+    expect(out.system).toContain("Always answer in Arabic.");
+    expect(out.system.length).toBeLessThan(400);
+    expect(out.system).not.toContain("RULES");
+    expect(localSystemPrompt("zz")).toContain("language of the question");
+  });
+
+  it("keeps the end of a long question and a short history, starting with the person", async () => {
+    const { compactForLocal, LOCAL_HISTORY_CHARS } = await import("../../supabase/functions/_shared/whatsappLocalChat");
+    const out = compactForLocal(bigRequest, "ar");
+    expect(out.messages.at(-1)!.role).toBe("user");
+    expect(out.messages.at(-1)!.content.endsWith("ما هي عاصمة لبنان؟")).toBe(true);
+    expect(out.messages[0].role).toBe("user");
+    expect(out.messages.reduce((n, m) => n + m.content.length, 0)).toBeLessThanOrEqual(LOCAL_HISTORY_CHARS + 350);
+    expect(JSON.stringify(out)).not.toContain("SUMMARY");
+  });
+
+  it("asks for a short answer, and the whole prompt stays small enough to read in time", async () => {
+    const { compactForLocal } = await import("../../supabase/functions/_shared/whatsappLocalChat");
+    const out = compactForLocal(bigRequest, "ar");
+    expect(out.maxTokens).toBe(150);
+    // Arabic is ~2 characters a token and the model reads ~29 tokens a second:
+    // under ~1,500 characters including 700 of sources keeps the read under ~25 s.
+    const total = out.system.length + out.messages.reduce((n, m) => n + m.content.length, 0) + 700;
+    expect(total).toBeLessThanOrEqual(1_900);
+  });
+
+  it("is what the model receives through withLocalChat", async () => {
+    const { withLocalChat } = await import("../../supabase/functions/_shared/whatsappLocalChat");
+    let body: { system: string; messages: unknown[]; max_tokens: number } | null = null;
+    const fetchImpl = (async (_u: string, init: RequestInit) => {
+      body = JSON.parse(String(init.body));
+      return new Response(JSON.stringify({ ok: true, text: "بيروت.", ms: 1 }));
+    }) as unknown as typeof fetch;
+    const provider = withLocalChat(async () => { throw new Error("x"); }, {
+      read: (n) => (n === "LOCAL_CHAT" ? "on" : undefined), fetchImpl, language: "ar",
+      config: { url: "https://example.test/internal/media", token: "t" },
+    });
+    await provider(bigRequest);
+    expect(body!.system).toContain("Always answer in Arabic.");
+    expect(body!.system).not.toContain("RULES");
+    expect(body!.messages.length).toBeLessThanOrEqual(3);
+    expect(body!.max_tokens).toBe(150);
   });
 });

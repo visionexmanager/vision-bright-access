@@ -33,6 +33,58 @@ import { gatherSources, SOURCES_TIMEOUT_MS, type NewsItem } from "./whatsappLoca
 export const LOCAL_CHAT_TIMEOUT_MS = 25_000;
 export const MAX_LOCAL_CHAT_ANSWER_CHARS = 3_000;
 export const LOCAL_CHAT_PROVIDER = "local";
+
+/**
+ * What the model is actually sent.
+ *
+ * The first live questions timed out: the WhatsApp assistant's full system
+ * prompt (rules, catalogue, retrieved prose) plus the replayed history was
+ * thousands of tokens, and this CPU reads a prompt at ~29 tokens a second
+ * (measured in the model's own log). The paid providers take that prompt in
+ * stride; this model cannot. So it gets its own small one: a few lines of
+ * identity and style, the language to answer in, and the last few turns cut
+ * short. The question is what it must answer; the rest is not worth the wait.
+ */
+export const LOCAL_HISTORY_MESSAGES = 3;
+export const LOCAL_TURN_CHARS = 350;
+export const LOCAL_HISTORY_CHARS = 700;
+export const LOCAL_MAX_TOKENS = 150;
+
+const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
+  ar: "Arabic", en: "English", bn: "Bengali", de: "German", es: "Spanish", fa: "Persian", fr: "French", hi: "Hindi",
+  id: "Indonesian", it: "Italian", ja: "Japanese", ko: "Korean", nl: "Dutch", pl: "Polish", pt: "Portuguese",
+  ru: "Russian", tr: "Turkish", ur: "Urdu", vi: "Vietnamese", zh: "Chinese",
+};
+
+/** The compact system prompt, in English, naming the language to answer in. */
+export function localSystemPrompt(language?: string): string {
+  const name = LANGUAGE_NAMES[(language ?? "").toLowerCase().slice(0, 2)];
+  return [
+    "You are the Visionex assistant, for blind and low-vision people who may be listening to your answer.",
+    "Answer in at most two short sentences. Plain text only: no markdown, no lists, no emoji.",
+    name ? `Always answer in ${name}.` : "Answer in the language of the question.",
+    "Never invent facts. If you are not sure, say so briefly.",
+  ].join(" ");
+}
+
+/** The request the local model will be sent: small system prompt, last few turns, short answer. */
+export function compactForLocal(request: AskRequest, language?: string): AskRequest {
+  const recent = request.messages.slice(-LOCAL_HISTORY_MESSAGES).map((m) => ({
+    role: m.role,
+    // The end of a long turn is the part that asks the question.
+    content: m.content.length > LOCAL_TURN_CHARS ? m.content.slice(-LOCAL_TURN_CHARS) : m.content,
+  }));
+  const kept: typeof recent = [];
+  let used = 0;
+  for (let i = recent.length - 1; i >= 0; i--) {
+    if (kept.length > 0 && used + recent[i].content.length > LOCAL_HISTORY_CHARS) break;
+    used += recent[i].content.length;
+    kept.unshift(recent[i]);
+  }
+  // A conversation has to start with the person.
+  while (kept.length > 1 && kept[0].role !== "user") kept.shift();
+  return { system: localSystemPrompt(language), messages: kept, maxTokens: Math.min(request.maxTokens, LOCAL_MAX_TOKENS) };
+}
 export const LOCAL_CHAT_MODEL = "qwen3-4b";
 
 export type LocalChatFailure =
@@ -119,7 +171,7 @@ export async function chatLocally(params: {
       body: JSON.stringify({
         system: params.request.system,
         messages: params.request.messages.map((m) => ({ role: m.role, content: m.content })),
-        max_tokens: Math.min(params.request.maxTokens, 320),
+        max_tokens: Math.min(params.request.maxTokens, 200),
         ...(params.reference ? { reference: params.reference } : {}),
         ...(params.today ? { today: params.today } : {}),
       }),
@@ -219,7 +271,7 @@ export function withLocalChat(
     }
 
     const local = await chatLocally({
-      request, read, fetchImpl: options.fetchImpl, config: options.config,
+      request: compactForLocal(request, options.language), read, fetchImpl: options.fetchImpl, config: options.config,
       reference, today,
       // The ask as a whole has thirty seconds; the lookup already used some.
       timeoutMs: Math.max(10_000, LOCAL_CHAT_TIMEOUT_MS - spent),
