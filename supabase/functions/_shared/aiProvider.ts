@@ -600,7 +600,13 @@ export function orderTargets(
   let extras: ProviderTarget[] = [];
   try { extras = registryView?.extras(kind, mode) ?? []; } catch { extras = []; }
   const seen = new Set(targets.map(targetKey));
-  const all = [...targets, ...extras.filter((t) => !seen.has(targetKey(t)))];
+  // The registry's extras are free providers: they go before the first OpenAI
+  // target (the paid last resort), or at the end when the chain has none.
+  const added = extras.filter((t) => !seen.has(targetKey(t)));
+  const firstOpenAI = targets.findIndex((t) => t.provider === "openai");
+  const all = firstOpenAI === -1
+    ? [...targets, ...added]
+    : [...targets.slice(0, firstOpenAI), ...added, ...targets.slice(firstOpenAI)];
   for (const t of all) {
     if (pausedReason(t) || parkedProviderReason(t.provider)) continue;
     // A provider with no key is not a failed attempt, it is no attempt.

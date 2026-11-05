@@ -224,9 +224,11 @@ describe("OpenRouter is activation-gated: nothing reaches it until its row is sw
     expect(ai.orderTargets([OR, O], "chat")).toEqual([O]);
   });
 
-  it("the registry contributes the gated provider's target, after the policy chain", () => {
+  it("the registry contributes the gated provider's target, after the free providers and before OpenAI", () => {
     ai.setProviderRegistryView({ verdict: () => "ready", extras: () => [OR] });
-    expect(ai.orderTargets([G, O], "chat")).toEqual([G, O, OR]);
+    expect(ai.orderTargets([G, O], "chat")).toEqual([G, OR, O]);
+    // A chain with no OpenAI target gets it at the end.
+    expect(ai.orderTargets([G], "chat")).toEqual([G, OR]);
   });
 
   it("the static chains never name a gated provider", () => {
