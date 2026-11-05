@@ -80,6 +80,24 @@ const CREDENTIAL_ENV: Readonly<Record<AIProvider, string>> = {
   openrouter: "OPENROUTER_API_KEY",
 };
 
+/**
+ * Targets the operator has switched off at run time, without a code change:
+ * the Edge secret AI_PROVIDERS_OFF, a comma list of `provider` or
+ * `provider/model` (e.g. "openai,cerebras"). For a provider whose key is dead
+ * (out of credit, rejected) so the chain does not pay a failed call before the
+ * next one. Only chain ordering consults it, never a direct call, so moderation,
+ * embeddings and the like are untouched. Unset, or unreadable, it does nothing.
+ */
+function switchedOff(t: { provider: AIProvider; model: string }): boolean {
+  try {
+    const raw = Deno.env.get("AI_PROVIDERS_OFF");
+    if (!raw) return false;
+    return raw.split(",").map((x) => x.trim().toLowerCase()).some((x) => x === t.provider || x === `${t.provider}/${t.model}`.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 /** providerHasCredential that cannot throw where `Deno` is absent (tests, tooling). */
 function hasCredentialSafe(provider: AIProvider): boolean {
   try { return providerHasCredential(provider); } catch { return false; }
@@ -608,7 +626,7 @@ export function orderTargets(
     ? [...targets, ...added]
     : [...targets.slice(0, firstOpenAI), ...added, ...targets.slice(firstOpenAI)];
   for (const t of all) {
-    if (pausedReason(t) || parkedProviderReason(t.provider)) continue;
+    if (pausedReason(t) || parkedProviderReason(t.provider) || switchedOff(t)) continue;
     // A provider with no key is not a failed attempt, it is no attempt.
     if (t.provider === "cerebras" && !hasCredentialSafe("cerebras")) continue;
     const verdict = registryVerdictOf(t, kind);

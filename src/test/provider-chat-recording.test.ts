@@ -568,3 +568,31 @@ describe("Cerebras is optional", () => {
     expect(attempts.map((x) => x.provider).slice(0, 2)).toEqual(["groq", "cerebras"]);
   });
 });
+
+describe("AI_PROVIDERS_OFF", () => {
+  const chain = () => assistants.assistantTargets("whatsapp-support");
+  const providers = () => ai.orderTargets(chain(), "chat").map((t) => t.provider);
+
+  it("does nothing when unset", () => {
+    allKeys();
+    env.AI_PROVIDERS_OFF = undefined;
+    expect(providers()).toContain("openai");
+    expect(providers()).toContain("cerebras");
+  });
+
+  it("drops a whole provider from the chain, and only from the chain", () => {
+    allKeys();
+    env.AI_PROVIDERS_OFF = "openai, Cerebras";
+    expect(providers()).not.toContain("openai");
+    expect(providers()).not.toContain("cerebras");
+    expect(providers()).toContain("groq");
+    env.AI_PROVIDERS_OFF = undefined;
+  });
+
+  it("can name one model and leave the provider's others", () => {
+    env.AI_PROVIDERS_OFF = "openai/gpt-4.1";
+    const models = ai.orderTargets(chain(), "chat").filter((t) => t.provider === "openai").map((t) => t.model);
+    expect(models).toEqual(["gpt-5.6-luna"]);
+    env.AI_PROVIDERS_OFF = undefined;
+  });
+});
