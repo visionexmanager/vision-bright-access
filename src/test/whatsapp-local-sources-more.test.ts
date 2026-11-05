@@ -129,3 +129,19 @@ describe("crypto", () => {
     expect(await gatherSources({ question: "bitcoin price today", language: "en", fetchImpl: impl, now: NOW, read: () => undefined })).toBeNull();
   });
 });
+
+describe("the two questions that went unanswered", () => {
+  it("answers 'did an earthquake happen today' with the quakes, not a place called 'happened'", async () => {
+    const data = { features: [{ properties: { mag: 5.1, place: "Masumbwe, Tanzania", time: Date.parse("2026-11-05T03:00:00Z") } }] };
+    const { impl } = network({ "earthquake.usgs.gov": () => new Response(JSON.stringify(data)) });
+    const out = await gatherSources({ question: "هل حصل زلزال اليوم؟", language: "ar", fetchImpl: impl, now: NOW, read: () => undefined });
+    expect(out!.used).toEqual({ earthquakes: 1 });
+  });
+
+  it("treats 'how is the situation of <place>' as a question about the news", async () => {
+    const { impl } = network({ "rss.dw.com": () => new Response(rss([["مضيق هرمز: حرائق في ثلاث سفن", "تفاصيل."]])) });
+    const out = await gatherSources({ question: "كيف وضع مضيق هرمز؟", language: "ar", fetchImpl: impl, now: NOW, read: ALL });
+    expect(out!.used.feeds).toBe(1);
+    expect(out!.text).toContain("[DW, 2026-11-05]");
+  });
+});
