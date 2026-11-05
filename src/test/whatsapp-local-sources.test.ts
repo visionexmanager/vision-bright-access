@@ -284,7 +284,7 @@ describe("the request the local model is actually sent", () => {
   it("asks for a short answer, and the whole prompt stays small enough to read in time", async () => {
     const { compactForLocal } = await import("../../supabase/functions/_shared/whatsappLocalChat");
     const out = compactForLocal(bigRequest, "ar");
-    expect(out.maxTokens).toBe(150);
+    expect(out.maxTokens).toBe(100);
     // Arabic is ~2 characters a token and the model reads ~29 tokens a second:
     // about 1,200 characters including 500 of sources is ~350 tokens, ~12 s to read.
     const total = out.system.length + out.messages.reduce((n, m) => n + m.content.length, 0) + 500;
@@ -306,6 +306,6 @@ describe("the request the local model is actually sent", () => {
     expect(body!.system).toContain("Reply in Arabic.");
     expect(body!.system).not.toContain("RULES");
     expect(body!.messages.length).toBeLessThanOrEqual(2);
-    expect(body!.max_tokens).toBe(150);
+    expect(body!.max_tokens).toBe(100);
   });
 });
