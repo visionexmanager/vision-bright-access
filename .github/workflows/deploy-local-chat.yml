@@ -76,7 +76,7 @@ jobs:
             mode-first)    NAME=LOCAL_CHAT_MODE;  VALUE=first ;;
             mode-only)     NAME=LOCAL_CHAT_MODE;  VALUE=only ;;
             mode-fallback) NAME=LOCAL_CHAT_MODE;  SETTING=0 ;;
-            feeds-on)      NAME=LOCAL_CHAT_FEEDS; VALUE="dw-en,dw-ar" ;;
+            feeds-on)      NAME=LOCAL_CHAT_FEEDS; VALUE="all" ;;
             feeds-off)     NAME=LOCAL_CHAT_FEEDS; SETTING=0 ;;
           esac
           if [[ "$SETTING" == 1 ]]; then
