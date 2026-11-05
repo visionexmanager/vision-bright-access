@@ -30,11 +30,11 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "status = report only. start = run the model container. stop = remove it. test = prove the processor reaches it and answers in Arabic and English. enable / disable = set or remove the LOCAL_CHAT secret on the Edge Functions. enable-web / disable-web = the same for LOCAL_CHAT_WEB, which lets the model look the question up in Wikipedia first."
+        description: "status = report only. start = run the model container. stop = remove it. test = prove the processor reaches it and answers in Arabic and English. enable / disable = set or remove the LOCAL_CHAT secret on the Edge Functions. enable-web / disable-web = the same for LOCAL_CHAT_WEB, which lets the model read public sources (Wikipedia, Wikidata, current events, exchange rates, the site's news) first. mode-fallback / mode-first / mode-only = where the local model sits against the paid providers (LOCAL_CHAT_MODE). feeds-on / feeds-off = publishers' RSS (LOCAL_CHAT_FEEDS), off until the owner has read each publisher's terms."
         required: true
         default: status
         type: choice
-        options: [status, start, stop, test, enable, disable, enable-web, disable-web]
+        options: [status, start, stop, test, enable, disable, enable-web, disable-web, mode-fallback, mode-first, mode-only, feeds-on, feeds-off]
 
 permissions:
   contents: read
@@ -54,7 +54,7 @@ jobs:
 
       # The other half of "off". This one name only; nothing else is touched.
       - name: Switch the Edge secret
-        if: inputs.action == 'enable' || inputs.action == 'disable' || inputs.action == 'enable-web' || inputs.action == 'disable-web'
+        if: inputs.action == 'enable' || inputs.action == 'disable' || inputs.action == 'enable-web' || inputs.action == 'disable-web' || startsWith(inputs.action, 'mode-') || startsWith(inputs.action, 'feeds-')
         shell: bash
         env:
           ACTION:               ${{ inputs.action }}
@@ -65,10 +65,22 @@ jobs:
           npm install -g supabase@latest >/dev/null 2>&1
           # enable / disable switch the model; the -web pair switches the
           # Wikipedia lookup that gives it fresh facts. Either name only.
+          # mode-* sets LOCAL_CHAT_MODE (mode-fallback removes it: fallback is the
+          # default); feeds-on names the presets, feeds-off removes the secret.
           NAME=LOCAL_CHAT
+          VALUE=on
+          SETTING=1
           [[ "$ACTION" == *-web ]] && NAME=LOCAL_CHAT_WEB
-          if [[ "$ACTION" == enable* ]]; then
-            supabase secrets set "$NAME=on" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
+          [[ "$ACTION" == disable* ]] && SETTING=0
+          case "$ACTION" in
+            mode-first)    NAME=LOCAL_CHAT_MODE;  VALUE=first ;;
+            mode-only)     NAME=LOCAL_CHAT_MODE;  VALUE=only ;;
+            mode-fallback) NAME=LOCAL_CHAT_MODE;  SETTING=0 ;;
+            feeds-on)      NAME=LOCAL_CHAT_FEEDS; VALUE="dw-en,dw-ar" ;;
+            feeds-off)     NAME=LOCAL_CHAT_FEEDS; SETTING=0 ;;
+          esac
+          if [[ "$SETTING" == 1 ]]; then
+            supabase secrets set "$NAME=$VALUE" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
           else
             supabase secrets unset "$NAME" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
           fi

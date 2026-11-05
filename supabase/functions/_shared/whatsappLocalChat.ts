@@ -26,7 +26,8 @@
 import { describeError, stripInvisible, boundText } from "./whatsappSafety.ts";
 import { processorConfig, type EnvReader, type ProcessorConfig } from "./whatsappProcessor.ts";
 import type { AskProvider, AskRequest, AskResult } from "./whatsappAsk.ts";
-import { fetchReference, localReferenceEnabled, REFERENCE_TIMEOUT_MS } from "./whatsappLocalReference.ts";
+import { localReferenceEnabled } from "./whatsappLocalReference.ts";
+import { gatherSources, SOURCES_TIMEOUT_MS, type NewsItem } from "./whatsappLocalSources.ts";
 
 /** Inside `askAssistant`'s thirty seconds; the service allows itself sixty. */
 export const LOCAL_CHAT_TIMEOUT_MS = 25_000;
@@ -57,6 +58,22 @@ const denoEnv: EnvReader = (name) => {
 /** The switch. Anything but the exact word `on` leaves the feature off. */
 export const localChatEnabled = (read: EnvReader = denoEnv): boolean =>
   (read("LOCAL_CHAT") ?? "").trim().toLowerCase() === "on";
+
+/**
+ * Where the local model sits in the order.
+ *
+ *   fallback  (default)  the paid chain first; the local model only if it failed
+ *   first                the local model first; the paid chain only if it failed
+ *   only                 the local model alone; the paid chain is never called
+ *
+ * `LOCAL_CHAT` must still be `on`. Anything but the exact words `first` or
+ * `only` is `fallback`, so a typo cannot move a paid provider out of the way.
+ */
+export type LocalChatMode = "fallback" | "first" | "only";
+export const localChatMode = (read: EnvReader = denoEnv): LocalChatMode => {
+  const value = (read("LOCAL_CHAT_MODE") ?? "").trim().toLowerCase();
+  return value === "first" || value === "only" ? value : "fallback";
+};
 
 /** The service's answer, checked field by field before anyone reads it. */
 export function readChatPayload(payload: unknown): LocalChatResult {
@@ -141,13 +158,25 @@ export function withLocalChat(
     /** For the lookup only; the default is the real network. */
     referenceFetch?: typeof fetch;
     now?: () => Date;
+    /** The site's own latest articles in the sender's language; the webhook supplies it. */
+    visionexNews?: () => Promise<NewsItem[]>;
   } = {},
 ): AskProvider {
   const read = options.read ?? denoEnv;
   if (!localChatEnabled(read)) return primary;
 
+  const mode = localChatMode(read);
+
   return async (request: AskRequest): Promise<AskResult> => {
     let failure: unknown = null;
+    if (mode === "first" || mode === "only") {
+      // The local model leads. Under `first` a failure falls through to the chain
+      // below; under `only` it is the end, and the caller sees an empty answer.
+      const local = await askLocal(request);
+      if (local) return local;
+      if (mode === "only") return { text: "", provider: "unknown", model: "unknown" };
+    }
+
     try {
       const result = await primary(request);
       if ((result?.text ?? "").trim()) return result;
@@ -155,24 +184,37 @@ export function withLocalChat(
       failure = error;
     }
 
-    // Fresh facts, when the second switch is on: today's date always, and a few
-    // Wikipedia passages when the question is searchable. Neither can fail the
-    // answer; both only make it better informed.
+    if (mode === "fallback") {
+      const local = await askLocal(request);
+      if (local) return local;
+    }
+
+    if (failure !== null) throw failure;
+    return { text: "", provider: "unknown", model: "unknown" };
+  };
+
+  async function askLocal(request: AskRequest): Promise<AskResult | null> {
+    // Fresh facts, when the second switch is on: today's date always, and
+    // labelled lines from the public sources that fit the question. None of it
+    // can fail the answer; it only makes it better informed.
     const clock = options.now ?? (() => new Date());
     const today = clock().toISOString().slice(0, 10);
     let reference = "";
-    let sources = 0;
+    let used: Record<string, number> = {};
     let spent = 0;
     if (localReferenceEnabled(read)) {
       const startedAt = Date.now();
       const lastUser = [...request.messages].reverse().find((m) => m.role === "user");
       const found = lastUser
-        ? await fetchReference({ question: lastUser.content, language: options.language, fetchImpl: options.referenceFetch })
+        ? await gatherSources({
+          question: lastUser.content, language: options.language, fetchImpl: options.referenceFetch,
+          read, now: clock, visionexNews: options.visionexNews,
+        })
         : null;
-      spent = Math.min(Date.now() - startedAt, REFERENCE_TIMEOUT_MS);
+      spent = Math.min(Date.now() - startedAt, SOURCES_TIMEOUT_MS);
       if (found) {
         reference = found.text;
-        sources = found.sources.length;
+        used = found.used;
       }
     }
 
@@ -184,11 +226,8 @@ export function withLocalChat(
     });
     // Counts and timings only, never the question or the passages.
     options.log?.("ai_local_chat", local.ok
-      ? { ok: true, ms: local.ms, chars: local.text.length, grounded: sources > 0, sources }
-      : { ok: false, reason: "reason" in local ? local.reason : "error", grounded: sources > 0 });
-    if (local.ok) return { text: local.text, provider: LOCAL_CHAT_PROVIDER, model: LOCAL_CHAT_MODEL };
-
-    if (failure !== null) throw failure;
-    return { text: "", provider: "unknown", model: "unknown" };
-  };
+      ? { ok: true, mode, ms: local.ms, chars: local.text.length, grounded: reference !== "", used }
+      : { ok: false, mode, reason: "reason" in local ? local.reason : "error", grounded: reference !== "", used });
+    return local.ok ? { text: local.text, provider: LOCAL_CHAT_PROVIDER, model: LOCAL_CHAT_MODEL } : null;
+  }
 }
