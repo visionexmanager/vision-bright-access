@@ -11,20 +11,20 @@
 // allowed to refuse: the caller goes back to the chain on `busy`.
 
 export const MAX_CHAT_BODY_BYTES = 64 * 1024;
-export const MAX_SYSTEM_CHARS = 1_800;
-export const MAX_TURN_CHARS = 1_200;
+export const MAX_SYSTEM_CHARS = 600;
+export const MAX_TURN_CHARS = 400;
 /** Reference passages (Wikipedia) the caller looked up; read at ~33 tokens a second, so kept short. */
-export const MAX_REFERENCE_CHARS = 1_200;
+export const MAX_REFERENCE_CHARS = 700;
 const TODAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
-export const MAX_TURNS = 8;
+export const MAX_TURNS = 4;
 /** All the replayed turns together; the prompt is read at ~33 tokens a second. */
-export const MAX_HISTORY_CHARS = 2_400;
-export const MAX_CHAT_TOKENS = 320;
-export const DEFAULT_CHAT_TOKENS = 200;
+export const MAX_HISTORY_CHARS = 800;
+export const MAX_CHAT_TOKENS = 200;
+export const DEFAULT_CHAT_TOKENS = 120;
 export const MAX_CHAT_ANSWER_CHARS = 3_000;
 /** Two requests at once measured 5.3 s each; a third would only slow both. */
 export const MAX_CONCURRENT_CHATS = 2;
-export const CHAT_TIMEOUT_MS = 60_000;
+export const CHAT_TIMEOUT_MS = 40_000;
 
 const ROLES = new Set(["user", "assistant"]);
 
