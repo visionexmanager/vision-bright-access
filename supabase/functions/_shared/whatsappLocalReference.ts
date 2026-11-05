@@ -64,6 +64,9 @@ const STOP_WORDS = new Set([
   // Arabic
   "ماذا", "متى", "أين", "اين", "كيف", "لماذا", "هل", "على", "عن", "إلى", "الى", "هذا", "هذه", "ذلك", "تلك",
   "كان", "كانت", "يكون", "أخبرني", "اخبرني", "قل", "لي", "حول", "بشأن", "آخر", "اخر",
+  // The verbs and fillers of a question about events ("did it happen", "how is the situation"):
+  // left in, "حصل" was taken for a place name and filtered every earthquake out.
+  "حصل", "حدث", "وقع", "يحدث", "حدثت", "وضع", "الوضع", "حال", "حالة",
   // French / Spanish / Turkish
   "les", "des", "une", "est", "sont", "quel", "quelle", "quels", "qui", "que", "quand", "où", "comment", "pourquoi", "dans", "pour",
   "los", "las", "una", "qué", "quién", "cuándo", "dónde", "cómo", "por", "con", "del", "nedir", "kimdir", "nerede", "nasıl", "hangi",

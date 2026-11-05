@@ -72,7 +72,9 @@ const denoEnv: EnvReader = (name) => {
 
 const NEWS_WORDS = [
   "news", "headline", "breaking", "latest", "today", "tonight", "yesterday", "happening", "update",
+  "situation", "developments", "what is going on", "what's going on",
   "أخبار", "خبر", "عاجل", "اليوم", "الآن", "حاليا", "حالياً", "ما الذي يحدث", "ماذا يحدث", "جديد", "آخر",
+  "الوضع", "وضع ", "تطورات", "مستجدات", "ماذا حصل", "ماذا جرى",
   "actualité", "actualite", "nouvelles", "aujourd", "dernières", "dernieres",
   "noticias", "hoy", "últimas", "ultimas",
   "haber", "bugün", "son dakika",
