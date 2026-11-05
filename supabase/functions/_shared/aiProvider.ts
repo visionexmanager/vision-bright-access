@@ -34,7 +34,7 @@ import {
 import { meterSseStream, type StreamUsageSeen } from "./streamUsage.ts";
 import { emitUsage } from "./usageSink.ts";
 
-export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral" | "openrouter";
+export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "cerebras" | "mistral" | "openrouter";
 
 /**
  * Providers that serve nothing until the registry switches them on. A target
@@ -75,9 +75,15 @@ const CREDENTIAL_ENV: Readonly<Record<AIProvider, string>> = {
   anthropic: "ANTHROPIC_API_KEY",
   gemini: "GEMINI_API_KEY",
   groq: "GROQ_API_KEY",
+  cerebras: "CEREBRAS_API_KEY",
   mistral: "MISTRAL_API_KEY",
   openrouter: "OPENROUTER_API_KEY",
 };
+
+/** providerHasCredential that cannot throw where `Deno` is absent (tests, tooling). */
+function hasCredentialSafe(provider: AIProvider): boolean {
+  try { return providerHasCredential(provider); } catch { return false; }
+}
 
 /** Whether this runtime holds the provider's credential. Never reads its value out. */
 export function providerHasCredential(provider: AIProvider): boolean {
@@ -145,7 +151,7 @@ interface OpenAICompatibleConfig {
   headers?: Record<string, string>;
 }
 
-const OPENAI_COMPATIBLE: Record<"openai" | "groq" | "mistral" | "openrouter", OpenAICompatibleConfig> = {
+const OPENAI_COMPATIBLE: Record<"openai" | "groq" | "cerebras" | "mistral" | "openrouter", OpenAICompatibleConfig> = {
   openai: {
     label: "OpenAI",
     envKey: "OPENAI_API_KEY",
@@ -155,6 +161,13 @@ const OPENAI_COMPATIBLE: Record<"openai" | "groq" | "mistral" | "openrouter", Op
     label: "Groq",
     envKey: "GROQ_API_KEY",
     chatUrl: "https://api.groq.com/openai/v1/chat/completions",
+  },
+  // OpenAI's dialect verbatim; free tier. Served only when CEREBRAS_API_KEY is
+  // set: orderTargets drops its targets from a chain otherwise.
+  cerebras: {
+    label: "Cerebras",
+    envKey: "CEREBRAS_API_KEY",
+    chatUrl: "https://api.cerebras.ai/v1/chat/completions",
   },
   mistral: {
     label: "Mistral",
@@ -220,6 +233,8 @@ const OPENAI_REASONING_MODELS: Readonly<Record<string, { effort: "none" | "low" 
  */
 const GROQ_REASONING_MODELS: ReadonlySet<string> = new Set(["openai/gpt-oss-20b", "openai/gpt-oss-120b"]);
 export const GROQ_REASONING_HEADROOM = 512;
+/** Cerebras serves gpt-oss-120b, which reasons before it answers like Groq's gpt-oss. */
+const CEREBRAS_REASONING_MODELS: ReadonlySet<string> = new Set(["gpt-oss-120b"]);
 
 /** The completion-budget fields a request carries, for this provider and model. */
 export function completionBudget(provider: AIProvider, model: string, limit: number): Record<string, unknown> {
@@ -229,6 +244,9 @@ export function completionBudget(provider: AIProvider, model: string, limit: num
   if (reasoning) return { max_completion_tokens: limit, reasoning_effort: reasoning.effort };
   if (provider === "groq" && GROQ_REASONING_MODELS.has(model)) {
     return { max_tokens: limit + GROQ_REASONING_HEADROOM, reasoning_effort: "low" };
+  }
+  if (provider === "cerebras" && CEREBRAS_REASONING_MODELS.has(model)) {
+    return { max_completion_tokens: limit + GROQ_REASONING_HEADROOM, reasoning_effort: "low" };
   }
   return { max_tokens: limit };
 }
@@ -585,6 +603,8 @@ export function orderTargets(
   const all = [...targets, ...extras.filter((t) => !seen.has(targetKey(t)))];
   for (const t of all) {
     if (pausedReason(t) || parkedProviderReason(t.provider)) continue;
+    // A provider with no key is not a failed attempt, it is no attempt.
+    if (t.provider === "cerebras" && !hasCredentialSafe("cerebras")) continue;
     const verdict = registryVerdictOf(t, kind);
     if (verdict === "excluded") continue;
     const until = cooldownUntil.get(targetKey(t)) ?? 0;

@@ -49,6 +49,8 @@ const GEMINI = { provider: "gemini", model: "gemini-flash-latest" } as const;
 const GEMINI_LITE = { provider: "gemini", model: "gemini-flash-lite-latest" } as const;
 const GROQ = { provider: "groq", model: "openai/gpt-oss-20b" } as const;
 const MISTRAL = { provider: "mistral", model: "ministral-14b-latest" } as const;
+// Free tier, fast. Dropped from a chain at run time while CEREBRAS_API_KEY is unset.
+const CEREBRAS = { provider: "cerebras", model: "gpt-oss-120b" } as const;
 
 // Safety-sensitive domains keep the strongest established model first. Fast
 // operational work goes to Groq; multilingual and writing work goes to Mistral;
@@ -82,9 +84,9 @@ const GEMINI_FIRST = new Set([
 
 export function assistantTargets(id: string): ProviderTarget[] {
   if (OPENAI_FIRST.has(id)) return [OPENAI, LUNA, GEMINI, GEMINI_LITE, MISTRAL, GROQ];
-  if (GEMINI_FIRST.has(id)) return [GEMINI, GROQ, MISTRAL, OPENAI, LUNA];
-  if (MISTRAL_FIRST.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ, OPENAI, LUNA];
-  return [GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA];
+  if (GEMINI_FIRST.has(id)) return [GEMINI, GROQ, CEREBRAS, MISTRAL, OPENAI, LUNA];
+  if (MISTRAL_FIRST.has(id)) return [MISTRAL, GEMINI, GEMINI_LITE, GROQ, CEREBRAS, OPENAI, LUNA];
+  return [GROQ, CEREBRAS, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA];
 }
 
 // Convenience: most assistants share provider/model; only prompt differs.

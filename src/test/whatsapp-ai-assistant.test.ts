@@ -336,7 +336,7 @@ describe("reliability", () => {
     // unverified; the owner moved it behind them on 2026-11-05.
     expect(assistantsSource).not.toMatch(/OPENAI_FIRST = new Set\(\[[^\]]*"whatsapp-support"/s);
     expect(assistantsSource).not.toMatch(/MISTRAL_FIRST = new Set\(\[[^\]]*"whatsapp-support"/s);
-    expect(assistantsSource).toContain("return [GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA];");
+    expect(assistantsSource).toContain("return [GROQ, CEREBRAS, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA];");
   });
 
   it("21. keeps the existing rate limit in front of the assistant", () => {
