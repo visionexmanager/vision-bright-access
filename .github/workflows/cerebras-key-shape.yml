@@ -1,0 +1,33 @@
+name: Cerebras key shape
+
+# Says what SHAPE the CEREBRAS_API_KEY secret has, never the value: its length,
+# whether it starts with the expected prefix, and whether it carries whitespace,
+# quotes or a line break (the usual copy-paste faults). The repository is
+# public, so nothing here prints the key, a prefix beyond the four-character
+# vendor tag, or any response body.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect the shape
+        env:
+          KEY: ${{ secrets.CEREBRAS_API_KEY }}
+        run: |
+          if [[ -z "$KEY" ]]; then echo "secret is empty or missing"; exit 0; fi
+          echo "length            : ${#KEY}"
+          [[ "$KEY" == csk-* ]] && echo "starts with csk-  : yes" || echo "starts with csk-  : NO"
+          [[ "$KEY" =~ [[:space:]] ]] && echo "whitespace/newline: YES (this breaks it)" || echo "whitespace/newline: none"
+          [[ "$KEY" == *\"* || "$KEY" == *\'* ]] && echo "quotes            : YES (this breaks it)" || echo "quotes            : none"
+          [[ "$KEY" =~ ^[A-Za-z0-9_-]+$ ]] && echo "charset           : letters, digits, - and _ only" || echo "charset           : has other characters"
+          for url in https://api.cerebras.ai/v1/models; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $KEY" "$url")
+            echo "GET /v1/models    : HTTP $code"
+          done
