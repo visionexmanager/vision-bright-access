@@ -6765,7 +6765,22 @@ Deno.serve(async (req) => {
           turns,
           question: questionText,
         },
-        withLocalChat(chainProvider(), { log, language: answerIn }),
+        withLocalChat(chainProvider(), {
+          log,
+          language: answerIn,
+          // The site's own published articles, in the sender's language, for the
+          // local model's lookups. Same query and same exclusions as the news list.
+          visionexNews: async () => {
+            const { data } = await db
+              .from("news_articles")
+              .select("id, title, description, category, published_at, translations")
+              .eq("published", true)
+              .neq("category", NEWS_EXCLUDED_CATEGORY)
+              .order("published_at", { ascending: false, nullsFirst: false })
+              .limit(NEWS_LIST_SIZE);
+            return readArticles(data).map((article) => ({ ...articleText(article, answerIn), date: article.publishedAt }));
+          },
+        }),
       );
 
       // Out of AI_PROCESSING on every path out of the ask: a state a sender can
