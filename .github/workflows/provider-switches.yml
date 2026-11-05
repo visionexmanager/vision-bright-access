@@ -8,8 +8,11 @@ name: Provider switches
 # embeddings, speech and every direct call are untouched.
 #
 #   status  report the current value.
-#   off     set AI_PROVIDERS_OFF to the `providers` input.
-#   on      remove AI_PROVIDERS_OFF: every provider is tried again.
+#   switch-off  set AI_PROVIDERS_OFF to the `providers` input.
+#   switch-on   remove AI_PROVIDERS_OFF: every provider is tried again.
+#
+# The choices are not called `off` and `on`: YAML reads those two words as
+# booleans, and GitHub then refuses them as inputs.
 #
 # This one name only; nothing else is touched. Nothing here prints a key.
 
@@ -17,13 +20,13 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "status = report. off = switch the listed providers off. on = switch everything back on."
+        description: "status = report. switch-off = switch the listed providers off. switch-on = switch everything back on."
         required: true
         default: status
         type: choice
-        options: [status, off, on]
+        options: [status, switch-off, switch-on]
       providers:
-        description: "For off: comma list of provider or provider/model, e.g. openai,cerebras"
+        description: "For switch-off: comma list of provider or provider/model, e.g. openai,cerebras"
         required: false
         default: "openai,cerebras"
 
@@ -51,13 +54,13 @@ jobs:
           set -euo pipefail
           npm install -g supabase@latest >/dev/null 2>&1
           NAME=AI_PROVIDERS_OFF
-          if [[ "$ACTION" == off ]]; then
+          if [[ "$ACTION" == switch-off ]]; then
             # Names only: letters, digits, dots, dashes, underscores, slashes, colons, commas.
             if [[ ! "$PROVIDERS" =~ ^[A-Za-z0-9._:/,-]+$ ]]; then
               echo "::error::providers must be a comma list of provider or provider/model"; exit 1
             fi
             supabase secrets set "$NAME=$PROVIDERS" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
-          elif [[ "$ACTION" == on ]]; then
+          elif [[ "$ACTION" == switch-on ]]; then
             supabase secrets unset "$NAME" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
           fi
           if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q "^ *$NAME "; then
@@ -65,5 +68,5 @@ jobs:
           else
             echo "$NAME is not set: every provider is tried."
           fi
-          [[ "$ACTION" == off ]] && echo "Switched off: $PROVIDERS"
+          [[ "$ACTION" == switch-off ]] && echo "Switched off: $PROVIDERS"
           exit 0
