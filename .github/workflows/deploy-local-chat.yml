@@ -34,7 +34,7 @@ on:
         required: true
         default: status
         type: choice
-        options: [status, start, stop, test, enable, disable, enable-web, disable-web, mode-fallback, mode-first, mode-only, feeds-on, feeds-off]
+        options: [status, start, stop, test, diagnose, enable, disable, enable-web, disable-web, mode-fallback, mode-first, mode-only, feeds-on, feeds-off]
 
 permissions:
   contents: read
@@ -180,6 +180,25 @@ jobs:
           echo "The model did not become ready. Last log lines:"
           sudo docker logs --tail 15 visionex-chat 2>&1 | cut -c1-200
           exit 1
+          REMOTE
+
+      # Why an answer was slow or missing: what the processor logged for /chat
+      # (lengths and timings only, never text) and what the model reports for
+      # each prompt it read (token counts and milliseconds).
+      - name: Diagnose
+        if: inputs.action == 'diagnose'
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          echo '```'
+          echo "--- processor: last /chat events"
+          sudo docker logs --since 3h visionex-media 2>&1 | grep -E '"(chat|chat_failed)"' | tail -15 | cut -c1-260
+          echo "--- model: prompt and generation timings (last 12)"
+          sudo docker logs --since 3h visionex-chat 2>&1 | grep -E "prompt eval time|eval time =|total time" | tail -18 | cut -c1-200
+          echo "--- container"
+          sudo docker stats --no-stream --format 'cpu={{.CPUPerc}} mem={{.MemUsage}}' visionex-chat
+          echo '```'
           REMOTE
 
       - name: Stop the model
