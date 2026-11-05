@@ -494,6 +494,7 @@ import { chainProvider } from "../_shared/whatsappAskProvider.ts";
 import { withTranslations } from "../_shared/whatsappNewsTranslate.ts";
 import { translateLocally } from "../_shared/whatsappLocalTranslate.ts";
 import { summarizeLocally } from "../_shared/whatsappLocalSummarize.ts";
+import { withLocalChat } from "../_shared/whatsappLocalChat.ts";
 import { guessIntent, looksLikeARequest } from "../_shared/whatsappIntent.ts";
 import {
   AI_CONVERSATION,
@@ -6764,7 +6765,7 @@ Deno.serve(async (req) => {
           turns,
           question: questionText,
         },
-        chainProvider(),
+        withLocalChat(chainProvider(), { log }),
       );
 
       // Out of AI_PROCESSING on every path out of the ask: a state a sender can

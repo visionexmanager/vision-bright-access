@@ -177,6 +177,14 @@ import {
   summarizeRequestBody,
   STOP_NEW_PIECES_MS,
 } from "./summarize.mjs";
+import {
+  CHAT_TIMEOUT_MS,
+  MAX_CHAT_BODY_BYTES,
+  MAX_CONCURRENT_CHATS,
+  checkChatRequest,
+  chatRequestBody,
+  readChatAnswer,
+} from "./chat.mjs";
 
 const PORT = Number(process.env.PORT ?? 8081);
 
@@ -190,6 +198,8 @@ const DESCRIBER_URL = (process.env.DESCRIBER_URL ?? "").replace(/\/+$/, "");
 
 /** The same, for the translation model (`deploy-translator.yml`); empty means /translate is `not_configured`. */
 const TRANSLATOR_URL = (process.env.TRANSLATOR_URL ?? "").replace(/\/+$/, "");
+/** The same, for the chat model (`deploy-local-chat.yml`); empty means /chat is `not_configured`. */
+const CHAT_URL = (process.env.CHAT_URL ?? "").replace(/\/+$/, "");
 const HOST = process.env.HOST ?? "0.0.0.0";
 
 /**
@@ -1346,6 +1356,59 @@ async function handleTranslate(req, res, correlation) {
 }
 
 /**
+ * Answer a conversation with the local chat model.
+ *
+ * Up to MAX_CONCURRENT_CHATS at once (the model is started with that many
+ * slots); the next is told `busy` and the caller goes back to its paid chain.
+ * The messages are never logged, only lengths and timings.
+ */
+let chatting = 0;
+
+async function handleChat(req, res, correlation) {
+  if (!CHAT_URL) return send(res, 200, { ok: false, reason: "not_configured" });
+  if (chatting >= MAX_CONCURRENT_CHATS) {
+    res.setHeader("retry-after", "10");
+    return send(res, 503, { ok: false, reason: "busy" });
+  }
+  let body;
+  try {
+    body = JSON.parse((await readBody(req, MAX_CHAT_BODY_BYTES)).toString("utf8"));
+  } catch (error) {
+    return send(res, error.code === "too_large" ? 413 : 400, { ok: false, reason: error.code === "too_large" ? "body_too_large" : "bad_json" });
+  }
+  const checked = checkChatRequest(body);
+  if (!checked.ok) return send(res, 422, { ok: false, reason: checked.reason });
+
+  if (chatting >= MAX_CONCURRENT_CHATS) return send(res, 503, { ok: false, reason: "busy" });
+  chatting += 1;
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${CHAT_URL}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(chatRequestBody(checked)),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      log("chat_failed", { correlation, ms: Date.now() - startedAt, reason: `model_${response.status}` });
+      return send(res, 200, { ok: false, reason: "model_error" });
+    }
+    const answer = readChatAnswer(await response.json());
+    log("chat", { correlation, ms: Date.now() - startedAt, turns: checked.messages.length, out: answer ? answer.length : 0 });
+    return send(res, 200, answer ? { ok: true, text: answer, ms: Date.now() - startedAt } : { ok: false, reason: "unreadable" });
+  } catch (error) {
+    const reason = error.name === "AbortError" ? "timeout" : error.code ?? "unknown";
+    log("chat_failed", { correlation, ms: Date.now() - startedAt, reason });
+    return send(res, 200, { ok: false, reason });
+  } finally {
+    clearTimeout(deadline);
+    chatting -= 1;
+  }
+}
+
+/**
  * Describe one photograph with the local vision model.
  *
  * The model has three cores and about forty seconds per picture, so exactly one
@@ -1901,6 +1964,7 @@ const server = createServer(async (req, res) => {
         // Present only when a model container is configured; a caller checks before relying on it.
         describe: DESCRIBER_URL ? { languages: Object.keys(DESCRIBE_LANGUAGES) } : false,
         translate: TRANSLATOR_URL ? { languages: TRANSLATE_LANGUAGES } : false,
+        chat: CHAT_URL ? { max_concurrent: MAX_CONCURRENT_CHATS } : false,
         summarize: DESCRIBER_URL ? { languages: Object.keys(DESCRIBE_LANGUAGES) } : false,
         concurrency: MAX_CONCURRENT,
       });
@@ -1912,6 +1976,10 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/translate") {
       return await handleTranslate(req, res, correlation);
+    }
+
+    if (req.method === "POST" && url.pathname === "/chat") {
+      return await handleChat(req, res, correlation);
     }
 
     if (req.method === "POST" && url.pathname === "/summarize") {
