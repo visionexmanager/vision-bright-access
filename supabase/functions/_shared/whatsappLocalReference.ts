@@ -34,8 +34,8 @@ import type { EnvReader } from "./whatsappProcessor.ts";
 export const REFERENCE_TIMEOUT_MS = 2_500;
 export const MAX_QUERY_WORDS = 8;
 export const MAX_PASSAGES = 2;
-export const PASSAGE_CHARS = 300;
-export const MAX_REFERENCE_CHARS = 620;
+export const PASSAGE_CHARS = 220;
+export const MAX_REFERENCE_CHARS = 460;
 const USER_AGENT = "Visionex-Assistant/1.0 (+https://visionex.app)";
 
 const denoEnv: EnvReader = (name) => {
