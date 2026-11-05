@@ -65,14 +65,11 @@ const MISTRAL = { provider: "mistral", model: "ministral-14b-latest" } as const;
 const OPENAI_FIRST = new Set([
   "legal-advisor", "medical-support", "psychology", "empathy-oasis",
   "skin-care", "hair-care", "finance-advisor", "ivx-tutor", "ivx-project-grader",
-  // `whatsapp-support` is here for a different reason than the rest, and a
-  // reason that is meant to expire. It sat in MISTRAL_FIRST, which put OpenAI
-  // fourth — so when senders were getting "I couldn't answer just now", the one
-  // provider whose key had actually been verified was the one the chain reached
-  // last, if it reached it at all. Until the other three are verified, the
-  // channel leads with the provider known to answer. The other three stay in
-  // the chain behind it and cost nothing when it works.
-  "whatsapp-support",
+  // `whatsapp-support` used to be here, for a reason that was meant to expire:
+  // the other three providers were unverified. They have since answered
+  // hundreds of requests, OpenAI's credit ran out (every attempt was a 429
+  // before the chain moved on), and the owner chose free providers first for
+  // chat. It now takes the default order: Groq, Gemini, Mistral, then OpenAI.
 ]);
 const MISTRAL_FIRST = new Set([
   "social-guide", "digital-marketing", "global-studio", "content-guide",

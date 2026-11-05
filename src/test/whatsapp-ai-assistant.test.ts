@@ -330,16 +330,13 @@ describe("reliability", () => {
   it("20. answers a provider error with a sentence, and escalates it", () => {
     expect(webhook).toContain("await escalate(\"ai_unavailable\");");
     expect(webhook).toContain('log("ai_failed", { reason: asked.reason, status: asked.httpStatus, ms: asked.ms });');
-    // Four providers deep, and the WhatsApp assistant is registered in one of
-    // the ordered sets rather than falling through to the default.
-    //
-    // It leads with OpenAI: it used to sit in MISTRAL_FIRST, which put OpenAI
-    // fourth, so the one provider whose key had been verified was the last the
-    // chain reached. The other three stay behind it — the point is the order,
-    // not dropping anything.
-    expect(assistantsSource).toMatch(/OPENAI_FIRST = new Set\(\[[^\]]*"whatsapp-support"/s);
+    // The WhatsApp assistant takes the default order (free providers first,
+    // OpenAI last): it is in none of the "first" sets, and the default is the
+    // line below. It once led with OpenAI while the other providers were
+    // unverified; the owner moved it behind them on 2026-11-05.
+    expect(assistantsSource).not.toMatch(/OPENAI_FIRST = new Set\(\[[^\]]*"whatsapp-support"/s);
     expect(assistantsSource).not.toMatch(/MISTRAL_FIRST = new Set\(\[[^\]]*"whatsapp-support"/s);
-    expect(assistantsSource).toContain("if (OPENAI_FIRST.has(id)) return [OPENAI, LUNA, GEMINI, GEMINI_LITE, MISTRAL, GROQ];");
+    expect(assistantsSource).toContain("return [GROQ, GEMINI, GEMINI_LITE, MISTRAL, OPENAI, LUNA];");
   });
 
   it("21. keeps the existing rate limit in front of the assistant", () => {

@@ -435,7 +435,7 @@ describe("provider order is exactly what it was", () => {
     const O = "openai/gpt-4.1", L = "openai/gpt-5.6-luna", G = "gemini/gemini-flash-latest", GL = "gemini/gemini-flash-lite-latest", Q = "groq/openai/gpt-oss-20b", M = "mistral/ministral-14b-latest";
     const chain = (id: string) => assistants.assistantTargets(id).map((t) => `${t.provider}/${t.model}`);
     const OPENAI_FIRST = ["legal-advisor", "medical-support", "psychology", "empathy-oasis", "skin-care", "hair-care",
-      "finance-advisor", "ivx-tutor", "ivx-project-grader", "whatsapp-support"];
+      "finance-advisor", "ivx-tutor", "ivx-project-grader"];
     const MISTRAL_FIRST = ["social-guide", "digital-marketing", "global-studio", "content-guide", "message-assistant",
       "media-companion", "voice-room-assistant"];
     const GEMINI_FIRST = ["travel-agency", "educational-empire", "music-conservatory", "tech-consulting",
@@ -450,8 +450,10 @@ describe("provider order is exactly what it was", () => {
     }
   });
 
-  it("WhatsApp still leads with OpenAI", () => {
-    expect(assistants.assistantTargets("whatsapp-support")[0].provider).toBe("openai");
+  it("WhatsApp support leads with the free providers and reaches OpenAI last", () => {
+    const providers = assistants.assistantTargets("whatsapp-support").map((t) => t.provider);
+    expect(providers.slice(0, 4)).toEqual(["groq", "gemini", "gemini", "mistral"]);
+    expect(providers.slice(-2)).toEqual(["openai", "openai"]);
   });
 
   it("the loops never choose from the registry: they only defer to it through an injected, synchronous hook", () => {
