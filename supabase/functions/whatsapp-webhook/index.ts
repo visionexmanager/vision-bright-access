@@ -6765,7 +6765,7 @@ Deno.serve(async (req) => {
           turns,
           question: questionText,
         },
-        withLocalChat(chainProvider(), { log }),
+        withLocalChat(chainProvider(), { log, language: answerIn }),
       );
 
       // Out of AI_PROCESSING on every path out of the ask: a state a sender can
