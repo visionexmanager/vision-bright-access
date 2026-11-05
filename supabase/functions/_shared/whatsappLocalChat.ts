@@ -139,7 +139,7 @@ export function withLocalChat(
     }
 
     const local = await chatLocally({ request, read, fetchImpl: options.fetchImpl, config: options.config });
-    options.log?.("ai_local_chat", local.ok ? { ok: true, ms: local.ms, chars: local.text.length } : { ok: false, reason: local.reason });
+    options.log?.("ai_local_chat", local.ok ? { ok: true, ms: local.ms, chars: local.text.length } : { ok: false, reason: "reason" in local ? local.reason : "error" });
     if (local.ok) return { text: local.text, provider: LOCAL_CHAT_PROVIDER, model: LOCAL_CHAT_MODEL };
 
     if (failure !== null) throw failure;
