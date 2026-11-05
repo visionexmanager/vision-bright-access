@@ -38,7 +38,7 @@ import type { EnvReader } from "./whatsappProcessor.ts";
 
 /** One deadline for all sources together; they run in parallel. */
 export const SOURCES_TIMEOUT_MS = REFERENCE_TIMEOUT_MS + 500;
-export const MAX_SOURCES_CHARS = 700;
+export const MAX_SOURCES_CHARS = 500;
 const USER_AGENT = "Visionex-Assistant/1.0 (+https://visionex.app)";
 
 export interface NewsItem {

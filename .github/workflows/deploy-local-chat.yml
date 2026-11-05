@@ -251,12 +251,12 @@ jobs:
           # model cannot be the first or only answerer. Timed, and failed if slow.
           BODY=$(node -e '
             const ar = "ما هي عاصمة لبنان وكم عدد سكانها وما هي أهم مدنها الساحلية؟ ";
-            const turn = (n) => ar.repeat(n).slice(0, 340);
+            const turn = (n) => ar.repeat(n).slice(0, 250);
             const ref = "[Wikipedia] " + "لبنان دولة في غرب آسيا عاصمتها بيروت وتقع على ساحل البحر المتوسط. ".repeat(8);
             console.log(JSON.stringify({
-              system: "You are the Visionex assistant, for blind and low-vision people who may be listening to your answer. Answer in at most two short sentences. Plain text only: no markdown, no lists, no emoji. Always answer in Arabic. Never invent facts. If you are not sure, say so briefly.",
-              messages: [{ role: "user", content: turn(6) }, { role: "assistant", content: turn(6) }, { role: "user", content: turn(6) }],
-              max_tokens: 150, today: "2026-11-05", reference: ref.slice(0, 620),
+              system: "You are the Visionex voice assistant for blind and low-vision people. Reply in at most two short plain sentences, no markdown. Reply in Arabic. Never invent facts; say if you are unsure.",
+              messages: [{ role: "assistant", content: turn(6) }, { role: "user", content: turn(6) }],
+              max_tokens: 150, today: "2026-11-05", reference: ref.slice(0, 460),
             }));')
           ask "worst case: Arabic, three turns, full reference" "$BODY" 'بيروت'
           WORST=$(( $(date +%s) - START ))

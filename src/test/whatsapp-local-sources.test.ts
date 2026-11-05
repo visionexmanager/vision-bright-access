@@ -146,10 +146,17 @@ describe("gathering", () => {
     const lines = out!.text.split("\n");
     expect(lines[0]).toBe("[Visionex News, 2026-11-05] Library extends hours — Opens at eight.");
     expect(out!.text).toContain("[DW, 2026-11-05] Iran says three ships caught fire");
+    // The budget is 500 characters, so the lines that come last in priority may not fit.
+    expect(out!.text).not.toContain("short");
+    expect(out!.text.length).toBeLessThanOrEqual(500);
+  });
+
+  it("reads current events and In the news when nothing else answers", async () => {
+    const { impl } = network();
+    const out = await gatherSources({ question: "what is the news today", language: "en", fetchImpl: impl, now: NOW, read: () => undefined });
     expect(out!.text).toContain("[Wikipedia current events, 2026-11-04] The Bangladeshi garment industry");
     expect(out!.text).toContain("Polish Constitutional Tribunal crisis escalates");
     expect(out!.text).not.toContain("short");
-    expect(out!.text.length).toBeLessThanOrEqual(700);
   });
 
   it("keeps only items about the topic when the question names one", async () => {
@@ -258,8 +265,8 @@ describe("the request the local model is actually sent", () => {
     const { compactForLocal, localSystemPrompt } = await import("../../supabase/functions/_shared/whatsappLocalChat");
     const out = compactForLocal(bigRequest, "ar");
     expect(out.system).toBe(localSystemPrompt("ar"));
-    expect(out.system).toContain("Always answer in Arabic.");
-    expect(out.system.length).toBeLessThan(400);
+    expect(out.system).toContain("Reply in Arabic.");
+    expect(out.system.length).toBeLessThan(260);
     expect(out.system).not.toContain("RULES");
     expect(localSystemPrompt("zz")).toContain("language of the question");
   });
@@ -270,7 +277,7 @@ describe("the request the local model is actually sent", () => {
     expect(out.messages.at(-1)!.role).toBe("user");
     expect(out.messages.at(-1)!.content.endsWith("ما هي عاصمة لبنان؟")).toBe(true);
     expect(out.messages[0].role).toBe("user");
-    expect(out.messages.reduce((n, m) => n + m.content.length, 0)).toBeLessThanOrEqual(LOCAL_HISTORY_CHARS + 350);
+    expect(out.messages.reduce((n, m) => n + m.content.length, 0)).toBeLessThanOrEqual(LOCAL_HISTORY_CHARS + 250);
     expect(JSON.stringify(out)).not.toContain("SUMMARY");
   });
 
@@ -279,9 +286,9 @@ describe("the request the local model is actually sent", () => {
     const out = compactForLocal(bigRequest, "ar");
     expect(out.maxTokens).toBe(150);
     // Arabic is ~2 characters a token and the model reads ~29 tokens a second:
-    // under ~1,500 characters including 700 of sources keeps the read under ~25 s.
-    const total = out.system.length + out.messages.reduce((n, m) => n + m.content.length, 0) + 700;
-    expect(total).toBeLessThanOrEqual(1_900);
+    // about 1,200 characters including 500 of sources is ~350 tokens, ~12 s to read.
+    const total = out.system.length + out.messages.reduce((n, m) => n + m.content.length, 0) + 500;
+    expect(total).toBeLessThanOrEqual(1_200);
   });
 
   it("is what the model receives through withLocalChat", async () => {
@@ -296,9 +303,9 @@ describe("the request the local model is actually sent", () => {
       config: { url: "https://example.test/internal/media", token: "t" },
     });
     await provider(bigRequest);
-    expect(body!.system).toContain("Always answer in Arabic.");
+    expect(body!.system).toContain("Reply in Arabic.");
     expect(body!.system).not.toContain("RULES");
-    expect(body!.messages.length).toBeLessThanOrEqual(3);
+    expect(body!.messages.length).toBeLessThanOrEqual(2);
     expect(body!.max_tokens).toBe(150);
   });
 });

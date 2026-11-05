@@ -45,9 +45,9 @@ export const LOCAL_CHAT_PROVIDER = "local";
  * identity and style, the language to answer in, and the last few turns cut
  * short. The question is what it must answer; the rest is not worth the wait.
  */
-export const LOCAL_HISTORY_MESSAGES = 3;
-export const LOCAL_TURN_CHARS = 350;
-export const LOCAL_HISTORY_CHARS = 700;
+export const LOCAL_HISTORY_MESSAGES = 2;
+export const LOCAL_TURN_CHARS = 250;
+export const LOCAL_HISTORY_CHARS = 450;
 export const LOCAL_MAX_TOKENS = 150;
 
 const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
@@ -60,10 +60,10 @@ const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
 export function localSystemPrompt(language?: string): string {
   const name = LANGUAGE_NAMES[(language ?? "").toLowerCase().slice(0, 2)];
   return [
-    "You are the Visionex assistant, for blind and low-vision people who may be listening to your answer.",
-    "Answer in at most two short sentences. Plain text only: no markdown, no lists, no emoji.",
-    name ? `Always answer in ${name}.` : "Answer in the language of the question.",
-    "Never invent facts. If you are not sure, say so briefly.",
+    "You are the Visionex voice assistant for blind and low-vision people.",
+    "Reply in at most two short plain sentences, no markdown.",
+    name ? `Reply in ${name}.` : "Reply in the language of the question.",
+    "Never invent facts; say if you are unsure.",
   ].join(" ");
 }
 
