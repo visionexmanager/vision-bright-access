@@ -83,6 +83,7 @@ function allKeys() {
   env.OPENAI_API_KEY = SECRET;
   env.GROQ_API_KEY = SECRET;
   env.MISTRAL_API_KEY = SECRET;
+  env.CEREBRAS_API_KEY = SECRET;
 }
 
 const chatParams = (targets: AiProviderModule.ProviderTarget[]) => ({
@@ -432,7 +433,7 @@ describe("provider order is exactly what it was", () => {
     // deliberate changes since: gpt-5.6-luna straight after gpt-4.1 in every chain,
     // and gemini-flash-lite-latest straight after flash-latest wherever Gemini is
     // a fallback (Phase 0: flash-latest is parked).
-    const O = "openai/gpt-4.1", L = "openai/gpt-5.6-luna", G = "gemini/gemini-flash-latest", GL = "gemini/gemini-flash-lite-latest", Q = "groq/openai/gpt-oss-20b", M = "mistral/ministral-14b-latest";
+    const O = "openai/gpt-4.1", L = "openai/gpt-5.6-luna", G = "gemini/gemini-flash-latest", GL = "gemini/gemini-flash-lite-latest", Q = "groq/openai/gpt-oss-20b", C = "cerebras/gpt-oss-120b", M = "mistral/ministral-14b-latest";
     const chain = (id: string) => assistants.assistantTargets(id).map((t) => `${t.provider}/${t.model}`);
     const OPENAI_FIRST = ["legal-advisor", "medical-support", "psychology", "empathy-oasis", "skin-care", "hair-care",
       "finance-advisor", "ivx-tutor", "ivx-project-grader"];
@@ -441,18 +442,18 @@ describe("provider order is exactly what it was", () => {
     const GEMINI_FIRST = ["travel-agency", "educational-empire", "music-conservatory", "tech-consulting",
       "professional-training", "simulation-mentor"];
     for (const id of OPENAI_FIRST) expect(chain(id), id).toEqual([O, L, G, GL, M, Q]);
-    for (const id of MISTRAL_FIRST) expect(chain(id), id).toEqual([M, G, GL, Q, O, L]);
-    for (const id of GEMINI_FIRST) expect(chain(id), id).toEqual([G, Q, M, O, L]);
+    for (const id of MISTRAL_FIRST) expect(chain(id), id).toEqual([M, G, GL, Q, C, O, L]);
+    for (const id of GEMINI_FIRST) expect(chain(id), id).toEqual([G, Q, C, M, O, L]);
     const pinned = new Set([...OPENAI_FIRST, ...MISTRAL_FIRST, ...GEMINI_FIRST]);
     for (const a of Object.values(assistants.ASSISTANTS)) {
-      if (!pinned.has(a.id)) expect(a.targets.map((t) => `${t.provider}/${t.model}`), a.id).toEqual([Q, G, GL, M, O, L]);
+      if (!pinned.has(a.id)) expect(a.targets.map((t) => `${t.provider}/${t.model}`), a.id).toEqual([Q, C, G, GL, M, O, L]);
       else expect(a.targets.map((t) => `${t.provider}/${t.model}`), a.id).toEqual(chain(a.id));
     }
   });
 
   it("WhatsApp support leads with the free providers and reaches OpenAI last", () => {
     const providers = assistants.assistantTargets("whatsapp-support").map((t) => t.provider);
-    expect(providers.slice(0, 4)).toEqual(["groq", "gemini", "gemini", "mistral"]);
+    expect(providers.slice(0, 5)).toEqual(["groq", "cerebras", "gemini", "gemini", "mistral"]);
     expect(providers.slice(-2)).toEqual(["openai", "openai"]);
   });
 
@@ -543,5 +544,27 @@ describe("admin Provider Hub names every type", () => {
     const dash = readFileSync("src/pages/services/ai-media-studio/components/provider-hub/ProviderHealthDashboard.tsx", "utf8");
     expect(dash).not.toContain('(["tts", "voice_cloning", "text_to_video"] as const)');
     expect(dash).toContain("(Object.keys(PROVIDER_TYPE_LABELS) as ProviderType[])");
+  });
+});
+
+describe("Cerebras is optional", () => {
+  it("is not attempted, and costs nothing, while its key is unset", async () => {
+    allKeys();
+    env.CEREBRAS_API_KEY = undefined;
+    ai.resetProviderCooldowns();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
+    const attempts = capture();
+    await ai.streamChatCompletionWithFallback(chatParams(assistants.assistantTargets("whatsapp-support"))).catch(() => undefined);
+    expect(attempts.map((x) => x.provider)).not.toContain("cerebras");
+    expect(attempts.map((x) => x.provider)).toContain("groq");
+  });
+
+  it("is the second attempt once the key is set", async () => {
+    allKeys();
+    ai.resetProviderCooldowns();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 503 })));
+    const attempts = capture();
+    await ai.streamChatCompletionWithFallback(chatParams(assistants.assistantTargets("whatsapp-support"))).catch(() => undefined);
+    expect(attempts.map((x) => x.provider).slice(0, 2)).toEqual(["groq", "cerebras"]);
   });
 });

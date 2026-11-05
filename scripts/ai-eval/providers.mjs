@@ -34,6 +34,7 @@ export function providerErrorSummary(body) {
 export const DEFAULT_MODELS = {
   openai: "gpt-4o-mini",
   groq: "openai/gpt-oss-20b",
+  cerebras: "gpt-oss-120b",
   mistral: "ministral-14b-latest",
   // Known dead — returns 404 "no longer available to new users". Kept so an
   // explicit `--providers gemini` still resolves to a model; replace it with an
@@ -44,6 +45,7 @@ export const DEFAULT_MODELS = {
 export const OPENAI_COMPATIBLE = {
   openai: { envKey: "OPENAI_API_KEY", url: "https://api.openai.com/v1/chat/completions" },
   groq: { envKey: "GROQ_API_KEY", url: "https://api.groq.com/openai/v1/chat/completions" },
+  cerebras: { envKey: "CEREBRAS_API_KEY", url: "https://api.cerebras.ai/v1/chat/completions" },
   mistral: { envKey: "MISTRAL_API_KEY", url: "https://api.mistral.ai/v1/chat/completions" },
 };
 

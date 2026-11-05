@@ -66,6 +66,7 @@ jobs:
           OPENAI_API_KEY:     ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
+          CEREBRAS_API_KEY:       ${{ secrets.CEREBRAS_API_KEY }}
           MISTRAL_API_KEY:    ${{ secrets.MISTRAL_API_KEY }}
           ANTHROPIC_API_KEY:  ${{ inputs.scope == 'all' && secrets.ANTHROPIC_API_KEY || '' }}
           NVIDIA_NIM_API_KEY: ${{ inputs.scope == 'all' && secrets.NVIDIA_NIM_API_KEY || '' }}
@@ -92,6 +93,7 @@ jobs:
           OPENAI_API_KEY:     ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
+          CEREBRAS_API_KEY:       ${{ secrets.CEREBRAS_API_KEY }}
           MISTRAL_API_KEY:    ${{ secrets.MISTRAL_API_KEY }}
           NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
@@ -113,7 +115,7 @@ jobs:
             const crypto = require("node:crypto");
             const rows = JSON.parse(require("fs").readFileSync("runtime.json", "utf8"));
             const digest = Object.fromEntries((Array.isArray(rows) ? rows : []).map((r) => [r.name, String(r.value ?? "")]));
-            const names = ["OPENAI_API_KEY","ANTHROPIC_API_KEY","GEMINI_API_KEY","GROQ_API_KEY","MISTRAL_API_KEY","NVIDIA_NIM_API_KEY","OPENROUTER_API_KEY","BYTEZ_API_KEY","RUNPOD_API_KEY","LUMA_API_KEY","ELEVENLABS_API_KEY","FAL_KEY","REPLICATE_API_TOKEN"];
+            const names = ["OPENAI_API_KEY","ANTHROPIC_API_KEY","GEMINI_API_KEY","GROQ_API_KEY","CEREBRAS_API_KEY","MISTRAL_API_KEY","NVIDIA_NIM_API_KEY","OPENROUTER_API_KEY","BYTEZ_API_KEY","RUNPOD_API_KEY","LUMA_API_KEY","ELEVENLABS_API_KEY","FAL_KEY","REPLICATE_API_TOKEN"];
             const out = ["", "### Supabase runtime", "", "| secret | in runtime | in GitHub | same value |", "| --- | --- | --- | --- |"];
             for (const n of names) {
               const gh = (process.env[n] ?? "").trim();
@@ -131,6 +133,7 @@ jobs:
           ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
+          CEREBRAS_API_KEY:       ${{ secrets.CEREBRAS_API_KEY }}
           MISTRAL_API_KEY:    ${{ secrets.MISTRAL_API_KEY }}
           NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
