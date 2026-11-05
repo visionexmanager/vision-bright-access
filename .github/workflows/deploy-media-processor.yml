@@ -187,7 +187,8 @@ jobs:
           # Function's LOCAL_DESCRIBE secret is `on`, so setting it is inert.
           # TRANSLATOR_URL likewise, for deploy-translator.yml: inert until that
           # container runs and the Edge Function's LOCAL_TRANSLATE is `on`.
-          printf 'PROCESSOR_TOKEN=%s\nDESCRIBER_URL=http://host.docker.internal:8098\nTRANSLATOR_URL=http://host.docker.internal:8097\n' "$TOKEN" \
+          # CHAT_URL likewise, for deploy-local-chat.yml and LOCAL_CHAT.
+          printf 'PROCESSOR_TOKEN=%s\nDESCRIBER_URL=http://host.docker.internal:8098\nTRANSLATOR_URL=http://host.docker.internal:8097\nCHAT_URL=http://host.docker.internal:8096\n' "$TOKEN" \
             | ssh target 'umask 077 && cat > ~/.visionex-processor.env'
           echo "Token delivered."
 

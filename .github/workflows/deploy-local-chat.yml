@@ -1,0 +1,220 @@
+name: Local chat model
+
+# Starts, stops and tests the small chat model that answers conversations on the
+# production server (Qwen3-4B-Instruct under llama.cpp, quantised, CPU).
+#
+# It is the last resort behind the paid providers, off by default, and this
+# workflow is the server half of "off": nothing runs until `start` is chosen,
+# and `stop` removes the container. The other half is the `LOCAL_CHAT` secret on
+# the Edge Function, which has to be `on` before the webhook ever calls it. See
+# supabase/functions/_shared/whatsappLocalChat.ts.
+#
+# Measured on this server (scripts/llm-benchmark, 4 EPYC cores, no GPU): about
+# 13 tokens a second, 11 of 11 test answers right in six languages, ~5.3 GB of
+# RAM, and a prompt read at only ~33 tokens a second, which is why the request
+# is cut short before it is sent.
+#
+# ── What it touches ─────────────────────────────────────────────────────────
+#
+# One container, `visionex-chat`, published on the Docker bridge address only:
+# reachable from the media processor container, not from the internet and not
+# from other hosts. Three cores and 6 GB. It does not start while the vision
+# describer is running (both would not fit beside the website). nginx is not
+# touched. The model file (about 2.5 GB) is cached in
+# /var/lib/visionex/chat-cache so a restart does not download it again.
+#
+# The media processor must have been redeployed once after this change so that
+# it knows where the model is (CHAT_URL); `test` checks that.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "status = report only. start = run the model container. stop = remove it. test = prove the processor reaches it and answers in Arabic and English. enable / disable = set or remove the LOCAL_CHAT secret on the Edge Functions."
+        required: true
+        default: status
+        type: choice
+        options: [status, start, stop, test, enable, disable]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-chat
+  cancel-in-progress: false
+
+jobs:
+  chat:
+    name: Local chat model
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # The other half of "off". This one name only; nothing else is touched.
+      - name: Switch the Edge secret
+        if: inputs.action == 'enable' || inputs.action == 'disable'
+        shell: bash
+        env:
+          ACTION:               ${{ inputs.action }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          npm install -g supabase@latest >/dev/null 2>&1
+          if [[ "$ACTION" == enable ]]; then
+            supabase secrets set LOCAL_CHAT=on --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
+          else
+            supabase secrets unset LOCAL_CHAT --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
+          fi
+          if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q "^ *LOCAL_CHAT "; then
+            echo "LOCAL_CHAT is set."
+          else
+            echo "LOCAL_CHAT is not set."
+          fi
+
+      - name: Open the connection
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          KEY:  ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          for v in HOST USER KEY; do [ -z "${!v}" ] && { echo "::error::Missing secret for $v"; exit 1; }; done
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          cat > ~/.ssh/config <<'CONF'
+          Host target
+            StrictHostKeyChecking accept-new
+            UserKnownHostsFile ~/.ssh/known_hosts
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_deploy
+            ConnectTimeout 15
+            BatchMode yes
+            ServerAliveInterval 30
+          CONF
+          printf 'Host target\n  HostName %s\n  User %s\n' "$HOST" "$USER" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          ssh target 'echo connected' >/dev/null
+
+      - name: Report what is there now
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          echo '```'
+          echo "chat      : $(sudo docker ps -a --filter name=^visionex-chat$ --format '{{.Status}}' | head -1)"
+          echo "describer : $(sudo docker ps -a --filter name=^visionex-describer$ --format '{{.Status}}' | head -1)"
+          echo "bridge    : $(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null)"
+          echo "load      : $(cut -d' ' -f1-3 /proc/loadavg) on $(nproc) cores"
+          echo "free RAM  : $(free -m | awk '/^Mem:/{print $7" MB available"}')"
+          echo "disk free : $(df -BG --output=avail /var/lib | tail -1 | tr -d ' ')"
+          echo "cache     : $(sudo du -sh /var/lib/visionex/chat-cache 2>/dev/null | cut -f1)"
+          echo '```'
+          REMOTE
+
+      - name: Start the model
+        if: inputs.action == 'start'
+        run: |
+          set -uo pipefail
+          ssh target 'bash -s' <<'REMOTE' | tee -a "$GITHUB_STEP_SUMMARY"
+          set -uo pipefail
+          # Removed first, so a restart does not count its own memory against itself.
+          sudo docker rm -f visionex-chat >/dev/null 2>&1 || true
+          if sudo docker ps -q --filter name=^visionex-describer$ | grep -q .; then
+            echo "Refusing to start: the vision describer is running and both would not fit. Stop it first."
+            exit 1
+          fi
+          FREE=$(free -m | awk '/^Mem:/{print $7}')
+          if [ "$FREE" -lt 6500 ]; then
+            echo "Refusing to start: only ${FREE} MB available, the model needs about 6 GB beside the website."
+            exit 1
+          fi
+          GW=$(sudo docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')
+          [ -n "$GW" ] || { echo "No bridge gateway address."; exit 1; }
+
+          sudo mkdir -p /var/lib/visionex/chat-cache
+          echo "Pulling llama.cpp…"
+          sudo docker pull ghcr.io/ggml-org/llama.cpp:server >/dev/null
+          echo "Starting (the first start downloads the model, a few minutes)…"
+          # -np 2 and -c 8192: two conversations at once with 4096 tokens each,
+          # as measured. The media processor refuses a third (`busy`).
+          sudo docker run -d \
+            --name visionex-chat \
+            --restart unless-stopped \
+            --publish "$GW:8096:8080" \
+            --cpus 3 --memory 6g --pids-limit 512 \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --volume /var/lib/visionex/chat-cache:/root/.cache \
+            --env LLAMA_ARG_CACHE_RAM=0 \
+            ghcr.io/ggml-org/llama.cpp:server \
+            -hf bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF:Q4_K_M \
+            --host 0.0.0.0 --port 8080 -c 8192 -np 2 -t 3 --no-webui >/dev/null
+
+          for i in $(seq 1 90); do
+            if curl -fsS --max-time 3 "http://$GW:8096/health" >/dev/null 2>&1; then
+              echo "ready after about $((i * 5)) seconds at $GW:8096"
+              exit 0
+            fi
+            sudo docker ps -q --filter name=^visionex-chat$ | grep -q . || break
+            sleep 5
+          done
+          echo "The model did not become ready. Last log lines:"
+          sudo docker logs --tail 15 visionex-chat 2>&1 | cut -c1-200
+          exit 1
+          REMOTE
+
+      - name: Stop the model
+        if: inputs.action == 'stop'
+        run: |
+          set -uo pipefail
+          ssh target 'sudo docker rm -f visionex-chat >/dev/null 2>&1; echo "removed; the cached model file is kept"' | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The processor, not the model, is what the Edge Function calls, so this
+      # goes through the processor with the real token: from inside its container
+      # to the model, then invented questions through /chat. Nothing of anyone's.
+      - name: Test through the processor
+        if: inputs.action == 'test'
+        env:
+          TOKEN: ${{ secrets.PROCESSOR_TOKEN }}
+        run: |
+          set -uo pipefail
+          [ -n "${TOKEN:-}" ] || { echo '::error::PROCESSOR_TOKEN is not set.'; exit 1; }
+
+          echo "── the processor reaches the model"
+          ssh target 'sudo docker exec visionex-media node -e "
+            const u = process.env.CHAT_URL;
+            if (!u) { console.log(\"CHAT_URL is not set: redeploy the media processor first\"); process.exit(2); }
+            fetch(u + \"/health\").then(r => { console.log(\"model health:\", r.status); process.exit(r.ok ? 0 : 3); })
+              .catch(e => { console.log(\"unreachable:\", e.cause?.code ?? e.message); process.exit(4); });
+          "'
+          rc=$?
+          [ $rc -eq 0 ] || { echo "::error::The processor cannot reach the model (exit $rc)."; exit 1; }
+
+          failed=""
+          ask() {  # name, json body, regex the answer must match
+            echo "── $1"
+            printf '%s' "$2" > /tmp/chat-body.json
+            scp -q /tmp/chat-body.json target:/tmp/chat-body.json
+            START=$(date +%s)
+            printf 'Authorization: Bearer %s\n' "$TOKEN" | ssh target "curl -sS --max-time 90 -H @- -H 'content-type: application/json' --data-binary @/tmp/chat-body.json http://127.0.0.1:8081/chat; rm -f /tmp/chat-body.json" \
+              | tee /tmp/chat-out.json | cut -c1-500
+            echo; echo "wall seconds: $(( $(date +%s) - START ))"
+            if ! grep -q '"ok":true' /tmp/chat-out.json; then echo "::error::No answer for: $1"; failed="$failed [$1]"
+            elif ! grep -q -E "$3" /tmp/chat-out.json; then echo "::error::Wrong answer for: $1"; failed="$failed [$1]"; fi
+          }
+          ask "english, capital of France" '{"system":"You are a short, clear voice assistant.","messages":[{"role":"user","content":"What is the capital of France? One short sentence."}],"max_tokens":60}' 'Paris'
+          ask "arabic, capital of Lebanon" '{"system":"You are a short, clear voice assistant. Reply in the language of the question.","messages":[{"role":"user","content":"ما عاصمة لبنان؟ أجب بجملة قصيرة."}],"max_tokens":60}' 'بيروت'
+          ask "memory across turns" '{"system":"You are a short voice assistant.","messages":[{"role":"user","content":"My name is Sami and I live in Tripoli."},{"role":"assistant","content":"Nice to meet you, Sami."},{"role":"user","content":"What is my name and which city do I live in?"}],"max_tokens":60}' 'Sami.*Tripoli|Tripoli.*Sami'
+          echo "── a bad request is refused, not answered"
+          code=$(printf 'Authorization: Bearer %s\n' "$TOKEN" | ssh target "curl -sS -o /dev/null -w '%{http_code}' -H @- -H 'content-type: application/json' -d '{\"system\":\"x\",\"messages\":[]}' http://127.0.0.1:8081/chat")
+          [ "$code" = "422" ] || { echo "::error::Expected 422 for an empty conversation, got $code."; failed="$failed [empty-conversation]"; }
+          rm -f /tmp/chat-body.json /tmp/chat-out.json
+          if [ -n "$failed" ]; then echo "::error::Failed:$failed"; exit 1; fi
+          echo "The processor reached the model and every question was answered correctly."
+
+      - name: Forget the key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy ~/.ssh/config
