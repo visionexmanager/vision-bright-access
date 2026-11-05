@@ -104,7 +104,7 @@ describe("text and media routing stay on separate switches", () => {
     expect(aiProvider).not.toContain("RUNPOD");
     // The five chat providers, plus OpenRouter since 2026-09-26 — which is
     // activation-gated: it serves nothing until its registry row is switched on.
-    expect(aiProvider).toContain(`export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "mistral" | "openrouter";`);
+    expect(aiProvider).toContain(`export type AIProvider = "openai" | "anthropic" | "gemini" | "groq" | "cerebras" | "mistral" | "openrouter";`);
     expect(aiProvider).toContain(`new Set<AIProvider>(["openrouter"])`);
   });
 });

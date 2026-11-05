@@ -28,7 +28,7 @@ type SupabaseServiceClient = any;
 
 // OpenRouter is activation-gated (aiProvider ACTIVATION_GATED) and has no
 // place in career AI's fixed, code-defined provider order.
-export type CareerAiProvider = Exclude<UpstreamProvider, "openrouter">;
+export type CareerAiProvider = Exclude<UpstreamProvider, "openrouter" | "cerebras">;
 export type CostTier = "cheap" | "capable";
 
 // Gemini is out of the default chain, blocked on billing. Verified live on
