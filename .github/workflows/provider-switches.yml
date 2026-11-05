@@ -1,0 +1,69 @@
+name: Provider switches
+
+# Takes a provider out of the chat chains, and puts it back, without a code
+# change. It sets or removes one Edge secret, AI_PROVIDERS_OFF, a comma list of
+# `provider` or `provider/model`. For a provider whose key is dead (out of
+# credit, rejected) so a chain does not pay a failed call before the next one.
+# Only chain ordering reads it (aiProvider.ts orderTargets): moderation,
+# embeddings, speech and every direct call are untouched.
+#
+#   status  report the current value.
+#   off     set AI_PROVIDERS_OFF to the `providers` input.
+#   on      remove AI_PROVIDERS_OFF: every provider is tried again.
+#
+# This one name only; nothing else is touched. Nothing here prints a key.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "status = report. off = switch the listed providers off. on = switch everything back on."
+        required: true
+        default: status
+        type: choice
+        options: [status, off, on]
+      providers:
+        description: "For off: comma list of provider or provider/model, e.g. openai,cerebras"
+        required: false
+        default: "openai,cerebras"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-switches
+  cancel-in-progress: false
+
+jobs:
+  switch:
+    name: Provider switches
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Apply
+        shell: bash
+        env:
+          ACTION:                ${{ inputs.action }}
+          PROVIDERS:             ${{ inputs.providers }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF:  ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          npm install -g supabase@latest >/dev/null 2>&1
+          NAME=AI_PROVIDERS_OFF
+          if [[ "$ACTION" == off ]]; then
+            # Names only: letters, digits, dots, dashes, underscores, slashes, colons, commas.
+            if [[ ! "$PROVIDERS" =~ ^[A-Za-z0-9._:/,-]+$ ]]; then
+              echo "::error::providers must be a comma list of provider or provider/model"; exit 1
+            fi
+            supabase secrets set "$NAME=$PROVIDERS" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
+          elif [[ "$ACTION" == on ]]; then
+            supabase secrets unset "$NAME" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
+          fi
+          if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q "^ *$NAME "; then
+            echo "$NAME is set (the value is not shown here)."
+          else
+            echo "$NAME is not set: every provider is tried."
+          fi
+          [[ "$ACTION" == off ]] && echo "Switched off: $PROVIDERS"
+          exit 0
