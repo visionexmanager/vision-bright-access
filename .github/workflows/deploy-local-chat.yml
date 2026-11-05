@@ -30,11 +30,11 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "status = report only. start = run the model container. stop = remove it. test = prove the processor reaches it and answers in Arabic and English. enable / disable = set or remove the LOCAL_CHAT secret on the Edge Functions."
+        description: "status = report only. start = run the model container. stop = remove it. test = prove the processor reaches it and answers in Arabic and English. enable / disable = set or remove the LOCAL_CHAT secret on the Edge Functions. enable-web / disable-web = the same for LOCAL_CHAT_WEB, which lets the model look the question up in Wikipedia first."
         required: true
         default: status
         type: choice
-        options: [status, start, stop, test, enable, disable]
+        options: [status, start, stop, test, enable, disable, enable-web, disable-web]
 
 permissions:
   contents: read
@@ -54,7 +54,7 @@ jobs:
 
       # The other half of "off". This one name only; nothing else is touched.
       - name: Switch the Edge secret
-        if: inputs.action == 'enable' || inputs.action == 'disable'
+        if: inputs.action == 'enable' || inputs.action == 'disable' || inputs.action == 'enable-web' || inputs.action == 'disable-web'
         shell: bash
         env:
           ACTION:               ${{ inputs.action }}
@@ -63,15 +63,19 @@ jobs:
         run: |
           set -euo pipefail
           npm install -g supabase@latest >/dev/null 2>&1
-          if [[ "$ACTION" == enable ]]; then
-            supabase secrets set LOCAL_CHAT=on --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
+          # enable / disable switch the model; the -web pair switches the
+          # Wikipedia lookup that gives it fresh facts. Either name only.
+          NAME=LOCAL_CHAT
+          [[ "$ACTION" == *-web ]] && NAME=LOCAL_CHAT_WEB
+          if [[ "$ACTION" == enable* ]]; then
+            supabase secrets set "$NAME=on" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
           else
-            supabase secrets unset LOCAL_CHAT --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
+            supabase secrets unset "$NAME" --project-ref "$SUPABASE_PROJECT_REF" --yes >/dev/null
           fi
-          if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q "^ *LOCAL_CHAT "; then
-            echo "LOCAL_CHAT is set."
+          if supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" | grep -q "^ *$NAME "; then
+            echo "$NAME is set."
           else
-            echo "LOCAL_CHAT is not set."
+            echo "$NAME is not set."
           fi
 
       - name: Open the connection
@@ -208,6 +212,9 @@ jobs:
           ask "english, capital of France" '{"system":"You are a short, clear voice assistant.","messages":[{"role":"user","content":"What is the capital of France? One short sentence."}],"max_tokens":60}' 'Paris'
           ask "arabic, capital of Lebanon" '{"system":"You are a short, clear voice assistant. Reply in the language of the question.","messages":[{"role":"user","content":"ما عاصمة لبنان؟ أجب بجملة قصيرة."}],"max_tokens":60}' 'بيروت'
           ask "memory across turns" '{"system":"You are a short voice assistant.","messages":[{"role":"user","content":"My name is Sami and I live in Tripoli."},{"role":"assistant","content":"Nice to meet you, Sami."},{"role":"user","content":"What is my name and which city do I live in?"}],"max_tokens":60}' 'Sami.*Tripoli|Tripoli.*Sami'
+          # A made-up fact the model cannot know. It can only answer correctly by
+          # reading the passage, so this proves the reference reaches the prompt.
+          ask "reads a reference passage" '{"system":"You are a short voice assistant.","messages":[{"role":"user","content":"Who is the chief executive of Zorblax Holdings?"}],"max_tokens":60,"today":"2026-11-05","reference":"Zorblax Holdings (page updated 2026-11-01): Zorblax Holdings is a company. Its chief executive since March 2026 is Mira Dane."}' 'Mira Dane'
           echo "── a bad request is refused, not answered"
           code=$(printf 'Authorization: Bearer %s\n' "$TOKEN" | ssh target "curl -sS -o /dev/null -w '%{http_code}' -H @- -H 'content-type: application/json' -d '{\"system\":\"x\",\"messages\":[]}' http://127.0.0.1:8081/chat")
           [ "$code" = "422" ] || { echo "::error::Expected 422 for an empty conversation, got $code."; failed="$failed [empty-conversation]"; }

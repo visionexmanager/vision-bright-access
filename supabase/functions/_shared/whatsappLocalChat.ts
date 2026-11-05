@@ -26,6 +26,7 @@
 import { describeError, stripInvisible, boundText } from "./whatsappSafety.ts";
 import { processorConfig, type EnvReader, type ProcessorConfig } from "./whatsappProcessor.ts";
 import type { AskProvider, AskRequest, AskResult } from "./whatsappAsk.ts";
+import { fetchReference, localReferenceEnabled, REFERENCE_TIMEOUT_MS } from "./whatsappLocalReference.ts";
 
 /** Inside `askAssistant`'s thirty seconds; the service allows itself sixty. */
 export const LOCAL_CHAT_TIMEOUT_MS = 25_000;
@@ -77,6 +78,10 @@ export function readChatPayload(payload: unknown): LocalChatResult {
  */
 export async function chatLocally(params: {
   request: AskRequest;
+  /** Passages looked up for this question, placed in the model's prompt. */
+  reference?: string;
+  /** Today, as YYYY-MM-DD, so the model does not assume its training year. */
+  today?: string;
   config?: ProcessorConfig | null;
   read?: EnvReader;
   fetchImpl?: typeof fetch;
@@ -98,6 +103,8 @@ export async function chatLocally(params: {
         system: params.request.system,
         messages: params.request.messages.map((m) => ({ role: m.role, content: m.content })),
         max_tokens: Math.min(params.request.maxTokens, 320),
+        ...(params.reference ? { reference: params.reference } : {}),
+        ...(params.today ? { today: params.today } : {}),
       }),
       signal: controller.signal,
     });
@@ -124,7 +131,17 @@ export async function chatLocally(params: {
  */
 export function withLocalChat(
   primary: AskProvider,
-  options: { read?: EnvReader; fetchImpl?: typeof fetch; config?: ProcessorConfig | null; log?: (event: string, data: Record<string, unknown>) => void } = {},
+  options: {
+    read?: EnvReader;
+    fetchImpl?: typeof fetch;
+    config?: ProcessorConfig | null;
+    log?: (event: string, data: Record<string, unknown>) => void;
+    /** The sender's language, so the lookup asks the right Wikipedia. */
+    language?: string;
+    /** For the lookup only; the default is the real network. */
+    referenceFetch?: typeof fetch;
+    now?: () => Date;
+  } = {},
 ): AskProvider {
   const read = options.read ?? denoEnv;
   if (!localChatEnabled(read)) return primary;
@@ -138,8 +155,37 @@ export function withLocalChat(
       failure = error;
     }
 
-    const local = await chatLocally({ request, read, fetchImpl: options.fetchImpl, config: options.config });
-    options.log?.("ai_local_chat", local.ok ? { ok: true, ms: local.ms, chars: local.text.length } : { ok: false, reason: "reason" in local ? local.reason : "error" });
+    // Fresh facts, when the second switch is on: today's date always, and a few
+    // Wikipedia passages when the question is searchable. Neither can fail the
+    // answer; both only make it better informed.
+    const clock = options.now ?? (() => new Date());
+    const today = clock().toISOString().slice(0, 10);
+    let reference = "";
+    let sources = 0;
+    let spent = 0;
+    if (localReferenceEnabled(read)) {
+      const startedAt = Date.now();
+      const lastUser = [...request.messages].reverse().find((m) => m.role === "user");
+      const found = lastUser
+        ? await fetchReference({ question: lastUser.content, language: options.language, fetchImpl: options.referenceFetch })
+        : null;
+      spent = Math.min(Date.now() - startedAt, REFERENCE_TIMEOUT_MS);
+      if (found) {
+        reference = found.text;
+        sources = found.sources.length;
+      }
+    }
+
+    const local = await chatLocally({
+      request, read, fetchImpl: options.fetchImpl, config: options.config,
+      reference, today,
+      // The ask as a whole has thirty seconds; the lookup already used some.
+      timeoutMs: Math.max(10_000, LOCAL_CHAT_TIMEOUT_MS - spent),
+    });
+    // Counts and timings only, never the question or the passages.
+    options.log?.("ai_local_chat", local.ok
+      ? { ok: true, ms: local.ms, chars: local.text.length, grounded: sources > 0, sources }
+      : { ok: false, reason: "reason" in local ? local.reason : "error", grounded: sources > 0 });
     if (local.ok) return { text: local.text, provider: LOCAL_CHAT_PROVIDER, model: LOCAL_CHAT_MODEL };
 
     if (failure !== null) throw failure;
