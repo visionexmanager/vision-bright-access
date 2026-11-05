@@ -48,7 +48,7 @@ export const LOCAL_CHAT_PROVIDER = "local";
 export const LOCAL_HISTORY_MESSAGES = 2;
 export const LOCAL_TURN_CHARS = 250;
 export const LOCAL_HISTORY_CHARS = 450;
-export const LOCAL_MAX_TOKENS = 150;
+export const LOCAL_MAX_TOKENS = 100;
 
 const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
   ar: "Arabic", en: "English", bn: "Bengali", de: "German", es: "Spanish", fa: "Persian", fr: "French", hi: "Hindi",

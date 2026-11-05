@@ -18,9 +18,14 @@
 //   Current events    Wikipedia's daily current-events page and "In the news"
 //   Exchange rates    open.er-api.com, daily rates for ~160 currencies, including
 //                     the Lebanese pound, which the ECB-based services lack
-//   News feeds        publishers' RSS, only the presets named in LOCAL_CHAT_FEEDS.
-//                     None is on by default: each publisher's terms are the
-//                     owner's to read before a feed is switched on.
+//   News feeds        publisher RSS headlines (DW, BBC, France 24, Al Jazeera,
+//                     The Guardian, NPR), only the presets named in LOCAL_CHAT_FEEDS
+//                     (`all` names every one). Off until switched on. Only the
+//                     headline and its first sentence are used, always labelled
+//                     with the publisher and date; nothing is stored. The owner
+//                     authorised their use on 2026-11-05.
+//   Earthquakes       USGS, the last day's magnitude 4.5+ events (public domain)
+//   Crypto prices     CoinGecko keyless simple price for Bitcoin and Ethereum
 //
 // ── Privacy ─────────────────────────────────────────────────────────────────
 //
@@ -47,7 +52,7 @@ export interface NewsItem {
   date?: string | null;
 }
 
-export type SourceName = "visionex-news" | "wikipedia" | "wikidata" | "current-events" | "exchange-rates" | "feeds";
+export type SourceName = "visionex-news" | "wikipedia" | "wikidata" | "current-events" | "exchange-rates" | "feeds" | "earthquakes" | "crypto";
 
 export interface SourcesResult {
   /** Labelled lines for the prompt. */
@@ -78,6 +83,24 @@ export const asksForNews = (question: string): boolean => {
   const text = (question ?? "").toLowerCase();
   return NEWS_WORDS.some((word) => text.includes(word));
 };
+
+const QUAKE_WORDS = ["earthquake", "quake", "tremor", "زلزال", "هزة أرضية", "هزه ارضية", "هزات", "séisme", "tremblement de terre", "terremoto", "sismo", "deprem"];
+export const asksForEarthquakes = (question: string): boolean => {
+  const text = (question ?? "").toLowerCase();
+  return QUAKE_WORDS.some((word) => text.includes(word));
+};
+
+/** Coins the question names, as CoinGecko ids. Empty unless it names one. */
+const COINS: ReadonlyArray<readonly [string, string]> = [
+  ["bitcoin", "bitcoin"], ["btc", "bitcoin"], ["بيتكوين", "bitcoin"], ["بتكوين", "bitcoin"],
+  ["ethereum", "ethereum"], ["إيثيريوم", "ethereum"], ["ايثيريوم", "ethereum"],
+];
+export function coinsIn(question: string): string[] {
+  const text = (question ?? "").toLowerCase();
+  const ids: string[] = [];
+  for (const [name, id] of COINS) if (text.includes(name) && !ids.includes(id)) ids.push(id);
+  return ids;
+}
 
 /** Currency names and codes, each to its ISO code. Qualified forms first so "ليرة تركية" wins over "ليرة". */
 const CURRENCIES: ReadonlyArray<readonly [string, string]> = [
@@ -324,12 +347,39 @@ export const FEED_PRESETS: Readonly<Record<string, { name: string; url: string; 
   "dw-en": { name: "DW", url: "https://rss.dw.com/xml/rss-en-top", language: "en" },
   "dw-ar": { name: "DW", url: "https://rss.dw.com/xml/rss-ar-all", language: "ar" },
   "bbc-world": { name: "BBC News", url: "https://feeds.bbci.co.uk/news/world/rss.xml", language: "en" },
+  "bbc-ar": { name: "BBC News Arabic", url: "https://feeds.bbci.co.uk/arabic/rss.xml", language: "ar" },
   "aljazeera-en": { name: "Al Jazeera", url: "https://www.aljazeera.com/xml/rss/all.xml", language: "en" },
+  "aljazeera-ar": { name: "Al Jazeera Arabic", url: "https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdb19e8f8c6", language: "ar" },
+  "france24-en": { name: "France 24", url: "https://www.france24.com/en/rss", language: "en" },
+  "france24-ar": { name: "France 24 Arabic", url: "https://www.france24.com/ar/rss", language: "ar" },
+  "guardian-world": { name: "The Guardian", url: "https://www.theguardian.com/world/rss", language: "en" },
+  "npr": { name: "NPR", url: "https://feeds.npr.org/1001/rss.xml", language: "en" },
 };
+
+/** The feeds worth fetching for a sender: their language, else English; at most four. */
+export function feedsFor(keys: string[], language: string): string[] {
+  const own = keys.filter((k) => FEED_PRESETS[k].language === language);
+  return (own.length > 0 ? own : keys.filter((k) => FEED_PRESETS[k].language === "en")).slice(0, 4);
+}
 
 /** The presets named by the switch, in order. Unknown names are ignored. */
 export function enabledFeeds(read: EnvReader = denoEnv): string[] {
-  return (read("LOCAL_CHAT_FEEDS") ?? "").split(",").map((s) => s.trim().toLowerCase()).filter((s) => s in FEED_PRESETS);
+  const named = (read("LOCAL_CHAT_FEEDS") ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  if (named.includes("all")) return Object.keys(FEED_PRESETS);
+  return named.filter((s) => s in FEED_PRESETS);
+}
+
+/** Round-robin by publisher, so three headlines are three publishers rather than one publisher's first three. */
+export function interleave<T extends { source: string }>(items: T[]): T[] {
+  const groups = new Map<string, T[]>();
+  for (const item of items) groups.set(item.source, [...(groups.get(item.source) ?? []), item]);
+  const out: T[] = [];
+  for (let round = 0; out.length < items.length; round++) {
+    let added = false;
+    for (const group of groups.values()) if (round < group.length) { out.push(group[round]); added = true; }
+    if (!added) break;
+  }
+  return out;
 }
 
 const tag = (xml: string, name: string): string => {
@@ -348,6 +398,39 @@ export function parseFeed(xml: string): Array<{ title: string; summary: string; 
       summary: flat(tag(m[0], "description"), 150),
       date: Number.isNaN(published.getTime()) ? null : published.toISOString().slice(0, 10),
     }];
+  });
+}
+
+// ── Earthquakes and crypto ───────────────────────────────────────────────────
+
+/** The strongest events of the last day, `M6.1 — 40 km N of Place`. */
+export async function fetchEarthquakes(fetchImpl: typeof fetch, signal: AbortSignal): Promise<Array<{ text: string; date: string }>> {
+  const data = await getJson<{ features?: Array<{ properties?: { mag?: number; place?: string; time?: number } }> }>(
+    fetchImpl, "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson", signal,
+  );
+  return (data?.features ?? [])
+    .flatMap((f) => {
+      const p = f.properties;
+      if (!p || typeof p.mag !== "number" || typeof p.place !== "string" || typeof p.time !== "number") return [];
+      return [{ mag: p.mag, place: flat(p.place, 80), date: new Date(p.time).toISOString().slice(0, 10) }];
+    })
+    .sort((a, b) => b.mag - a.mag)
+    .slice(0, 6)
+    .map((e) => ({ text: `M${e.mag.toFixed(1)} — ${e.place}`, date: e.date }));
+}
+
+/** One line per coin: `Bitcoin: 80312 USD (updated 2026-11-05)`. */
+export async function fetchCrypto(ids: string[], fetchImpl: typeof fetch, signal: AbortSignal): Promise<string[]> {
+  const wanted = ids.filter((id) => id === "bitcoin" || id === "ethereum");
+  if (wanted.length === 0) return [];
+  const data = await getJson<Record<string, { usd?: number; last_updated_at?: number }>>(
+    fetchImpl, `https://api.coingecko.com/api/v3/simple/price?${new URLSearchParams({ ids: wanted.join(","), vs_currencies: "usd", include_last_updated_at: "true" })}`, signal,
+  );
+  return wanted.flatMap((id) => {
+    const entry = data?.[id];
+    if (!entry || typeof entry.usd !== "number" || !Number.isFinite(entry.usd)) return [];
+    const day = typeof entry.last_updated_at === "number" ? new Date(entry.last_updated_at * 1000).toISOString().slice(0, 10) : "";
+    return [`${id[0].toUpperCase()}${id.slice(1)}: ${entry.usd} USD${day ? ` (updated ${day})` : ""}`];
   });
 }
 
@@ -381,9 +464,13 @@ export async function gatherSources(params: GatherParams): Promise<SourcesResult
   const language = (params.language ?? "en").toLowerCase().slice(0, 2);
   const now = (params.now ?? (() => new Date()))();
   const words = keywordsOf(query);
-  const news = asksForNews(params.question);
   const codes = currenciesIn(params.question);
-  const feeds = news ? enabledFeeds(read) : [];
+  const quakes = asksForEarthquakes(params.question);
+  const coins = coinsIn(params.question);
+  // "Today" in "was there an earthquake today" is not a request for the headlines:
+  // a question that names a specific kind of fact is answered by that source alone.
+  const news = asksForNews(params.question) && !quakes && codes.length === 0 && coins.length === 0;
+  const feeds = news ? feedsFor(enabledFeeds(read), language) : [];
 
   const controller = new AbortController();
   const deadline = setTimeout(() => controller.abort(), params.timeoutMs ?? SOURCES_TIMEOUT_MS);
@@ -396,17 +483,20 @@ export async function gatherSources(params: GatherParams): Promise<SourcesResult
   };
 
   try {
-    const [site, rates, facts, wiki, events, feedItems] = await Promise.all([
+    const [site, rates, facts, wiki, events, feedItems, quakeItems, prices] = await Promise.all([
       news && params.visionexNews ? settle(params.visionexNews(), [] as NewsItem[]) : Promise.resolve([] as NewsItem[]),
       codes.length > 0 ? settle(fetchRates(codes, fetchImpl, controller.signal), [] as string[]) : Promise.resolve([] as string[]),
-      !news && codes.length === 0 ? settle(fetchWikidataFacts(query, language, fetchImpl, controller.signal), [] as string[]) : Promise.resolve([] as string[]),
-      codes.length === 0 ? settle(fetchReference({ question: params.question, language, fetchImpl, timeoutMs: params.timeoutMs ?? SOURCES_TIMEOUT_MS }), null) : Promise.resolve(null),
+      !news && codes.length === 0 && !quakes && coins.length === 0 ? settle(fetchWikidataFacts(query, language, fetchImpl, controller.signal), [] as string[]) : Promise.resolve([] as string[]),
+      codes.length === 0 && !quakes && coins.length === 0 ? settle(fetchReference({ question: params.question, language, fetchImpl, timeoutMs: params.timeoutMs ?? SOURCES_TIMEOUT_MS }), null) : Promise.resolve(null),
       news ? settle(fetchCurrentEvents(now, fetchImpl, controller.signal), [] as Array<{ text: string; date: string }>) : Promise.resolve([] as Array<{ text: string; date: string }>),
       Promise.all(feeds.map(async (key) => {
         const preset = FEED_PRESETS[key];
-        const xml = await getText(fetchImpl, preset.url, controller.signal);
+        // The first 200 KB holds the newest items and bounds what is read.
+        const xml = (await getText(fetchImpl, preset.url, controller.signal))?.slice(0, 200_000);
         return xml ? parseFeed(xml).map((item) => ({ ...item, source: preset.name, language: preset.language })) : [];
       })).then((lists) => lists.flat()).catch(() => []),
+      quakes ? settle(fetchEarthquakes(fetchImpl, controller.signal), [] as Array<{ text: string; date: string }>) : Promise.resolve([] as Array<{ text: string; date: string }>),
+      coins.length > 0 ? settle(fetchCrypto(coins, fetchImpl, controller.signal), [] as string[]) : Promise.resolve([] as string[]),
     ]);
 
     // When the question names a topic beyond the news words, keep only matching
@@ -422,12 +512,17 @@ export async function gatherSources(params: GatherParams): Promise<SourcesResult
       lines.push({ source: "visionex-news", text: `[Visionex News${item.date ? `, ${item.date.slice(0, 10)}` : ""}] ${flat(item.title, 140)}${item.description ? ` — ${flat(item.description, 140)}` : ""}` });
     }
     const sameLanguage = feedItems.filter((i) => i.language === language);
-    for (const item of pick(sameLanguage.length > 0 ? sameLanguage : feedItems, (i) => `${i.title} ${i.summary}`, 3)) {
+    for (const item of pick(interleave(sameLanguage.length > 0 ? sameLanguage : feedItems), (i) => `${i.title} ${i.summary}`, 3)) {
       lines.push({ source: "feeds", text: `[${item.source}${item.date ? `, ${item.date}` : ""}] ${item.title}${item.summary ? ` — ${item.summary}` : ""}` });
     }
     for (const item of pick(events, (i) => i.text, 3)) {
       lines.push({ source: "current-events", text: `[Wikipedia current events, ${item.date}] ${flat(item.text, 220)}` });
     }
+    // The place asked about, if any: the words that are not the word "earthquake" itself.
+    const placeWords = topicWords.filter((w) => !QUAKE_WORDS.some((q) => q.includes(w) || w.includes(q)));
+    const quakeMatches = placeWords.length > 0 ? quakeItems.filter((i) => hasKeyword(i.text, placeWords)) : quakeItems;
+    for (const item of quakeMatches.slice(0, 3)) lines.push({ source: "earthquakes", text: `[USGS earthquakes, ${item.date}] ${item.text}` });
+    for (const text of prices) lines.push({ source: "crypto", text: `[CoinGecko] ${text}` });
     for (const text of rates) lines.push({ source: "exchange-rates", text: `[Exchange rate] ${text}` });
     for (const text of facts) lines.push({ source: "wikidata", text: `[Wikidata] ${text}` });
     if (wiki) for (const passage of wiki.text.split("\n").slice(0, 2)) lines.push({ source: "wikipedia", text: `[Wikipedia] ${passage}` });

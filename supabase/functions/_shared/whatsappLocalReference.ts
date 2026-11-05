@@ -60,6 +60,7 @@ const STOP_WORDS = new Set([
   "the", "and", "what", "who", "whom", "whose", "when", "where", "why", "how", "which", "are", "was", "were",
   "does", "did", "can", "could", "would", "should", "will", "you", "your", "tell", "about", "please", "give",
   "know", "any", "this", "that", "these", "those", "with", "from", "into", "for", "has", "have", "had", "latest",
+  "there", "here", "some", "been", "also", "just", "very", "much", "many", "happened",
   // Arabic
   "ماذا", "متى", "أين", "اين", "كيف", "لماذا", "هل", "على", "عن", "إلى", "الى", "هذا", "هذه", "ذلك", "تلك",
   "كان", "كانت", "يكون", "أخبرني", "اخبرني", "قل", "لي", "حول", "بشأن", "آخر", "اخر",
