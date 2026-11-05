@@ -8,6 +8,9 @@ name: Cerebras key shape
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/cerebras-key-shape.yml
 
 permissions:
   contents: read
