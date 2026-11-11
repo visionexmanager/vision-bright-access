@@ -186,7 +186,7 @@ describe("free local photo description", () => {
 
   it("warns that it is slower, describes, and states what is left today", async () => {
     const { deps } = withRpc(take("ok", 7));
-    const notify = vi.fn(async () => {});
+    const notify = vi.fn(async (_text: string) => {});
     const describe = vi.fn(async () => ({ ok: true as const, text: "A red car on a street.", ms: 40_000 }));
     const out = await go({ ...deps, notify, describe });
     expect(notify).toHaveBeenCalledTimes(1);
