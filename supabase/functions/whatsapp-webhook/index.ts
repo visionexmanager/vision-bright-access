@@ -184,6 +184,16 @@ import {
   weatherUnavailableNotice,
 } from "../_shared/whatsappWeather.ts";
 import {
+  fetchRates,
+  formatBoard,
+  formatConversion,
+  liveAppendix,
+  liveSay,
+  type LiveSources,
+  parseLiveRequest,
+  ratesUnavailable,
+} from "../_shared/whatsappSiteLive.ts";
+import {
   bazaarUnavailableNotice,
   browseNotice,
   formatListings,
@@ -1555,6 +1565,23 @@ Deno.serve(async (req) => {
           }, { onConflict: "cache_key" });
         },
       };
+
+      /**
+       * Where the live part of the finance, simulator, community and account
+       * rows comes from. Each reads public data (a published simulation, an open
+       * voice room, the public leaderboard) and returns null on any error — the
+       * row's own sentence is the fallback.
+       */
+      const liveSources = (): LiveSources => ({
+        leaderboard: async () => (await db.rpc("get_leaderboard", { result_limit: 10 })).data ?? null,
+        simulations: async () =>
+          (await db.from("simulations").select("title, points").eq("published", true).order("sort_order").limit(10))
+            .data ?? null,
+        rooms: async () =>
+          (await db.from("voice_rooms").select("room_name").eq("is_active", true)
+            .order("created_at", { ascending: false }).limit(10)).data ?? null,
+        rates: () => fetchRates(),
+      });
 
       /** One lookup, cached, with the outcome logged as a label and nothing else. */
       const viaCache = async <T>(
@@ -4445,10 +4472,18 @@ Deno.serve(async (req) => {
             // the thing is, where the rest of it lives on the site, and how to
             // reach a person about it. Nothing is armed and nothing is waited
             // for — a sentence is the whole feature.
+            //
+            // Four of these rows now carry a live part after the sentence
+            // (rates, simulations, voice rooms, the leaderboard). It is public
+            // data, and when it cannot be read the sentence still goes out.
+            const live = await liveAppendix(node.id, answerLanguage, liveSources());
             await reply(
-              localized(node.intro ?? node.description, answerLanguage),
+              live
+                ? `${localized(node.intro ?? node.description, answerLanguage)}\n\n${live}`
+                : localized(node.intro ?? node.description, answerLanguage),
               "reply",
             );
+            if (live) log("live_section", { reason: node.id, outcome: "shown" });
             session = releaseFloor(session);
             await saveSession();
             continue;
@@ -5717,6 +5752,29 @@ Deno.serve(async (req) => {
           }),
           "reply",
         );
+        continue;
+      }
+
+      // ── "100 USD to EUR", and "today's rates" ─────────────────────────
+      //
+      // Typed anywhere, not only inside the finance row: asking what a hundred
+      // dollars is in euros is the whole feature, and making somebody find the
+      // row first would be the old sentence-and-a-link again. The parser is
+      // narrow on purpose (an amount and two real currencies), so ordinary talk
+      // about money still reaches the assistant.
+      const liveRequest = !humanOwnsThis && !aiFocused && featureOn("explore.finance")
+        ? parseLiveRequest(questionText)
+        : null;
+      if (liveRequest) {
+        const data = await fetchRates();
+        const text = !data
+          ? ratesUnavailable(answerLanguage)
+          : liveRequest.kind === "board"
+          ? formatBoard(answerLanguage, data)
+          : formatConversion({ ...liveRequest, language: answerLanguage }, data)
+            ?? liveSay("fxHint", answerLanguage);
+        await reply(text ?? ratesUnavailable(answerLanguage), "reply");
+        log("live_section", { reason: "finance", outcome: data ? liveRequest.kind : "unavailable" });
         continue;
       }
 

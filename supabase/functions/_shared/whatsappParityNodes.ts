@@ -9,10 +9,11 @@
 //   action  a `phrase` the existing assistant pipeline answers (careers,
 //           assistive products) — so the menu row cannot drift from typing the
 //           same request, and the plan gate applies exactly as it does there; or
-//   info    an `intro` that says what the section is and sends its address. No
-//           handler, no provider, no cost: a sentence and a link is the whole
-//           feature, because the section itself (a simulator, a voice room, a
-//           portfolio) is an interactive page that does not fit a chat.
+//   info    an `intro` that says what the section is and sends its address, then
+//           (finance, simulators, community, account) a live part read from
+//           public data — see whatsappSiteLive.ts. The section itself (a
+//           simulator run, a voice call, a portfolio) is an interactive page that
+//           does not fit a chat, so the address stays for that.
 //
 // Every title, description and sentence is written in all twenty languages here
 // rather than falling back to English. Meta rejects a list row over 24
