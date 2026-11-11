@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, Suspense } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useParams, Link, useLocation } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +68,20 @@ export default function SimulationRunner() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [finalScore, setFinalScore] = useState(0);
   const [finalPoints, setFinalPoints] = useState(0);
+  const location = useLocation();
+
+  // Brief -> play -> report each replace the screen, and the button that was
+  // focused (Begin, Finish) unmounts with it. Without this a keyboard or
+  // screen-reader user is dropped at the top of the page. The first arrival
+  // from the loading state is left alone: the page itself was just announced.
+  const stageRef = useRef<HTMLElement>(null);
+  const lastPhase = useRef<Phase>(phase);
+  useEffect(() => {
+    const before = lastPhase.current;
+    lastPhase.current = phase;
+    if (before !== phase && before !== "loading") stageRef.current?.focus();
+  }, [phase]);
+
   const billing = useSimulationBilling(
     simulation?.id,
     simulation?.title ?? "",
@@ -243,10 +257,10 @@ export default function SimulationRunner() {
   if (phase === "brief") {
     return (
       <Layout>
-        <section className="container mx-auto max-w-2xl px-4 py-10">
+        <section ref={stageRef} tabIndex={-1} aria-label={simulation.title} className="container mx-auto max-w-2xl px-4 py-10 focus:outline-none">
           <div className="flex items-center justify-between mb-6">
             <Button asChild variant="ghost">
-              <Link to="/services">
+              <Link to="/business-simulator">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 {t("bsim.backToList")}
               </Link>
@@ -288,7 +302,7 @@ export default function SimulationRunner() {
   if (phase === "report") {
     return (
       <Layout>
-        <section className="container mx-auto max-w-2xl px-4 py-10">
+        <section ref={stageRef} tabIndex={-1} aria-label={simulation.title} className="container mx-auto max-w-2xl px-4 py-10 focus:outline-none">
           {project ? (
             <SimulationProjectReport
               project={project}
@@ -339,11 +353,11 @@ export default function SimulationRunner() {
           </div>
         )}
 
-        <section className="section-container py-6">
+        <section ref={stageRef} tabIndex={-1} aria-label={simulation.title} className="section-container py-6 focus:outline-none">
           {/* Simulation status bar */}
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <Button asChild variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
-              <Link to="/services">
+              <Link to="/business-simulator">
                 <ArrowLeft className="h-4 w-4" />
                 {t("bsim.backToList")}
               </Link>
@@ -373,26 +387,39 @@ export default function SimulationRunner() {
           </div>
 
           {billing.status === "blocked" ? (
-            <Card className="mx-auto max-w-xl border-destructive/40">
+            <Card role="alert" className="mx-auto max-w-xl border-destructive/40">
               <CardContent className="space-y-4 p-6 text-center">
-                <Coins className="mx-auto h-10 w-10 text-destructive" />
-                <h2 className="text-xl font-bold">{t("bsim.vxRequired")}</h2>
-                <p className="text-sm text-muted-foreground">{billing.message}</p>
+                <Coins aria-hidden="true" className="mx-auto h-10 w-10 text-destructive" />
+                <h2 className="text-xl font-bold">
+                  {billing.reason === "login" ? t("bsim.signIn") : t("bsim.vxRequired")}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {billing.reason === "login"
+                    ? t("bsim.needLogin")
+                    : billing.reason === "vx"
+                      ? t("bsim.needVx").replace("{amount}", billing.requiredVx.toLocaleString())
+                      : billing.message}
+                </p>
                 <Button asChild>
-                  <Link to="/coins-store">{t("bsim.goToVxStore")}</Link>
+                  {billing.reason === "login" ? (
+                    <Link to={`/login?returnTo=${encodeURIComponent(location.pathname)}`}>{t("bsim.signIn")}</Link>
+                  ) : (
+                    <Link to="/coins-store">{t("bsim.goToVxStore")}</Link>
+                  )}
                 </Button>
               </CardContent>
             </Card>
           ) : billing.status !== "ready" ? (
-            <div className="flex min-h-[30vh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <div role="status" className="flex min-h-[30vh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+              <div aria-hidden="true" className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
               {billing.isCharging ? t("bsim.opening15min") : t("bsim.prepareBilling")}
             </div>
           ) : (
             <Suspense
               fallback={
-                <div className="flex min-h-[30vh] items-center justify-center">
-                  <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                <div role="status" className="flex min-h-[30vh] items-center justify-center">
+                  <div aria-hidden="true" className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                  <span className="sr-only">{t("common.loading")}</span>
                 </div>
               }
             >
