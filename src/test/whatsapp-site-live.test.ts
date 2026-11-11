@@ -156,6 +156,19 @@ describe("the other three lists", () => {
     expect(formatLeaderboard("nope", "en")).toBeNull();
   });
 
+  it("never sends an email address, whatever the database returned", () => {
+    const text = formatLeaderboard(
+      [
+        { rank: 1, display_name: "sara.example@gmail.com", total_points: 500 },
+        { rank: 2, display_name: "@", total_points: 400 },
+      ],
+      "en",
+    )!;
+    expect(text).not.toContain("@");
+    expect(text).not.toContain("gmail");
+    expect(text).toContain("1. s*** — 500 pts");
+  });
+
   it("lists the published simulations and caps the list at ten", () => {
     const rows = Array.from({ length: 14 }, (_, i) => ({ title: `Sim ${i + 1}`, points: 50 }));
     const lines = formatSimulations(rows, "en")!.split("\n");

@@ -106,7 +106,11 @@ export function formatLeaderboard(rows: unknown, language: string): string | nul
   const lines = rowsOf(rows).slice(0, 10).flatMap((row, i) => {
     const points = wholeNumber(row.total_points);
     if (points === null) return [];
-    const name = cleanLabel(row.display_name, 30) || "—";
+    const raw = cleanLabel(row.display_name, 30);
+    // A profile that never chose a name holds the address it signed up with. The
+    // database now masks those, but this goes to a stranger's phone, so it is not
+    // left to one layer: anything with an "@" is cut to its first character.
+    const name = raw.includes("@") ? `${[...raw].find((c) => c !== "@") ?? ""}***` : raw || "—";
     return [`${wholeNumber(row.rank) ?? i + 1}. ${name} — ${number(language, points, 0)} ${liveSay("pts", language)}`];
   });
   return lines.length ? `🏆 ${liveSay("lbTitle", language)}\n${lines.join("\n")}` : null;
