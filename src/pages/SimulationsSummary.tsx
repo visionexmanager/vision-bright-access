@@ -112,8 +112,9 @@ export default function SimulationsSummary() {
   if (loading) {
     return (
       <Layout>
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div role="status" className="flex min-h-[60vh] items-center justify-center">
+          <div aria-hidden="true" className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <span className="sr-only">{t("common.loading")}</span>
         </div>
       </Layout>
     );
@@ -193,11 +194,11 @@ export default function SimulationsSummary() {
               <Filter className="h-3.5 w-3.5" />
               {t("simulations.category")}:
             </div>
-            <Button size="sm" variant={activeCategory === "all" ? "default" : "outline"} onClick={() => setActiveCategory("all")}>
+            <Button size="sm" aria-pressed={activeCategory === "all"} variant={activeCategory === "all" ? "default" : "outline"} onClick={() => setActiveCategory("all")}>
               {t("content.tab.all")}
             </Button>
             {subcategories.map((cat) => (
-              <Button key={cat} size="sm" variant={activeCategory === cat ? "default" : "outline"} onClick={() => setActiveCategory(cat)}>
+              <Button key={cat} size="sm" aria-pressed={activeCategory === cat} variant={activeCategory === cat ? "default" : "outline"} onClick={() => setActiveCategory(cat)}>
                 {cat} ({simulations.filter((s) => s.subcategory === cat).length})
               </Button>
             ))}
@@ -207,11 +208,11 @@ export default function SimulationsSummary() {
               <Filter className="h-3.5 w-3.5" />
               {t("simulations.difficulty")}:
             </div>
-            <Button size="sm" variant={activeDifficulty === "all" ? "default" : "outline"} onClick={() => setActiveDifficulty("all")}>
+            <Button size="sm" aria-pressed={activeDifficulty === "all"} variant={activeDifficulty === "all" ? "default" : "outline"} onClick={() => setActiveDifficulty("all")}>
               {t("content.tab.all")}
             </Button>
             {difficulties.map((diff) => (
-              <Button key={diff} size="sm" variant={activeDifficulty === diff ? "default" : "outline"} onClick={() => setActiveDifficulty(diff)}>
+              <Button key={diff} size="sm" aria-pressed={activeDifficulty === diff} variant={activeDifficulty === diff ? "default" : "outline"} onClick={() => setActiveDifficulty(diff)}>
                 {diff} ({simulations.filter((s) => s.difficulty === diff).length})
               </Button>
             ))}
@@ -221,16 +222,16 @@ export default function SimulationsSummary() {
               <ArrowUpDown className="h-3.5 w-3.5" />
               {t("simulations.sortBy")}:
             </div>
-            <Button size="sm" variant={sortBy === "default" ? "default" : "outline"} onClick={() => setSortBy("default")}>
+            <Button size="sm" aria-pressed={sortBy === "default"} variant={sortBy === "default" ? "default" : "outline"} onClick={() => setSortBy("default")}>
               {t("simulations.sortDefault")}
             </Button>
-            <Button size="sm" variant={sortBy === "points" ? "default" : "outline"} onClick={() => setSortBy("points")}>
+            <Button size="sm" aria-pressed={sortBy === "points"} variant={sortBy === "points" ? "default" : "outline"} onClick={() => setSortBy("points")}>
               {t("simulations.sortPoints")}
             </Button>
-            <Button size="sm" variant={sortBy === "duration" ? "default" : "outline"} onClick={() => setSortBy("duration")}>
+            <Button size="sm" aria-pressed={sortBy === "duration"} variant={sortBy === "duration" ? "default" : "outline"} onClick={() => setSortBy("duration")}>
               {t("simulations.sortDuration")}
             </Button>
-            <Button size="sm" variant={sortBy === "newest" ? "default" : "outline"} onClick={() => setSortBy("newest")}>
+            <Button size="sm" aria-pressed={sortBy === "newest"} variant={sortBy === "newest" ? "default" : "outline"} onClick={() => setSortBy("newest")}>
               {t("simulations.sortNewest")}
             </Button>
           </div>

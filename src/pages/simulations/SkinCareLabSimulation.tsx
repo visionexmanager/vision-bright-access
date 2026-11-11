@@ -317,31 +317,31 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">💧 {t("sim.skincare.label.hyaluronicAcid")}</span><Badge variant="outline">{hyaluronicAcid}%</Badge></div>
-        <Slider value={[hyaluronicAcid]} onValueChange={([v]) => setHyaluronicAcid(v)} min={0} max={5} step={0.5} />
+        <div className="flex justify-between"><span id="skin-care-lab-slider-1" className="font-medium">💧 {t("sim.skincare.label.hyaluronicAcid")}</span><Badge variant="outline">{hyaluronicAcid}%</Badge></div>
+        <Slider aria-labelledby="skin-care-lab-slider-1" value={[hyaluronicAcid]} onValueChange={([v]) => setHyaluronicAcid(v)} min={0} max={5} step={0.5} />
         <p className="text-xs text-muted-foreground">{t("sim.skincare.hint.hyaluronicAcid")}</p>
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">🍊 {t("sim.skincare.label.vitaminC")}</span><Badge variant="outline">{vitaminC}%</Badge></div>
-        <Slider value={[vitaminC]} onValueChange={([v]) => setVitaminC(v)} min={0} max={20} step={1} />
+        <div className="flex justify-between"><span id="skin-care-lab-slider-2" className="font-medium">🍊 {t("sim.skincare.label.vitaminC")}</span><Badge variant="outline">{vitaminC}%</Badge></div>
+        <Slider aria-labelledby="skin-care-lab-slider-2" value={[vitaminC]} onValueChange={([v]) => setVitaminC(v)} min={0} max={20} step={1} />
         <p className="text-xs text-muted-foreground">{t("sim.skincare.hint.vitaminC")}</p>
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">✨ {t("sim.skincare.label.niacinamide")}</span><Badge variant="outline">{niacinamide}%</Badge></div>
-        <Slider value={[niacinamide]} onValueChange={([v]) => setNiacinamide(v)} min={0} max={10} step={1} />
+        <div className="flex justify-between"><span id="skin-care-lab-slider-3" className="font-medium">✨ {t("sim.skincare.label.niacinamide")}</span><Badge variant="outline">{niacinamide}%</Badge></div>
+        <Slider aria-labelledby="skin-care-lab-slider-3" value={[niacinamide]} onValueChange={([v]) => setNiacinamide(v)} min={0} max={10} step={1} />
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">🔬 {t("sim.skincare.label.retinol")}</span><Badge variant="outline">{retinol}%</Badge></div>
-        <Slider value={[retinol]} onValueChange={([v]) => setRetinol(v)} min={0} max={2} step={0.1} />
+        <div className="flex justify-between"><span id="skin-care-lab-slider-4" className="font-medium">🔬 {t("sim.skincare.label.retinol")}</span><Badge variant="outline">{retinol}%</Badge></div>
+        <Slider aria-labelledby="skin-care-lab-slider-4" value={[retinol]} onValueChange={([v]) => setRetinol(v)} min={0} max={2} step={0.1} />
         <p className="text-xs text-muted-foreground">{t("sim.skincare.hint.retinol")}</p>
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">☀️ {t("sim.skincare.label.spf")}</span><Badge variant="outline">SPF {spf}</Badge></div>
-        <Slider value={[spf]} onValueChange={([v]) => setSpf(v)} min={0} max={50} step={5} />
+        <div className="flex justify-between"><span id="skin-care-lab-slider-5" className="font-medium">☀️ {t("sim.skincare.label.spf")}</span><Badge variant="outline">SPF {spf}</Badge></div>
+        <Slider aria-labelledby="skin-care-lab-slider-5" value={[spf]} onValueChange={([v]) => setSpf(v)} min={0} max={50} step={5} />
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
@@ -357,8 +357,8 @@ export function SkinCareLabSimulation({ simulationId }: Props) {
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">💰 {t("sim.skincare.label.price")}</span><Badge variant="outline">${pricePoint}</Badge></div>
-        <Slider value={[pricePoint]} onValueChange={([v]) => setPricePoint(v)} min={10} max={80} step={5} />
+        <div className="flex justify-between"><span id="skin-care-lab-slider-6" className="font-medium">💰 {t("sim.skincare.label.price")}</span><Badge variant="outline">${pricePoint}</Badge></div>
+        <Slider aria-labelledby="skin-care-lab-slider-6" value={[pricePoint]} onValueChange={([v]) => setPricePoint(v)} min={10} max={80} step={5} />
       </CardContent></Card>
 
       {/* Quality Preview */}

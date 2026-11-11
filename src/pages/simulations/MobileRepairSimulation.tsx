@@ -230,7 +230,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
                   <p className="font-medium text-sm">{j.device} - {j.issue} {j.urgency === "rush" ? "⚡" : ""}</p>
                   <p className="text-xs text-muted-foreground">Difficulty: {"⭐".repeat(j.difficulty)} | Budget: ${j.customerBudget}</p>
                 </div>
-                <Button size="sm" variant="outline" aria-label={`Take job: ${j.device} - ${j.issue}`}>Take</Button>
+                <Button size="sm" variant="outline" aria-label={`Take job: ${j.device} - ${j.issue}`} onClick={(e) => { e.stopPropagation(); selectJob(j); }}>Take</Button>
               </div>
             ))}
           </CardContent>
@@ -256,13 +256,13 @@ export function MobileRepairSimulation({ simulationId }: Props) {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Labor Rate: ${laborRate}</label>
-              <Slider value={[laborRate]} onValueChange={([v]) => setLaborRate(v)} min={20} max={100} step={5} />
+              <label id="mobile-repair-slider-1" className="text-xs text-muted-foreground mb-1 block">Labor Rate: ${laborRate}</label>
+              <Slider aria-labelledby="mobile-repair-slider-1" value={[laborRate]} onValueChange={([v]) => setLaborRate(v)} min={20} max={100} step={5} />
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Quality Focus: {qualityFocus}/10</label>
-              <Slider value={[qualityFocus]} onValueChange={([v]) => setQualityFocus(v)} min={1} max={10} step={1} />
+              <label id="mobile-repair-slider-2" className="text-xs text-muted-foreground mb-1 block">Quality Focus: {qualityFocus}/10</label>
+              <Slider aria-labelledby="mobile-repair-slider-2" value={[qualityFocus]} onValueChange={([v]) => setQualityFocus(v)} min={1} max={10} step={1} />
             </div>
 
             <div className="flex gap-3">

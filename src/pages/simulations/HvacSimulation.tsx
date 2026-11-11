@@ -215,8 +215,8 @@ export function HvacSimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Zones: {zoneCount}</label>
-              <Slider value={[zoneCount]} onValueChange={([v]) => setZoneCount(v)} min={1} max={6} step={1} />
+              <label id="hvac-slider-1" className="text-xs text-muted-foreground mb-1 block">Zones: {zoneCount}</label>
+              <Slider aria-labelledby="hvac-slider-1" value={[zoneCount]} onValueChange={([v]) => setZoneCount(v)} min={1} max={6} step={1} />
             </div>
             <div className="p-3 rounded-lg bg-muted/50 text-xs">
               <div className="flex justify-between font-bold"><span>Install Cost:</span><span>${installCost}</span></div>
@@ -236,12 +236,12 @@ export function HvacSimulation({ simulationId }: Props) {
               <div><p className="text-xs text-muted-foreground">Comfort</p><p className="font-bold">{comfortScore}%</p></div>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Target: {targetTemp}°C</label>
-              <Slider value={[targetTemp]} onValueChange={([v]) => setTargetTemp(v)} min={18} max={28} step={0.5} />
+              <label id="hvac-slider-2" className="text-xs text-muted-foreground mb-1 block">Target: {targetTemp}°C</label>
+              <Slider aria-labelledby="hvac-slider-2" value={[targetTemp]} onValueChange={([v]) => setTargetTemp(v)} min={18} max={28} step={0.5} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Fan Speed: {fanSpeed}</label>
-              <Slider value={[fanSpeed]} onValueChange={([v]) => setFanSpeed(v)} min={1} max={5} step={1} />
+              <label id="hvac-slider-3" className="text-xs text-muted-foreground mb-1 block">Fan Speed: {fanSpeed}</label>
+              <Slider aria-labelledby="hvac-slider-3" value={[fanSpeed]} onValueChange={([v]) => setFanSpeed(v)} min={1} max={5} step={1} />
             </div>
             <Button onClick={simulateHour} className="w-full" aria-label={`Next Hour (${hour}:00 to ${hour + 1}:00)`}>⏭️ Next Hour ({hour}:00 → {hour + 1}:00)</Button>
           </CardContent>

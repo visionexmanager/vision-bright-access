@@ -256,7 +256,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
                   <p className="font-medium text-sm">{o.type} ({o.quantity}x)</p>
                   <p className="text-xs text-muted-foreground">{o.width}x{o.height}cm | Budget: ${o.budget} | {o.deadline} days</p>
                 </div>
-                <Button size="sm" variant="outline" aria-label={`Select ${o.type} order`}>{t("sim.glazing.selectOrder")}</Button>
+                <Button size="sm" variant="outline" aria-label={`Select ${o.type} order`} onClick={(e) => { e.stopPropagation(); selectOrder(o); }}>{t("sim.glazing.selectOrder")}</Button>
               </div>
             ))}
           </CardContent>
@@ -295,18 +295,18 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Cut Angle: {cutAngle}° (45° or 90° optimal)</label>
-              <Slider value={[cutAngle]} onValueChange={([v]) => setCutAngle(v)} min={30} max={90} step={5} />
+              <label id="aluminum-glazing-slider-1" className="text-xs text-muted-foreground mb-1 block">Cut Angle: {cutAngle}° (45° or 90° optimal)</label>
+              <Slider aria-labelledby="aluminum-glazing-slider-1" value={[cutAngle]} onValueChange={([v]) => setCutAngle(v)} min={30} max={90} step={5} />
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Sealant: {sealantThickness}mm (3-5mm ideal)</label>
-              <Slider value={[sealantThickness]} onValueChange={([v]) => setSealantThickness(v)} min={1} max={8} step={0.5} />
+              <label id="aluminum-glazing-slider-2" className="text-xs text-muted-foreground mb-1 block">Sealant: {sealantThickness}mm (3-5mm ideal)</label>
+              <Slider aria-labelledby="aluminum-glazing-slider-2" value={[sealantThickness]} onValueChange={([v]) => setSealantThickness(v)} min={1} max={8} step={0.5} />
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Markup: {markup}%</label>
-              <Slider value={[markup]} onValueChange={([v]) => setMarkup(v)} min={0} max={100} step={5} />
+              <label id="aluminum-glazing-slider-3" className="text-xs text-muted-foreground mb-1 block">Markup: {markup}%</label>
+              <Slider aria-labelledby="aluminum-glazing-slider-3" value={[markup]} onValueChange={([v]) => setMarkup(v)} min={0} max={100} step={5} />
             </div>
 
             <div className="p-3 rounded-lg bg-muted/50 text-xs space-y-1">

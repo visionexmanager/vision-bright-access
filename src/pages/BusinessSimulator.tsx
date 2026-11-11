@@ -84,8 +84,9 @@ export default function BusinessSimulator() {
   if (loading) {
     return (
       <Layout>
-        <div className="flex min-h-[50vh] items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div role="status" className="flex min-h-[50vh] items-center justify-center">
+          <div aria-hidden="true" className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <span className="sr-only">{t("common.loading")}</span>
         </div>
       </Layout>
     );

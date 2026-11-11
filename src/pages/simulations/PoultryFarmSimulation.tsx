@@ -204,8 +204,8 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.flock").replace("{count}", String(flockSize))}</label>
-              <Slider value={[flockSize]} onValueChange={([v]) => setFlockSize(v)} min={50} max={Math.min(500, housing.capacity)} step={25} />
+              <label id="poultry-farm-slider-1" className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.flock").replace("{count}", String(flockSize))}</label>
+              <Slider aria-labelledby="poultry-farm-slider-1" value={[flockSize]} onValueChange={([v]) => setFlockSize(v)} min={50} max={Math.min(500, housing.capacity)} step={25} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.housing")}</label>
@@ -249,12 +249,12 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.temperature").replace("{temp}", String(temperature))}</label>
-              <Slider value={[temperature]} onValueChange={([v]) => setTemperature(v)} min={10} max={40} step={1} />
+              <label id="poultry-farm-slider-2" className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.temperature").replace("{temp}", String(temperature))}</label>
+              <Slider aria-labelledby="poultry-farm-slider-2" value={[temperature]} onValueChange={([v]) => setTemperature(v)} min={10} max={40} step={1} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.sellPrice").replace("{price}", String(sellPrice))}</label>
-              <Slider value={[sellPrice]} onValueChange={([v]) => setSellPrice(v)} min={2} max={15} step={0.5} />
+              <label id="poultry-farm-slider-3" className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.sellPrice").replace("{price}", String(sellPrice))}</label>
+              <Slider aria-labelledby="poultry-farm-slider-3" value={[sellPrice]} onValueChange={([v]) => setSellPrice(v)} min={2} max={15} step={0.5} />
             </div>
             <Button onClick={simulateWeek} className="w-full" aria-label={t("sim.poultryFarm.btn.simulateWeek").replace("{week}", String(week))}>{t("sim.poultryFarm.btn.simulateWeek").replace("{week}", String(week))}</Button>
           </CardContent>

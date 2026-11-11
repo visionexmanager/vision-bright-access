@@ -208,8 +208,8 @@ export function SolarEnergySimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.panelCount").replace("{count}", String(panelCount))}</label>
-              <Slider value={[panelCount]} onValueChange={([v]) => setPanelCount(v)} min={4} max={50} step={2} />
+              <label id="solar-energy-slider-1" className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.panelCount").replace("{count}", String(panelCount))}</label>
+              <Slider aria-labelledby="solar-energy-slider-1" value={[panelCount]} onValueChange={([v]) => setPanelCount(v)} min={4} max={50} step={2} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.locationLabel")}</label>
@@ -234,12 +234,12 @@ export function SolarEnergySimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.tiltAngle").replace("{angle}", String(tiltAngle))}</label>
-              <Slider value={[tiltAngle]} onValueChange={([v]) => setTiltAngle(v)} min={0} max={60} step={5} />
+              <label id="solar-energy-slider-2" className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.tiltAngle").replace("{angle}", String(tiltAngle))}</label>
+              <Slider aria-labelledby="solar-energy-slider-2" value={[tiltAngle]} onValueChange={([v]) => setTiltAngle(v)} min={0} max={60} step={5} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.gridSellPrice").replace("{price}", gridSellPrice.toFixed(2))}</label>
-              <Slider value={[gridSellPrice * 100]} onValueChange={([v]) => setGridSellPrice(v / 100)} min={3} max={20} step={1} />
+              <label id="solar-energy-slider-3" className="text-xs text-muted-foreground mb-1 block">{t("sim.solar.gridSellPrice").replace("{price}", gridSellPrice.toFixed(2))}</label>
+              <Slider aria-labelledby="solar-energy-slider-3" value={[gridSellPrice * 100]} onValueChange={([v]) => setGridSellPrice(v / 100)} min={3} max={20} step={1} />
             </div>
             <div className="p-3 rounded-lg bg-muted/50 text-xs space-y-1">
               <div className="flex justify-between"><span>{t("sim.solar.costs.panels").replace("{count}", String(panelCount))}</span><span>${panelType.cost * panelCount}</span></div>
