@@ -22,6 +22,7 @@
 // exercised by the Vitest suite directly.
 
 import { NODE_TEXT } from "./whatsappCatalogLocales.ts";
+import { PARITY_NODES } from "./whatsappParityNodes.ts";
 import type { SupportedLanguage } from "./whatsappLanguages.ts";
 
 /**
@@ -1102,7 +1103,7 @@ const BASE_CATALOG: readonly CatalogNode[] = [
 // feature therefore never breaks a build, and adding a translation is a data
 // edit that touches no code at all.
 
-export const CATALOG: readonly CatalogNode[] = BASE_CATALOG.map((node) => {
+export const CATALOG: readonly CatalogNode[] = [...BASE_CATALOG, ...PARITY_NODES].map((node) => {
   const text = NODE_TEXT[node.id];
   if (!text) return node;
   return {
