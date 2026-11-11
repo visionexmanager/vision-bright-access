@@ -219,8 +219,8 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Starting Capital: ${capital.toLocaleString()}</label>
-              <Slider value={[capital]} onValueChange={([v]) => setCapital(v)} min={5000} max={50000} step={1000} />
+              <label id="trade-tycoon-slider-1" className="text-xs text-muted-foreground mb-1 block">Starting Capital: ${capital.toLocaleString()}</label>
+              <Slider aria-labelledby="trade-tycoon-slider-1" value={[capital]} onValueChange={([v]) => setCapital(v)} min={5000} max={50000} step={1000} />
             </div>
             <Button onClick={startGame} className="w-full" aria-label="Start Trading">📈 Start Trading</Button>
           </CardContent>
@@ -236,16 +236,16 @@ export function TradeTycoonSimulation({ simulationId }: Props) {
               <div><p className="text-xs text-muted-foreground">Reputation</p><p className="font-bold text-sm">{reputation}%</p></div>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Buy Quantity: {buyQty} units (Cost: ${Math.round(buyQtyCost)})</label>
-              <Slider value={[buyQty]} onValueChange={([v]) => setBuyQty(v)} min={5} max={200} step={5} />
+              <label id="trade-tycoon-slider-2" className="text-xs text-muted-foreground mb-1 block">Buy Quantity: {buyQty} units (Cost: ${Math.round(buyQtyCost)})</label>
+              <Slider aria-labelledby="trade-tycoon-slider-2" value={[buyQty]} onValueChange={([v]) => setBuyQty(v)} min={5} max={200} step={5} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Sell Price: ${sellPrice}/unit</label>
-              <Slider value={[sellPrice]} onValueChange={([v]) => setSellPrice(v)} min={50} max={500} step={10} />
+              <label id="trade-tycoon-slider-3" className="text-xs text-muted-foreground mb-1 block">Sell Price: ${sellPrice}/unit</label>
+              <Slider aria-labelledby="trade-tycoon-slider-3" value={[sellPrice]} onValueChange={([v]) => setSellPrice(v)} min={50} max={500} step={10} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Ad Budget: ${adBudget}</label>
-              <Slider value={[adBudget]} onValueChange={([v]) => setAdBudget(v)} min={0} max={2000} step={50} />
+              <label id="trade-tycoon-slider-4" className="text-xs text-muted-foreground mb-1 block">Ad Budget: ${adBudget}</label>
+              <Slider aria-labelledby="trade-tycoon-slider-4" value={[adBudget]} onValueChange={([v]) => setAdBudget(v)} min={0} max={2000} step={50} />
             </div>
             <Button onClick={simulateRound} className="w-full" aria-label={`Execute Round ${round}`}>⏭️ Execute Round {round}</Button>
           </CardContent>

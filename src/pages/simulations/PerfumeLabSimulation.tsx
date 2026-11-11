@@ -300,8 +300,8 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">🍶 Bottle Size</span><Badge variant="outline">{bottleSize}ml</Badge></div>
-        <Slider value={[bottleSize]} onValueChange={([v]) => setBottleSize(v)} min={15} max={100} step={5} />
+        <div className="flex justify-between"><span id="perfume-lab-slider-1" className="font-medium">🍶 Bottle Size</span><Badge variant="outline">{bottleSize}ml</Badge></div>
+        <Slider aria-labelledby="perfume-lab-slider-1" value={[bottleSize]} onValueChange={([v]) => setBottleSize(v)} min={15} max={100} step={5} />
       </CardContent></Card>
 
       {/* Ingredients by layer */}
@@ -325,7 +325,7 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
                     {isSelected && (
                       <div className="mt-2 flex items-center gap-2">
                         <span className="text-xs">Amount:</span>
-                        <Slider value={[selectedNotes[ing.id]]} onValueChange={([v]) => setNoteAmount(ing.id, v)} min={1} max={8} step={0.5} className="flex-1" />
+                        <Slider aria-label={`${ing.name} amount`} value={[selectedNotes[ing.id]]} onValueChange={([v]) => setNoteAmount(ing.id, v)} min={1} max={8} step={0.5} className="flex-1" />
                         <Badge variant="outline">{selectedNotes[ing.id]}ml</Badge>
                       </div>
                     )}
@@ -338,13 +338,13 @@ export function PerfumeLabSimulation({ simulationId }: Props) {
       ))}
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">💰 Retail Price</span><Badge variant="outline">${retailPrice}</Badge></div>
-        <Slider value={[retailPrice]} onValueChange={([v]) => setRetailPrice(v)} min={30} max={300} step={10} />
+        <div className="flex justify-between"><span id="perfume-lab-slider-2" className="font-medium">💰 Retail Price</span><Badge variant="outline">${retailPrice}</Badge></div>
+        <Slider aria-labelledby="perfume-lab-slider-2" value={[retailPrice]} onValueChange={([v]) => setRetailPrice(v)} min={30} max={300} step={10} />
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">📦 Batch Size</span><Badge variant="outline">{batchSize} bottles</Badge></div>
-        <Slider value={[batchSize]} onValueChange={([v]) => setBatchSize(v)} min={50} max={1000} step={50} />
+        <div className="flex justify-between"><span id="perfume-lab-slider-3" className="font-medium">📦 Batch Size</span><Badge variant="outline">{batchSize} bottles</Badge></div>
+        <Slider aria-labelledby="perfume-lab-slider-3" value={[batchSize]} onValueChange={([v]) => setBatchSize(v)} min={50} max={1000} step={50} />
       </CardContent></Card>
 
       {/* Quality Preview */}

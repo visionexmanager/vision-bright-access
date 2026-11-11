@@ -337,10 +337,10 @@ export function BoardSurgeonSimulation({ simulationId }: Props) {
       <Card>
         <CardContent className="pt-6 space-y-3">
           <div className="flex justify-between">
-            <span className="font-medium">💰 Charge Customer</span>
+            <span id="board-surgeon-slider-1" className="font-medium">💰 Charge Customer</span>
             <Badge variant="outline">${chargePrice}</Badge>
           </div>
-          <Slider value={[chargePrice]} onValueChange={([v]) => setChargePrice(v)} min={30} max={300} step={10} />
+          <Slider aria-labelledby="board-surgeon-slider-1" value={[chargePrice]} onValueChange={([v]) => setChargePrice(v)} min={30} max={300} step={10} />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Parts cost: ${selectedRepairs.reduce((s, r) => s + (REPAIR_ACTIONS.find(a => a.id === r)?.cost ?? 0), 0)}</span>
             <span>Customer budget: ${currentCase.customerBudget}</span>

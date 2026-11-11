@@ -251,7 +251,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
                     <p className="font-medium text-sm">{s.cargo} {s.fragile ? "⚠️" : ""}</p>
                     <p className="text-xs text-muted-foreground">{s.weight}T → {d.name} | {s.deadline} days | ${s.value}</p>
                   </div>
-                  <Button size="sm" variant="outline" aria-label={`Accept shipment: ${s.cargo} to ${d.name}`}>Accept</Button>
+                  <Button size="sm" variant="outline" aria-label={`Accept shipment: ${s.cargo} to ${d.name}`} onClick={(e) => { e.stopPropagation(); selectShipment(s); }}>Accept</Button>
                 </div>
               );
             })}
@@ -290,8 +290,8 @@ export function LogisticsSimulation({ simulationId }: Props) {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Warehouse Days: {warehouseDays} ($15/day)</label>
-              <Slider value={[warehouseDays]} onValueChange={([v]) => setWarehouseDays(v)} min={0} max={5} step={1} />
+              <label id="logistics-slider-1" className="text-xs text-muted-foreground mb-1 block">Warehouse Days: {warehouseDays} ($15/day)</label>
+              <Slider aria-labelledby="logistics-slider-1" value={[warehouseDays]} onValueChange={([v]) => setWarehouseDays(v)} min={0} max={5} step={1} />
             </div>
 
             <div className="p-3 rounded-lg bg-muted/50 text-xs space-y-1">

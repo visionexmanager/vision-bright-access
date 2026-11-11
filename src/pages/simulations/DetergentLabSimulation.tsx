@@ -292,8 +292,8 @@ export function DetergentLabSimulation({ simulationId }: Props) {
       {/* Surfactant */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <div className="flex justify-between"><span className="font-medium">{t("sim.detergent.label.surfactant")}</span><Badge variant="outline">{surfactantPct}%</Badge></div>
-          <Slider value={[surfactantPct]} onValueChange={([v]) => setSurfactantPct(v)} min={10} max={45} step={1} />
+          <div className="flex justify-between"><span id="detergent-lab-slider-1" className="font-medium">{t("sim.detergent.label.surfactant")}</span><Badge variant="outline">{surfactantPct}%</Badge></div>
+          <Slider aria-labelledby="detergent-lab-slider-1" value={[surfactantPct]} onValueChange={([v]) => setSurfactantPct(v)} min={10} max={45} step={1} />
           <p className="text-xs text-muted-foreground">{t("sim.detergent.hint.surfactant")}</p>
         </CardContent>
       </Card>
@@ -301,16 +301,16 @@ export function DetergentLabSimulation({ simulationId }: Props) {
       {/* Water */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <div className="flex justify-between"><span className="font-medium">{t("sim.detergent.label.water")}</span><Badge variant="outline">{waterPct}%</Badge></div>
-          <Slider value={[waterPct]} onValueChange={([v]) => setWaterPct(v)} min={40} max={80} step={1} />
+          <div className="flex justify-between"><span id="detergent-lab-slider-2" className="font-medium">{t("sim.detergent.label.water")}</span><Badge variant="outline">{waterPct}%</Badge></div>
+          <Slider aria-labelledby="detergent-lab-slider-2" value={[waterPct]} onValueChange={([v]) => setWaterPct(v)} min={40} max={80} step={1} />
         </CardContent>
       </Card>
 
       {/* Fragrance */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <div className="flex justify-between"><span className="font-medium">{t("sim.detergent.label.fragrance")}</span><Badge variant="outline">{fragrancePct}%</Badge></div>
-          <Slider value={[fragrancePct]} onValueChange={([v]) => setFragrancePct(v)} min={0} max={15} step={1} />
+          <div className="flex justify-between"><span id="detergent-lab-slider-3" className="font-medium">{t("sim.detergent.label.fragrance")}</span><Badge variant="outline">{fragrancePct}%</Badge></div>
+          <Slider aria-labelledby="detergent-lab-slider-3" value={[fragrancePct]} onValueChange={([v]) => setFragrancePct(v)} min={0} max={15} step={1} />
         </CardContent>
       </Card>
 
@@ -336,26 +336,26 @@ export function DetergentLabSimulation({ simulationId }: Props) {
       <Card>
         <CardContent className="pt-6 space-y-3">
           <div className="flex justify-between">
-            <span className="font-medium flex items-center gap-1"><Thermometer className="h-4 w-4" /> Mix Temp</span>
+            <span id="detergent-lab-slider-4" className="font-medium flex items-center gap-1"><Thermometer className="h-4 w-4" /> Mix Temp</span>
             <Badge variant="outline">{mixTemp}°C</Badge>
           </div>
-          <Slider value={[mixTemp]} onValueChange={([v]) => setMixTemp(v)} min={20} max={80} step={5} />
+          <Slider aria-labelledby="detergent-lab-slider-4" value={[mixTemp]} onValueChange={([v]) => setMixTemp(v)} min={20} max={80} step={5} />
         </CardContent>
       </Card>
 
       {/* Pricing */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <div className="flex justify-between"><span className="font-medium">💰 Price per Unit</span><Badge variant="outline">${pricePerUnit}</Badge></div>
-          <Slider value={[pricePerUnit * 10]} onValueChange={([v]) => setPricePerUnit(v / 10)} min={15} max={80} step={5} />
+          <div className="flex justify-between"><span id="detergent-lab-slider-5" className="font-medium">💰 Price per Unit</span><Badge variant="outline">${pricePerUnit}</Badge></div>
+          <Slider aria-labelledby="detergent-lab-slider-5" value={[pricePerUnit * 10]} onValueChange={([v]) => setPricePerUnit(v / 10)} min={15} max={80} step={5} />
         </CardContent>
       </Card>
 
       {/* Batch Size */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <div className="flex justify-between"><span className="font-medium">📦 Batch Size</span><Badge variant="outline">{batchSize} units</Badge></div>
-          <Slider value={[batchSize]} onValueChange={([v]) => setBatchSize(v)} min={50} max={500} step={50} />
+          <div className="flex justify-between"><span id="detergent-lab-slider-6" className="font-medium">📦 Batch Size</span><Badge variant="outline">{batchSize} units</Badge></div>
+          <Slider aria-labelledby="detergent-lab-slider-6" value={[batchSize]} onValueChange={([v]) => setBatchSize(v)} min={50} max={500} step={50} />
         </CardContent>
       </Card>
 

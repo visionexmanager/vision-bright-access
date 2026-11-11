@@ -227,8 +227,8 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.music.groupSizeLabel").replace("{count}", String(groupSize))}</label>
-              <Slider value={[groupSize]} onValueChange={([v]) => setGroupSize(v)} min={2} max={15} step={1} />
+              <label id="music-training-slider-1" className="text-xs text-muted-foreground mb-1 block">{t("sim.music.groupSizeLabel").replace("{count}", String(groupSize))}</label>
+              <Slider aria-labelledby="music-training-slider-1" value={[groupSize]} onValueChange={([v]) => setGroupSize(v)} min={2} max={15} step={1} />
             </div>
             <div className="p-3 rounded-lg bg-muted/50 text-xs">
               <div className="flex justify-between"><span>{t("sim.music.costs.setupCost")}</span><span>${setupCost.toLocaleString()}</span></div>
@@ -248,12 +248,12 @@ export function MusicTrainingSimulation({ simulationId }: Props) {
               <div><p className="text-xs text-muted-foreground">{t("sim.music.stats.costs")}</p><p className="font-bold">${costs}</p></div>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.music.sessionFeeLabel").replace("{fee}", String(sessionFee))}</label>
-              <Slider value={[sessionFee]} onValueChange={([v]) => setSessionFee(v)} min={30} max={300} step={10} />
+              <label id="music-training-slider-2" className="text-xs text-muted-foreground mb-1 block">{t("sim.music.sessionFeeLabel").replace("{fee}", String(sessionFee))}</label>
+              <Slider aria-labelledby="music-training-slider-2" value={[sessionFee]} onValueChange={([v]) => setSessionFee(v)} min={30} max={300} step={10} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.music.practiceHoursLabel").replace("{hours}", String(practiceHours))}</label>
-              <Slider value={[practiceHours]} onValueChange={([v]) => setPracticeHours(v)} min={1} max={6} step={1} />
+              <label id="music-training-slider-3" className="text-xs text-muted-foreground mb-1 block">{t("sim.music.practiceHoursLabel").replace("{hours}", String(practiceHours))}</label>
+              <Slider aria-labelledby="music-training-slider-3" value={[practiceHours]} onValueChange={([v]) => setPracticeHours(v)} min={1} max={6} step={1} />
             </div>
             <Button onClick={simulateWeek} className="w-full" aria-label={t("sim.music.btn.simulateWeek").replace("{week}", String(week))}>
               {t("sim.music.btn.simulateWeek").replace("{week}", String(week))}
