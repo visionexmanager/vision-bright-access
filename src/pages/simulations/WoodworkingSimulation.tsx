@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -70,6 +71,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
   const [score, setScore] = useState(0);
   const [results, setResults] = useState<{ project: string; quality: number; profit: number }[]>([]);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -111,6 +113,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
     let step = 0;
     const total = 28;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setCraftProgress(Math.round((step / total) * 100));
       setCraftStage(stages[Math.min(Math.floor((step / total) * stages.length), stages.length - 1)]);

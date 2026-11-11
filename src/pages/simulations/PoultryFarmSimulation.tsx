@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -66,6 +67,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
   const [weeklyLog, setWeeklyLog] = useState<{ week: number; alive: number; weight: number; cost: number }[]>([]);
   const [started, setStarted] = useState(false);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -98,6 +100,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
     let step = 0;
     const total = 15;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setSimProgress(Math.round((step / total) * 100));
       if (step >= total) {

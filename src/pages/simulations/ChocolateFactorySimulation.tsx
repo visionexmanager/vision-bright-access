@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, Thermometer, Flame, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -62,6 +63,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
   const productionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => () => { if (productionIntervalRef.current) clearInterval(productionIntervalRef.current); }, []);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -113,6 +115,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
     const totalSteps = 30;
 
     productionIntervalRef.current = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setProdProgress(Math.round((step / totalSteps) * 100));
       setProdStage(stages[Math.min(Math.floor((step / totalSteps) * stages.length), stages.length - 1)]);

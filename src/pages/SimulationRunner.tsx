@@ -11,6 +11,8 @@ import { TRIAL_WAIVES_PAYMENT } from "@/lib/billing/plans";
 import { useAchievements } from "@/hooks/useAchievements";
 import { useAmbientSound, getSimulationAmbient } from "@/hooks/useAmbientSound";
 import { useSimulationBilling } from "@/hooks/useSimulationBilling";
+import { SimulationPauseProvider } from "@/contexts/SimulationPauseContext";
+import { SimulationPauseControl } from "@/components/SimulationPauseControl";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { SimulationMentor } from "@/components/SimulationMentor";
@@ -353,6 +355,7 @@ export default function SimulationRunner() {
           </div>
         )}
 
+        <SimulationPauseProvider>
         <section ref={stageRef} tabIndex={-1} aria-label={simulation.title} className="section-container py-6 focus:outline-none">
           {/* Simulation status bar */}
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -383,6 +386,7 @@ export default function SimulationRunner() {
                 <Clock className="h-3 w-3" />
                 {billing.remainingMinutes}m left
               </Badge>
+              {billing.status === "ready" && <SimulationPauseControl />}
             </div>
           </div>
 
@@ -427,6 +431,7 @@ export default function SimulationRunner() {
             </Suspense>
           )}
         </section>
+        </SimulationPauseProvider>
       </Layout>
     );
   }

@@ -20,6 +20,7 @@ import {
   Wifi, AlertTriangle, CheckCircle2, Activity, Server, Shield, Gauge,
   RotateCcw, Trophy, Terminal, DollarSign, Users, Zap, ArrowLeft } from "lucide-react";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 import { SimulationScene } from "@/components/SimulationScene";
 
 type Stage = "setup" | "monitoring" | "incident" | "results";
@@ -77,12 +78,14 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
 
   const detectionSpeed = monitoringLevel === "basic" ? 0.6 : monitoringLevel === "advanced" ? 0.85 : 0.98;
 
-  // Timer countdown for incident response
+  // Timer countdown for incident response. Paused from the runner's Pause button:
+  // this one is driven by state, so it re-arms itself when the person resumes.
+  const { paused } = useSimulationPause();
   useEffect(() => {
-    if (!timerActive || incidentTimer <= 0) return;
+    if (!timerActive || incidentTimer <= 0 || paused) return;
     const timer = setTimeout(() => setIncidentTimer(v => v - 1), 1000);
     return () => clearTimeout(timer);
-  }, [timerActive, incidentTimer]);
+  }, [timerActive, incidentTimer, paused]);
 
   // Auto-resolve if timer hits 0 (with penalty)
   useEffect(() => {

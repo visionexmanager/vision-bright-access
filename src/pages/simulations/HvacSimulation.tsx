@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, Thermometer, Wind, Snowflake, Flame, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -61,6 +62,7 @@ export function HvacSimulation({ simulationId }: Props) {
   const [hourlyLog, setHourlyLog] = useState<{ hour: number; temp: number; comfort: number; energy: number }[]>([]);
   const [installed, setInstalled] = useState(false);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -93,6 +95,7 @@ export function HvacSimulation({ simulationId }: Props) {
     let step = 0;
     const total = 12;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setRunProgress(Math.round((step / total) * 100));
       if (step >= total) {

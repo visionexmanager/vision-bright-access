@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { SimulationScene } from "@/components/SimulationScene";
 import { cn } from "@/lib/utils";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props {
   simulationId?: string;
@@ -581,9 +582,11 @@ export function MarineVesselSimulation({ simulationId }: Props) {
   }, [savedProgress]);
 
   // Simulate vessel movement every 12 seconds (1 tick ≈ 10 nautical minutes)
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (phase !== "active") return;
     const id = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       setPositionTick(t => t + 1);
       setVessels(prev => prev.map(v => {
         if (v.status !== "Underway") return v;
@@ -595,7 +598,7 @@ export function MarineVesselSimulation({ simulationId }: Props) {
       }));
     }, 12000);
     return () => clearInterval(id);
-  }, [phase]);
+  }, [phase, pausedRef]);
 
   // Auto-scroll AI chat
   useEffect(() => {
