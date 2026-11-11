@@ -20,12 +20,12 @@ describe("the WhatsApp menu", () => {
   });
 
   it("puts learning with learning, and nothing else", () => {
-    expect(ids("explore")).toEqual(["academy", "kids"]);
+    expect(ids("explore")).toEqual(["academy", "kids", "explore.career", "explore.simulations", "explore.finance", "explore.professional"]);
     expect(catalog.nodeById("explore")?.title.en).toBe("Learning");
   });
 
   it("gives the news and sports their own group", () => {
-    expect(ids("headlines")).toEqual(["news", "sports"]);
+    expect(ids("headlines")).toEqual(["news", "sports", "headlines.community"]);
     expect(catalog.nodeById("news")?.parent).not.toBe(catalog.nodeById("academy")?.parent);
   });
 
@@ -49,7 +49,7 @@ describe("the WhatsApp menu", () => {
   });
 
   it("puts Visionex's services with the shop", () => {
-    expect(ids("bazaar")).toEqual(["services.bazaar", "services.sell", "services.orders", "explore.services", "services.books", "services.shop", "services.travel"]);
+    expect(ids("bazaar")).toEqual(["services.bazaar", "services.sell", "services.orders", "explore.services", "services.books", "services.shop", "services.travel", "bazaar.assistive"]);
   });
 
   it("fits every group inside a WhatsApp list", () => {
