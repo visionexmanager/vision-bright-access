@@ -24,8 +24,22 @@ import { localOcrLanguage, MAX_OCR_ANSWER_CHARS, ocrTextIsUsable, readTextLocall
 import { productCodes, qrCodeNotice, scanBarcodes, textPayloads } from "./whatsappBarcode.ts";
 import { corruptOfficeNotice, emptyOfficeNotice, officeKind, readOfficeLocally } from "./whatsappOffice.ts";
 import { mediaFailureNotice, type MediaResult } from "./whatsappMedia.ts";
+import { describeLocally } from "./whatsappLocalDescribe.ts";
+import { freeDescribeSay } from "./whatsappFreeDescribeStrings.ts";
 
 export type TrialFeature = "read_text" | "barcode" | "office";
+
+// A photo whose caption asks for its writing stays on the local OCR; any other
+// photo, when the server's describer is on, is described instead.
+const READ_TEXT_WORDS = [
+  "read", "text", "ocr", "says", "written", "اقرأ", "إقرأ", "قراءة", "نص", "مكتوب", "يقول", "ماذا كتب",
+];
+
+/** True when the caption asks for the photo's writing rather than a description. */
+export function asksToReadText(caption: string | undefined): boolean {
+  const c = (caption ?? "").toLowerCase();
+  return READ_TEXT_WORDS.some((w) => c.includes(w));
+}
 
 const BARCODE_WORDS = ["barcode", "bar code", "qr", "باركود", "بار كود", "كيو ار", "رمز qr", "الرمز"];
 const MAX_OFFICE_ANSWER_CHARS = 3_000;
@@ -51,6 +65,9 @@ export interface TrialLaneDeps {
   ocr?: typeof readTextLocally;
   scan?: typeof scanBarcodes;
   office?: typeof readOfficeLocally;
+  describe?: typeof describeLocally;
+  /** Sends a message now, before the lane's own reply (the "this takes a minute" notice). */
+  notify?(text: string): Promise<void>;
 }
 
 export interface TrialLaneTurn {
@@ -80,13 +97,38 @@ const fill = (text: string, vars: Record<string, string | number>) =>
 
 export async function runTrialLane(
   deps: TrialLaneDeps,
-  input: { waPhone: string; media: TrialMedia | null | undefined; language: string },
+  input: { waPhone: string; media: TrialMedia | null | undefined; language: string; describeEnabled?: boolean },
 ): Promise<TrialLaneTurn> {
   const { waPhone, language } = input;
   const feature = pickTrialFeature(input.media);
   if (!feature || !input.media) return PASS;
 
   const done = (reply: string, outcome: string): TrialLaneTurn => ({ handled: true, reply, outcome });
+
+  // A plain photo, when the server's describer is on: described for any number
+  // the gate refused, ten a day, counted by number rather than by account.
+  if (input.describeEnabled && input.media.kind === "image" && feature === "read_text" && !asksToReadText(input.media.caption)) {
+    const taken = await deps.rpc("free_local_describe_take", { _wa_phone: waPhone });
+    if (taken.error) throw taken.error;
+    const q = quotaOf(taken.data);
+    if (q.status === "exhausted") {
+      return done(freeDescribeSay("exhausted", language, { limit: q.limit, url: PRICING_URL }), "describe_exhausted");
+    }
+    if (q.status !== "ok") return PASS;
+    const giveBack = async (reply: string, outcome: string) => {
+      await deps.rpc("free_local_describe_release", { _wa_phone: waPhone });
+      return done(reply, outcome);
+    };
+    const file = await deps.download();
+    if (file.ok === false) return giveBack(mediaFailureNotice(language as never, input.media.kind, file.reason), "download_failed");
+    // Said before the slow part, so the sender is not left wondering.
+    if (deps.notify) await deps.notify(freeDescribeSay("wait", language, { url: PRICING_URL }));
+    const seen = await (deps.describe ?? describeLocally)({ bytes: file.bytes, mimeType: file.mimeType, answerLanguage: language });
+    if (seen.ok === false) {
+      return giveBack(trialLaneSay(seen.reason === "unreadable" ? "nothing" : "unavailable", language), `describe_${seen.reason}`);
+    }
+    return done(`${seen.text}\n\n${freeDescribeSay("note", language, { left: q.remaining, limit: q.limit })}`, "describe");
+  }
   const what = (key: (typeof WHAT)[TrialFeature]) => trialLaneSay(key, language);
 
   // A language the local reader cannot do is said before a unit is spent.

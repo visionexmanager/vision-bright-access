@@ -20,10 +20,15 @@ describe("describe mode leads with the stronger vision model", () => {
     expect(chain("VISION_TARGETS")).toEqual(["gpt-4o-mini", "gemini-flash-latest", "gemini-flash-lite-latest"]);
   });
 
-  it("uses the stronger chain only for describe, never for report explanation or other modes", () => {
+  it("picks the chain per photo only for describe, never for report explanation or other modes", () => {
     expect(webhook).toContain(
-      'targets: (!mode || mode === "describe") && !explainReportImage ? DESCRIBE_TARGETS : undefined',
+      'targets: (!mode || mode === "describe") && !explainReportImage ? describeTargetsFor(incoming.media.caption) : undefined',
     );
+  });
+
+  it("uses the cheap chain by default and the stronger one when detail is asked for", () => {
+    expect(understand).toMatch(/return DETAIL_WORDS\.test\(caption \?\? ""\) \? DESCRIBE_TARGETS : VISION_TARGETS;/);
+    for (const word of ["detail", "بالتفصيل", "تفصيل", "everything"]) expect(understand).toContain(word);
   });
 
   it("states the cost next to the choice", () => {

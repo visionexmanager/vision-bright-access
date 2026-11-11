@@ -85,7 +85,7 @@ import { recordSttAttempts } from "../_shared/providerRecording.ts";
 import {
   understandDocument,
   understandImage,
-  DESCRIBE_TARGETS,
+  describeTargetsFor,
   understandVideo,
   VIDEO_READING_AVAILABLE,
 } from "../_shared/whatsappUnderstand.ts";
@@ -528,7 +528,8 @@ import {
   type VisionMode,
 } from "../_shared/whatsappVisionModes.ts";
 import { readTextLocally } from "../_shared/whatsappLocalOcr.ts";
-import { describeLocally } from "../_shared/whatsappLocalDescribe.ts";
+import { describeLocally, localDescribeEnabled } from "../_shared/whatsappLocalDescribe.ts";
+import { imageHash, isCacheableDescription, readCachedDescription, storeDescription } from "../_shared/whatsappImageCache.ts";
 import {
   barcodeGroundTruth,
   productCodes,
@@ -2613,8 +2614,19 @@ Deno.serve(async (req) => {
                 {
                   rpc: (fn, args) => db.rpc(fn, args),
                   download: () => downloadMedia({ mediaId: media.id, kind: media.kind, token, trace: correlationId }),
+                  // "This is the free, slower service", sent before the model runs.
+                  notify: async (body) => {
+                    await db.from("whatsapp_messages").insert({
+                      conversation_id: conversationId,
+                      direction: "outbound",
+                      body,
+                      kind: "reply",
+                      medium: replyMedium({ spokenInput: false, body }),
+                    });
+                    await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body });
+                  },
                 },
-                { waPhone: incoming.from, media, language: gateLanguage },
+                { waPhone: incoming.from, media, language: gateLanguage, describeEnabled: localDescribeEnabled() },
               );
               if (lane.handled && lane.reply) {
                 log("trial_lane", { outcome: lane.outcome ?? "handled" });
@@ -3961,7 +3973,22 @@ Deno.serve(async (req) => {
           const explainReportImage = !humanOwnsThis && !assistantOwnsInput(session.feature) &&
             featureOn("health.report") && asksToExplainReport(incoming.media.caption ?? "");
 
-          const seen = await understandImage({
+          // A plain "describe this" for a picture that was described before is
+          // answered from the cache: no provider, no wait. Anything the sender
+          // asked or armed is a different question and never comes from here.
+          const cacheDb = { rpc: (fn: string, args: Record<string, unknown>) => db.rpc(fn, args) };
+          const cacheKey = isCacheableDescription({
+            caption: incoming.media.caption,
+            mode,
+            explainReport: explainReportImage,
+            hasBarcodeContext: !!barcodeTruth,
+          })
+            ? await imageHash(inspected.bytes)
+            : null;
+          const cachedAnswer = cacheKey ? await readCachedDescription(cacheDb, cacheKey, answerLanguage) : null;
+          if (cachedAnswer) log("image_cache", { outcome: "hit" });
+
+          const seen = cachedAnswer ? { readable: true, answer: cachedAnswer } : await understandImage({
             // The stripped copy. This is the line that makes the whole check
             // load-bearing rather than decorative.
             bytes: inspected.bytes,
@@ -3972,8 +3999,12 @@ Deno.serve(async (req) => {
             languageName: LANGUAGE_ENDONYM[answerLanguage],
             systemPrompt: barcodeTruth ? `${basePrompt ?? ""} ${barcodeTruth}`.trim() : basePrompt,
             // The stronger model only where the description is the answer.
-            targets: (!mode || mode === "describe") && !explainReportImage ? DESCRIBE_TARGETS : undefined,
+            targets: (!mode || mode === "describe") && !explainReportImage ? describeTargetsFor(incoming.media.caption) : undefined,
           });
+
+          if (cacheKey && !cachedAnswer && seen?.readable && seen.answer) {
+            await storeDescription(cacheDb, cacheKey, answerLanguage, seen.answer);
+          }
 
           // ── The small model on the server, only when every paid one failed ──
           //
