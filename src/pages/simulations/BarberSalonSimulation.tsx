@@ -297,10 +297,10 @@ export function BarberSalonSimulation({ simulationId }: Props) {
 
             {/* Staff */}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
+              <label id="barber-salon-slider-1" className="text-xs text-muted-foreground mb-1 block">
                 {t("sim.barber.label.staffCost").replace("{count}", String(staffCount)).replace("{total}", String(staffCount * 80))}
               </label>
-              <Slider
+              <Slider aria-labelledby="barber-salon-slider-1"
                 value={[staffCount]}
                 onValueChange={([v]) => setStaffCount(v)}
                 min={1} max={4} step={1}
@@ -313,8 +313,9 @@ export function BarberSalonSimulation({ simulationId }: Props) {
               {SERVICE_OPTIONS.map((svc) => (
                 <div key={svc.id} className="flex items-center gap-2">
                   <span className="text-lg w-8">{svc.emoji}</span>
-                  <span className="text-xs w-20 truncate">{svc.id}</span>
+                  <span id={`barber-price-${svc.id}`} className="text-xs w-20 truncate">{svc.id}</span>
                   <Slider
+                    aria-labelledby={`barber-price-${svc.id}`}
                     value={[prices[svc.id]]}
                     onValueChange={([v]) => setPrices((p) => ({ ...p, [svc.id]: v }))}
                     min={Math.round(svc.basePrice * 0.5)}

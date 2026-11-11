@@ -426,8 +426,8 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">💰 {t("sim.noc.label.budget")}</span><Badge variant="outline">${budget}</Badge></div>
-        <Slider value={[budget]} onValueChange={([v]) => setBudget(v)} min={2000} max={10000} step={500} />
+        <div className="flex justify-between"><span id="network-noc-slider-1" className="font-medium">💰 {t("sim.noc.label.budget")}</span><Badge variant="outline">${budget}</Badge></div>
+        <Slider aria-labelledby="network-noc-slider-1" value={[budget]} onValueChange={([v]) => setBudget(v)} min={2000} max={10000} step={500} />
       </CardContent></Card>
 
       <Card className={`border-primary/30 ${totalCost <= budget ? "bg-green-500/5" : "bg-destructive/5"}`}>
