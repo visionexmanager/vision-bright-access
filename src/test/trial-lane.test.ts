@@ -166,3 +166,87 @@ describe("where the webhook uses it", () => {
     expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION %s TO service_role/);
   });
 });
+
+describe("free local photo description", () => {
+  const take = (status: string, remaining = 9) => ({ status, limit: 10, used: 10 - remaining, remaining });
+  const withRpc = (data: unknown, over: Partial<TrialLaneDeps> = {}) => {
+    const calls: string[] = [];
+    const deps: TrialLaneDeps = {
+      rpc: async (fn) => {
+        calls.push(fn);
+        return { data: fn === "free_local_describe_take" ? data : { status: "ok" }, error: null };
+      },
+      download: vi.fn(async () => okMedia),
+      ...over,
+    };
+    return { deps, calls };
+  };
+  const go = (deps: TrialLaneDeps, caption?: string, describeEnabled = true) =>
+    runTrialLane(deps, { waPhone: "96170000001", media: { kind: "image", caption }, language: "en", describeEnabled });
+
+  it("warns that it is slower, describes, and states what is left today", async () => {
+    const { deps } = withRpc(take("ok", 7));
+    const notify = vi.fn(async () => {});
+    const describe = vi.fn(async () => ({ ok: true as const, text: "A red car on a street.", ms: 40_000 }));
+    const out = await go({ ...deps, notify, describe });
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify.mock.calls[0]?.[0]).toContain("much faster");
+    expect(out.reply).toContain("A red car on a street.");
+    expect(out.reply).toContain("7 of 10 descriptions left");
+  });
+
+  it("refuses the eleventh, without downloading or describing", async () => {
+    const { deps } = withRpc({ status: "exhausted", limit: 10, remaining: 0 });
+    const describe = vi.fn();
+    const out = await go({ ...deps, describe: describe as never });
+    expect(out.outcome).toBe("describe_exhausted");
+    expect(out.reply).toContain("all 10 free photo descriptions");
+    expect(deps.download).not.toHaveBeenCalled();
+    expect(describe).not.toHaveBeenCalled();
+  });
+
+  it("hands the unit back when the server could not describe it", async () => {
+    const { deps, calls } = withRpc(take("ok"));
+    const describe = vi.fn(async () => ({ ok: false as const, reason: "busy" as const }));
+    const out = await go({ ...deps, describe });
+    expect(out.reply).toContain("wasn't counted");
+    expect(calls).toEqual(["free_local_describe_take", "free_local_describe_release"]);
+  });
+
+  it("leaves a photo that asks for its text on the OCR, and does nothing when the describer is off", async () => {
+    const a = withRpc(take("ok"));
+    const ocr = vi.fn(async () => ({ ok: true as const, text: "STOP sign text here", ms: 1 }));
+    // OCR path asks the trial allowance, not the describe one.
+    const out = await runTrialLane(
+      { ...a.deps, ocr, rpc: async (fn) => ({ data: fn === "trial_local_take" ? { status: "ok", limit: 10, remaining: 5 } : {}, error: null }) },
+      { waPhone: "1", media: { kind: "image", caption: "read the text" }, language: "en", describeEnabled: true },
+    );
+    expect(out.outcome).toBe("read_text");
+    const calls: string[] = [];
+    const off = {
+      calls,
+      deps: { rpc: async (fn: string) => { calls.push(fn); return { data: { status: "not_trial" }, error: null }; }, download: vi.fn(async () => okMedia) } as TrialLaneDeps,
+    };
+    expect((await go(off.deps, undefined, false)).handled).toBe(false);
+    expect(off.calls).toEqual(["trial_local_take"]);
+  });
+
+  it("has all three messages in every language with the placeholders intact", async () => {
+    const { FREE_DESCRIBE_STRINGS } = await import("../../supabase/functions/_shared/whatsappFreeDescribeStrings.ts");
+    for (const lang of SUPPORTED_LANGUAGES) {
+      const p = FREE_DESCRIBE_STRINGS[lang];
+      expect(p.wait, lang).toContain("{url}");
+      expect(p.note, lang).toContain("{left}");
+      expect(p.note, lang).toContain("{limit}");
+      expect(p.exhausted, lang).toContain("{limit}");
+      expect(p.exhausted, lang).toContain("{url}");
+    }
+  });
+
+  it("ships the migration with the grant back to service_role", () => {
+    const sql = readFileSync("supabase/migrations/20261111000000_free_local_describe_allowance.sql", "utf8");
+    expect(sql).toContain("GRANT EXECUTE ON FUNCTION %s TO service_role");
+    expect(sql).toContain("FROM PUBLIC, anon, authenticated");
+    expect(sql).not.toMatch(/CREATE POLICY/i);
+  });
+});
