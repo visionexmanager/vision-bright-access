@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, Wrench, AlertCircle, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -67,6 +68,7 @@ export function LaptopRepairSimulation({ simulationId }: Props) {
   const [started, setStarted] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -102,6 +104,7 @@ export function LaptopRepairSimulation({ simulationId }: Props) {
     let step = 0;
     const total = 12;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setResolveProgress(Math.round((step / total) * 100));
       if (step >= total) {

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, Smartphone, Cpu, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -83,6 +84,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
   const [score, setScore] = useState(0);
   const [history, setHistory] = useState<{ device: string; issue: string; profit: number; quality: number }[]>([]);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -123,6 +125,7 @@ export function MobileRepairSimulation({ simulationId }: Props) {
     let step = 0;
     const total = 20;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setRepairProgress(Math.round((step / total) * 100));
       setRepairStage(stages[Math.min(Math.floor((step / total) * stages.length), stages.length - 1)]);

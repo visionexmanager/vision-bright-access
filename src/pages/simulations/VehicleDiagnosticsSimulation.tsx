@@ -40,6 +40,7 @@ import {
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
 import { cn } from "@/lib/utils";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props {
   simulationId?: string;
@@ -689,6 +690,7 @@ export function VehicleDiagnosticsSimulation({ simulationId }: Props) {
   >([]);
 
   // ── Restore saved progress ─────────────────────────────────────────────────
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -836,6 +838,7 @@ export function VehicleDiagnosticsSimulation({ simulationId }: Props) {
     let step = 0;
     const total = 28;
     const iv = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setScanProgress(Math.round((step / total) * 100));
       const stageIdx = Math.min(Math.floor((step / total) * stages.length), stages.length - 1);
@@ -849,7 +852,7 @@ export function VehicleDiagnosticsSimulation({ simulationId }: Props) {
         toast.success("📟 Scan Complete — DTCs retrieved from vehicle ECU");
       }
     }, 120);
-  }, [scanning, detectedFault, system, playSound, announce, activeDTCs.length]);
+  }, [scanning, detectedFault, system, playSound, announce, activeDTCs.length, pausedRef]);
 
   const proceedToGarage = () => {
     setActiveTab("garage");
@@ -889,6 +892,7 @@ export function VehicleDiagnosticsSimulation({ simulationId }: Props) {
     let step = 0;
     const total = 16;
     const iv = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setRepairProgress(Math.round((step / total) * 100));
       if (step >= total) {
@@ -904,7 +908,7 @@ export function VehicleDiagnosticsSimulation({ simulationId }: Props) {
         }
       }
     }, 100);
-  }, [repairRunning, detectedFault, repairPhase, repairPhaseIdx, selectedTools, playSound, announceUrgent]);
+  }, [repairRunning, detectedFault, repairPhase, repairPhaseIdx, selectedTools, playSound, announceUrgent, pausedRef]);
 
   // ── Repair Garage: clear codes & finalize ─────────────────────────────────
   const clearAndFinalize = useCallback(async () => {

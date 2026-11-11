@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, Package, Ship, Plane, Truck, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -99,6 +100,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
   const [score, setScore] = useState(0);
   const [history, setHistory] = useState<{ cargo: string; dest: string; profit: number; status: string }[]>([]);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -141,6 +143,7 @@ export function LogisticsSimulation({ simulationId }: Props) {
     let step = 0;
     const total = 25;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setShipProgress(Math.round((step / total) * 100));
       setShipStage(stages[Math.min(Math.floor((step / total) * stages.length), stages.length - 1)]);

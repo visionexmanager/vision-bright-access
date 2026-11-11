@@ -18,6 +18,7 @@ import { Scissors, RotateCcw, Trophy, Users, DollarSign, Star, Clock, ArrowLeft 
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
 import { ImageAnalyst } from "@/components/ImageAnalyst";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -138,10 +139,12 @@ export function BarberSalonSimulation({ simulationId }: Props) {
   playSoundRef.current = playSound;
 
   // Progress serving
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!serving) return;
     const svc = SERVICE_OPTIONS.find((s) => s.id === serving.service)!;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       setServing((prev) => {
         if (!prev) return null;
         const newProgress = prev.progress + 5;
@@ -169,6 +172,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
   useEffect(() => {
     if (!dayActive || queue.length === 0) return;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       setQueue((prev) => {
         const updated = prev.map((c) => ({ ...c, patience: c.patience - 5 }));
         const leaving = updated.filter((c) => c.patience <= 0);
@@ -181,7 +185,7 @@ export function BarberSalonSimulation({ simulationId }: Props) {
       });
     }, 2000);
     return () => clearInterval(interval);
-  }, [dayActive, queue.length]);
+  }, [dayActive, queue.length, pausedRef]);
 
   // End day
   const endDay = () => {

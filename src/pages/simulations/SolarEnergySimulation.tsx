@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, Sun, Zap, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -71,6 +72,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
   const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => () => { if (simIntervalRef.current) clearInterval(simIntervalRef.current); }, []);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -106,6 +108,7 @@ export function SolarEnergySimulation({ simulationId }: Props) {
     let step = 0;
     const total = 15;
     simIntervalRef.current = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setSimProgress(Math.round((step / total) * 100));
       if (step >= total) {

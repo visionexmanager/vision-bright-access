@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -94,6 +95,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
   const fabricationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => () => { if (fabricationIntervalRef.current) clearInterval(fabricationIntervalRef.current); }, []);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -143,6 +145,7 @@ export function AluminumGlazingSimulation({ simulationId }: { simulationId?: str
     let step = 0;
     const total = 25;
     fabricationIntervalRef.current = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setFabProgress(Math.round((step / total) * 100));
       setFabStage(stages[Math.min(Math.floor((step / total) * stages.length), stages.length - 1)]);
