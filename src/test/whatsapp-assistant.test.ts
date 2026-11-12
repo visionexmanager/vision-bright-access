@@ -1291,11 +1291,12 @@ describe("voice replies", () => {
     expect(voice.speakableText("Visit https://visionex.app/contact")).toBe("Visit");
   });
 
-  it("speaks a long answer in parts instead of silently skipping it", () => {
-    // A note holds 900 characters, so the old "one note or nothing" rule left
-    // every thorough answer unspoken.
+  it("speaks a long answer as one note instead of silently skipping it", () => {
+    // A note holds 900 characters; the owner asked for one voice, not three, to
+    // cut the synthesis bill. A long answer is cut to that one note, not dropped.
+    expect(voice.MAX_SPOKEN_PARTS).toBe(1);
     expect(medium({ spokenInput: true, body: "x".repeat(voice.MAX_SPOKEN_CHARS + 1) })).toBe("voice");
-    expect(voice.speechSegments("x".repeat(voice.MAX_SPOKEN_CHARS + 1)).length).toBeGreaterThan(1);
+    expect(voice.speechSegments("x".repeat(voice.MAX_SPOKEN_CHARS + 1)).length).toBe(1);
     // And nothing with nothing to say travels as audio.
     expect(medium({ spokenInput: true, body: "   " })).toBe("text");
     expect(medium({ spokenInput: true, body: "https://visionex.app/x" })).toBe("text");
@@ -1309,17 +1310,23 @@ describe("voice replies", () => {
       (_, index) => `الجملة رقم ${index} عن خدمات فيجن اكس وكيفية استخدامها.`,
     ).join(" ");
     const segments = voice.speechSegments(long);
-    expect(segments.length).toBeGreaterThan(1);
+    expect(segments.length).toBe(1);
     expect(segments.length).toBeLessThanOrEqual(voice.MAX_SPOKEN_PARTS);
     for (const segment of segments) {
       expect(segment.length).toBeLessThanOrEqual(voice.MAX_SPOKEN_CHARS);
       expect(segment.trim()).toBe(segment);
+      // Cut where a sentence ends, never mid-sentence.
+      expect(segment.endsWith(".")).toBe(true);
     }
-    // Order is the whole point: part two must not open the sequence.
+    // The note opens the answer, it does not start part-way through.
     expect(long.indexOf(segments[0])).toBe(0);
-    expect(long.indexOf(segments[0])).toBeLessThan(long.indexOf(segments[1]));
-    // Nothing is dropped between one part and the next.
-    expect(long.indexOf(segments[1])).toBeLessThanOrEqual(segments[0].length + 1);
+  });
+
+  it("asks the model for an answer that fits one spoken note", () => {
+    expect(voice.SPOKEN_ANSWER_DIRECTIVE).toMatch(/ONE short voice note/);
+    expect(voice.SPOKEN_ANSWER_DIRECTIVE).toMatch(/under 700 characters/);
+    const webhook = readFileSync("supabase/functions/whatsapp-webhook/index.ts", "utf8");
+    expect(webhook).toContain("spokenInput ? SPOKEN_ANSWER_DIRECTIVE : null");
   });
 
   it("breaks a single unbroken sentence rather than refusing to speak it", () => {
