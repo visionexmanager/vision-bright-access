@@ -25323,6 +25323,27 @@ export type Database = {
         }
         Relationships: []
       }
+      trial_local_usage: {
+        Row: {
+          feature: string
+          updated_at: string
+          used: number
+          user_id: string
+        }
+        Insert: {
+          feature: string
+          updated_at?: string
+          used?: number
+          user_id: string
+        }
+        Update: {
+          feature?: string
+          updated_at?: string
+          used?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       trial_status: {
         Row: {
           created_at: string
@@ -30742,6 +30763,15 @@ export type Database = {
           trial_expires_at: string
           user_id: string
         }[]
+      }
+      trial_local_limit: { Args: { _feature: string }; Returns: number }
+      trial_local_release: {
+        Args: { _feature: string; _wa_phone: string }
+        Returns: Json
+      }
+      trial_local_take: {
+        Args: { _feature: string; _wa_phone: string }
+        Returns: Json
       }
       trial_period_days: { Args: never; Returns: number }
       trial_sections: { Args: never; Returns: string[] }
