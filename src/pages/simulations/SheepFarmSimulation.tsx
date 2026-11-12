@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -60,6 +61,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
   const [log, setLog] = useState<{ month: number; alive: number; wool: number; revenue: number }[]>([]);
   const [started, setStarted] = useState(false);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -93,6 +95,7 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
     let step = 0;
     const total = 15;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setSimProgress(Math.round((step / total) * 100));
       if (step >= total) {
@@ -192,8 +195,8 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.sheepFarm.flock").replace("{count}", String(flockSize))}</label>
-              <Slider value={[flockSize]} onValueChange={([v]) => setFlockSize(v)} min={10} max={100} step={5} />
+              <label id="sheep-farm-slider-1" className="text-xs text-muted-foreground mb-1 block">{t("sim.sheepFarm.flock").replace("{count}", String(flockSize))}</label>
+              <Slider aria-labelledby="sheep-farm-slider-1" value={[flockSize]} onValueChange={([v]) => setFlockSize(v)} min={10} max={100} step={5} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">{t("sim.sheepFarm.grazing")}</label>
@@ -223,16 +226,16 @@ export function SheepFarmSimulation({ simulationId }: { simulationId?: string })
               <div><p className="text-xs text-muted-foreground">Health</p><p className="font-bold">{health}%</p></div>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.sheepFarm.waterAccess").replace("{level}", String(waterAccess))}</label>
-              <Slider value={[waterAccess]} onValueChange={([v]) => setWaterAccess(v)} min={1} max={5} step={1} />
+              <label id="sheep-farm-slider-2" className="text-xs text-muted-foreground mb-1 block">{t("sim.sheepFarm.waterAccess").replace("{level}", String(waterAccess))}</label>
+              <Slider aria-labelledby="sheep-farm-slider-2" value={[waterAccess]} onValueChange={([v]) => setWaterAccess(v)} min={1} max={5} step={1} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.sheepFarm.shearingFreq").replace("{freq}", String(shearingFreq))}</label>
-              <Slider value={[shearingFreq]} onValueChange={([v]) => setShearingFreq(v)} min={1} max={4} step={1} />
+              <label id="sheep-farm-slider-3" className="text-xs text-muted-foreground mb-1 block">{t("sim.sheepFarm.shearingFreq").replace("{freq}", String(shearingFreq))}</label>
+              <Slider aria-labelledby="sheep-farm-slider-3" value={[shearingFreq]} onValueChange={([v]) => setShearingFreq(v)} min={1} max={4} step={1} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.sheepFarm.vaccineBudget").replace("{budget}", String(vaccineBudget))}</label>
-              <Slider value={[vaccineBudget]} onValueChange={([v]) => setVaccineBudget(v)} min={0} max={100} step={10} />
+              <label id="sheep-farm-slider-4" className="text-xs text-muted-foreground mb-1 block">{t("sim.sheepFarm.vaccineBudget").replace("{budget}", String(vaccineBudget))}</label>
+              <Slider aria-labelledby="sheep-farm-slider-4" value={[vaccineBudget]} onValueChange={([v]) => setVaccineBudget(v)} min={0} max={100} step={10} />
             </div>
             <Button onClick={simulateMonth} className="w-full" aria-label={t("sim.sheepFarm.btn.simulateMonth").replace("{month}", String(month))}>{t("sim.sheepFarm.btn.simulateMonth").replace("{month}", String(month))}</Button>
           </CardContent>

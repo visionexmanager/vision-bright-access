@@ -76,6 +76,21 @@ export const DESCRIBE_TARGETS: ProviderTarget[] = [
   ...VISION_TARGETS,
 ];
 
+const DETAIL_WORDS =
+  /\b(detail|detailed|in depth|thorough|thoroughly|everything|exactly)\b|بالتفصيل|تفصيل|مفصل|مفصّل|بدقة|دقيق|كل شي|كل شيء/i;
+
+/**
+ * Which chain describes this photograph.
+ *
+ * The cheap model first (about a third of the price) for an ordinary photo, and
+ * the stronger one when the sender asked for detail in the caption — the
+ * description is the product for someone who cannot see, so a request for more
+ * is honoured rather than priced. A video's frame sheet keeps DESCRIBE_TARGETS.
+ */
+export function describeTargetsFor(caption: string | null | undefined): ProviderTarget[] {
+  return DETAIL_WORDS.test(caption ?? "") ? DESCRIBE_TARGETS : VISION_TARGETS;
+}
+
 /**
  * Readers for a document that arrives as text — a PDF's text layer, DOC/DOCX,
  * TXT. No image is sent, so the chain need not be vision-capable, and it no

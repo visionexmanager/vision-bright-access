@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, Wrench, AlertCircle, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -67,6 +68,7 @@ export function LaptopRepairSimulation({ simulationId }: Props) {
   const [started, setStarted] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -102,6 +104,7 @@ export function LaptopRepairSimulation({ simulationId }: Props) {
     let step = 0;
     const total = 12;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setResolveProgress(Math.round((step / total) * 100));
       if (step >= total) {
@@ -206,13 +209,13 @@ export function LaptopRepairSimulation({ simulationId }: Props) {
           <CardContent className="p-4 space-y-4">
             <h3 className="font-bold text-sm">🏪 Workshop Setup</h3>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Tool Investment: ${tools.toLocaleString()}</label>
-              <Slider value={[tools]} onValueChange={([v]) => setTools(v)} min={1000} max={20000} step={500} />
+              <label id="laptop-repair-slider-1" className="text-xs text-muted-foreground mb-1 block">Tool Investment: ${tools.toLocaleString()}</label>
+              <Slider aria-labelledby="laptop-repair-slider-1" value={[tools]} onValueChange={([v]) => setTools(v)} min={1000} max={20000} step={500} />
               <p className="text-xs text-muted-foreground mt-1">Higher investment → access to more advanced repair tools</p>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Warranty Offered: {warranty} months</label>
-              <Slider value={[warranty]} onValueChange={([v]) => setWarranty(v)} min={1} max={24} step={1} />
+              <label id="laptop-repair-slider-2" className="text-xs text-muted-foreground mb-1 block">Warranty Offered: {warranty} months</label>
+              <Slider aria-labelledby="laptop-repair-slider-2" value={[warranty]} onValueChange={([v]) => setWarranty(v)} min={1} max={24} step={1} />
               <p className="text-xs text-muted-foreground mt-1">Longer warranty → bonus points per correct fix</p>
             </div>
             <Button onClick={startGame} className="w-full">🔧 Open Workshop ({JOBS} Jobs)</Button>

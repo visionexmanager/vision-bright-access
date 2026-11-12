@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -70,6 +71,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
   const [score, setScore] = useState(0);
   const [results, setResults] = useState<{ project: string; quality: number; profit: number }[]>([]);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -111,6 +113,7 @@ export function WoodworkingSimulation({ simulationId }: Props) {
     let step = 0;
     const total = 28;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setCraftProgress(Math.round((step / total) * 100));
       setCraftStage(stages[Math.min(Math.floor((step / total) * stages.length), stages.length - 1)]);
@@ -234,8 +237,8 @@ export function WoodworkingSimulation({ simulationId }: Props) {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Sand Grit: {sandGrit} (180+ best)</label>
-              <Slider value={[sandGrit]} onValueChange={([v]) => setSandGrit(v)} min={60} max={400} step={20} />
+              <label id="woodworking-slider-1" className="text-xs text-muted-foreground mb-1 block">Sand Grit: {sandGrit} (180+ best)</label>
+              <Slider aria-labelledby="woodworking-slider-1" value={[sandGrit]} onValueChange={([v]) => setSandGrit(v)} min={60} max={400} step={20} />
             </div>
 
             <div>
@@ -251,8 +254,8 @@ export function WoodworkingSimulation({ simulationId }: Props) {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Drying Time: {dryingTime}h (24h+ ideal)</label>
-              <Slider value={[dryingTime]} onValueChange={([v]) => setDryingTime(v)} min={4} max={48} step={2} />
+              <label id="woodworking-slider-2" className="text-xs text-muted-foreground mb-1 block">Drying Time: {dryingTime}h (24h+ ideal)</label>
+              <Slider aria-labelledby="woodworking-slider-2" value={[dryingTime]} onValueChange={([v]) => setDryingTime(v)} min={4} max={48} step={2} />
             </div>
 
             <div className="p-3 rounded-lg bg-muted/50 text-xs space-y-1">

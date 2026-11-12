@@ -310,8 +310,8 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">👨‍🍳 {t("sim.kitchen.label.chefs")}</span><Badge variant="outline">{chefCount}</Badge></div>
-        <Slider value={[chefCount]} onValueChange={([v]) => setChefCount(v)} min={1} max={8} step={1} />
+        <div className="flex justify-between"><span id="global-kitchen-slider-1" className="font-medium">👨‍🍳 {t("sim.kitchen.label.chefs")}</span><Badge variant="outline">{chefCount}</Badge></div>
+        <Slider aria-labelledby="global-kitchen-slider-1" value={[chefCount]} onValueChange={([v]) => setChefCount(v)} min={1} max={8} step={1} />
         <p className="text-xs text-muted-foreground">{t("sim.kitchen.hint.chefs")}</p>
       </CardContent></Card>
 
@@ -338,8 +338,8 @@ export function GlobalKitchenSimulation({ simulationId }: Props) {
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">💰 {t("sim.kitchen.label.priceMultiplier")}</span><Badge variant="outline">x{priceMultiplier.toFixed(1)}</Badge></div>
-        <Slider value={[priceMultiplier * 10]} onValueChange={([v]) => setPriceMultiplier(v / 10)} min={5} max={20} step={1} />
+        <div className="flex justify-between"><span id="global-kitchen-slider-2" className="font-medium">💰 {t("sim.kitchen.label.priceMultiplier")}</span><Badge variant="outline">x{priceMultiplier.toFixed(1)}</Badge></div>
+        <Slider aria-labelledby="global-kitchen-slider-2" value={[priceMultiplier * 10]} onValueChange={([v]) => setPriceMultiplier(v / 10)} min={5} max={20} step={1} />
         <p className="text-xs text-muted-foreground">{t("sim.kitchen.hint.priceMultiplier")}</p>
       </CardContent></Card>
 

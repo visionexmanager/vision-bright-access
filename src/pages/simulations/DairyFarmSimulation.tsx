@@ -355,10 +355,10 @@ export function DairyFarmSimulation({ simulationId }: Props) {
       <Card>
         <CardContent className="pt-6 space-y-3">
           <div className="flex justify-between">
-            <span className="font-medium">🐄 {t("sim.dairyfarm.label.herdSize")}</span>
+            <span id="dairy-farm-slider-1" className="font-medium">🐄 {t("sim.dairyfarm.label.herdSize")}</span>
             <Badge variant="outline">{herdSize} cows</Badge>
           </div>
-          <Slider value={[herdSize]} onValueChange={([v]) => setHerdSize(v)} min={10} max={50} step={5} />
+          <Slider aria-labelledby="dairy-farm-slider-1" value={[herdSize]} onValueChange={([v]) => setHerdSize(v)} min={10} max={50} step={5} />
           <p className="text-xs text-muted-foreground">{t("sim.dairyfarm.hint.herdSize")}</p>
         </CardContent>
       </Card>
@@ -382,12 +382,12 @@ export function DairyFarmSimulation({ simulationId }: Props) {
       <Card>
         <CardContent className="pt-6 space-y-3">
           <div className="flex justify-between">
-            <span className="font-medium flex items-center gap-1">
+            <span id="dairy-farm-slider-2" className="font-medium flex items-center gap-1">
               <Thermometer className="h-4 w-4 text-destructive" /> {t("sim.dairyfarm.label.pasteurization")}
             </span>
             <Badge variant={pasteurizationTemp === 72 ? "default" : "outline"}>{pasteurizationTemp}°C</Badge>
           </div>
-          <Slider value={[pasteurizationTemp]} onValueChange={([v]) => setPasteurizationTemp(v)} min={60} max={90} step={1} />
+          <Slider aria-labelledby="dairy-farm-slider-2" value={[pasteurizationTemp]} onValueChange={([v]) => setPasteurizationTemp(v)} min={60} max={90} step={1} />
           <p className="text-xs text-muted-foreground">{t("sim.dairyfarm.hint.pasteurization")}</p>
         </CardContent>
       </Card>
@@ -396,10 +396,10 @@ export function DairyFarmSimulation({ simulationId }: Props) {
       <Card>
         <CardContent className="pt-6 space-y-3">
           <div className="flex justify-between">
-            <span className="font-medium">❄️ {t("sim.dairyfarm.label.cooling")}</span>
+            <span id="dairy-farm-slider-3" className="font-medium">❄️ {t("sim.dairyfarm.label.cooling")}</span>
             <Badge variant={coolingTarget === 4 ? "default" : "outline"}>{coolingTarget}°C</Badge>
           </div>
-          <Slider value={[coolingTarget]} onValueChange={([v]) => setCoolingTarget(v)} min={1} max={10} step={1} />
+          <Slider aria-labelledby="dairy-farm-slider-3" value={[coolingTarget]} onValueChange={([v]) => setCoolingTarget(v)} min={1} max={10} step={1} />
           <p className="text-xs text-muted-foreground">{t("sim.dairyfarm.hint.cooling")}</p>
         </CardContent>
       </Card>

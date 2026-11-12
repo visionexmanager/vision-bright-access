@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { SimulationScene } from "@/components/SimulationScene";
 import { cn } from "@/lib/utils";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props {
   simulationId?: string;
@@ -581,9 +582,11 @@ export function MarineVesselSimulation({ simulationId }: Props) {
   }, [savedProgress]);
 
   // Simulate vessel movement every 12 seconds (1 tick ≈ 10 nautical minutes)
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (phase !== "active") return;
     const id = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       setPositionTick(t => t + 1);
       setVessels(prev => prev.map(v => {
         if (v.status !== "Underway") return v;
@@ -595,7 +598,7 @@ export function MarineVesselSimulation({ simulationId }: Props) {
       }));
     }, 12000);
     return () => clearInterval(id);
-  }, [phase]);
+  }, [phase, pausedRef]);
 
   // Auto-scroll AI chat
   useEffect(() => {
@@ -826,7 +829,7 @@ export function MarineVesselSimulation({ simulationId }: Props) {
             </Badge>
           </div>
 
-          <nav className="flex gap-1" role="tablist" aria-label="Command Center sections">
+          <nav className="flex gap-1" aria-label="Command Center sections">
             {(
               [
                 { id: "fleet",      label: "Fleet",    icon: Globe         },
@@ -838,8 +841,7 @@ export function MarineVesselSimulation({ simulationId }: Props) {
             ).map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
-                role="tab"
-                aria-selected={activeTab === id}
+                aria-pressed={activeTab === id}
                 onClick={() => setActiveTab(id)}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-all",
@@ -889,7 +891,7 @@ export function MarineVesselSimulation({ simulationId }: Props) {
                       onClick={() => relatedSim && handleOpenScenario(relatedSim)}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={e => e.key === "Enter" && relatedSim && handleOpenScenario(relatedSim)}
+                      onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && relatedSim) { e.preventDefault(); handleOpenScenario(relatedSim); } }}
                       aria-label={`${alert.level} alert for ${vessels.find(v => v.id === alert.vesselId)?.name ?? alert.vesselId}: ${alert.message}${relatedSim ? ". Press Enter to handle this emergency." : ""}`}
                     >
                       {alertIcon(alert.level)}
@@ -1243,7 +1245,7 @@ export function MarineVesselSimulation({ simulationId }: Props) {
                       onClick={() => !done && handleOpenScenario(s)}
                       role={done ? "article" : "button"}
                       tabIndex={done ? undefined : 0}
-                      onKeyDown={e => !done && e.key === "Enter" && handleOpenScenario(s)}
+                      onKeyDown={e => { if (!done && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); handleOpenScenario(s); } }}
                       aria-label={done ? `Scenario ${s.title} completed` : `Handle scenario: ${s.title}. Urgency: ${s.urgency}`}
                     >
                       <div className="flex items-start justify-between gap-3">

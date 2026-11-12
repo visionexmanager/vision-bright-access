@@ -350,7 +350,7 @@ describe("the webhook actually uses it", () => {
   it("inspects the image between downloading it and understanding it", () => {
     const download = webhook.indexOf("kind: incoming.media.kind,");
     const inspect = webhook.indexOf("const inspected = inspectImage(");
-    const understand = webhook.indexOf("const seen = await understandImage({");
+    const understand = webhook.indexOf("await understandImage({");
     expect(inspect).toBeGreaterThan(download);
     expect(understand).toBeGreaterThan(inspect);
   });
@@ -359,7 +359,7 @@ describe("the webhook actually uses it", () => {
     // The failure this guards against is subtle and silent: inspect the image,
     // then send the original anyway. Everything would pass except the privacy.
     expect(webhook).toContain("bytes: inspected.bytes,");
-    const call = webhook.slice(webhook.indexOf("const seen = await understandImage({"));
+    const call = webhook.slice(webhook.indexOf("await understandImage({"));
     expect(call.slice(0, 400)).not.toContain("bytes: media.bytes");
   });
 

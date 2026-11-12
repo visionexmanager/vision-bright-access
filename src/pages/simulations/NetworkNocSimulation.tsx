@@ -20,6 +20,7 @@ import {
   Wifi, AlertTriangle, CheckCircle2, Activity, Server, Shield, Gauge,
   RotateCcw, Trophy, Terminal, DollarSign, Users, Zap, ArrowLeft } from "lucide-react";
 import { FinancialBar, PerformanceRadar } from "@/components/SimulationCharts";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 import { SimulationScene } from "@/components/SimulationScene";
 
 type Stage = "setup" | "monitoring" | "incident" | "results";
@@ -77,12 +78,14 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
 
   const detectionSpeed = monitoringLevel === "basic" ? 0.6 : monitoringLevel === "advanced" ? 0.85 : 0.98;
 
-  // Timer countdown for incident response
+  // Timer countdown for incident response. Paused from the runner's Pause button:
+  // this one is driven by state, so it re-arms itself when the person resumes.
+  const { paused } = useSimulationPause();
   useEffect(() => {
-    if (!timerActive || incidentTimer <= 0) return;
+    if (!timerActive || incidentTimer <= 0 || paused) return;
     const timer = setTimeout(() => setIncidentTimer(v => v - 1), 1000);
     return () => clearTimeout(timer);
-  }, [timerActive, incidentTimer]);
+  }, [timerActive, incidentTimer, paused]);
 
   // Auto-resolve if timer hits 0 (with penalty)
   useEffect(() => {
@@ -426,8 +429,8 @@ export function NetworkNocSimulation({ simulationId }: { simulationId?: string }
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">💰 {t("sim.noc.label.budget")}</span><Badge variant="outline">${budget}</Badge></div>
-        <Slider value={[budget]} onValueChange={([v]) => setBudget(v)} min={2000} max={10000} step={500} />
+        <div className="flex justify-between"><span id="network-noc-slider-1" className="font-medium">💰 {t("sim.noc.label.budget")}</span><Badge variant="outline">${budget}</Badge></div>
+        <Slider aria-labelledby="network-noc-slider-1" value={[budget]} onValueChange={([v]) => setBudget(v)} min={2000} max={10000} step={500} />
       </CardContent></Card>
 
       <Card className={`border-primary/30 ${totalCost <= budget ? "bg-green-500/5" : "bg-destructive/5"}`}>

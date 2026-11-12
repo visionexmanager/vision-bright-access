@@ -272,8 +272,8 @@ export function CattleDairySimulation({ simulationId }: Props) {
       <p className="text-sm text-muted-foreground">Build your cattle ranch and manage it through 12 weeks (4 seasons). Balance breeding, feeding, health, and finances.</p>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">🐄 Herd Size</span><Badge variant="outline">{herdSize} cattle</Badge></div>
-        <Slider value={[herdSize]} onValueChange={([v]) => setHerdSize(v)} min={15} max={80} step={5} />
+        <div className="flex justify-between"><span id="cattle-dairy-slider-1" className="font-medium">🐄 Herd Size</span><Badge variant="outline">{herdSize} cattle</Badge></div>
+        <Slider aria-labelledby="cattle-dairy-slider-1" value={[herdSize]} onValueChange={([v]) => setHerdSize(v)} min={15} max={80} step={5} />
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
@@ -289,8 +289,8 @@ export function CattleDairySimulation({ simulationId }: Props) {
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">🌿 Grazing Acres</span><Badge variant="outline">{grazingAcres} acres</Badge></div>
-        <Slider value={[grazingAcres]} onValueChange={([v]) => setGrazingAcres(v)} min={20} max={150} step={10} />
+        <div className="flex justify-between"><span id="cattle-dairy-slider-2" className="font-medium">🌿 Grazing Acres</span><Badge variant="outline">{grazingAcres} acres</Badge></div>
+        <Slider aria-labelledby="cattle-dairy-slider-2" value={[grazingAcres]} onValueChange={([v]) => setGrazingAcres(v)} min={20} max={150} step={10} />
         <p className="text-xs text-muted-foreground">Too many cattle per acre reduces health</p>
       </CardContent></Card>
 
@@ -307,8 +307,8 @@ export function CattleDairySimulation({ simulationId }: Props) {
       </CardContent></Card>
 
       <Card><CardContent className="pt-6 space-y-3">
-        <div className="flex justify-between"><span className="font-medium">🏥 Vet Budget (per head/week)</span><Badge variant="outline">${vetBudget}</Badge></div>
-        <Slider value={[vetBudget]} onValueChange={([v]) => setVetBudget(v)} min={1} max={8} step={1} />
+        <div className="flex justify-between"><span id="cattle-dairy-slider-3" className="font-medium">🏥 Vet Budget (per head/week)</span><Badge variant="outline">${vetBudget}</Badge></div>
+        <Slider aria-labelledby="cattle-dairy-slider-3" value={[vetBudget]} onValueChange={([v]) => setVetBudget(v)} min={1} max={8} step={1} />
         <p className="text-xs text-muted-foreground">Higher budget improves health but increases costs</p>
       </CardContent></Card>
 

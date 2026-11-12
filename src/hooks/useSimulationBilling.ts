@@ -9,6 +9,9 @@ import { isFallbackSimulationId } from "@/data/requiredSimulations";
 
 type BillingStatus = "idle" | "loading" | "ready" | "blocked";
 
+/** Why billing is blocked. The page words it in the reader's language; the hook never does. */
+export type BillingBlockReason = "login" | "vx" | "error" | null;
+
 const QUARTER_SECONDS = SIMULATION_PRICES.quarterMinutes * 60;
 const PERSIST_EVERY_SECONDS = 10;
 
@@ -23,6 +26,7 @@ export function useSimulationBilling(
   const trialWaivesPayment = TRIAL_WAIVES_PAYMENT && isOnTrial;
   const [status, setStatus] = useState<BillingStatus>("idle");
   const [message, setMessage] = useState("");
+  const [reason, setReason] = useState<BillingBlockReason>(null);
   const [usageSeconds, setUsageSeconds] = useState(0);
   const [paidSeconds, setPaidSeconds] = useState(0);
   const [isCharging, setIsCharging] = useState(false);
@@ -70,7 +74,8 @@ export function useSimulationBilling(
 
     if (!ok) {
       setStatus("blocked");
-      setMessage(`تحتاج ${SIMULATION_PRICES.quarterHour.toLocaleString()} VX لفتح ربع ساعة إضافي في هذه السيميليشن.`);
+      setReason("vx");
+      setMessage("");
       chargingRef.current = false;
       setIsCharging(false);
       return false;
@@ -81,6 +86,7 @@ export function useSimulationBilling(
     setPaidSeconds(nextPaid);
     await persistUsage();
     setMessage("");
+    setReason(null);
     setStatus("ready");
     chargingRef.current = false;
     setIsCharging(false);
@@ -98,7 +104,8 @@ export function useSimulationBilling(
     const loadBilling = async () => {
       if (!user) {
         setStatus("blocked");
-        setMessage("سجل الدخول حتى يتم حفظ وقت استخدام السيميليشن وحساب VX بدقة.");
+        setReason("login");
+        setMessage("");
         return;
       }
 
@@ -139,6 +146,7 @@ export function useSimulationBilling(
 
       if (error) {
         setStatus("blocked");
+        setReason("error");
         setMessage(error.message);
         return;
       }
@@ -160,6 +168,7 @@ export function useSimulationBilling(
         if (cancelled) return;
         if (insertError) {
           setStatus("blocked");
+          setReason("error");
           setMessage(insertError.message);
           return;
         }
@@ -222,6 +231,8 @@ export function useSimulationBilling(
   return {
     status,
     message,
+    reason,
+    requiredVx: SIMULATION_PRICES.quarterHour,
     isCharging,
     usageSeconds,
     paidSeconds,

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, Thermometer, Flame, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -62,6 +63,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
   const productionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => () => { if (productionIntervalRef.current) clearInterval(productionIntervalRef.current); }, []);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -113,6 +115,7 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
     const totalSteps = 30;
 
     productionIntervalRef.current = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setProdProgress(Math.round((step / totalSteps) * 100));
       setProdStage(stages[Math.min(Math.floor((step / totalSteps) * stages.length), stages.length - 1)]);
@@ -262,30 +265,30 @@ export function ChocolateFactorySimulation({ simulationId }: Props) {
 
             {/* Batch Size */}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
+              <label id="chocolate-factory-slider-1" className="text-xs text-muted-foreground mb-1 block">
                 {t("sim.choco.batchSizeLabel").replace("{count}", String(batchSize)).replace("{cost}", String(Math.round(ingredientCost)))}
               </label>
-              <Slider value={[batchSize]} onValueChange={([v]) => setBatchSize(v)} min={20} max={200} step={10} />
+              <Slider aria-labelledby="chocolate-factory-slider-1" value={[batchSize]} onValueChange={([v]) => setBatchSize(v)} min={20} max={200} step={10} />
             </div>
 
             {/* Temperature */}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+              <label id="chocolate-factory-slider-2" className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                 <Thermometer className="h-3 w-3" />
                 {t("sim.choco.temperatureLabel").replace("{temp}", String(temperature))}
                 <span className={`text-xs ml-1 ${Math.abs(temperature - selectedRecipe.idealTemp) <= 1 ? "text-green-500" : Math.abs(temperature - selectedRecipe.idealTemp) <= 3 ? "text-yellow-500" : "text-red-500"}`}>
                   {t("sim.choco.idealTemp").replace("{temp}", String(selectedRecipe.idealTemp))}
                 </span>
               </label>
-              <Slider value={[temperature]} onValueChange={([v]) => setTemperature(v)} min={20} max={45} step={0.5} />
+              <Slider aria-labelledby="chocolate-factory-slider-2" value={[temperature]} onValueChange={([v]) => setTemperature(v)} min={20} max={45} step={0.5} />
             </div>
 
             {/* Mix Time */}
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
+              <label id="chocolate-factory-slider-3" className="text-xs text-muted-foreground mb-1 block">
                 {t("sim.choco.mixTimeLabel").replace("{time}", String(mixTime))}
               </label>
-              <Slider value={[mixTime]} onValueChange={([v]) => setMixTime(v)} min={1} max={12} step={1} />
+              <Slider aria-labelledby="chocolate-factory-slider-3" value={[mixTime]} onValueChange={([v]) => setMixTime(v)} min={1} max={12} step={1} />
             </div>
 
             {/* Packaging */}

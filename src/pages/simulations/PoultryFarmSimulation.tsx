@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { RotateCcw, Trophy, ArrowLeft } from "lucide-react";
 import { SimulationMentor } from "@/components/SimulationMentor";
 import { SimulationScene } from "@/components/SimulationScene";
+import { useSimulationPause } from "@/contexts/SimulationPauseContext";
 
 interface Props { simulationId?: string; }
 
@@ -66,6 +67,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
   const [weeklyLog, setWeeklyLog] = useState<{ week: number; alive: number; weight: number; cost: number }[]>([]);
   const [started, setStarted] = useState(false);
 
+  const { pausedRef } = useSimulationPause();
   useEffect(() => {
     if (!savedProgress) return;
     setScore(savedProgress.score ?? 0);
@@ -98,6 +100,7 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
     let step = 0;
     const total = 15;
     const interval = setInterval(() => {
+      if (pausedRef.current) return; // paused by the runner's Pause button
       step++;
       setSimProgress(Math.round((step / total) * 100));
       if (step >= total) {
@@ -201,8 +204,8 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.flock").replace("{count}", String(flockSize))}</label>
-              <Slider value={[flockSize]} onValueChange={([v]) => setFlockSize(v)} min={50} max={Math.min(500, housing.capacity)} step={25} />
+              <label id="poultry-farm-slider-1" className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.flock").replace("{count}", String(flockSize))}</label>
+              <Slider aria-labelledby="poultry-farm-slider-1" value={[flockSize]} onValueChange={([v]) => setFlockSize(v)} min={50} max={Math.min(500, housing.capacity)} step={25} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.housing")}</label>
@@ -246,12 +249,12 @@ export function PoultryFarmSimulation({ simulationId }: Props) {
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.temperature").replace("{temp}", String(temperature))}</label>
-              <Slider value={[temperature]} onValueChange={([v]) => setTemperature(v)} min={10} max={40} step={1} />
+              <label id="poultry-farm-slider-2" className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.temperature").replace("{temp}", String(temperature))}</label>
+              <Slider aria-labelledby="poultry-farm-slider-2" value={[temperature]} onValueChange={([v]) => setTemperature(v)} min={10} max={40} step={1} />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.sellPrice").replace("{price}", String(sellPrice))}</label>
-              <Slider value={[sellPrice]} onValueChange={([v]) => setSellPrice(v)} min={2} max={15} step={0.5} />
+              <label id="poultry-farm-slider-3" className="text-xs text-muted-foreground mb-1 block">{t("sim.poultryFarm.sellPrice").replace("{price}", String(sellPrice))}</label>
+              <Slider aria-labelledby="poultry-farm-slider-3" value={[sellPrice]} onValueChange={([v]) => setSellPrice(v)} min={2} max={15} step={0.5} />
             </div>
             <Button onClick={simulateWeek} className="w-full" aria-label={t("sim.poultryFarm.btn.simulateWeek").replace("{week}", String(week))}>{t("sim.poultryFarm.btn.simulateWeek").replace("{week}", String(week))}</Button>
           </CardContent>
