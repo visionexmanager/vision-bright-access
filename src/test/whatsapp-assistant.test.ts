@@ -1434,6 +1434,16 @@ describe("voice replies", () => {
     expect(webhook).toContain(".select(`id, ${ESTABLISHED_COLUMNS}`)");
   });
 
+  it("reads a markdown table as sentences, not as pipes and dashes", () => {
+    const table = "Here is a comparison:\n\n| Criterion | First | Second |\n|---------|-------|--------|\n| **Capacity** | 4.2 L | 3 L |\n| Functions | 11 | 7 |";
+    const spoken = voice.speakableText(table);
+    expect(spoken).not.toMatch(/[|]/);
+    expect(spoken).not.toMatch(/-{3,}/);
+    expect(spoken).toContain("Capacity, 4.2 L, 3 L.");
+    expect(spoken).toContain("Functions, 11, 7.");
+    expect(voice.speakableText("Plain - sentence, no table.")).toBe("Plain - sentence, no table.");
+  });
+
   it("strips what does not survive being read aloud", () => {
     const spoken = voice.speakableText("See **this**: https://visionex.app/x for _details_.");
     expect(spoken).not.toMatch(/https?:\/\//);

@@ -108,8 +108,40 @@ export const REGISTER_DIRECTIVE =
  * instructions: the list is text the assistant itself sent earlier, and the
  * wording says so, as `summaryPreamble` does for the summary.
  */
+// ── Comparing photographs the sender sent earlier ────────────────────────────
+//
+// Each photo is described when it arrives and stored as plain text: `[image]`
+// from the sender, the description from the assistant. A later "compare the
+// first with the second" therefore reaches a text model that has never seen
+// either picture. Left alone it fills the gap with specifications from memory
+// (litres, wattage, a table of invented rows), and as a voice note the answer
+// is unintelligible. This tells it what it actually holds.
+
+const COMPARE_ASK =
+  /قارن|مقارنة|أيهما|ايهما|أيّهما|الفرق بين|compare|comparison|versus|\bvs\b|difference between|which (one )?is better|which (one )?should/i;
+
+/** Photos the sender sent in this thread, counted from the replayed rows. */
+function photosSent(rows: HistoryRow[]): number {
+  return rows.filter((r) => r.direction === "inbound" && (r.body ?? "").startsWith("[image]")).length;
+}
+
+/** The question asks to compare, and at least two photos came earlier. */
+export function asksToComparePhotos(question: string, rows: HistoryRow[]): boolean {
+  return COMPARE_ASK.test(question) && photosSent(rows) >= 2;
+}
+
+export const PHOTO_COMPARISON_DIRECTIVE = [
+  "The user is asking you to compare photographs they sent earlier in this conversation.",
+  "You cannot see those photographs. All you hold is the description you wrote right after each \"[image]\" turn; a small vision model produced them, so a description may be incomplete or wrong, and a photo of a shelf or a crowded scene describes the scene, not one product.",
+  "Compare only what those descriptions state, calling them the first photo and the second photo in the order they were sent.",
+  "Never state a specification, capacity, power rating, price, feature or review that the descriptions do not contain, and never fill the gap from what you know about a brand: a number you add is a number the user will trust.",
+  "If the descriptions do not settle which is better, say what is visible on each, what is not known, and ask what matters most to them or invite a closer photo of the label.",
+  "Write a few short plain sentences. No tables, no bullet symbols, no markdown: the reply may be read aloud, and a table read aloud is noise.",
+].join(" ");
+
 export function continuityDirective(input: { question: string; rows: HistoryRow[] }): string {
   const parts = [REGISTER_DIRECTIVE];
+  if (asksToComparePhotos(input.question, input.rows)) parts.push(PHOTO_COMPARISON_DIRECTIVE);
   const choices = lastChoices(input.rows);
   if (choices.length > 0) {
     const listing = choices.join("\n").slice(0, MAX_CHOICES_CHARS);

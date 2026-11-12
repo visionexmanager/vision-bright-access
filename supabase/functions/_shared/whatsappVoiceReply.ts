@@ -228,6 +228,13 @@ export function replyMedium(params: {
 export function speakableText(text: string): string {
   return text
     .replace(/https?:\/\/\S+/g, "")
+    // A markdown table read aloud is "pipe dash dash dash pipe": the rule line
+    // between the header and the rows says nothing, and each row is a run of
+    // cells that reads as a sentence once the pipes become pauses.
+    .split("\n")
+    .filter((line) => !/^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(line) || !line.includes("|"))
+    .map((line) => (line.includes("|") ? line.replace(/^\s*\|\s*/, "").replace(/\s*\|\s*$/, "").replace(/\s*\|\s*/g, ", ") + "." : line))
+    .join("\n")
     .replace(/[*_~`#]+/g, "")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
