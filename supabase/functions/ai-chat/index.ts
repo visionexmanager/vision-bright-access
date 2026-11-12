@@ -521,6 +521,7 @@ Deno.serve(async (req) => {
     let targets: ProviderTarget[] = [
       { provider: "groq", model: "openai/gpt-oss-20b" },
       { provider: "mistral", model: "ministral-14b-latest" },
+      { provider: "mistral", model: "ministral-8b-latest" }, // plain text only: tool calls on 8b are refused (1300)
       { provider: "openai", model: "gpt-4.1" },
       { provider: "openai", model: "gpt-5.6-luna" },
     ];
@@ -629,6 +630,7 @@ VOICE RULES (mandatory — you are speaking, not writing):
         targets = [
           { provider: "groq", model: "openai/gpt-oss-20b" },
           { provider: "mistral", model: "ministral-14b-latest" },
+          { provider: "mistral", model: "ministral-8b-latest" }, // plain text only: tool calls on 8b are refused (1300)
           { provider: "openai", model: "gpt-4.1" },
           { provider: "openai", model: "gpt-5.6-luna" },
         ];
