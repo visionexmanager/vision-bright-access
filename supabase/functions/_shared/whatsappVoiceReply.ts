@@ -55,8 +55,11 @@ export const MAX_SPOKEN_CHARS = 900;
 /**
  * How many voice notes one reply may become.
  *
- * A long answer is spoken in order, in pieces that end on sentence boundaries,
- * and this count is what bounds the cost: 2700 characters at the very most.
+ * One. A spoken question gets one voice note of at most `MAX_SPOKEN_CHARS`,
+ * cut on a sentence boundary. It used to be three (2700 characters of synthesis
+ * for one question); the owner asked for one voice to cut the synthesis bill, and
+ * `SPOKEN_ANSWER_DIRECTIVE` asks the model to write an answer that fits, so the
+ * cut is the exception rather than the way every long answer ends.
  *
  * It is also the reason a spoken answer is no longer put through `splitAnswer`
  * first. That split exists for WhatsApp's 4096-character text ceiling, which
@@ -64,7 +67,14 @@ export const MAX_SPOKEN_CHARS = 900;
  * voice notes is nine voice notes for one question, which is not an answer,
  * it is a podcast.
  */
-export const MAX_SPOKEN_PARTS = 3;
+export const MAX_SPOKEN_PARTS = 1;
+
+/**
+ * Told to the model when the question was spoken, so the answer is written to be
+ * heard once, in one note, rather than written long and then cut.
+ */
+export const SPOKEN_ANSWER_DIRECTIVE =
+  "The user spoke this question and will hear your answer as ONE short voice note. Answer in at most five short sentences, under 700 characters in total, putting the most important thing first. No lists, tables, headings or symbols: write it the way you would say it aloud.";
 
 /**
  * How a conversation wants its replies delivered.
@@ -228,6 +238,13 @@ export function replyMedium(params: {
 export function speakableText(text: string): string {
   return text
     .replace(/https?:\/\/\S+/g, "")
+    // A markdown table read aloud is "pipe dash dash dash pipe": the rule line
+    // between the header and the rows says nothing, and each row is a run of
+    // cells that reads as a sentence once the pipes become pauses.
+    .split("\n")
+    .filter((line) => !/^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(line) || !line.includes("|"))
+    .map((line) => (line.includes("|") ? line.replace(/^\s*\|\s*/, "").replace(/\s*\|\s*$/, "").replace(/\s*\|\s*/g, ", ") + "." : line))
+    .join("\n")
     .replace(/[*_~`#]+/g, "")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")

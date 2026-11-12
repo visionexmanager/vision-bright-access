@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  asksToComparePhotos,
   CONTEXT_WINDOW_MS,
+  PHOTO_COMPARISON_DIRECTIVE,
   continuityDirective,
   continuityStart,
   isReplayable,
@@ -56,6 +58,32 @@ describe("WhatsApp continuity window", () => {
     expect(isReplayable(out("a person will help", "handover"))).toBe(false);
     expect(isReplayable(inn("hi"))).toBe(true);
     expect(isReplayable({ direction: "inbound", body: null, kind: null })).toBe(false);
+  });
+});
+
+describe("WhatsApp photo comparison", () => {
+  const twoPhotos: HistoryRow[] = [
+    inn("[image]"),
+    out("A boxed air fryer with an 11-function panel."),
+    inn("[image]"),
+    out("A shelf with two air fryers and price stickers."),
+  ];
+
+  it("tells the model it holds descriptions, not pictures, when asked to compare two photos", () => {
+    const spoken = "[voice] قارن بين الصورة الأولى والصورة الثانية أيهما أفضل؟";
+    const directive = continuityDirective({ question: spoken, rows: twoPhotos });
+    expect(asksToComparePhotos(spoken, twoPhotos)).toBe(true);
+    expect(directive).toContain(PHOTO_COMPARISON_DIRECTIVE);
+    expect(PHOTO_COMPARISON_DIRECTIVE).toMatch(/cannot see/);
+    expect(PHOTO_COMPARISON_DIRECTIVE).toMatch(/Never state a specification/);
+    expect(PHOTO_COMPARISON_DIRECTIVE).toMatch(/No tables/);
+  });
+
+  it("does not fire for a comparison with no photos, one photo, or a question that is not a comparison", () => {
+    expect(asksToComparePhotos("compare the basic and pro plans", [])).toBe(false);
+    expect(asksToComparePhotos("compare these", twoPhotos.slice(0, 2))).toBe(false);
+    expect(asksToComparePhotos("what is the best way to cook chips?", twoPhotos)).toBe(false);
+    expect(continuityDirective({ question: "thanks", rows: twoPhotos })).not.toContain(PHOTO_COMPARISON_DIRECTIVE);
   });
 });
 

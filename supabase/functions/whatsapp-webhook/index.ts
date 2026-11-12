@@ -346,6 +346,7 @@ import { sendVoiceChoice } from "../_shared/whatsappInteractive.ts";
 import {
   deliverReply,
   replyMedium,
+  SPOKEN_ANSWER_DIRECTIVE,
   speakReply,
   synthesiseSpeech,
   wantsSpokenReply,
@@ -6841,6 +6842,8 @@ Deno.serve(async (req) => {
             HANDLER_AUTHORITY_DIRECTIVE,
             knowledgeDirective(passages),
             verbosityDirective(existing?.verbosity as string | null),
+            // A spoken question gets one voice note, so the answer is written to fit it.
+            spokenInput ? SPOKEN_ANSWER_DIRECTIVE : null,
             // What a search just failed to find, so the answer is about the
             // thing asked for rather than an apology for an empty list.
             bookNotFound ? bookNotFoundDirective(bookNotFound) : null,
