@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
     { provider: "gemini", model: "gemini-flash-latest" },
     { provider: "gemini", model: "gemini-flash-lite-latest" },
     { provider: "mistral", model: "ministral-14b-latest" },
+    { provider: "mistral", model: "ministral-8b-latest" }, // plain text only: tool calls on 8b are refused (1300)
     { provider: "openai", model: "gpt-4.1" },
     { provider: "openai", model: "gpt-5.6-luna" },
   ];
