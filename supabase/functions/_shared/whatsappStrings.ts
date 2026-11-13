@@ -55,6 +55,13 @@ const BASE_STRINGS = {
   back: { ar: "رجوع", en: "Back" },
   /** The row that returns to the top. Replaces the old `00`. */
   mainMenu: { ar: "القائمة الرئيسية", en: "Main menu" },
+  /** The button under a reply that shows the help text. 20 chars. */
+  helpButton: { ar: "مساعدة", en: "Help" },
+  /** The line that carries the buttons when a reply is too long to be their body. */
+  followUpPrompt: {
+    ar: "هل تريد شيئاً آخر؟ اكتبه أو اضغط أدناه.",
+    en: "Anything else? Type it, or tap below.",
+  },
 
   /**
    * The closing line of the *text* copy of a menu.

@@ -616,7 +616,7 @@ describe("the interface itself", () => {
     expect(webhook).toContain("const chosen = parseLanguageSelection(incoming.selection);");
     expect(webhook).toMatch(/update\(\{ preferred_language: chosen, language: chosen \}\)/);
     // Confirmed in the language just chosen, not in English.
-    expect(webhook).toContain('await reply(say("languageSet", chosen), "reply");');
+    expect(webhook).toContain('await replyWith(false, say("languageSet", chosen), "reply");');
     expect(strings.say("languageSet", "ja")).not.toBe(strings.say("languageSet", "en"));
   });
 
