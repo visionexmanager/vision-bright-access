@@ -455,6 +455,7 @@ import {
   weatherKey,
 } from "../_shared/whatsappGeoCache.ts";
 import { say } from "../_shared/whatsappStrings.ts";
+import { defaultFollowUp, followUpMessage, type FollowUpContext } from "../_shared/whatsappFollowUps.ts";
 import {
   comingSoonNotice,
   type EngineMessage,
@@ -1760,6 +1761,21 @@ Deno.serve(async (req) => {
       /** Where the next reply is being said: ordinary fixed replies, or a spoken pleasantry (see localAck.ts). */
       let phraseContext: PhraseContext = "fixed_reply";
 
+      /**
+       * Buttons under the next written reply: the default for its kind, none
+       * (`false`) or another set. Set only around one `reply` call by the two
+       * wrappers below, so `reply` keeps its two-argument shape.
+       */
+      let followUpMode: FollowUpContext | false | undefined;
+      const replyWith = async (mode: FollowUpContext | false | undefined, body: string, kind: string) => {
+        followUpMode = mode;
+        try {
+          await reply(body, kind);
+        } finally {
+          followUpMode = undefined;
+        }
+      };
+
       const reply = async (body: string, kind: string) => {
         // ── Two things that must never be sent ──────────────────────────────
         //
@@ -1807,7 +1823,17 @@ Deno.serve(async (req) => {
             trace: correlationId,
           },
           {
-            sendText: (text) => sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text }),
+            // Written replies carry reply buttons — back, the main menu, help —
+            // directly under the words (see whatsappFollowUps.ts). Typing the same
+            // words keeps working: every id is a control the router already knows.
+            sendText: async (text) => {
+              const context = followUpMode === false ? null : (followUpMode ?? defaultFollowUp(kind));
+              const buttons = context ? followUpMessage(text, context, answerLanguage) : null;
+              if (!buttons) return sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text });
+              if (buttons.lead && !(await sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: buttons.lead }))) return false;
+              await sendTappable({ phoneNumberId, token, to: incoming.from, trace: correlationId }, buttons.tappable);
+              return true;
+            },
             speak: async (text) => {
               // Prerecorded phrases (off unless WHATSAPP_LOCAL_AUDIO=1 and the processing service is configured).
               const local = localSpeechResolver((name) => Deno.env.get(name), {
@@ -2290,7 +2316,7 @@ Deno.serve(async (req) => {
           return false;
         }
 
-        if (note) await reply(note, "reply");
+        if (note) await replyWith(false, note, "reply");
 
         // A list message cannot be a voice note, and a sender who asked out
         // loud — or who asked, in writing, for a spoken bulletin — cannot use
@@ -2472,7 +2498,7 @@ Deno.serve(async (req) => {
           return false;
         }
 
-        if (options.note) await reply(options.note, "reply");
+        if (options.note) await replyWith(false, options.note, "reply");
         await sendChoices(
           kidsMessage({
             stories: stories.map((story) => ({
@@ -2937,7 +2963,7 @@ Deno.serve(async (req) => {
           // Said, then shown. The menu redrawn in the new language is the proof
           // for anybody who can see it; the sentence — itself in the new
           // language — is the proof for everybody else.
-          await reply(say("languageSet", chosen), "reply");
+          await replyWith(false, say("languageSet", chosen), "reply");
           await sendMenu(ROOT_ID, chosen);
           continue;
         }
@@ -3185,7 +3211,7 @@ Deno.serve(async (req) => {
         const game = slug ? gameBySlug(slug) : null;
         if (!game) {
           log("games", { outcome: "stale" });
-          await reply(say("gamesNone", answerLanguage).replace("{url}", ARCADE_URL), "reply");
+          await replyWith(false, say("gamesNone", answerLanguage).replace("{url}", ARCADE_URL), "reply");
           await sendGameCategories(delivery, 0, answerLanguage);
           continue;
         }
@@ -3227,7 +3253,7 @@ Deno.serve(async (req) => {
         const service = slug ? serviceById(slug) : null;
         if (!service) {
           log("services", { outcome: "stale" });
-          await reply(say("servicesNone", answerLanguage).replace("{url}", SERVICES_URL), "reply");
+          await replyWith(false, say("servicesNone", answerLanguage).replace("{url}", SERVICES_URL), "reply");
           await sendServiceHubs(delivery, answerLanguage);
           continue;
         }
@@ -3674,7 +3700,7 @@ Deno.serve(async (req) => {
             await reply(featureErrorNotice(answerLanguage), "unsupported");
             continue;
           }
-          await reply(queuedNotice(answerLanguage), "reply");
+          await replyWith(false, queuedNotice(answerLanguage), "reply");
           log("media_job", { outcome: "queued", target: docAsk.target, kind: "document" });
           EdgeRuntime.waitUntil(drainOneMediaJob());
           continue;
@@ -3705,7 +3731,7 @@ Deno.serve(async (req) => {
           // reason the queue exists: a transcode inside the delivery would run
           // past Meta's patience and earn a redelivery, and the redelivery
           // would start the same transcode again.
-          await reply(queuedNotice(answerLanguage), "reply");
+          await replyWith(false, queuedNotice(answerLanguage), "reply");
           log("media_job", { outcome: "queued", target: convertAsk.target, kind: convertKind });
 
           // And the work happens after the 200 has gone back. `voice-studio`
@@ -4136,7 +4162,7 @@ Deno.serve(async (req) => {
               continue;
             }
 
-            await reply(queuedNotice(answerLanguage), "reply");
+            await replyWith(false, queuedNotice(answerLanguage), "reply");
             log("media_job", { outcome: "queued", target: "translate", kind: "document" });
             EdgeRuntime.waitUntil(drainOneMediaJob());
             continue;
@@ -4339,8 +4365,10 @@ Deno.serve(async (req) => {
             .update({ pending_vision_mode: null, pending_vision_target: null, pending_vision_at: null })
             .eq("id", conversationId);
         }
-        for (const message of outcome.replies) {
-          if (message.type === "text") await reply(message.text, "reply");
+        for (const [index, message] of outcome.replies.entries()) {
+          // Buttons only on a text that ends the turn; one followed by a menu has its own choices.
+          const ends = index === outcome.replies.length - 1;
+          if (message.type === "text") await replyWith(!ends ? false : outcome.reason === "help_command" ? "navigate" : undefined, message.text, "reply");
           else await sendMenu(message.nodeId, answerLanguage, { note: message.note });
         }
         await saveSession();
@@ -4410,7 +4438,7 @@ Deno.serve(async (req) => {
             await saveSession();
             continue;
           } else if (node.handler === "help") {
-            await reply(say("help", answerLanguage), "reply");
+            await replyWith("navigate", say("help", answerLanguage), "reply");
             await saveSession();
             continue;
           } else if (node.handler === "language_menu") {
@@ -5250,7 +5278,7 @@ Deno.serve(async (req) => {
             await reply(featureErrorNotice(answerLanguage), "unsupported");
             continue;
           }
-          await reply(queuedNotice(answerLanguage), "reply");
+          await replyWith(false, queuedNotice(answerLanguage), "reply");
           log("media_job", { outcome: "queued", target: followUp.target, kind: "document_followup" });
           EdgeRuntime.waitUntil(drainOneMediaJob());
           continue;

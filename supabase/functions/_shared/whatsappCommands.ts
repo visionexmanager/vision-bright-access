@@ -99,12 +99,14 @@ export const isGreeting = (text: string | null | undefined): boolean =>
 export const CONTROL_IDS = {
   back: "back",
   mainMenu: "main_menu",
+  help: "help",
 } as const;
 
 /** The command a tapped control row is, or null for a feature row. */
 export function parseControlId(id: string | null | undefined): NavigationCommand | null {
   if (id === CONTROL_IDS.back) return "back";
   if (id === CONTROL_IDS.mainMenu) return "home";
+  if (id === CONTROL_IDS.help) return "help";
   return null;
 }
 
@@ -129,6 +131,7 @@ export function localisedCommand(
   for (const lang of [language, "en"] as const) {
     if (value === localized(UI_STRINGS.back, lang).toLowerCase()) return "back";
     if (value === localized(UI_STRINGS.mainMenu, lang).toLowerCase()) return "home";
+    if (value === localized(UI_STRINGS.helpButton, lang).toLowerCase()) return "help";
   }
   return null;
 }
