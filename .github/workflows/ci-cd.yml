@@ -167,6 +167,8 @@ jobs:
       env:
         VITE_SUPABASE_URL:      ${{ secrets.VITE_SUPABASE_URL_STAGING }}
         VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY_STAGING }}
+        # The bundle outgrew the default ~2 GB heap (exit 134, intermittent).
+        NODE_OPTIONS: --max-old-space-size=6144
 
 ###############################################################################
 # JOB: Build & push Docker images
