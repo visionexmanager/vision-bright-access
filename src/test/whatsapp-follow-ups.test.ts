@@ -8,7 +8,7 @@ const commands = await import("../../supabase/functions/_shared/whatsappCommands
 const languages = await import("../../supabase/functions/_shared/whatsappLanguages.ts");
 const strings = await import("../../supabase/functions/_shared/whatsappStrings.ts");
 
-const ALL = languages.SUPPORTED_LANGUAGES as readonly string[];
+const ALL = languages.SUPPORTED_LANGUAGES;
 const CONTEXTS = ["answer", "notice", "navigate"] as const;
 const BANNED = /\b(choose|select|pick)\b|اختر/i;
 
