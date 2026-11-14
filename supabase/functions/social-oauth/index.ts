@@ -137,7 +137,19 @@ async function exchange(
   // The status is deliberately not folded into the error: a provider that
   // answers 200 with an error body and one that answers 400 are the same
   // outcome here, and normaliseTokenResponse decides on the payload.
-  return normaliseTokenResponse(raw);
+  const normalised = normaliseTokenResponse(raw);
+  if (!normalised.ok) {
+    // Why a provider said no, and nothing else: the host, the HTTP status and
+    // the provider's own error code ("invalid_grant"). Never the body, a token,
+    // an account id or a secret — this repository is public and so are its logs.
+    const body = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+    const inner = body.data && typeof body.data === "object" ? body.data as Record<string, unknown> : body;
+    const code = String(inner.error ?? body.error ?? inner.error_code ?? body.error_code ?? "");
+    console.error(
+      `[social-oauth] token endpoint refused: host=${new URL(provider.tokenUrl).host} status=${response.status} code=${/^[A-Za-z0-9_. -]{1,40}$/.test(code) ? code : "unreadable"}`,
+    );
+  }
+  return normalised;
 }
 
 /**
@@ -385,7 +397,11 @@ Deno.serve(async (req) => {
         refresh: async (accountId, platform) => {
           const provider = PROVIDERS[platform as Platform];
           const credentials = readCredentials(provider, env);
-          if (!provider || !credentials.configured) return "refresh_failed";
+          if (!provider || !credentials.configured) {
+            // Names of the missing variables only, never their values.
+            console.error(`[social-oauth] refresh skipped: platform=${platform} not_configured missing=${credentials.missing.join(",") || "provider"}`);
+            return "refresh_failed";
+          }
           const { data: current } = await service.rpc("resolve_social_account_token", {
             _account_id: accountId, _key: encryptionKey,
           });
@@ -396,7 +412,10 @@ Deno.serve(async (req) => {
             grant_type: "refresh_token",
             refresh_token: refreshToken,
           });
-          if (!token.ok) return "refresh_failed";
+          if (!token.ok) {
+            console.error(`[social-oauth] refresh failed: platform=${platform} stage=provider reason=${token.error}`);
+            return "refresh_failed";
+          }
 
           const { data: saved } = await service.rpc("store_social_account_token", {
             _account_id: accountId,
@@ -411,7 +430,9 @@ Deno.serve(async (req) => {
             _token_type: token.tokenType ?? "bearer",
             _refresh_expires_at: token.refreshExpiresAt ?? null,
           });
-          return (saved as Record<string, unknown> | null)?.ok === true ? "refreshed" : "refresh_failed";
+          if ((saved as Record<string, unknown> | null)?.ok === true) return "refreshed";
+          console.error(`[social-oauth] refresh failed: platform=${platform} stage=store`);
+          return "refresh_failed";
         },
         now: () => Date.now(),
       });
