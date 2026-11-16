@@ -6443,6 +6443,27 @@ export type Database = {
           },
         ]
       }
+      free_local_describe_usage: {
+        Row: {
+          updated_at: string
+          usage_date: string
+          used: number
+          wa_phone: string
+        }
+        Insert: {
+          updated_at?: string
+          usage_date?: string
+          used?: number
+          wa_phone: string
+        }
+        Update: {
+          updated_at?: string
+          usage_date?: string
+          used?: number
+          wa_phone?: string
+        }
+        Relationships: []
+      }
       freelance_projects: {
         Row: {
           budget_max: number | null
@@ -7134,6 +7155,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      image_description_cache: {
+        Row: {
+          answer: string
+          created_at: string
+          image_hash: string
+          lang: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          image_hash: string
+          lang: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          image_hash?: string
+          lang?: string
+        }
+        Relationships: []
       }
       ivx_attempts: {
         Row: {
@@ -28826,6 +28868,12 @@ export type Database = {
         }[]
       }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
+      free_local_describe_limit: { Args: never; Returns: number }
+      free_local_describe_release: {
+        Args: { _wa_phone: string }
+        Returns: Json
+      }
+      free_local_describe_take: { Args: { _wa_phone: string }; Returns: Json }
       free_sections: { Args: never; Returns: string[] }
       fuzzy_search_library_books: {
         Args: { _match_count?: number; _query: string }
@@ -29464,6 +29512,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      image_description_cache_get: {
+        Args: { _hash: string; _lang: string }
+        Returns: string
+      }
+      image_description_cache_put: {
+        Args: { _answer: string; _hash: string; _lang: string }
+        Returns: undefined
       }
       increment_career_usage: {
         Args: { _amount?: number; _company_id: string; _metric: string }
