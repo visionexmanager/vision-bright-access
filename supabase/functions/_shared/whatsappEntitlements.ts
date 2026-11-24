@@ -195,5 +195,6 @@ export function gateAllowsAccountTurn(input: {
 }): boolean {
   if (input.hasMedia || input.hasLocation || input.hasSelection || input.wantsVoice) return false;
   if (!(input.text ?? "").trim()) return false;
-  return input.inAccountStep || input.accountIntent === "link" || input.accountIntent === "unlink";
+  return input.inAccountStep || input.accountIntent === "link" || input.accountIntent === "unlink"
+    || input.accountIntent === "delete" || input.accountIntent === "cancel_delete";
 }

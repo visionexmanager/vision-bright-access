@@ -49,6 +49,45 @@ export { normaliseEmail };
 export const ACCOUNT_EMAIL_STEP = "account_email";
 export const ACCOUNT_CODE_STEP = "account_code";
 
+/**
+ * Deleting the account, in two steps: the typed word DELETE, then the reason in
+ * the sender's own words. Nothing is filed until the reason arrives, so walking
+ * away at either step deletes nothing — and no step has to carry data.
+ * (The reason is free text, not a numbered menu: nothing a sender reads here
+ * teaches a digit.)
+ */
+export const DELETE_CONFIRM_STEP = "account_delete_confirm";
+export const DELETE_REASON_STEP = "account_delete_reason";
+
+/** The longest reason the database keeps. */
+export const DELETE_REASON_MAX = 1000;
+
+/** Any step this feature owns — what the subscription gate and the flow both ask. */
+export function isAccountStep(step: string | null | undefined): boolean {
+  return step === ACCOUNT_EMAIL_STEP || step === ACCOUNT_CODE_STEP
+    || step === DELETE_CONFIRM_STEP || step === DELETE_REASON_STEP;
+}
+
+// Normalised like every alias here: no hamza, no diacritics, lower case.
+const DELETE_CONFIRM_WORDS = new Set([
+  "delete", "confirm delete", "حذف", "احذف", "تاكيد", "تاكيد الحذف", "حذف نهائي",
+]);
+
+/** The typed word that turns a request into a deletion request. Never a bare "yes". */
+export function isDeleteConfirmation(text: string | null | undefined): boolean {
+  return DELETE_CONFIRM_WORDS.has(normaliseAlias(text ?? ""));
+}
+
+/** The reason as the sender wrote it, trimmed and bounded; null when empty. */
+export function readDeleteReasonText(text: string | null | undefined): string | null {
+  const value = (text ?? "").trim().slice(0, DELETE_REASON_MAX);
+  // The Skip button (or the word) is an answer: no reason given.
+  if (!value || SKIP_WORDS.has(normaliseAlias(value))) return null;
+  return value;
+}
+
+const SKIP_WORDS = new Set(["skip", "تخطي", "تخطى"]);
+
 /** The catalog node these steps belong to. */
 export const ACCOUNT_FEATURE = "services.orders";
 
@@ -68,7 +107,7 @@ export const ORDER_PAGE = 3;
  * my account" contains "link my account" as a substring, so a link-first check
  * disconnects nobody and re-links everybody. A test pins it.
  */
-export type AccountIntent = "orders" | "link" | "unlink";
+export type AccountIntent = "orders" | "link" | "unlink" | "delete" | "cancel_delete";
 
 /**
  * Possessive, always.
@@ -111,6 +150,26 @@ const UNLINK_WORDS_EN = [
   "disconnect account", "forget my account", "remove my account",
 ];
 
+// Deleting the ACCOUNT, not unlinking the number. "احذف حسابي من واتساب" is the
+// unlink phrase above and is tested first, so it stays an unlink.
+const CANCEL_DELETE_WORDS_AR = [
+  "الغاء حذف حسابي", "الغاء حذف الحساب", "الغي حذف حسابي", "الغاء الحذف",
+  "تراجعت عن حذف", "لا تحذف حسابي", "ما بدي احذف حسابي",
+];
+const CANCEL_DELETE_WORDS_EN = [
+  "cancel deletion", "cancel account deletion", "cancel the deletion",
+  "cancel my deletion", "keep my account", "do not delete my account",
+  "don t delete my account", "dont delete my account",
+];
+const DELETE_WORDS_AR = [
+  "احذف حسابي", "حذف حسابي", "امسح حسابي", "احذف الحساب", "حذف الحساب",
+  "ابي احذف حسابي", "ابغي احذف حسابي", "بدي احذف حسابي",
+];
+const DELETE_WORDS_EN = [
+  "delete my account", "delete account", "delete my visionex account",
+  "close my account", "erase my account", "delete my data",
+];
+
 /**
  * Long enough to hold any of the phrases above with a courtesy around it,
  * short enough that a paragraph mentioning an order in passing is not treated
@@ -135,6 +194,9 @@ export function parseAccountIntent(text: string | null | undefined): AccountInte
 
   // Unlink first. See the note on AccountIntent.
   if (containsAny(value, UNLINK_WORDS_AR) || containsAny(value, UNLINK_WORDS_EN)) return "unlink";
+  // Cancelling a deletion before deleting: "cancel deletion" must never start one.
+  if (containsAny(value, CANCEL_DELETE_WORDS_AR) || containsAny(value, CANCEL_DELETE_WORDS_EN)) return "cancel_delete";
+  if (containsAny(value, DELETE_WORDS_AR) || containsAny(value, DELETE_WORDS_EN)) return "delete";
   if (containsAny(value, LINK_WORDS_AR) || containsAny(value, LINK_WORDS_EN)) return "link";
   if (containsAny(value, ORDER_WORDS_AR) || containsAny(value, ORDER_WORDS_EN)) return "orders";
   return null;
