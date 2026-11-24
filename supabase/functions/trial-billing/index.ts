@@ -21,6 +21,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { handleOrderNoticeRequest, isOrderNoticeRequest } from "../_shared/subscriptionOrderHttp.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { purgeDueAccounts } from "../_shared/accountDeletion.ts";
+import { handleAccountDeletionRequest, isAccountDeletionRequest } from "../_shared/accountDeletionHttp.ts";
 import { resendEmailSender, sweepOrderNotices } from "../_shared/subscriptionOrderNotify.ts";
 import { installUsageMetering } from "../_shared/usageMeter.ts";
 
@@ -74,6 +76,7 @@ Deno.serve(async (req) => {
   let parsed: { task?: unknown; action?: unknown; reference?: unknown } | null = null;
   try { parsed = await req.json(); } catch { /* no body */ }
   if (isOrderNoticeRequest(parsed)) return await handleOrderNoticeRequest(req, parsed!);
+  if (isAccountDeletionRequest(parsed)) return await handleAccountDeletionRequest(req, parsed as Record<string, unknown>);
 
   // ── Security: only accept requests with the correct cron secret ──
   const secret = Deno.env.get("CRON_SECRET");
@@ -100,6 +103,12 @@ Deno.serve(async (req) => {
       resendEmailSender(),
     );
     return new Response(JSON.stringify(swept), { status: 200, headers: { "Content-Type": "application/json" } });
+  }
+
+  // Accounts whose 14-day deletion window is over. Counts only, in the response.
+  if (task === "purge_account_deletions") {
+    const purged = await purgeDueAccounts(supabase);
+    return new Response(JSON.stringify(purged), { status: 200, headers: { "Content-Type": "application/json" } });
   }
 
   const results = {

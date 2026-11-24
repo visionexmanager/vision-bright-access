@@ -351,6 +351,54 @@ const BASE_STRINGS = {
     ar: "هذا الرقم غير مربوط بأي حساب Visionex، فلا شيء لفكّه.",
     en: "This number isn't linked to any Visionex account, so there's nothing to disconnect.",
   },
+  deleteAskConfirm: {
+    ar: "سيُمسح حسابك في Visionex وبياناته بعد 14 يوماً، ويمكنك التراجع قبل ذلك. تبقى سجلات الطلبات والدفع بدون اسمك، ولن يحصل هذا البريد على الأسبوع المجاني مرة أخرى. للتأكيد أرسل كلمة DELETE. أرسل # للإيقاف.",
+    en: "Your Visionex account and its data will be erased in 14 days, and you can cancel before then. Order and payment records stay without your name, and this email will not get the free week again. To confirm, send the word DELETE. Send # to stop.",
+  },
+  deleteAskReason: {
+    ar: "آخر سؤال: لماذا تغادر؟ اكتب السبب في رسالة واحدة، وسيصل إلى فريق الدعم لدينا فقط.",
+    en: "Last question: why are you leaving? Tell me in one message. It goes only to our support team.",
+  },
+  deleteDone: {
+    ar: "تم. سيُمسح حسابك بتاريخ {date}. للتراجع قبل ذلك أرسل «الغاء حذف حسابي». وصلك تأكيد على بريدك الإلكتروني.",
+    en: "Done. Your account will be erased on {date}. To stop it before then, send \"cancel deletion\". A confirmation is on its way to your email.",
+  },
+  deleteStopped: {
+    ar: "لم يُحذف شيء. حسابك باقٍ.",
+    en: "Nothing was deleted. Your account stays.",
+  },
+  deleteNotLinked: {
+    ar: "لا أستطيع حذف إلا حساباً مربوطاً بهذا الرقم. اكتب «اربط حسابي» أولاً، أو استخدم الإعدادات ← حذف حسابي في visionex.app.",
+    en: "I can only delete an account this number is linked to. Say \"link my account\" first, or use Settings → Delete my account on visionex.app.",
+  },
+  deleteStaff: {
+    ar: "هذا حساب فريق، ويجب أن يحذفه مسؤول.",
+    en: "That is a staff account, so an administrator has to remove it.",
+  },
+  deleteCancelled: {
+    ar: "تم إلغاء الحذف. حسابك باقٍ.",
+    en: "Deletion cancelled. Your account stays.",
+  },
+  deleteNothingPending: {
+    ar: "لا يوجد حذف قيد الانتظار لهذا الحساب.",
+    en: "There is no deletion waiting for this account.",
+  },
+  deleteBtnDelete: {
+    ar: "حذف حسابي",
+    en: "Delete",
+  },
+  deleteBtnKeep: {
+    ar: "إبقاء حسابي",
+    en: "Keep my account",
+  },
+  deleteBtnSkip: {
+    ar: "تخطي",
+    en: "Skip",
+  },
+  deleteBtnCancel: {
+    ar: "إلغاء الحذف",
+    en: "Cancel deletion",
+  },
   travelAsk: {
     ar: "اكتب في رسالة واحدة ما تحتاجه: من أين إلى أين (أو المدينة)، والتواريخ، وعدد الأشخاص، وأي احتياج للوصول مثل كرسي متحرك أو أدوات تحكم يدوية. سأحوّله إلى مكتب السفر لدينا. لا يُحجز ولا يُخصم شيء هنا. أرسل # للإلغاء.",
     en: "Tell me in one message what you need: where from and to (or the city), the dates, how many people, and any access needs such as a wheelchair or hand controls. I'll pass it to our travel desk. Nothing is booked or charged here. Send # to cancel.",

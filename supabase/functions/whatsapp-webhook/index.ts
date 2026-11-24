@@ -239,17 +239,24 @@ import {
   ACCOUNT_CODE_STEP,
   ACCOUNT_EMAIL_STEP,
   ACCOUNT_FEATURE,
+  DELETE_CONFIRM_STEP,
+  DELETE_REASON_STEP,
   formatOrders,
   generateLinkCode,
   hashLinkCode,
+  isAccountStep,
+  isDeleteConfirmation,
   LINK_CODE_TTL_MINUTES,
   normaliseEmail,
   ORDER_PAGE,
   parseAccountIntent,
+  readDeleteReasonText,
   readLinkCode,
   readOrders,
   sendLinkCodeEmail,
 } from "../_shared/whatsappIdentity.ts";
+import { accountButtons, isAccountTap, textForAccountTap, type AccountButtonSet } from "../_shared/whatsappAccountButtons.ts";
+import { sendSupportMail, SUPPORT_INBOX, supportNotice, userReceipt } from "../_shared/accountDeletion.ts";
 import {
   formatStory,
   KIDS_ID_PREFIX,
@@ -1700,6 +1707,18 @@ Deno.serve(async (req) => {
        */
       let session = readSession(existing as Record<string, unknown> | null);
 
+      // A tap on one of the delete-my-account buttons is the same as typing its
+      // words. Translated here, before the gate and the flow read the message,
+      // so there is one path and a gated sender's tap is not refused for being
+      // a tap. An id that is not ours is left exactly as it was.
+      if (incoming.selection && isAccountTap(incoming.selection)) {
+        const words = textForAccountTap(incoming.selection, session.step);
+        if (words) {
+          incoming.text = words;
+          incoming.selection = undefined;
+        }
+      }
+
       /** Written once per message, whatever route it took. */
       const saveSession = async () => {
         await db
@@ -1767,6 +1786,17 @@ Deno.serve(async (req) => {
        * wrappers below, so `reply` keeps its two-argument shape.
        */
       let followUpMode: FollowUpContext | false | undefined;
+      // Set only around the delete-my-account replies: those carry their own
+      // buttons (Delete / Keep / Skip / Cancel) instead of back / menu / help.
+      let accountButtonSet: AccountButtonSet | null = null;
+      const replyAccount = async (set: AccountButtonSet, body: string, kind: string) => {
+        accountButtonSet = set;
+        try {
+          await reply(body, kind);
+        } finally {
+          accountButtonSet = null;
+        }
+      };
       const replyWith = async (mode: FollowUpContext | false | undefined, body: string, kind: string) => {
         followUpMode = mode;
         try {
@@ -1827,6 +1857,13 @@ Deno.serve(async (req) => {
             // directly under the words (see whatsappFollowUps.ts). Typing the same
             // words keeps working: every id is a control the router already knows.
             sendText: async (text) => {
+              if (accountButtonSet) {
+                await sendTappable(
+                  { phoneNumberId, token, to: incoming.from, trace: correlationId },
+                  accountButtons(accountButtonSet, text, answerLanguage),
+                );
+                return true;
+              }
               const context = followUpMode === false ? null : (followUpMode ?? defaultFollowUp(kind));
               const buttons = context ? followUpMessage(text, context, answerLanguage) : null;
               if (!buttons) return sendWhatsAppText({ phoneNumberId, token, to: incoming.from, body: text });
@@ -2615,7 +2652,7 @@ Deno.serve(async (req) => {
             hasLocation: !!incoming.location,
             hasSelection: !!incoming.selection,
             wantsVoice: voiceRequested,
-            inAccountStep: session.step === ACCOUNT_EMAIL_STEP || session.step === ACCOUNT_CODE_STEP,
+            inAccountStep: isAccountStep(session.step),
             accountIntent: parseAccountIntent(incoming.text),
           });
           // The one notice goes out whichever way this message then goes: a
@@ -4658,9 +4695,7 @@ Deno.serve(async (req) => {
       // Placed after the engine on purpose. `0`, `#` and the session timeout
       // therefore cancel a half-finished link exactly as they cancel a
       // half-finished upload, and this feature re-implements none of that.
-      const accountStep = session.step === ACCOUNT_EMAIL_STEP || session.step === ACCOUNT_CODE_STEP
-        ? session.step
-        : null;
+      const accountStep = isAccountStep(session.step) ? session.step : null;
       const accountIntent = aiFocused ? null : parseAccountIntent(questionText);
 
       if (!humanOwnsThis && (accountStep || accountIntent)) {
@@ -4707,6 +4742,89 @@ Deno.serve(async (req) => {
             await reply(say(removed ? "linkUnlinked" : "linkNotLinked", answerLanguage), "reply");
             closeAccountFlow();
             await saveSession();
+            continue;
+          }
+
+          // ── Deleting the account ─────────────────────────────────────────
+          // Only for a number linked to the account by an emailed code, and
+          // only after a typed word: the reason, then DELETE. The database
+          // resolves the account from the number; nothing here ever holds an id.
+          // Nothing about the sender or the reason is logged — outcomes only.
+          if (accountIntent === "cancel_delete") {
+            const { data: res, error } = await db.rpc("whatsapp_cancel_account_deletion", { _wa_phone: incoming.from });
+            if (error) throw error;
+            const r = res as { error?: string; cancelled?: boolean } | null;
+            log("account_delete", { outcome: r?.error ?? (r?.cancelled ? "cancelled" : "none_pending") });
+            await reply(
+              say(r?.error === "not_linked" ? "deleteNotLinked" : r?.cancelled ? "deleteCancelled" : "deleteNothingPending", answerLanguage),
+              "reply",
+            );
+            closeAccountFlow();
+            await saveSession();
+            continue;
+          }
+
+          if (accountIntent === "delete") {
+            const { data: state, error } = await db.rpc("whatsapp_identity_state", { _wa_phone: incoming.from });
+            if (error) throw error;
+            if ((state as { linked?: boolean } | null)?.linked !== true) {
+              log("account_delete", { outcome: "not_linked" });
+              await reply(say("deleteNotLinked", answerLanguage), "reply");
+              closeAccountFlow();
+              await saveSession();
+              continue;
+            }
+            enterAccountStep(DELETE_CONFIRM_STEP);
+            await replyAccount("confirm", say("deleteAskConfirm", answerLanguage), "reply");
+            await saveSession();
+            continue;
+          }
+
+          if (accountStep === DELETE_CONFIRM_STEP) {
+            if (isDeleteConfirmation(questionText)) {
+              enterAccountStep(DELETE_REASON_STEP);
+              await replyAccount("reason", say("deleteAskReason", answerLanguage), "reply");
+              await saveSession();
+              continue;
+            }
+            log("account_delete", { outcome: "not_confirmed" });
+            await reply(say("deleteStopped", answerLanguage), "reply");
+            closeAccountFlow();
+            await saveSession();
+            continue;
+          }
+
+          if (accountStep === DELETE_REASON_STEP) {
+            const { data: res, error } = await db.rpc("whatsapp_request_account_deletion", {
+              _wa_phone: incoming.from,
+              _reason_code: "other",
+              _reason_text: readDeleteReasonText(questionText),
+            });
+            if (error) throw error;
+            const r = res as { error?: string; purge_after?: string; email?: string; already?: boolean } | null;
+            log("account_delete", { outcome: r?.error ?? (r?.already ? "already" : "requested") });
+            closeAccountFlow();
+            if (r?.error || !r?.purge_after) {
+              await reply(say(r?.error === "staff_account" ? "deleteStaff" : "deleteNotLinked", answerLanguage), "reply");
+              await saveSession();
+              continue;
+            }
+            await replyAccount(
+              "done",
+              say("deleteDone", answerLanguage).replace("{date}", r.purge_after.slice(0, 10)),
+              "reply",
+            );
+            await saveSession();
+            // After the reply, like the link code: the slow part never delays it.
+            if (r.already === false && r.email) {
+              const n = supportNotice({
+                email: r.email, reasonCode: "other", reasonText: readDeleteReasonText(questionText),
+                channel: "whatsapp", purgeAfter: r.purge_after,
+              });
+              await sendSupportMail(SUPPORT_INBOX, n.subject, n.html, r.email);
+              const rc = userReceipt({ purgeAfter: r.purge_after });
+              await sendSupportMail(r.email, rc.subject, rc.html);
+            }
             continue;
           }
 

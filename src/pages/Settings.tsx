@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Bell, Globe, Palette, Settings as SettingsIcon, Coins, Info } from "lucide-react";
 import { useState } from "react";
 import { requestNotificationPermission } from "@/hooks/useMessageNotifications";
+import { DeleteAccountCard } from "@/components/settings/DeleteAccountCard";
 
 const LANGUAGES = [
   { code: "en", label: "English — English", flag: "🇺🇸" },
@@ -212,6 +213,9 @@ export default function Settings() {
               </RadioGroup>
             </CardContent>
           </Card>
+
+          {/* Delete account — only rendered for a signed-in person */}
+          <DeleteAccountCard />
         </div>
       </div>
     </Layout>

@@ -64,3 +64,22 @@ jobs:
           jq -c '{owner, buyer}' response.json || echo "unreadable response"
           rm -f response.json
           test "$status" = "200"
+
+      # Account deletions whose 14-day window is over. Counts only: this
+      # repository is public and the response is about people.
+      - name: Delete the accounts whose 14 days are over
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          status=$(curl -sS -o response.json -w '%{http_code}' -X POST \
+            "$SUPABASE_URL/functions/v1/trial-billing" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"task":"purge_account_deletions"}')
+          echo "HTTP $status"
+          jq -c '{due, deleted, anonymized, failed}' response.json || echo "unreadable response"
+          rm -f response.json
+          test "$status" = "200"
