@@ -12906,6 +12906,8 @@ export const translations: Record<string, string> = {
   "legal.dataDeletion.timingBody": "Kami berupaya menyelesaikan penghapusan dalam 30 hari sejak permintaan Anda dikonfirmasi. Jika kami diwajibkan menyimpan catatan terbatas — untuk keamanan, pencegahan penipuan, penyelesaian sengketa, atau kewajiban hukum — kami hanya menyimpan yang diperlukan dan menghapus sisanya.",
   "legal.dataDeletion.accountTitle": "Menghapus akun Visionex",
   "legal.dataDeletion.accountBody": "Jika Anda memiliki akun Visionex, Anda juga dapat meminta kami menutupnya sepenuhnya melalui alamat yang sama. Penutupan akun menghapus atau menganonimkan data pribadi yang tersimpan di bawahnya, dengan tetap tunduk pada penyimpanan terbatas yang dijelaskan di atas.",
+  "legal.dataDeletion.selfTitle": "Hapus akun Anda sendiri",
+  "legal.dataDeletion.selfBody": "Anda dapat menghapus akun sendiri: di situs web buka Pengaturan → Hapus akun saya, atau kirim \"delete my account\" ke asisten WhatsApp kami dari nomor yang terhubung ke akun Anda. Akun Anda dihapus setelah 14 hari, dan Anda dapat membatalkan kapan saja sebelum itu. Catatan pesanan dan pembayaran disimpan tanpa nama Anda karena alasan hukum dan akuntansi. Agar alamat yang kembali tidak mendapat minggu gratis lagi, kami menyimpan sidik jari satu arah (hash SHA-256) dari email akun yang dihapus; tidak dapat diubah kembali menjadi alamat.",
   "legal.dataDeletion.footer": "Untuk rincian lengkap tentang apa yang kami kumpulkan dan mengapa, lihat",
   /* The plans page. Was English in every locale: it called translateText() with literals no dictionary carried. */
   "plans.title": "Paket dan harga",

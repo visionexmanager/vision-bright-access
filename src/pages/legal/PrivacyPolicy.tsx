@@ -102,6 +102,10 @@ export default function PrivacyPolicy() {
             ))}
           </div>
           <p className="mt-4 text-sm text-muted-foreground">{t("legal.privacy.rightsContact")} <span className="font-semibold text-primary">hello@visionex.app</span>.</p>
+          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+            <span className="font-semibold">{t("legal.dataDeletion.selfTitle")}.</span>{" "}
+            {t("legal.dataDeletion.selfBody")}
+          </p>
           <p className="mt-2 text-sm text-muted-foreground">
             {t("legal.privacy.deletionLink")}{" "}
             <Link to="/data-deletion" className="font-semibold text-primary underline underline-offset-4">/data-deletion</Link>

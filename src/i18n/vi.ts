@@ -12906,6 +12906,8 @@ export const translations: Record<string, string> = {
   "legal.dataDeletion.timingBody": "Chúng tôi cố gắng hoàn tất việc xóa trong vòng 30 ngày kể từ khi xác nhận yêu cầu của bạn. Khi buộc phải giữ lại một bản ghi hạn chế — vì lý do an ninh, phòng chống gian lận, giải quyết tranh chấp hoặc nghĩa vụ pháp lý — chúng tôi chỉ giữ phần cần thiết và xóa phần còn lại.",
   "legal.dataDeletion.accountTitle": "Xóa tài khoản Visionex",
   "legal.dataDeletion.accountBody": "Nếu bạn có tài khoản Visionex, bạn cũng có thể yêu cầu đóng hoàn toàn tài khoản qua cùng địa chỉ đó. Việc đóng tài khoản sẽ xóa hoặc ẩn danh dữ liệu cá nhân lưu dưới tài khoản, trừ phần lưu giữ hạn chế nêu trên.",
+  "legal.dataDeletion.selfTitle": "Tự xóa tài khoản của bạn",
+  "legal.dataDeletion.selfBody": "Bạn có thể tự xóa tài khoản: trên trang web mở Cài đặt → Xóa tài khoản của tôi, hoặc nhắn \"delete my account\" cho trợ lý WhatsApp của chúng tôi từ số đã liên kết với tài khoản. Tài khoản bị xóa sau 14 ngày và bạn có thể hủy bất cứ lúc nào trước đó. Hồ sơ đơn hàng và thanh toán được giữ lại mà không có tên bạn vì lý do pháp lý và kế toán. Để một địa chỉ quay lại không nhận lại tuần miễn phí, chúng tôi giữ một dấu vân tay một chiều (băm SHA-256) của email tài khoản đã xóa; không thể chuyển ngược thành địa chỉ.",
   "legal.dataDeletion.footer": "Để biết đầy đủ chi tiết về những gì chúng tôi thu thập và vì sao, hãy xem",
   /* The plans page. Was English in every locale: it called translateText() with literals no dictionary carried. */
   "plans.title": "Gói và giá",

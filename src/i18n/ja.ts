@@ -12906,6 +12906,8 @@ export const translations: Record<string, string> = {
   "legal.dataDeletion.timingBody": "ご依頼を確認してから 30 日以内に削除を完了するよう努めます。安全確保、不正防止、紛争解決、法令上の義務のために限定的な記録の保持が必要な場合は、その目的に必要な範囲のみを保持し、それ以外は削除します。",
   "legal.dataDeletion.accountTitle": "Visionex アカウントの削除",
   "legal.dataDeletion.accountBody": "Visionex のアカウントをお持ちの場合は、同じ宛先からアカウント自体の完全な閉鎖をご依頼いただけます。閉鎖により、上記の限定的な保持を除き、そのアカウントに紐づく個人データは削除または匿名化されます。",
+  "legal.dataDeletion.selfTitle": "ご自身でアカウントを削除",
+  "legal.dataDeletion.selfBody": "アカウントはご自身で削除できます。ウェブサイトでは 設定 → アカウントを削除 を開くか、アカウントに連携した番号から WhatsApp アシスタントに \"delete my account\" と送ってください。アカウントは14日後に消去され、それまではいつでも取り消せます。注文と支払いの記録は、法律上および会計上の理由から、お名前なしで保管されます。再登録されたメールアドレスに無料の1週間を再び提供しないよう、削除したアカウントのメールアドレスの一方向フィンガープリント（SHA-256 ハッシュ）を保管します。元のアドレスに戻すことはできません。",
   "legal.dataDeletion.footer": "当社が収集する情報とその理由の詳細については、次をご覧ください：",
   /* The plans page. Was English in every locale: it called translateText() with literals no dictionary carried. */
   "plans.title": "プランと料金",

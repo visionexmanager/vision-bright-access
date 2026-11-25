@@ -12911,6 +12911,8 @@ export const translations: Record<string, string> = {
   "legal.dataDeletion.timingBody": "Wij streven ernaar de verwijdering binnen 30 dagen na bevestiging van uw verzoek af te ronden. Waar wij verplicht zijn een beperkte registratie te bewaren — voor beveiliging, fraudepreventie, geschillenbeslechting of een wettelijke verplichting — bewaren wij uitsluitend wat daarvoor nodig is en verwijderen wij de rest.",
   "legal.dataDeletion.accountTitle": "Een Visionex-account verwijderen",
   "legal.dataDeletion.accountBody": "Hebt u een Visionex-account, dan kunt u ons via hetzelfde adres ook vragen het volledig te sluiten. Bij sluiting worden de daaronder opgeslagen persoonsgegevens verwijderd of geanonimiseerd, behoudens de hierboven beschreven beperkte bewaring.",
+  "legal.dataDeletion.selfTitle": "Verwijder uw account zelf",
+  "legal.dataDeletion.selfBody": "U kunt uw account zelf verwijderen: open op de website Instellingen → Mijn account verwijderen, of stuur onze WhatsApp-assistent \"delete my account\" vanaf een nummer dat aan uw account is gekoppeld. Uw account wordt na 14 dagen gewist en u kunt tot die tijd op elk moment annuleren. Bestel- en betaalgegevens blijven om juridische en boekhoudkundige redenen zonder uw naam bewaard. Zodat een terugkerend adres de gratis week niet opnieuw krijgt, bewaren we een eenrichtingsvingerafdruk (SHA-256-hash) van het e-mailadres van het verwijderde account; die kan niet worden teruggerekend naar het adres.",
   "legal.dataDeletion.footer": "Voor de volledige uitleg over wat wij verzamelen en waarom, raadpleegt u het",
   /* The plans page. Was English in every locale: it called translateText() with literals no dictionary carried. */
   "plans.title": "Pakketten en prijzen",

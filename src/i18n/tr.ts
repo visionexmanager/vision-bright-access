@@ -12911,6 +12911,8 @@ export const translations: Record<string, string> = {
   "legal.dataDeletion.timingBody": "Talebinizi onayladıktan sonra silme işlemini 30 gün içinde tamamlamayı hedefleriz. Sınırlı bir kaydı tutmak zorunda olduğumuz durumlarda — güvenlik, dolandırıcılığın önlenmesi, uyuşmazlık çözümü veya yasal bir yükümlülük için — yalnızca gerekli olanı saklar, gerisini sileriz.",
   "legal.dataDeletion.accountTitle": "Visionex hesabını silme",
   "legal.dataDeletion.accountBody": "Visionex hesabınız varsa aynı adresi kullanarak hesabın tamamen kapatılmasını da isteyebilirsiniz. Hesabın kapatılması, yukarıda anlatılan sınırlı saklama koşulları saklı kalmak üzere, hesap altındaki kişisel verileri siler veya anonimleştirir.",
+  "legal.dataDeletion.selfTitle": "Hesabınızı kendiniz silin",
+  "legal.dataDeletion.selfBody": "Hesabınızı kendiniz silebilirsiniz: web sitesinde Ayarlar → Hesabımı sil yolunu açın veya hesabınıza bağlı bir numaradan WhatsApp asistanımıza \"delete my account\" yazın. Hesabınız 14 gün sonra silinir ve öncesinde istediğiniz zaman iptal edebilirsiniz. Sipariş ve ödeme kayıtları yasal ve muhasebe nedenleriyle adınız olmadan saklanır. Geri dönen bir adrese ücretsiz haftanın yeniden verilmemesi için, silinen hesabın e-posta adresinin tek yönlü bir parmak izini (SHA-256 özeti) tutarız; adrese geri çevrilemez.",
   "legal.dataDeletion.footer": "Neleri neden topladığımızın tüm ayrıntısı için şuraya bakın:",
   /* The plans page. Was English in every locale: it called translateText() with literals no dictionary carried. */
   "plans.title": "Planlar ve fiyatlar",

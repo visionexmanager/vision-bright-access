@@ -12911,6 +12911,8 @@ export const translations: Record<string, string> = {
   "legal.dataDeletion.timingBody": "Procuramos concluir a exclusão em até 30 dias após a confirmação da sua solicitação. Quando somos obrigados a manter um registro limitado — por segurança, prevenção a fraudes, resolução de disputas ou obrigação legal — guardamos apenas o necessário e excluímos o restante.",
   "legal.dataDeletion.accountTitle": "Excluir uma conta da Visionex",
   "legal.dataDeletion.accountBody": "Se você tiver uma conta na Visionex, também pode pedir o encerramento completo dela pelo mesmo endereço. O encerramento remove ou anonimiza os dados pessoais vinculados à conta, ressalvada a retenção limitada descrita acima.",
+  "legal.dataDeletion.selfTitle": "Exclua sua conta você mesmo",
+  "legal.dataDeletion.selfBody": "Você pode excluir sua conta por conta própria: no site abra Configurações → Excluir minha conta, ou escreva \"delete my account\" ao nosso assistente do WhatsApp a partir de um número vinculado à sua conta. Sua conta é apagada após 14 dias, e você pode cancelar a qualquer momento antes disso. Registros de pedidos e pagamentos são mantidos sem o seu nome por motivos legais e contábeis. Para que um endereço que volta não receba a semana grátis de novo, guardamos uma impressão digital de mão única (hash SHA-256) do e-mail da conta excluída; ela não pode ser convertida de volta no endereço.",
   "legal.dataDeletion.footer": "Para o detalhamento completo do que coletamos e por quê, consulte a",
   /* The plans page. Was English in every locale: it called translateText() with literals no dictionary carried. */
   "plans.title": "Planos e preços",
