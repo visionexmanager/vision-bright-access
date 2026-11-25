@@ -24,6 +24,25 @@ describe("news translated into the sender's language", () => {
     expect(saved).toEqual(["a1"]);
   });
 
+  it("keeps every article parallel by default and bounds the calls in flight when asked", async () => {
+    const run = async (concurrency?: number) => {
+      let live = 0, peak = 0;
+      const provider = async () => {
+        live++; peak = Math.max(peak, live);
+        await new Promise((r) => setTimeout(r, 5));
+        live--;
+        return { status: "answered", text: "عنوان ||| وصف", provider: "p", model: "m", ms: 1 } as never;
+      };
+      const articles = Array.from({ length: 6 }, (_, i) => article({ id: `a${i}` }));
+      const out = await withTranslations({ articles, language: "ar", languageName: "العربية", provider, concurrency, save: async () => {} });
+      expect(out.every((a) => a.translations?.ar?.title === "عنوان")).toBe(true);
+      return peak;
+    };
+    expect(await run()).toBe(6);
+    expect(await run(2)).toBe(2);
+    expect(await run(1)).toBe(1);
+  });
+
   it("fills a description when only the title was translated", async () => {
     const provider = async () => ({ status: "answered", text: "عنوان ||| وصف", provider: "p", model: "m", ms: 1 }) as never;
     const out = await withTranslations({
