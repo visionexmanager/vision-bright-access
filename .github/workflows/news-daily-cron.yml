@@ -18,7 +18,7 @@ jobs:
   generate-news:
     name: Generate & publish daily news
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v7
@@ -261,4 +261,8 @@ jobs:
               -H "Authorization: Bearer $CRON_SECRET" \
               -H "Content-Type: application/json" \
               --max-time 120 || true
+            # A language is about one minute of a free provider's token allowance
+            # (Groq: 8,000 a minute). Pacing keeps the batch from spending the day's
+            # allowance, and the 429s, before any reader arrives.
+            sleep 20
           done

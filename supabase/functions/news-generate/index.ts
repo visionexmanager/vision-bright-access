@@ -449,6 +449,7 @@ Deno.serve(async (req: Request) => {
           language,
           languageName: LANGUAGE_ENDONYM[language],
           provider,
+          concurrency: 2,
           save: async (id, translations) => {
             // Merge into the latest map: only this language's key is ours.
             const { data: row } = await supabase.from("news_articles").select("translations").eq("id", id).single();

@@ -98,9 +98,16 @@ export async function withTranslations(params: {
   languageName: string;
   provider: AskProvider;
   local?: LocalTranslator;
+  /**
+   * Most provider calls in flight at once. Unset keeps every article parallel, which
+   * a WhatsApp reader waiting on one reply needs. The daily batch sets it so twelve
+   * simultaneous calls do not exhaust a free provider's per-minute tokens.
+   */
+  concurrency?: number;
   save: (id: string, translations: NonNullable<NewsArticle["translations"]>) => Promise<void>;
 }): Promise<NewsArticle[]> {
   const { articles, language, languageName, provider, local, save } = params;
+  const limit = params.concurrency && params.concurrency > 0 ? Math.floor(params.concurrency) : Infinity;
   const wanted = articles.filter((a) => needsTranslation(a, language)).slice(0, NEWS_TRANSLATE_LIMIT);
   if (wanted.length === 0) return articles;
 
@@ -119,9 +126,11 @@ export async function withTranslations(params: {
 
   const slots = local ? wanted.slice(0, LOCAL_TRANSLATE_SLOTS) : [];
   const overflow = local ? wanted.slice(LOCAL_TRANSLATE_SLOTS) : wanted;
+  const queue = [...overflow];
+  const worker = async () => { for (let a = queue.shift(); a; a = queue.shift()) await one(a, false); };
   await Promise.all([
     (async () => { for (const article of slots) await one(article, true); })(),
-    ...overflow.map((article) => one(article, false)),
+    ...Array.from({ length: Math.min(limit, queue.length) }, worker),
   ]);
   return articles.map((a) => done.get(a.id) ?? a);
 }
