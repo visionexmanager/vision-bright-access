@@ -18,6 +18,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 const STEPS = ["step1", "step2", "step3"] as const;
 
 const SECTIONS = [
+  { key: "self", icon: Trash2 },
   { key: "what", icon: MessageSquare },
   { key: "timing", icon: Clock },
   { key: "account", icon: UserCog },

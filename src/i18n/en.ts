@@ -13301,6 +13301,8 @@ export const translations: Record<string, string> = {
   "legal.dataDeletion.timingBody": "We aim to complete deletion within 30 days of confirming your request. Where we are required to keep a limited record — for security, fraud prevention, dispute resolution or a legal obligation — we keep only what that requires and delete the rest.",
   "legal.dataDeletion.accountTitle": "Deleting a Visionex account",
   "legal.dataDeletion.accountBody": "If you have a Visionex account you can also ask us to close it entirely, using the same address. Closing an account removes or anonymises the personal data held under it, subject to the limited retention described above.",
+  "legal.dataDeletion.selfTitle": "Delete your account yourself",
+  "legal.dataDeletion.selfBody": "You can delete your account yourself: on the website open Settings → Delete my account, or message our WhatsApp assistant \"delete my account\" from a number linked to your account. Your account is erased after 14 days, and you can cancel at any time before then. Order and payment records are kept without your name for legal and accounting reasons. So that a returning address is not given the free week again, we keep a one-way fingerprint (a SHA-256 hash) of the deleted account's email address; it cannot be turned back into the address.",
   "legal.dataDeletion.footer": "For the full detail of what we collect and why, see the",
   /* The plans page. Was English in every locale: it called translateText() with literals no dictionary carried. */
   "plans.title": "Plans and pricing",

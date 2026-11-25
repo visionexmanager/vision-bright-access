@@ -12906,6 +12906,8 @@ export const translations: Record<string, string> = {
   "legal.dataDeletion.timingBody": "我们力争在确认您的请求后 30 天内完成删除。若法律要求我们保留有限记录——出于安全、防欺诈、争议解决或法定义务——我们仅保留必要部分，其余一并删除。",
   "legal.dataDeletion.accountTitle": "删除 Visionex 账号",
   "legal.dataDeletion.accountBody": "如果您拥有 Visionex 账号，也可以通过同一地址要求我们彻底注销该账号。注销会删除或匿名化账号项下的个人数据，但受上述有限保留情形的限制。",
+  "legal.dataDeletion.selfTitle": "自行删除您的账户",
+  "legal.dataDeletion.selfBody": "您可以自行删除账户：在网站上打开 设置 → 删除我的账户，或从已关联账户的号码向我们的 WhatsApp 助手发送 \"delete my account\"。账户将在 14 天后被清除，在此之前您可以随时取消。出于法律和会计原因，订单和付款记录将在不含您姓名的情况下保留。为避免返回的邮箱再次获得免费一周，我们会保存已删除账户邮箱的单向指纹（SHA-256 哈希），该指纹无法还原为邮箱地址。",
   "legal.dataDeletion.footer": "如需完整了解我们收集哪些数据及其原因，请查阅",
   /* The plans page. Was English in every locale: it called translateText() with literals no dictionary carried. */
   "plans.title": "套餐与价格",

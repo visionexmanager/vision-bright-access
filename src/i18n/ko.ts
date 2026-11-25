@@ -12906,6 +12906,8 @@ export const translations: Record<string, string> = {
   "legal.dataDeletion.timingBody": "요청을 확인한 날로부터 30일 이내에 삭제를 완료하도록 노력합니다. 보안, 부정 방지, 분쟁 해결 또는 법적 의무를 위해 제한된 기록을 보관해야 하는 경우에는 그에 필요한 범위만 보관하고 나머지는 삭제합니다.",
   "legal.dataDeletion.accountTitle": "Visionex 계정 삭제",
   "legal.dataDeletion.accountBody": "Visionex 계정이 있으시면 같은 주소로 계정의 완전한 폐쇄도 요청하실 수 있습니다. 계정을 폐쇄하면 위에 설명된 제한적 보관을 제외하고 해당 계정에 저장된 개인정보가 삭제되거나 익명화됩니다.",
+  "legal.dataDeletion.selfTitle": "직접 계정 삭제하기",
+  "legal.dataDeletion.selfBody": "계정은 직접 삭제할 수 있습니다. 웹사이트에서 설정 → 내 계정 삭제를 열거나, 계정에 연결된 번호로 WhatsApp 어시스턴트에게 \"delete my account\"라고 보내세요. 계정은 14일 후 삭제되며 그 전에는 언제든지 취소할 수 있습니다. 주문 및 결제 기록은 법적·회계상의 이유로 이름 없이 보관됩니다. 돌아온 주소가 무료 1주일을 다시 받지 못하도록, 삭제된 계정 이메일의 단방향 지문(SHA-256 해시)을 보관하며, 이를 다시 주소로 되돌릴 수는 없습니다.",
   "legal.dataDeletion.footer": "당사가 수집하는 정보와 그 이유에 대한 자세한 내용은 다음을 참조하십시오:",
   /* The plans page. Was English in every locale: it called translateText() with literals no dictionary carried. */
   "plans.title": "요금제와 가격",
