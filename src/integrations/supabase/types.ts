@@ -744,6 +744,48 @@ export type Database = {
         }
         Relationships: []
       }
+      account_deletion_requests: {
+        Row: {
+          cancelled_at: string | null
+          channel: string
+          completed_at: string | null
+          email: string | null
+          id: string
+          purge_after: string
+          reason_code: string
+          reason_text: string | null
+          requested_at: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          cancelled_at?: string | null
+          channel?: string
+          completed_at?: string | null
+          email?: string | null
+          id?: string
+          purge_after: string
+          reason_code: string
+          reason_text?: string | null
+          requested_at?: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          cancelled_at?: string | null
+          channel?: string
+          completed_at?: string | null
+          email?: string | null
+          id?: string
+          purge_after?: string
+          reason_code?: string
+          reason_text?: string | null
+          requested_at?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       admin_logs: {
         Row: {
           action: string
@@ -5647,6 +5689,21 @@ export type Database = {
           },
         ]
       }
+      deleted_account_marks: {
+        Row: {
+          created_at: string
+          identity_hash: string
+        }
+        Insert: {
+          created_at?: string
+          identity_hash: string
+        }
+        Update: {
+          created_at?: string
+          identity_hash?: string
+        }
+        Relationships: []
+      }
       device_bans: {
         Row: {
           banned_by: string | null
@@ -6443,6 +6500,27 @@ export type Database = {
           },
         ]
       }
+      free_local_describe_usage: {
+        Row: {
+          updated_at: string
+          usage_date: string
+          used: number
+          wa_phone: string
+        }
+        Insert: {
+          updated_at?: string
+          usage_date?: string
+          used?: number
+          wa_phone: string
+        }
+        Update: {
+          updated_at?: string
+          usage_date?: string
+          used?: number
+          wa_phone?: string
+        }
+        Relationships: []
+      }
       freelance_projects: {
         Row: {
           budget_max: number | null
@@ -7134,6 +7212,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      image_description_cache: {
+        Row: {
+          answer: string
+          created_at: string
+          image_hash: string
+          lang: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          image_hash: string
+          lang: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          image_hash?: string
+          lang?: string
+        }
+        Relationships: []
       }
       ivx_attempts: {
         Row: {
@@ -28055,6 +28154,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      account_deletion_status: { Args: { _user_id: string }; Returns: string }
+      account_identity_hash: { Args: { _email: string }; Returns: string }
       activate_knowledge_entry: { Args: { _id: string }; Returns: undefined }
       activate_voice_room_ai: { Args: never; Returns: Json }
       add_kids_org_member: {
@@ -28321,6 +28422,7 @@ export type Database = {
         }
         Returns: Json
       }
+      begin_account_purge: { Args: { _request_id: string }; Returns: undefined }
       billing_consume: {
         Args: {
           p_idempotency_key?: string
@@ -28391,6 +28493,7 @@ export type Database = {
         Returns: boolean
       }
       can_edit_library_book: { Args: { _book_id: string }; Returns: boolean }
+      cancel_account_deletion: { Args: { _user_id: string }; Returns: boolean }
       cancel_kids_subscription: { Args: { _id: string }; Returns: undefined }
       career_decrypt: {
         Args: { _ciphertext: string; _key: string }
@@ -28773,6 +28876,13 @@ export type Database = {
         Args: { _amount: number; _cause: string }
         Returns: undefined
       }
+      due_account_deletions: {
+        Args: { _limit?: number }
+        Returns: {
+          request_id: string
+          user_id: string
+        }[]
+      }
       end_organization_session: {
         Args: { _session_id: string }
         Returns: undefined
@@ -28826,6 +28936,16 @@ export type Database = {
         }[]
       }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
+      finish_account_purge: {
+        Args: { _outcome: string; _request_id: string }
+        Returns: undefined
+      }
+      free_local_describe_limit: { Args: never; Returns: number }
+      free_local_describe_release: {
+        Args: { _wa_phone: string }
+        Returns: Json
+      }
+      free_local_describe_take: { Args: { _wa_phone: string }; Returns: Json }
       free_sections: { Args: never; Returns: string[] }
       fuzzy_search_library_books: {
         Args: { _match_count?: number; _query: string }
@@ -29464,6 +29584,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      image_description_cache_get: {
+        Args: { _hash: string; _lang: string }
+        Returns: string
+      }
+      image_description_cache_put: {
+        Args: { _answer: string; _hash: string; _lang: string }
+        Returns: undefined
       }
       increment_career_usage: {
         Args: { _amount?: number; _company_id: string; _metric: string }
@@ -30318,6 +30446,15 @@ export type Database = {
         Args: { _reason: string; _review_id: string }
         Returns: undefined
       }
+      request_account_deletion: {
+        Args: {
+          _channel?: string
+          _reason_code: string
+          _reason_text: string
+          _user_id: string
+        }
+        Returns: Json
+      }
       request_caller_hash: { Args: never; Returns: string }
       requeue_content_slot: {
         Args: {
@@ -30967,6 +31104,10 @@ export type Database = {
       vx_use_template: { Args: { p_template_id: string }; Returns: undefined }
       vx_wallet_migration_report: { Args: never; Returns: Json }
       vx_wallet_parity_report: { Args: { _sample?: number }; Returns: Json }
+      whatsapp_cancel_account_deletion: {
+        Args: { _wa_phone: string }
+        Returns: Json
+      }
       whatsapp_claim_media_job: {
         Args: { _lease_seconds?: number; _max_attempts?: number }
         Returns: {
@@ -31049,6 +31190,10 @@ export type Database = {
           total_usd: number
           total_vx: number
         }[]
+      }
+      whatsapp_request_account_deletion: {
+        Args: { _reason_code: string; _reason_text?: string; _wa_phone: string }
+        Returns: Json
       }
       whatsapp_resolve_voice: { Args: { _wa_phone: string }; Returns: Json }
       whatsapp_same_number: {
