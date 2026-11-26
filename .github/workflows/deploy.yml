@@ -213,7 +213,11 @@ jobs:
                       "https://visionex.app/?deploy-check=$RANDOM" 2>/dev/null \
                     | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1) || true
 
-            if [ -n "$NOW" ] && { [ "$NOW" != "$SITE_BEFORE" ] || [ "$ENTRY" != "$ENTRY_BEFORE" ]; }; then
+            # A page with no entry chunk is not a build. While the new `dist`
+            # replaces the old one nginx answers 403, whose empty entry "differs"
+            # from the previous name: the wait passed early and the check below
+            # failed a good deploy (#375, #631).
+            if [ -n "$NOW" ] && [ -n "$ENTRY" ] && { [ "$NOW" != "$SITE_BEFORE" ] || [ "$ENTRY" != "$ENTRY_BEFORE" ]; }; then
               echo "✅ Rebuilt and served after ~$((i * 15))s"
               echo "  now: $NOW entry=$ENTRY"
               exit 0

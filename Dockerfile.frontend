@@ -11,6 +11,9 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 ENV VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
 ENV VITE_BUILD_SHA=$BUILD_SHA
+# vite build outgrows Node's default heap. The NODE_OPTIONS in ci-cd.yml does not
+# reach a docker build, so it is set here; builder stage only.
+ENV NODE_OPTIONS=--max-old-space-size=6144
 RUN npm run build
 
 FROM nginx:alpine

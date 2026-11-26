@@ -214,6 +214,20 @@ describe("Supabase Edge Function deployment scope", () => {
   });
 });
 
+describe("the SPA deploy waits for a real build", () => {
+  it("does not accept a page without an entry chunk as the new build", () => {
+    // nginx answers 403 while `dist` is being replaced. An empty entry differs
+    // from the old name, so without this guard the wait passes on the error page.
+    const condition = deploy.split(/\r?\n/).find((line) => line.includes('"$NOW" != "$SITE_BEFORE"'));
+    expect(condition).toContain('[ -n "$ENTRY" ] &&');
+  });
+
+  it("gives the docker build the heap vite needs", () => {
+    const dockerfile = readFileSync(resolve(root, "Dockerfile.frontend"), "utf8").replace(/\r\n/g, "\n");
+    expect(dockerfile).toMatch(/^ENV NODE_OPTIONS=--max-old-space-size=6144\n(?:#.*\n)*RUN npm run build$/m);
+  });
+});
+
 describe("Deploy releases only commits CI passed", () => {
   // Normalised first: this checkout is CRLF, and a pattern written with `\n`
   // passes on CI's LF checkout while matching nothing here — or the reverse.
